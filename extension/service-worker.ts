@@ -61,6 +61,17 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
   if (message.type === "capture-status") {
     if (sender.url === chrome.runtime.getURL("offscreen.html")) {
       void chrome.storage.session.set({ captureStatus: message.status });
+      if (message.status.state === "idle" || message.status.state === "error") {
+        void enqueue(async () => {
+          // A terminal report can race with tab removal or a new Start operation.
+          const current = await readStatus();
+          if (current.state === "idle" || current.state === "error") {
+            if (await hasOffscreen()) await chrome.offscreen.closeDocument();
+            await chrome.storage.session.set({ captureStatus: current });
+          }
+          return current;
+        });
+      }
     }
     return;
   }

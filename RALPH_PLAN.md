@@ -368,3 +368,47 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   그 뒤 동일 checkout에서 iteration을 재개한다. 상세 증거와 재개 순서는
   `docs/verification.md`의 Iteration 2에 남겼다. 키/모델/오디오/전사문/임시 .ralph
   state는 커밋하지 않는다. 코드와 blocker는 Conventional Commit으로 보존한다.
+
+### Ralph iteration 1/30 (재개) — 2026-10-05 — 항목 2 수명 수정, 청취 확인 대기
+
+- 이번 runner의 iteration 번호는 사용자 지시의 1/30이며, 위의 이전 기록을 보존하고
+  다음 미완료 **항목 2**만 진행했다. AGENTS.md는 없고 `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. 항목 2는 미체크 상태다.
+- 이전 browser 권한 blocker는 해소됨: `orca computer permissions --json`이
+  Accessibility와 screenshots 모두 `granted`를 반환했다. Orca native menu 클릭은
+  `window_not_focused`로 실패했고 restore도 popup을 열지 못했다. 사용 가능한
+  `cua_repl` native app control로 전용 Chrome의 실제 Extensions toolbar → Interpreter
+  → 실제 Start/Stop 버튼을 조작하여 activeTab grant와 진짜 tabCapture를 검증했다.
+  초기 grant를 `chrome.action.openPopup()`이나 가짜 stream으로 대체하지 않았다.
+- Chrome for Testing 153.0.8010.12 + Playwright 1.63.0, ignored 전용 profile, generated
+  440/880 Hz stereo fixture, 실제 loopback companion을 사용했다. 모델/자막/다음 항목은
+  구현하거나 성공으로 기록하지 않았다. 사용자 오디오/전사문/키를 읽거나 저장하지 않았다.
+- 진짜 탭 PCM 도착: rebuilt extension에서 200 frames / 96,000 samples / peak 2881,
+  Chrome capture `active`를 확인했다. popup target을 닫아도 같은 session이
+  350 frames / 168,000 samples로 증가했고 다시 열린 popup에는 500 frames가 표시됐다.
+  반복 Stop/Start, navigation 뒤 중단/재시작, captured tab close를 검증했다.
+- 실제 tab close에서 offscreen의 ended → idle 보고가 worker tab-removal 처리보다
+  빨라 document가 남는 race를 발견했다. `tests/service-worker.test.ts`를 먼저 실행해
+  `Ended tab must not leave an offscreen document alive` 실패를 확인했다. worker가
+  terminal report를 직렬화한 뒤 현재 상태를 다시 확인하고 document를 닫도록 수정했다.
+  error 문구 보존과 늦은 terminal report가 새 capture를 닫지 않는 회귀도 검증한다.
+  추상화/공개 API를 늘리지 않았다.
+- 수정한 build로 실제 tab-close를 재실행: idle, offscreen contexts 0, captured tabs 0.
+  companion SIGINT 후 error/contexts 0/capture stopped; companion 재시작 + 실제 Start
+  후 새 session 700 frames / 336,000 samples / peak 2881, popup 1300 frames를 확인했다.
+  최종 Stop 후 contexts 0/capture stopped, 테스트 browser/listener를 종료했다.
+- `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 7 tests + Python 16 tests 통과, skipped 0, warning 0. 잘못된 PCM/origin/token
+  acceptance 회귀를 유지했다. 실제 worklet/transport smoke와 `git diff --check`도
+  실행하며 결과를 `docs/verification.md`에 기록한다.
+- **남은 blocker (사용자 청취 필요)**: 원음이 실제 default/physical 출력에서 계속
+  들리는지는 receipt counters나 화면으로 증명할 수 없다. generated fixture와 진짜
+  capture가 실행되는 동안 async 청취 질문을 보냈지만 이번 실행 중 답변은 없었다.
+  사용 가능한 system-output 청취 도구도 없다. destination 연결 코드를 실제 청취 성공
+  근거로 쓰지 않는다. 항목 2 acceptance를 약화하거나 체크하지 않았다.
+- 필요한 사용자 동작/다음 작업: 이 Mac의 출력에서 fixture Play → toolbar Interpreter
+  → Start 후 동일 tone이 계속 들리는지, popup 닫은 뒤에도 들리는지 확인한다.
+  README의 companion/fixture 명령과 전용 profile로 재현하고 실제 확인을 근거에 기록한다.
+  필수 acceptance와 `npm run verify`를 통과한 뒤에만 항목 2를 체크하고 항목 3으로 간다.
+  native 권한은 다시 요청할 필요 없다. 상세 관측/명령/실패/한계는
+  `docs/verification.md`의 Ralph iteration 1/30 재개 기록에 보존한다.

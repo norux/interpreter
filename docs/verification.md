@@ -241,3 +241,127 @@ offscreen/capture teardown; exercise navigation and companion disconnect.
 Keep the malformed PCM regression tests passing. Record the actual observations,
 then check item 2 only if all of its required acceptance checks pass. No later
 checklist item or final completion criterion has been satisfied by this iteration.
+
+## Ralph iteration 1/30 — resumed item 2, cleanup regression fixed (2026-10-05)
+
+This runner invocation resumed the next unchecked item, **item 2**. Earlier
+iteration entries above are retained as history. Item 2 remains unchecked:
+actual tab capture and lifecycle checks now pass, but audible original playback
+has no listening confirmation. No models, captions, or later items were attempted.
+
+### Browser access and real capture evidence
+
+`orca skills get computer-use --json` loaded the current native guide.
+`orca computer capabilities --json` reported the macOS provider;
+`orca computer permissions --json` reported both `accessibility` and
+`screenshots` **granted**. The previous permission blocker is resolved.
+Orca's native extension-menu click then returned `window_not_focused`; its
+restore attempt did not expose the action popup. Switched to the available
+`cua_repl` native app control, which successfully inspected the dedicated
+**Google Chrome for Testing** window and invoked Interpreter through Chrome's
+Extensions toolbar menu. The returned native tree showed the actual action
+popup. Clicking its actual **Start** button showed increasing PCM receipts.
+No broad permission, fake device, microphone, or API popup invocation was used
+as a substitute for the initial toolbar grant.
+
+Used Playwright 1.63.0 / Chrome for Testing **153.0.8010.12**, a fresh ignored
+`.ralph/native-capture-*` profile, the built unpacked extension, and the generated
+440/880 Hz stereo page at `http://127.0.0.1:8766/audio.html`. A temporary,
+uncommitted `.ralph/capture-acceptance.mjs` launched the browser and the following
+listeners, and read storage/runtime/tabCapture state via the browser debugger:
+
+```sh
+.tools/uv/bin/uv run --locked uvicorn server.app:app --host 127.0.0.1 \
+  --port 8765 --ws-max-size 4096 --ws-max-queue 8
+# Companion environment: INTERPRETER_EXTENSION_ID=njkbhbpbdgplmegajekncppbhpjbpkop
+.tools/uv/bin/uv run --locked python -m http.server 8766 \
+  --bind 127.0.0.1 --directory tests/fixtures
+```
+
+All extension Start/Stop clicks in this acceptance run used native `cua_repl`.
+After the initial toolbar invocation, `chrome.action.openPopup()` reopened the
+popup only on an already granted fixture tab. It was not used to create a grant.
+Browser debugger reads confirmed `chrome.tabCapture.getCapturedTabs()` was
+`active` while the companion receipt counters increased. This is **real tab
+capture evidence**, unlike the prior synthetic-worklet smoke.
+
+Final rebuilt-extension observations:
+
+| Check | Actual observation |
+| --- | --- |
+| Tab PCM arrival | 200 frames / 96,000 samples / peak 2881; actual captured tab active; one offscreen document |
+| Popup closure | Popup target disappeared; same session continued to 350 frames / 168,000 samples; reopened popup showed 500 frames |
+| Stop | Popup idle; zero offscreen contexts; tab capture `stopped` |
+| Repeat Start | New session reached 150 frames / 72,000 samples / peak 2881 |
+| Navigation | Navigating fixture to `audio.html?navigation` produced idle, zero offscreen contexts, capture `stopped`; new Start worked |
+| Captured tab close | Before close: 150 frames / 72,000 samples; after close: idle, zero offscreen contexts, no captured tabs |
+| Companion shutdown | After SIGINT: error `Companion disconnected. Start again to reconnect.`, zero offscreen contexts, tab capture `stopped` |
+| Recovery | Restarted companion and clicked Start; new session reached 700 frames / 336,000 samples / peak 2881; popup later showed 1300 frames |
+| Final Stop | Popup idle; zero offscreen contexts; capture `stopped`; test browser and listeners shut down |
+
+Counters reflect validated binary PCM reaching the actual companion. No fixture
+caption, recorded user audio, transcript, or model result was involved.
+
+### Regression, fix, and automated checks
+
+The first real tab-close attempt exposed a race: offscreen's track-ended handler
+reported idle without a tab ID before the worker's tab-removal handler read the
+status. Capture stopped, but the offscreen document remained alive.
+
+Added `tests/service-worker.test.ts` and ran:
+
+```sh
+node --import tsx --test tests/service-worker.test.ts
+```
+
+It failed before the fix with `Ended tab must not leave an offscreen document
+alive` (`true !== false`). The worker now queues terminal-report cleanup and
+reads the current offscreen status before closing it. The regression also checks
+that disconnect errors survive cleanup and a delayed terminal report does not
+close a newly capturing session. No shared abstraction or public API was added.
+The real browser tab-close and disconnect results above were rerun against the
+rebuilt fix.
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" npm run verify
+```
+
+Passed lint, typecheck, production build, **7 JS tests + 16 Python tests**, with
+zero skips or warnings. Existing malformed PCM, origin/token, and restart
+checks remain enabled. `git diff --check` passed. The optional real-worklet
+transport smoke was also rerun; its separate result is recorded below.
+
+Official documentation rechecked:
+[Chrome tabCapture](https://developer.chrome.com/docs/extensions/reference/api/tabCapture)
+and [Playwright extension testing](https://playwright.dev/docs/chrome-extensions).
+Chrome documents the native invocation requirement and the destination
+connection used to preserve playback; that supports the implementation but is
+not evidence that a person heard audio on this machine.
+
+### Remaining blocker and resume action
+
+**Audible original playback is unverified.** Native screenshots and debugger
+receipt counters cannot establish that the physical/default output remained
+audible. An asynchronous listening question was sent while the generated tone
+and real capture were running; no listening response was received during this
+run. There is no system-output listening tool available in this session. The
+code's destination connection is not being reported as successful listening.
+
+A person with access to this Mac's audio output must play the fixture, invoke the
+extension toolbar, click Start, and confirm that the same tone continues during
+capture (and after closing the popup). Use the README's two listener commands
+and dedicated-profile procedure; the temporary harness is not a required artifact.
+Record that actual confirmation and any new failures, rerun the acceptance
+checks and `npm run verify`, then check item 2 only if all pass. The test tone,
+browser, and listeners were stopped at the end of this run. Native browser
+permissions need not be requested again. No unrelated credentials were read.
+
+Worklet/transport rerun: `PATH="$PWD/.tools/uv/bin:$PATH" npm run
+test:capture-browser` exited 0, with stdout:
+
+```json
+{"browser":"153.0.8010.12","inputRate":44100,"frames":50,"samples":24000,"peak":3275,"tabCapture":"not exercised"}
+```
+
+This separate smoke still exercises generated offscreen audio only. The native
+fixture-tab evidence is in the table above. Final `git diff --check` passed.

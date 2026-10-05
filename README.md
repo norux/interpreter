@@ -1,9 +1,10 @@
 # Interpreter
 
 Chrome tab audio → Korean subtitles, with a local companion. This repository
-contains tab capture/PCM transport code and a health endpoint. Actual tab capture
-acceptance is pending browser permissions; model adapters and captions remain
-unimplemented. See `RALPH_PLAN.md` for the durable progress and blocker.
+contains tab capture/PCM transport code and a health endpoint. Real tab capture
+and lifecycle checks passed; audible original playback still needs a listening
+confirmation. Model adapters and captions remain unimplemented. See
+`RALPH_PLAN.md` for durable progress and the remaining acceptance blocker.
 
 The planned input is one Chrome tab started by the user, not macOS system audio.
 The default local path will run without API keys. Cloud paths will be explicitly
@@ -47,10 +48,10 @@ or transcripts. `.env` is not automatically loaded; export settings in the shell
 On an ordinary HTTP/HTTPS tab with audio, click the extension's toolbar icon,
 then **Start**. The popup reports capture/connection status and PCM frame receipt
 counts. Closing the popup is intended to leave the offscreen owner running;
-**Stop**, tab closure, or navigation releases it. The code connects original tab
-audio to the audio destination to preserve playback. These tab capture and
-playback behaviors still require real browser acceptance; they are not verified
-by the synthetic worklet smoke below. No captions appear at this stage.
+**Stop**, tab closure, or navigation releases it. Real browser checks verified
+these capture lifetimes and recovery after companion shutdown. The code connects
+original tab audio to the audio destination to preserve playback; audible output
+still needs a listening confirmation. No captions appear at this stage.
 
 `npm run dev` rebuilds on edits; reload the extension in Chrome after each build.
 Chrome internal pages cannot be captured. If the popup says the extension has not
@@ -86,7 +87,8 @@ npx playwright install chromium
 npm run test:capture-browser
 ```
 
-For the pending actual capture check, serve the non-sensitive stereo fixture:
+To repeat actual capture and finish the pending listening check, serve the
+non-sensitive stereo fixture:
 
 ```sh
 uv run --locked python -m http.server 8766 --bind 127.0.0.1 --directory tests/fixtures
