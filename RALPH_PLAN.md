@@ -187,7 +187,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
   - Acceptance: extension/dist/manifest.json이 유효한 MV3이고 offscreen/worklet/content
     파일을 빌드에 포함한다. Python 3.12 환경과 서버 health endpoint를 실행한다.
 
-- [ ] 2. 이벤트 계약과 캡처 구현
+- [x] 2. 이벤트 계약과 캡처 구현
   - feature-local 입력/모델/출력 계약, offscreen 캡처, PCM 변환, 메시징을 연결한다.
   - Acceptance: 실제 테스트 페이지 오디오가 companion에 PCM으로 도착하고 원음
     재생도 유지된다. popup 닫기, Start/Stop 반복, tab close, 잘못된 PCM을 검증한다.
@@ -443,3 +443,30 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   들리지 않으면 중단되는 상태를 알려 실제 실패를 재현한다. native 권한 재요청은
   필요 없다. 청취 결과 없이는 항목 2의 필수 acceptance를 완료할 수 없다.
   `docs/verification.md`에 이번 명령/관측/정확한 한계와 재개 절차를 보존한다.
+
+### 사용자 동반 재검증 — 2026-10-06 — 항목 2 완료
+
+- 사용자 요청으로 기존 `.ralph/capture-acceptance.mjs`를 다시 실행했다.
+  Chrome for Testing 153.0.8010.12, rebuilt extension, 새 ignored profile,
+  generated 440/880 Hz tone과 loopback companion을 사용했다.
+- `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0:
+  lint/typecheck/build, JS 7 tests + Python 16 tests 통과, skipped 0.
+- native `cua_repl`로 실제 Extensions → Interpreter → Start를 눌렀다.
+  실제 capture active/offscreen 1, 100 frames / 48,000 samples / peak 2881을
+  확인했다. 사용자가 capture 전 "들려", capture 중 "ㅇㅇ 들려"로 답했다.
+- 중간에 session 변경과 idle 상태가 관측돼 이를 popup 지속성 성공으로
+  사용하지 않았다. 다시 native Start 후 Escape로 popup만 닫았다.
+  popup target 없이 같은 session이 active/offscreen 1을 유지하며
+  250 → 1850 frames (120,000 → 888,000 samples, peak 2881)로 증가했다.
+  이 상태의 청취 질문에 사용자가 **"계속 들림"**으로 답했다.
+  이 사용자 확인으로 기존 원음 재생 acceptance blocker가 해소됐다.
+- popup 재개 시 2550 frames를 표시했다. native Stop 후 idle/offscreen 0/
+  capture stopped를 확인했다. 다시 Start 후 새 session이 150 frames /
+  72,000 samples / peak 2881을 수신했다. 캡처 중인 fixture tab을 native
+  close로 닫자 idle/offscreen 0/captured tabs 0으로 정리됐다.
+- harness exit 후 browser와 8765/8766 listeners 종료를 확인했다.
+  cleanup 뒤 남은 임시 Node harness만 SIGTERM으로 종료했다.
+  이 종료를 harness exit 0으로 보고하지 않는다.
+- 이전 navigation/disconnect 증거와 이번 capture/청취/popup/반복/tab-close/
+  malformed PCM 검증을 근거로 항목 2를 체크했다. 소스 수정은 없었다.
+  다음 미완료 항목은 3번 자막 overlay다. 전체 구현 완료는 아니다.

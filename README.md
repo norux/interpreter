@@ -2,9 +2,9 @@
 
 Chrome tab audio → Korean subtitles, with a local companion. This repository
 contains tab capture/PCM transport code and a health endpoint. Real tab capture
-and lifecycle checks passed; audible original playback still needs a listening
-confirmation. Model adapters and captions remain unimplemented. See
-`RALPH_PLAN.md` for durable progress and the remaining acceptance blocker.
+and lifecycle checks passed; the user confirmed audible original playback during
+capture and after popup closure. Model adapters and captions remain unimplemented.
+See `RALPH_PLAN.md` for durable progress and the remaining implementation work.
 
 The planned input is one Chrome tab started by the user, not macOS system audio.
 The default local path will run without API keys. Cloud paths will be explicitly

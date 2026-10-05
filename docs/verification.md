@@ -419,3 +419,44 @@ so the failure can be reproduced and fixed. Use the listener commands and
 fixture procedure above; native permissions already work. Preserve item 2's
 unchecked state until this last acceptance check passes. No later checklist
 item or final completion criterion was satisfied by this retry.
+
+## User-assisted capture acceptance passed (2026-10-06)
+
+The user requested another listening test and was present to confirm playback.
+Ran `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify`: exit 0, lint,
+typecheck, build, 7 JS tests and 16 Python tests passed with zero skips.
+No source changes were needed; malformed PCM and cleanup regressions remain enabled.
+
+Ran the existing ignored `node .ralph/capture-acceptance.mjs` with a new dedicated
+profile, Chrome for Testing 153.0.8010.12, the rebuilt unpacked extension, the
+generated 440/880 Hz stereo fixture, and loopback listeners on 8765/8766.
+Native `cua_repl` invoked the actual Extensions toolbar → Interpreter → Start.
+The companion received 100 frames / 48,000 samples / peak 2881 with capture
+active and one offscreen document. The user confirmed the tone before capture
+("들려") and during actual capture ("ㅇㅇ 들려").
+
+An intervening session change and idle state were observed; those observations
+were not used as evidence of popup-independent capture. Started capture again
+through the native popup, then used native Escape to dismiss only the popup.
+Debugger reads showed no popup target, one offscreen document, active capture,
+and the same session increasing from 250 to 1850 frames (120,000 to 888,000
+samples), peak 2881. The user answered **"계속 들림"** to the specific question
+about playback with the popup closed and capture still running. This is the
+listening evidence that resolves the earlier acceptance blocker.
+
+Reopened the native popup: 2550 frames received. Native Stop returned Ready;
+debugger state was idle, offscreen contexts empty, capture stopped. Native Start
+created a new active session with 150 frames / 72,000 samples / peak 2881.
+Closed the captured fixture tab through its native tab-close button while a
+separate blank tab kept the test browser alive for inspection. State became
+idle with `Captured tab closed or audio ended.`, no offscreen contexts, and no
+captured tabs.
+
+Sent `exit` to the harness. No listeners remained on 8765/8766 and the dedicated
+browser process was gone. The temporary Node harness remained alive after
+cleanup and was terminated with SIGTERM; this is not reported as harness exit 0.
+No temporary state was committed. Combined with the earlier documented
+navigation/disconnect evidence, the current capture, listening, popup lifetime,
+Start/Stop, tab-close and malformed PCM checks satisfy item 2. The plan now
+marks it complete. Models, captions, later items and overall completion remain
+pending; the next item is the subtitle overlay.
