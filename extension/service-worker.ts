@@ -13,7 +13,14 @@ async function readStatus(): Promise<CaptureStatus> {
   return saved.captureStatus ?? idle;
 }
 
+async function clearCaptions(status: CaptureStatus) {
+  if (status.tabId && status.sessionId) {
+    await chrome.tabs.sendMessage(status.tabId, { target: "captions", type: "clear", sessionId: status.sessionId }).catch(() => {});
+  }
+}
+
 async function stopCapture(): Promise<CaptureStatus> {
+  await clearCaptions(await readStatus());
   if (await hasOffscreen()) {
     await chrome.runtime.sendMessage({ target: "offscreen", type: "stop" });
     await chrome.offscreen.closeDocument();
@@ -39,6 +46,10 @@ async function startCapture(): Promise<CaptureStatus> {
     });
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
     const next: CaptureStatus = await chrome.runtime.sendMessage({ target: "offscreen", type: "start", streamId, tabId: tab.id });
+    if (next.state === "capturing" && next.sessionId) {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
+      await chrome.tabs.sendMessage(tab.id, { target: "captions", type: "start", sessionId: next.sessionId });
+    }
     if (next.state === "error") await chrome.offscreen.closeDocument();
     await chrome.storage.session.set({ captureStatus: next });
     return next;
@@ -60,12 +71,17 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
   if (sender.id !== chrome.runtime.id || message.target !== "worker") return;
   if (message.type === "capture-status") {
     if (sender.url === chrome.runtime.getURL("offscreen.html")) {
+      const previous = message.status.state === "idle" || message.status.state === "error"
+        ? chrome.storage.session.get<{ captureStatus?: CaptureStatus }>("captureStatus")
+        : undefined;
       void chrome.storage.session.set({ captureStatus: message.status });
       if (message.status.state === "idle" || message.status.state === "error") {
         void enqueue(async () => {
           // A terminal report can race with tab removal or a new Start operation.
           const current = await readStatus();
           if (current.state === "idle" || current.state === "error") {
+            const saved = await previous;
+            if (saved?.captureStatus) await clearCaptions(saved.captureStatus);
             if (await hasOffscreen()) await chrome.offscreen.closeDocument();
             await chrome.storage.session.set({ captureStatus: current });
           }

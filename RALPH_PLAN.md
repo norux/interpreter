@@ -192,7 +192,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
   - Acceptance: 실제 테스트 페이지 오디오가 companion에 PCM으로 도착하고 원음
     재생도 유지된다. popup 닫기, Start/Stop 반복, tab close, 잘못된 PCM을 검증한다.
 
-- [ ] 3. 자막 overlay 먼저 구현
+- [x] 3. 자막 overlay 먼저 구현
   - 테스트 caption을 sink로 보내 디자인과 cue update/clear/fullscreen 동작을 만든다.
   - Acceptance: 일반 화면, 좁은 viewport, YouTube theatre/fullscreen에서 하단 두 줄
     자막이 읽히고 컨트롤을 누를 수 있다. screenshot을 시각적으로 검토한다.
@@ -470,3 +470,44 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
 - 이전 navigation/disconnect 증거와 이번 capture/청취/popup/반복/tab-close/
   malformed PCM 검증을 근거로 항목 2를 체크했다. 소스 수정은 없었다.
   다음 미완료 항목은 3번 자막 overlay다. 전체 구현 완료는 아니다.
+
+### Ralph iteration 1/30 — 2026-10-06 — 항목 3 완료
+
+- 다음 미완료 항목 3만 구현했다. checkout의 AGENTS.md는 없고 사용자 지침을
+  적용했다. `.ralph/verification.txt`는 `No completion verification attempted in
+  this run.`이다. 모델/출력 framework, 추가 제품 출력, cloud 요청은 추가하지 않았다.
+- `extension/captions/overlay.ts`의 작은 feature-local DOM OutputSink와 content
+  메시지 수명을 구현했다. Shadow DOM/textContent, 흰색 18–32px 글자/검정 shadow/
+  반투명 배경, 80vw/960px 안전 너비, 두 줄 실측 분할/순차 표시/만료, revision
+  교체, pointer-events none, fullscreen element 내부 이동/복귀/clear를 처리한다.
+  worker Start에서 content script를 주입하고 Stop/terminal에서 이전 sink를 정리한다.
+  페이지에서 caption/녹음을 시작하는 product UI나 테스트 caption 모드는 만들지 않았다.
+- `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 7 tests + Python 16 tests, failures/skips/warnings 0. `git diff --check` 통과.
+- `npm run test:captions-browser` exit 0: 실제 built extension + Chrome for Testing
+  153.0.8010.12/Playwright 1.63.0, 일반/390×700/wrapper fullscreen 검증.
+  revision 수정/역행 거부, 단일 host, Play/scrubber 클릭, 긴 생성 한국어 문장의
+  모든 글자 순차 표시와 두 줄/만료, fullscreen DOM 위치/복귀, clear/늦은 결과 거부.
+- `node tests/captions-browser.mjs --youtube` 최종 exit 0: 새 ignored profile에서
+  실제 native Extensions → Interpreter invocation으로 activeTab을 얻은 뒤 popup을
+  닫았다. Start 녹음은 하지 않았다. 공개 YouTube 페이지의 실제 theatre/fullscreen
+  버튼 클릭, wrapper 내부 host, normal/theatre/fullscreen 두 줄/컨트롤 위 간격을
+  확인했다. 최종 cue bottom/control top은 각각 604.80/625.80, 607/628,
+  720/741 CSS px(1280×800)였다. browser/listener는 harness에서 exit 0으로 종료했다.
+- 일반/좁은/fullscreen/YouTube normal/theatre/fullscreen PNG 6개를 실제 view_image로
+  시각 검토하고 `docs/verification/captions/`에 보존한다. 밝고 어두운 배경에서 읽히며
+  컨트롤이 보이고 눌린다. 초기 theatre 이미지의 컨트롤 겹침을 실제 발견해 player
+  하단 기준의 작은 offset으로 수정하고 모든 YouTube mode 간격 assertion을 추가했다.
+- 실패를 숨기지 않았다: TypeScript storage 타입/fixture button lint 수정,
+  fullscreen event 이전 관측을 실제 containment 대기로 수정, 겹친 browser 실행의
+  8766 EADDRINUSE 뒤 순차 재실행. worker의 늦은 terminal caption clear 회귀를 먼저
+  실패시킨 뒤 직렬화된 current-state 검사 안에서 clear하도록 수정했다. 최종 통과.
+- **생성한 test caption 증거이며 실제 음성 번역 성공이 아니다.** 기존 YouTube
+  자막을 읽지 않았고 오디오/전사문/키/가중치/임시 .ralph state를 커밋하지 않는다.
+  모델 코드/실제 audio-to-caption/성능/cloud/항목 8은 아직 미검증이다.
+- 상세 명령/실패/측정/시각 증거: `docs/verification.md`의 이번 기록.
+  항목 3 acceptance 통과 후 체크했다. blocker 없음.
+  다음 미완료 작업은 **항목 4 — 실제 MLX ASR + Ollama local audio-to-caption**이다.
+- 최종 build의 기존 transport smoke도 `PATH="$PWD/.tools/uv/bin:$PATH"
+  npm run test:capture-browser` exit 0: 44.1 kHz → 50 frames/24,000 samples/
+  peak 3275. 출력은 `tabCapture: "not exercised"`이며 실제 번역 증거로 쓰지 않는다.

@@ -460,3 +460,111 @@ navigation/disconnect evidence, the current capture, listening, popup lifetime,
 Start/Stop, tab-close and malformed PCM checks satisfy item 2. The plan now
 marks it complete. Models, captions, later items and overall completion remain
 pending; the next item is the subtitle overlay.
+
+## Ralph iteration 1/30 — item 3 caption overlay passed (2026-10-06)
+
+Implemented a feature-local DOM `OutputSink` in `extension/captions/overlay.ts`.
+It renders generated Korean test captions with `textContent` in Shadow DOM;
+no model, stored transcript, existing YouTube caption, or speech translation was
+used as evidence. The worker injects the built content script on an authorized
+capture Start, initializes its session, and clears the previous sink on Stop or
+terminal cleanup. Repeated injection installs only one listener. A cleared
+session ignores late captions. Caption provider transport remains item 4 work.
+
+### Commands and actual results
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" npm run verify
+npm run test:captions-browser
+# Headed, dedicated ignored profile; invoke actual Extensions → Interpreter,
+# dismiss its popup, then press Enter in this command's terminal:
+node tests/captions-browser.mjs --youtube
+git diff --check
+```
+
+Final `npm run verify` passed lint/typecheck/build, 7 JS tests and 16 Python
+tests, with zero failures/skips/warnings. Both caption browser commands exited
+0 with Chrome for Testing **153.0.8010.12** / Playwright **1.63.0**, and printed
+`generatedCaptions: true`, `audioTranslation: "not exercised"`, `passed: true`.
+The local fixture is served on `127.0.0.1:8766`; it needs no companion or key.
+The YouTube test used the public `Me at the zoo` page, a fresh dedicated profile,
+and native `cua_repl` Extensions → Interpreter invocation for activeTab.
+The popup was dismissed without starting audio capture. The actual theatre and
+fullscreen controls were clicked through Playwright with the captions present;
+fullscreen playback was observed. Browser contexts and fixture listeners were
+closed by the harness, with exit 0. Profiles stay ignored under `.ralph/`.
+
+Browser assertions passed for the following observable behavior:
+
+- White 18–32px text with black shadow and translucent background; two-line
+  maximum, 80vw/960px width, centered with safe margins, and pointer-events none.
+  Hostile fixture div styles do not change caption color/font.
+- Revision 2 replaces revision 1 in one cue; a delayed revision 1 is ignored.
+  Reinjecting `content.js` leaves exactly one host.
+- At 390×700, long generated Korean text advances through measured two-line
+  chunks. Concatenating the displayed chunks exactly equals the entire input;
+  every chunk meets the height assertion, then the host expires.
+- Fixture Play and scrubber clicks succeed with the overlay present.
+- Actual wrapper fullscreen moves the host inside `document.fullscreenElement`;
+  exiting restores it to the document root. Clear removes the host immediately,
+  and subsequent captions for the cleared session do not restore it.
+- YouTube normal/theatre/fullscreen captions sit above the controls. The final
+  cue bottom/control top values were **604.80/625.80**, **607/628**, and
+  **720/741** CSS pixels respectively at 1280×800. General fixture cue bottom
+  was 720; narrow fixture bottom was 620.
+
+### Visual evidence reviewed
+
+All six final PNGs were opened with `view_image` and visually inspected.
+Korean words wrap cleanly, text remains readable on the gradient fixture and
+video/background, captions stay in at most two lines, and the controls remain
+visible below them. The narrow screenshot shows the first chunk; the remaining
+text is verified by the progression assertion, not claimed to fit in that image.
+
+| View | Screenshot | Measured cue height / line height |
+| --- | --- | --- |
+| General page | [normal](verification/captions/normal.png) | 94 / 43.008 px |
+| Narrow 390×700 | [narrow](verification/captions/narrow.png) | 58 / 25.2 px |
+| Fixture wrapper fullscreen | [fullscreen](verification/captions/fullscreen.png) | 94 / 43.008 px |
+| YouTube normal | [normal](verification/captions/youtube-normal.png) | 94 / 43.008 px |
+| YouTube theatre | [theatre](verification/captions/youtube-theatre.png) | 94 / 43.008 px |
+| YouTube wrapper fullscreen | [fullscreen](verification/captions/youtube-fullscreen.png) | 94 / 43.008 px |
+
+### Failures and corrections
+
+- First verification failed TypeScript's storage result narrowing. Typed the
+  optional `captureStatus` read. Fixture lint required explicit button types;
+  supplied them. Existing checks were retained.
+- Initial fullscreen assertion observed `fullscreenElement` before its event
+  handler moved the host. The browser check now waits for the actual containment
+  and exit placement, and captures after two animation frames with CSS animations
+  disabled. It does not substitute a mocked fullscreen event.
+- One overlapping test invocation failed `EADDRINUSE` on port 8766; subsequent
+  browser runs were sequential after the prior harness closed its listener.
+- Visual review showed the initial fixed viewport offset overlapped YouTube
+  theatre controls. A small local adjustment measures YouTube's player lower
+  edge in normal/theatre mode; a theatre attribute change or resize recalculates
+  it. Actual fullscreen uses the regular fullscreen margin. The final browser
+  test asserts the cue bottom is at least 10px above the control bar. Korean
+  `word-break: keep-all` plus balanced wrapping avoids splitting ordinary words.
+- Extended the existing worker regression first: `node --import tsx --test
+  tests/service-worker.test.ts` failed with `Late terminal report must not clear
+  the new caption session` (unexpected `new-session` clear). Moved caption clear
+  into serialized cleanup after checking the current offscreen state. The final
+  regression passes for disconnected-session clear, error preservation, and
+  retaining a restarted session's caption/capture.
+
+References checked: [Chrome content scripts](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts)
+and [Fullscreen API guide](https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide).
+
+Item 3 acceptance passed. No blocker remains for this item. These screenshots
+and assertions establish **test-caption output only**. Local models, actual
+speech-to-Korean captions, cloud adapters/live calls, long-duration performance,
+and item 8's actual YouTube audio translation remain unverified. Next: item 4,
+MLX Qwen3-ASR + Ollama Qwen3-4B-Instruct with VAD and bounded queues.
+
+Additional existing-transport regression: `PATH="$PWD/.tools/uv/bin:$PATH"
+npm run test:capture-browser` exited 0 on the final build: Chrome
+153.0.8010.12, generated 44.1 kHz worklet input, 50 frames / 24,000 samples /
+peak 3275, `tabCapture: "not exercised"`. This remains worklet/transport evidence,
+not new audio-translation or real tabCapture evidence.

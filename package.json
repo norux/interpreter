@@ -16,7 +16,8 @@
     "test:python": "uv run --locked pytest",
     "test:capture-browser": "npm run build && node tests/capture-browser.mjs",
     "test": "npm run test:js && npm run test:python",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm test"
+    "verify": "npm run lint && npm run typecheck && npm run build && npm test",
+    "test:captions-browser": "npm run build && node tests/captions-browser.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

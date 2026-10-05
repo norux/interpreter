@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Caption overlay fixture</title>
+<style>
+  body { margin: 0; font: 20px system-ui; background: #f2c477; }
+  #player { height: 100vh; background: linear-gradient(140deg, #f2c477 25%, #506880 65%, #101923); position: relative; }
+  h1 { padding: 24px; margin: 0; }
+  #controls { position: absolute; bottom: 24px; left: 10%; width: 80%; display: flex; gap: 20px; }
+  button { font: inherit; padding: 10px; }
+  input { flex: 1; }
+  /* Hostile page rules must not leak into the shadow caption. */
+  div { color: red; font-size: 8px; }
+</style>
+<div id="player">
+  <h1>Generated caption test · no speech model</h1>
+  <div id="controls"><button type="button" id="play">Play</button><input aria-label="Scrubber" type="range"><button type="button" id="fullscreen">Fullscreen</button></div>
+</div>
+<script>
+  document.querySelector('#play').onclick = () => { document.querySelector('#play').textContent = 'Clicked'; };
+  document.querySelector('#fullscreen').onclick = () => document.querySelector('#player').requestFullscreen();
+</script>
+</html>

@@ -21,3 +21,7 @@ export interface OutputSink {
   clear(): void;
   dispose(): void;
 }
+
+export type CaptionCommand =
+  | { target: "captions"; type: "start" | "clear"; sessionId: string }
+  | { target: "captions"; type: "caption"; caption: Caption };
