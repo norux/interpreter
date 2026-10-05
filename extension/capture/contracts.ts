@@ -1,3 +1,5 @@
+import type { Caption } from "../captions/contracts";
+
 export interface AudioSource {
   // Frames use the PCM1 header in capture/pcm.ts: sequence, timestamp, rate, mono PCM16.
   start(streamId: string, onFrame: (packet: ArrayBuffer) => void): Promise<void>;
@@ -18,4 +20,5 @@ export type CaptureCommand =
   | { target: "worker"; type: "start" | "stop" | "status" }
   | { target: "offscreen"; type: "start"; streamId: string; tabId: number }
   | { target: "offscreen"; type: "stop" | "status" }
+  | { target: "worker"; type: "caption"; caption: Caption }
   | { target: "worker"; type: "capture-status"; status: CaptureStatus };

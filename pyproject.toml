@@ -3,7 +3,10 @@ name = "interpreter-companion"
 version = "0.1.0"
 description = "Loopback companion for the Interpreter Chrome extension"
 requires-python = ">=3.12,<3.13"
-dependencies = ["fastapi", "uvicorn[standard]"]
+dependencies = ["fastapi", "uvicorn[standard]", "httpx", "webrtcvad-wheels"]
+
+[project.optional-dependencies]
+local = ["mlx-audio[stt]==0.5.8"]
 
 [dependency-groups]
 dev = ["httpx2", "pytest", "ruff"]

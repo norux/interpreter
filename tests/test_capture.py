@@ -13,6 +13,19 @@ ORIGIN = "chrome-extension://" + "a" * 32
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("INTERPRETER_EXTENSION_ID", "a" * 32)
+    from server.capture import transport
+
+    class CaptureOnly:
+        async def run(self, frames):
+            async for _ in frames:
+                if False:
+                    yield
+
+        async def close(self):
+            pass
+
+    # These checks isolate the PCM/auth transport; model wiring is tested separately.
+    monkeypatch.setattr(transport, "local_session", lambda *_: CaptureOnly())
     with TestClient(create_app(), base_url="http://127.0.0.1:8765") as connection:
         yield connection
 

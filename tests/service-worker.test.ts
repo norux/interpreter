@@ -8,6 +8,7 @@ test("terminal offscreen reports release its document without clearing errors or
   let documentOpen = true;
   let saved: CaptureStatus | undefined;
   const cleared: string[] = [];
+  const delivered: string[] = [];
   let listener: (message: CaptureCommand, sender: chrome.runtime.MessageSender, respond: () => void) => void = () => {};
   const original = Object.getOwnPropertyDescriptor(globalThis, "chrome");
   Object.defineProperty(globalThis, "chrome", { configurable: true, value: {
@@ -24,7 +25,7 @@ test("terminal offscreen reports release its document without clearing errors or
       get: async () => ({ captureStatus: saved }),
     } },
     offscreen: { closeDocument: async () => { documentOpen = false; } },
-    tabs: { sendMessage: async (_tabId: number, message: { sessionId: string }) => { cleared.push(message.sessionId); }, onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
+    tabs: { sendMessage: async (_tabId: number, message: { sessionId: string; caption?: { sessionId: string } }) => { if (message.caption) delivered.push(message.caption.sessionId); else cleared.push(message.sessionId); }, onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
   } });
   t.after(() => {
     if (original) Object.defineProperty(globalThis, "chrome", original);
@@ -53,6 +54,19 @@ test("terminal offscreen reports release its document without clearing errors or
   status = { state: "capturing", tabId: 2, sessionId: "new-session", message: "New capture" };
   saved = status;
   await report({ state: "idle", message: "Old capture stopped" });
+  const caption = {
+    sessionId: "new-session", utteranceId: "u1", revision: 1, source: "Generated test",
+    translation: "생성한 테스트", final: true, audioStartMs: 0, audioEndMs: 1000, emittedAtMs: 1,
+  };
+  for (const [sessionId, url] of [
+    ["old-session", "offscreen.html"], ["new-session", "content.js"], ["new-session", "offscreen.html"],
+  ]) {
+    listener({ target: "worker", type: "caption", caption: { ...caption, sessionId } }, {
+      id: "test-extension", url: `chrome-extension://test-extension/${url}`,
+    }, () => {});
+    await setImmediate();
+  }
+  assert.deepEqual(delivered, ["new-session"], "Only the active offscreen session may deliver captions");
   assert.equal(documentOpen, true, "Queued terminal report must not close a new capture");
   assert.deepEqual(cleared, ["disconnected-session"], "Late terminal report must not clear the new caption session");
 });

@@ -511,3 +511,62 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
 - 최종 build의 기존 transport smoke도 `PATH="$PWD/.tools/uv/bin:$PATH"
   npm run test:capture-browser` exit 0: 44.1 kHz → 50 frames/24,000 samples/
   peak 3275. 출력은 `tabCapture: "not exercised"`이며 실제 번역 증거로 쓰지 않는다.
+
+### Ralph iteration 2/30 — 2026-10-06 — 항목 4 구현, native browser acceptance 차단
+
+- 다음 미완료 항목 4만 진행했다. checkout에 AGENTS.md는 없으며 사용자 지침을
+  적용했다. `.ralph/verification.txt`는 `No completion verification attempted in
+  this run.`이다. **항목 4는 미체크**다. cloud/설정 UI/추가 제품 출력은 만들지 않았다.
+- `server/sessions/local.py`에 feature-local MLX ASR, Ollama TextTranslator,
+  LocalSession을 구현하고 companion → offscreen → worker → 기존 DOM sink를 연결했다.
+  MLX는 optional/lazy import이며 한 전용 executor가 세션 교체 뒤에도 ASR를 직렬화한다.
+  model 코드에는 DOM/Chrome 의존성을 넣지 않았다. 라이브 파일 token streaming을
+  live PCM으로 주장하지 않고, VAD로 만든 짧은 메모리 구절을 실제 generate에 넣는다.
+- 24 kHz PCM → 8 kHz VAD decision/16 kHz float32 ASR, pre-roll/최소 speech 200 ms,
+  silence 500 ms, 구절 최대 6초, 대기 2구절/오디오 8초, 수신 100 frame/2초로 제한한다.
+  오래된 대기는 drop/count/status로 명시한다. 완료된 원문만 번역하고 최근 문맥은
+  최대 3쌍으로 제한한다. Stop 취소/늦은 결과 거부/모델 실패 연결 종료를 처리한다.
+- 실제 Apple M5/16 GiB, Python 3.12.15, mlx-audio 0.5.8/MLX 0.32.3,
+  Ollama 0.35.1에서 두 모델을 실행했다. 공개 ASR snapshot
+  `89e96d92ba34aca20b3e29fb10cc284097d1219f`를 normal cache에 내려받았고,
+  Ollama tags/show로 qwen3:4b-instruct Q4_K_M을 확인했다. Xet 다운로드가 멈춰
+  해당 process를 종료하고 HF_HUB_DISABLE_XET=1 HTTP 재시도로 완료했다.
+- 비민감 영어 문장을 macOS say로 생성했다. 실제 VAD 구절 → 실제 MLX → 실제
+  Ollama → final Korean caption이 성공했다. ASR는 생성 문장과 일치하고 한국어는
+  맑은 날씨/점심 뒤 공원 산책 계획을 전달했다. 사용자 음성/원문은 저장하지 않았다.
+  임시 첫 모델 smoke exit 0, cold elapsed 25.947초; 재현 가능한
+  `PATH="$PWD/.tools/uv/bin:$PATH" npm run test:local-model` exit 0,
+  Ollama resident 상태 elapsed 2.491초. **둘 다 tabCapture not exercised**이며,
+  실제 브라우저 자막 지연/p50/p95/실제 audio-to-caption acceptance가 아니다.
+- 두 smoke에 HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE=1을 적용했고 ASR는 cached-only,
+  Ollama는 proxy를 사용하지 않는 고정 loopback이다. external inference API/유료
+  fallback 요청이 없다. 실제 missing-ASR probe는 README 다운로드 안내를 반환했다.
+  fixture는 MLX 의존성/텍스트 모델 미설치, Ollama 중단/timeout/error 안내도 검증한다.
+- 최종 `uv sync --locked`로 optional MLX를 제거한 base 환경에서도
+  `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 7 + Python 29 tests, failures/skips/warnings 0. `git diff --check` 통과.
+  새 회귀는 silence/gap/length, bounded queue/drop, full-queue 취소/late translation,
+  final text/context-only 요청, WS caption/error, active session worker routing을 검증한다.
+  기존 worklet smoke exit 0: 50 frames/24,000 samples/peak 3275; 실제 캡처 증거 아님.
+- 실패를 수정했다: WebRTC VAD 24 kHz 거부 → 8 kHz decision stream,
+  모델 cleanup await 뒤 active slot 해제에 따른 restart/token 409 → await 전 해제,
+  변경 소스 import/line length lint 수정. acceptance/test/security를 약화하지 않았다.
+- **Blocker (native window 접근에 외부 변경 필요)**: `npm run test:local-browser`로
+  fresh headed Chrome 153.0.8010.12/전용 ignored profile/loopback companion을 실행했으나
+  cua_repl getApp이 bundle ID/app name/cache path 모두 `Computer Use server error
+  -10005: cgWindowNotFound`를 반환했다. tool binding 및 browser 재시작 뒤에도 동일했다.
+  visible desktop에 테스트 창을 띄우고 필요하면 Mac 잠금을 풀도록 async 요청했으나
+  이번 run에 응답이 없었다. 원인을 permission 또는 잠금으로 단정하지 않는다.
+- 실제 관측은 capture status 없음, captured tabs [], cue 없음이다. native toolbar
+  → Start를 누를 수 없어 **실제 Chrome tab audio → 두 모델 → visible Korean cue**와
+  그 screenshot 시각 검토는 미검증이다. 이전 tone/생성 test caption 성공을 대체 증거로
+  쓰지 않았다. 최초 harness exit 0은 cleanup만의 결과; 최종 harness는 accept 성공
+  없이는 exit 1이며 이번 차단 실행은 exit 1이다. 브라우저/fixture/companion/Ollama를
+  종료하고 8765/8766/11434 listeners와 local harness/model smoke가 없음을 확인했다.
+- 재개에 필요한 사용자/외부 동작: dedicated Chrome testing 창을 native control이
+  찾을 수 있는 visible desktop에 띄운다. Ollama serve 후 `npm run test:local-browser`를
+  실행한다(local extra 자동 설치). 실제 toolbar Interpreter → Start → popup 닫기,
+  harness play/accept, 실제 자막 의미/`docs/verification/local/normal.png` 시각 검토와
+  Stop clear를 확인하고 기록한다. 실제 acceptance 및 verify 후에만 항목 4를 체크한다.
+  모델 cache는 준비돼 있다. 상세 명령/결과/정확한 한계는 docs/verification.md에 남긴다.
+  다음 미완료 작업은 여전히 **항목 4 실제 browser acceptance**이며 완료가 아니다.

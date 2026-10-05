@@ -69,6 +69,17 @@ function enqueue(task: () => Promise<CaptureStatus>): Promise<CaptureStatus> {
 
 chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) => {
   if (sender.id !== chrome.runtime.id || message.target !== "worker") return;
+  if (message.type === "caption") {
+    if (sender.url !== chrome.runtime.getURL("offscreen.html")) return;
+    void enqueue(async () => {
+      const current = await readStatus();
+      if (current.state === "capturing" && current.sessionId === message.caption.sessionId && current.tabId) {
+        await chrome.tabs.sendMessage(current.tabId, { target: "captions", type: "caption", caption: message.caption }).catch(() => {});
+      }
+      return current;
+    });
+    return;
+  }
   if (message.type === "capture-status") {
     if (sender.url === chrome.runtime.getURL("offscreen.html")) {
       const previous = message.status.state === "idle" || message.status.state === "error"

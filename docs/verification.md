@@ -568,3 +568,139 @@ npm run test:capture-browser` exited 0 on the final build: Chrome
 153.0.8010.12, generated 44.1 kHz worklet input, 50 frames / 24,000 samples /
 peak 3275, `tabCapture: "not exercised"`. This remains worklet/transport evidence,
 not new audio-translation or real tabCapture evidence.
+
+## Ralph iteration 2/30 — 2026-10-06 — item 4 implementation, native browser blocker
+
+Worked only in this checkout (plus normal dependency/model caches and explicit
+local app verification). No checkout AGENTS.md was present. The supplied user
+instructions applied; `.ralph/verification.txt` read `No completion verification
+attempted in this run.` Item 4 remains **unchecked**.
+
+Implemented the feature-local local session and connected companion captions
+through offscreen → worker → the existing DOM sink. MLX imports are lazy and
+optional; the shared single-worker executor serializes ASR across replacement
+sessions. VAD decisions use 8 kHz PCM derived from the 24 kHz wire frames;
+ASR receives a 16 kHz float32 segment through `generate`, not file-token
+streaming masquerading as live input. Limits: 200 ms pre-roll/minimum speech,
+500 ms silence boundary, six-second segments, two waiting segments/eight seconds
+of waiting audio, 100 incoming PCM frames/two seconds. Older waiting data is
+explicitly dropped and counted. Translation uses finalized text, up to three
+recent context pairs, fixed loopback Ollama, no environment HTTP proxy, and no
+cloud fallback. Stop cancels queued work and rejects late session captions;
+already-running native inference completes before the next ASR call can start.
+
+### Commands and passing checks
+
+```sh
+export PATH="$PWD/.tools/uv/bin:$PATH"
+uv lock
+uv sync --locked --extra local
+# Explicit public weight preparation (no credentials supplied):
+HF_HUB_DISABLE_XET=1 .venv/bin/python -c 'from huggingface_hub import snapshot_download; snapshot_download("mlx-community/Qwen3-ASR-0.6B-8bit", token=False)'
+.tools/ollama/ollama serve
+.tools/ollama/ollama pull qwen3:4b-instruct
+npm run test:local-model
+npm run test:capture-browser
+# Final keyless check without the optional MLX installation:
+uv sync --locked
+npm run verify
+git diff --check
+```
+
+- Apple M5, arm64, 16 GiB; Python 3.12.15, mlx-audio 0.5.8, MLX 0.32.3,
+  Transformers 5.18.0, SciPy 1.18.1, webrtcvad-wheels 2.0.14.post1.
+  Optional versions are pinned by `uv.lock`; the base environment remains small.
+- Official Ollama 0.35.1 Darwin binary was downloaded to ignored `.tools/ollama`.
+  Actual `/api/tags` and `/api/show` confirmed `qwen3:4b-instruct`, 4.0B,
+  Q4_K_M, digest `0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0`.
+- Actual Hugging Face snapshot
+  `89e96d92ba34aca20b3e29fb10cc284097d1219f` completed, including the
+  1,006,229,426-byte ASR safetensors file. The first Xet transfer stopped
+  advancing at 147,527,218 bytes; terminated that download and retried with
+  `HF_HUB_DISABLE_XET=1`. The HTTP retry completed in 3:30. No weights committed.
+- A macOS `say` Samantha/165 fixture about sunny weather and a planned park walk
+  after lunch was generated locally, then converted to mono 24 kHz PCM16 by
+  `afconvert`. The fixture lasted 3.507 seconds; real VAD produced one bounded
+  segment with voice end 3580 ms. No user audio was used.
+- Real `MlxEngine` → `MlxTranscriber` → `LocalSession` → real Ollama emitted one
+  final Korean caption. Reviewed the ASR against the generated sentence: its
+  text matched. Reviewed Korean meaning: it conveyed clear weather and a planned
+  walk after lunch, with a slightly conversational “decided to walk” phrasing.
+  This is one synthetic sentence, not a general accuracy claim.
+- The first temporary real-model smoke exited 0 with 25.947 seconds elapsed;
+  this included cold imports/model loads. The committed reproducible
+  `npm run test:local-model` exited 0 with 2.491 seconds elapsed, with Ollama's
+  model resident and ASR reloaded from cache. These are standalone model-pipeline
+  times, **not audio-end → visible browser subtitle latency or p50/p95**.
+  Both runs explicitly reported `tabCapture: "not exercised"`.
+- Both real-model runs set `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`.
+  ASR used `local_files_only=True`; translation used only the fixed loopback
+  `/api/chat`. No external inference API was requested. Explicit weight downloads
+  were preparation, not inference. No API key was read or supplied.
+- Actual missing-ASR-model probe returned “Local ASR model is not cached” and
+  instructed using the README download command. Fixture tests additionally check
+  missing MLX dependencies, missing Ollama model, stopped Ollama, timeout/server
+  error, and truncated translation guidance with no fallback.
+- `npm run test:capture-browser` exited 0: Chrome for Testing 153.0.8010.12,
+  44.1 kHz generated worklet input → 50 frames/24,000 samples/peak 3275. It
+  explicitly reports `tabCapture: "not exercised"`; it proves PCM transport only.
+- Final `uv sync --locked` removed the optional MLX packages. Then `npm run
+  verify` exited 0: lint/typecheck/build, JS 7 tests and Python 29 tests;
+  failures/skips/warnings 0. This verifies that basic checks and transport do not
+  require MLX or weights. `git diff --check` passed.
+- Regression coverage includes real VAD silence, deterministic silence/length/gap
+  boundaries, slow inference while the event loop ticks, newest-segment retention
+  within the audio limit, cancellation with a full queue, late translation
+  suppression, finalized text/context-only Ollama calls, normalized WS caption
+  fields, model error closure, and authorized active-session worker routing.
+
+### Failed checks fixed
+
+Initial VAD smoke failed because WebRTC VAD does not accept 24 kHz. Added its
+8 kHz decision input and reran the real silence/generated speech checks.
+Initial capture restart/token tests returned 409 because asynchronous model
+cleanup delayed release of the active slot; release now occurs synchronously
+before awaiting cleanup. All original security/PCM assertions remain.
+Lint caught import ordering and long lines, which were fixed in changed source.
+
+### Required browser acceptance is blocked
+
+`npm run test:local-browser` launched a headed isolated Chrome for Testing
+153.0.8010.12 with the rebuilt unpacked extension, generated speech page, and
+loopback companion in offline mode. Native `cua_repl.getApp` by bundle ID,
+app name, and exact cached app path repeatedly returned:
+
+```text
+Computer Use server error -10005: cgWindowNotFound
+```
+
+Retried with a fresh tool binding and a freshly restarted test browser; the
+same error persisted. Requested that the test window be brought onto the visible
+desktop (and the Mac unlocked if needed); no response arrived during this run.
+The harness's actual observation was empty capture status, `captured: []`, and
+no cue. Thus **no real Start/tabCapture or visible translated subtitle was
+verified in this iteration**. Previous tone capture and test-caption screenshot
+checks do not substitute for this requirement. No permissions were widened and
+no fake stream was used to claim acceptance.
+
+The first harness invocation exited 0 for cleanup only, before adding an
+acceptance-result exit flag; this was not an acceptance pass. The final harness
+requires a successful `accept` command before exit 0. Its blocked attempt exited
+1, as expected. Both browser/companion/fixture processes closed; the temporary
+Ollama daemon was stopped. `lsof` confirmed no listeners on 8765/8766/11434 and
+no local harness/model-smoke process remained. Generated audio, transcripts,
+weights, profiles, download logs, and `.ralph` state were not committed.
+
+To resume, make the dedicated Chrome testing window visible to native control,
+then start Ollama and run `npm run test:local-browser` (its companion installs
+`--extra local`). Invoke the real Extensions toolbar → Interpreter → Start,
+close the popup, enter `play`, then `accept`; review the Korean meaning and saved
+`docs/verification/local/normal.png` with an actual image viewer, and verify Stop
+clears the cue. Record actual PCM/caption observations and `npm run verify` before
+checking item 4. Real translated-caption appearance, actual YouTube translation,
+ten-minute processing, p50/p95, and live cloud remain unverified.
+
+API references consulted and installed implementation inspected:
+[MLX Qwen3-ASR usage](https://github.com/Blaizzy/mlx-audio/blob/main/mlx_audio/stt/models/qwen3_asr/README.md),
+[Ollama chat API](https://docs.ollama.com/api/chat), and
+[the default Ollama model](https://ollama.com/library/qwen3:4b-instruct).
