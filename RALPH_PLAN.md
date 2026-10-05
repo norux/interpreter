@@ -181,7 +181,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
 
 ## 구현 체크리스트
 
-- [ ] 1. 프로젝트와 검증 명령 준비
+- [x] 1. 프로젝트와 검증 명령 준비
   - TypeScript/Vite 확장, Python/uv companion, lockfile, .env.example, README를 만든다.
   - `npm run verify`는 lint/typecheck, JS/Python 테스트, 확장 build를 실제 실행한다.
   - Acceptance: extension/dist/manifest.json이 유효한 MV3이고 offscreen/worklet/content
@@ -279,5 +279,37 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
 
 ## 진척과 근거
 
-아직 앱 구현은 시작하지 않았다. 계획과 runner만 준비했다.
+초기 상태에서는 계획과 runner만 준비되어 있었다.
 각 iteration에서 완료 항목, 실행한 명령과 결과, 다음 단계 또는 blocker를 아래에 남긴다.
+
+### Iteration 1/30 — 2026-10-05 — 항목 1 완료
+
+- 실제 작업 checkout: `/Users/norux/orca/workspaces/interpreter/aspidochelone`.
+  checkout에 AGENTS.md는 없으며 사용자 제공 지침을 적용했다.
+- vanilla TypeScript/Vite MV3 scaffold, Python/FastAPI companion `/health`,
+  JS/Python lockfile, `.env.example`, README 설치/실행 명령을 추가했다.
+  입력/모델/출력 추상화는 아직 만들지 않았다. 다음 항목에서 feature-local로 구현한다.
+- `npm run verify`는 JS/Python lint, TypeScript, production build, JS build test,
+  Python health test를 실제 실행한다. 기본 검증에는 키/모델이 필요 없다.
+- uv가 PATH에 없어 `.tools/uv` 안에 uv 0.12.23을 설치했다(ignored).
+  uv가 CPython 3.12.15를 내려받아 `.venv`를 생성했다. 다음 iteration 명령:
+  `export PATH="$PWD/.tools/uv/bin:$PATH"` 후 `uv sync --locked`, `npm run verify`.
+- Acceptance 통과: `extension/dist/manifest.json` JSON/MV3 및 참조 파일 확인,
+  offscreen HTML + 실제 `offscreen.js` 참조, worklet/content/service worker 파일 존재.
+  worklet/content/service worker는 아직 inert scaffold이며 캡처 성공 증거가 아니다.
+- 실제 Python 3.12 서버를 `uv run --locked uvicorn server.app:app --host 127.0.0.1
+  --port 8765`로 실행하고 curl로 `/health`의 HTTP 200 + `{"status":"ok"}`를 확인했다.
+  SIGINT 후 정상 종료했다.
+- 최종 `npm ci` 후 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0:
+  lint/typecheck/build, JS 1 test, Python 1 test 통과, skipped 0, warning 0.
+  `uv lock --check`, `git diff --check` 통과. build/.venv/.tools/.ralph는 ignored.
+- 실패와 수정: CSS import 타입 선언 추가, offscreen script 누락에 대해 먼저
+  ENOENT 회귀 실패를 확인하고 scaffold entry 수정, generated dist를 source lint에서
+  제외하도록 Git ignore 연동, Starlette 권장 httpx2로 테스트 의존성 수정.
+  acceptance와 source lint 규칙은 약화하지 않았다.
+- 상세 명령/환경/실제 결과/한계: `docs/verification.md`.
+  브라우저 로드/실제 오디오/모델/자막/YouTube/live cloud 검증은 아직 실행하지 않았다.
+  이번 항목의 blocker는 없다.
+- 다음 미완료 작업: **항목 2 — 이벤트 계약과 실제 탭 캡처/PCM 전송**.
+  실제 Chrome Start 동작, 원음 재생 유지, popup 종료, Start/Stop 반복, tab close,
+  잘못된 PCM acceptance가 모두 통과할 때만 항목 2를 체크한다.

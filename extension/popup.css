@@ -1,0 +1,17 @@
+body {
+  width: 300px;
+  margin: 0;
+  padding: 16px;
+  font: 14px/1.5 system-ui, sans-serif;
+  color: #202124;
+  background: #fff;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+p {
+  margin: 0;
+}

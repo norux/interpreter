@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Interpreter",
+  "version": "0.1.0",
+  "description": "Korean captions for audio from a user-selected Chrome tab (in development).",
+  "minimum_chrome_version": "116",
+  "permissions": ["tabCapture", "offscreen", "activeTab", "scripting", "storage"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": { "service_worker": "service-worker.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "Interpreter" },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:8765 ws://127.0.0.1:8765"
+  }
+}
