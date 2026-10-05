@@ -313,3 +313,58 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
 - 다음 미완료 작업: **항목 2 — 이벤트 계약과 실제 탭 캡처/PCM 전송**.
   실제 Chrome Start 동작, 원음 재생 유지, popup 종료, Start/Stop 반복, tab close,
   잘못된 PCM acceptance가 모두 통과할 때만 항목 2를 체크한다.
+
+### Iteration 2/30 — 2026-10-05 — 항목 2 구현 진척, 실제 캡처 acceptance 차단
+
+- 작업 범위는 이 checkout으로 유지했다. AGENTS.md는 없으며 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이었다.
+  항목 2는 **미체크 상태**다. 모델/자막/다음 항목으로 범위를 확대하지 않았다.
+- feature-local AudioSource와 PCM wire 계약, Python Transcriber/TextTranslator/
+  TranslationSession 계약, caption/OutputSink 계약을 추가했다. adapter와 실제 sink는
+  아직 구현하지 않았다. 플랫폼 요구사항인 AudioWorkletProcessor 외에는 framework나
+  DI/class 계층을 만들지 않았다.
+- service worker → offscreen 캡처 소유권, popup Start/Stop/상태, mono PCM16 변환을
+  구현했다. 실제 AudioContext sample rate에서 24 kHz로 상태를 유지하며 리샘플링하고,
+  20 ms(480 samples)마다 sequence/timestamp/header와 binary PCM을 전송한다.
+  원음 destination 연결, Stop/탭 종료/이동/연결 오류 cleanup, 늦은 startup 취소,
+  WebSocket 대기량 1초 제한을 구현했다. 이 코드의 **실제 tabCapture 수명과
+  audible playback acceptance는 아직 검증되지 않았다**.
+- companion은 환경 변수 `INTERPRETER_EXTENSION_ID`의 정확한 origin과 loopback Host를
+  검사하고, 10초 유효한 single-use 메모리 token으로 WebSocket을 인증한다.
+  한 capture만 허용하며 잘못된 PCM은 error + close로 거부한다. 서버는 수신 frame/
+  sample count와 peak만 돌려주며 오디오/전사문을 저장하지 않는다. 모델은 호출하지 않는다.
+- 자동 검증: `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0:
+  lint/typecheck/build, JS 6 tests + Python 16 tests, skipped 0, warning 0.
+  JS는 stereo downmix/clipping/44.1 kHz 연속성/무음/프레임 경계 및 pending stream/
+  worklet 중 Stop cleanup을 검증한다. Python은 origin/host/token/expiry, 반복 연결,
+  receipt, 잘못된 PCM rate/channel/version/count/alignment/sequence/timestamp를 검증한다.
+- 실제 **worklet/transport만** 검증: Playwright 1.63.0과 공식 Chrome for Testing
+  153.0.8010.12를 normal dependency cache에 설치했다. 재현 가능한 명령
+  `PATH="$PWD/.tools/uv/bin:$PATH" npm run test:capture-browser` exit 0.
+  isolated ignored profile에서 extension 로드, 실제 offscreen runtime messaging,
+  실제 loopback health/origin/token/WS를 확인했다. 생성한 44.1 kHz 440 Hz tone →
+  실제 AudioWorklet → companion에서 50 frames / 24,000 samples / peak 3275를 확인했다.
+  명령 출력도 `tabCapture: "not exercised"`로 구별한다. 이것은 실제 탭 캡처,
+  원음 청취, 모델, 한국어 자막 성공 증거가 아니다.
+- 실패와 수정: JS non-null lint/TypeScript narrowing 및 Python line length 실패를
+  source에서 수정했다. TestClient WebSocket의 기본 `ws://testserver`가 loopback Host
+  검사를 통과하지 못해 14 tests가 실패했다. 실제 `ws://127.0.0.1:8765/audio` URL로
+  테스트를 수정하고 모두 통과했다. 보안 검사/acceptance/runner는 완화하지 않았다.
+- **Blocker (외부 권한 변경 필요)**: macOS Computer Use가 Accessibility 및
+  Screen Recording 권한이 아직 없다고 두 번 반환했다. 실제 toolbar를 누를 수 없어
+  Chrome의 activeTab grant가 발생하지 않았다. headed 전용 profile에서 공개/사용자
+  데이터가 아닌 stereo fixture를 Play한 후, `chrome.action.openPopup({windowId})`로
+  실제 action popup을 열고 browser CDP의 trusted mouse input으로 Start를 눌렀으나
+  Chrome이 `Extension has not been invoked for the current page (see activeTab
+  permission). Chrome pages cannot be captured.`로 거부했다. API popup 오픈만으로
+  사용자 toolbar invocation을 대체할 수 없다. host 권한 확대나 가짜 stream으로
+  실제 capture acceptance를 우회하지 않았다.
+- 필수 미검증: 실제 tab PCM 도착, audible 원음 유지, popup 닫기 후 지속,
+  실제 Start/Stop 반복, captured tab close/navigation/disconnect 수명. native toolbar
+  접근이 가능해진 뒤 이 체크를 모두 실행하고 근거를 남기기 전에는 항목 2를 체크하지 않는다.
+  README의 fixture/companion/extension 설치 명령으로 다시 시작할 수 있다.
+- 필요한 사용자 동작: ChatGPT Computer Use가 요청한 macOS Accessibility/Screen
+  Recording 권한을 완료하고 Chrome 테스트 창의 실제 toolbar를 조작할 수 있게 한다.
+  그 뒤 동일 checkout에서 iteration을 재개한다. 상세 증거와 재개 순서는
+  `docs/verification.md`의 Iteration 2에 남겼다. 키/모델/오디오/전사문/임시 .ralph
+  state는 커밋하지 않는다. 코드와 blocker는 Conventional Commit으로 보존한다.

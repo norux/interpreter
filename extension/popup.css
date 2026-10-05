@@ -15,3 +15,15 @@ h1 {
 p {
   margin: 0;
 }
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+button {
+  padding: 6px 16px;
+  font: inherit;
+  cursor: pointer;
+}
