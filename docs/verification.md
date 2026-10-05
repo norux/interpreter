@@ -365,3 +365,57 @@ test:capture-browser` exited 0, with stdout:
 
 This separate smoke still exercises generated offscreen audio only. The native
 fixture-tab evidence is in the table above. Final `git diff --check` passed.
+
+## Ralph iteration 1/30 — item 2 listening acceptance retry (2026-10-06)
+
+Resumed item 2 in `/Users/norux/orca/workspaces/interpreter/aspidochelone`.
+No repository AGENTS.md exists; the supplied user instructions apply.
+`.ralph/verification.txt` reads `No completion verification attempted in this run.`
+No source change was necessary for the already implemented capture path.
+
+Executed `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify`: exit 0, lint,
+typecheck, production build, **7 JS tests and 16 Python tests passed**, no skips
+or warnings. Malformed PCM and terminal cleanup regression checks remain enabled.
+
+Started the existing ignored `.ralph/capture-acceptance.mjs` harness using
+`node .ralph/capture-acceptance.mjs`. It launched Chrome for Testing
+**153.0.8010.12** with the rebuilt unpacked extension and a fresh ignored profile,
+the loopback companion on port 8765, and the generated stereo fixture on port
+8766. The harness is temporary state and is not part of this commit. No models,
+cloud inference, microphone, user audio, or transcripts were involved.
+
+Native `cua_repl` opened Chrome's actual Extensions toolbar, invoked Interpreter,
+and clicked the popup's Start button. The initial activeTab grant came from this
+native invocation. The companion received **100 frames / 48,000 samples /
+peak 2881**, with Chrome reporting capture `active` and one offscreen document.
+Native Escape closed the popup. A subsequent debugger read found no popup
+target, the same capture session still active, one offscreen document, and
+**800 frames / 384,000 samples / peak 2881**. These observations establish real
+tab PCM delivery and popup-independent capture, not audible speaker output.
+
+An asynchronous listening question was sent before the retry and another while
+the actual capture was active with the popup closed. The remaining acceptance
+requires a person's confirmation that the original generated tone remains
+audible during capture and after popup closure. **No listening response arrived**
+during the test, including a 60-second listening window after recording the
+popup-closure evidence. There is no system-output listening tool in this session.
+Receipt counts, the audio activity indicator, and the destination connection
+cannot substitute for that missing result. **Item 2 remains unchecked and
+blocked on user input.**
+
+Reopened Interpreter through the native toolbar; the popup showed 5000 PCM
+frames received. Clicked its actual Stop button: the popup returned to Ready,
+debugger state was idle, offscreen contexts were empty, and Chrome reported the
+captured tab `stopped`. Sent `exit` to the harness to close the dedicated browser
+and stop both listeners. `lsof` confirmed no listeners on ports 8765 or 8766,
+and the dedicated browser process was gone. The temporary Node harness remained
+alive after cleanup, so it was terminated with SIGTERM (tool-reported exit 1); this was not
+a successful harness exit. No temporary `.ralph` files are included in the commit.
+
+To resume, a person able to hear this Mac's output must confirm the same tone
+remains audible after fixture Play → toolbar Interpreter → Start, and after
+closing the popup. If the tone is inaudible, report the state in which it stops
+so the failure can be reproduced and fixed. Use the listener commands and
+fixture procedure above; native permissions already work. Preserve item 2's
+unchecked state until this last acceptance check passes. No later checklist
+item or final completion criterion was satisfied by this retry.

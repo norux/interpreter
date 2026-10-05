@@ -412,3 +412,34 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   필수 acceptance와 `npm run verify`를 통과한 뒤에만 항목 2를 체크하고 항목 3으로 간다.
   native 권한은 다시 요청할 필요 없다. 상세 관측/명령/실패/한계는
   `docs/verification.md`의 Ralph iteration 1/30 재개 기록에 보존한다.
+
+### Ralph iteration 1/30 (청취 재시도) — 2026-10-06 — 항목 2 사용자 확인 차단
+
+- 다음 미완료 항목 2만 재개했다. AGENTS.md는 없으며 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  기존 캡처 구현에 필요한 새 source 수정은 발견하지 않았다. 항목 2는 미체크다.
+- `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 7 tests + Python 16 tests 통과, skipped 0, warning 0. 잘못된 PCM과 수명
+  회귀 검증을 유지했다. 모델/자막/다음 항목으로 범위를 확대하지 않았다.
+- rebuilt extension + Chrome for Testing 153.0.8010.12 + 새 ignored 전용 profile로
+  generated 440/880 Hz fixture, 실제 loopback companion을 다시 실행했다.
+  native `cua_repl`로 실제 Extensions toolbar → Interpreter → Start를 눌렀다.
+  실제 tab capture active, 100 frames / 48,000 samples / peak 2881을 확인했다.
+  native Escape로 popup을 닫은 뒤 같은 session은 800 frames / 384,000 samples로
+  증가했고 popup target은 없었으며 capture active/offscreen 1을 유지했다.
+- **Blocker (필수 사용자 청취 확인)**: 테스트 전과 실제 capture 중 async 청취
+  질문을 보냈고 popup 종료 근거 기록 후 60초 청취 시간을 두었으나 답변이 없었다.
+  이 session에는 system-output 청취 도구가 없다. 원음이 default/physical 출력에서
+  capture 중과 popup 종료 후 계속 들리는지는 아직 미검증이다. PCM 수신과 audio
+  activity 표시는 실제 청취 증거가 아니므로 acceptance를 체크하거나 약화하지 않았다.
+- 종료 확인: native toolbar에서 다시 연 popup은 5000 PCM frames를 표시했다.
+  실제 Stop 클릭 후 idle/offscreen contexts 0/tab capture stopped를 확인했다.
+  harness exit로 테스트 browser와 두 listener를 종료하고 lsof/pgrep로 확인했다.
+  임시 Node harness가 cleanup 후에도 남아 SIGTERM으로 종료했다(tool-reported exit 1).
+  이를 harness exit 성공으로 기록하지 않는다. 임시 `.ralph`
+  파일, 키, 모델 가중치, 사용자 오디오/전사문은 커밋하지 않는다.
+- 필요한 사용자 동작: 이 Mac에서 fixture Play → 실제 toolbar Interpreter → Start
+  동안 같은 tone이 계속 들리는지, popup 닫기 후에도 들리는지 확인해 응답한다.
+  들리지 않으면 중단되는 상태를 알려 실제 실패를 재현한다. native 권한 재요청은
+  필요 없다. 청취 결과 없이는 항목 2의 필수 acceptance를 완료할 수 없다.
+  `docs/verification.md`에 이번 명령/관측/정확한 한계와 재개 절차를 보존한다.
