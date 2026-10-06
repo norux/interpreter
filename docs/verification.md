@@ -1768,3 +1768,125 @@ Dependency/lockfiles are unchanged. Model processes completed, the fixture brows
 closed and Ollama was terminated; no 8765/8766/11434 listeners remain. Only intended
 source/tests/docs/numeric evidence are committed, without keys, model weights,
 generated audio, user transcripts or temporary `.ralph` state.
+
+## Ralph iteration 5/30 — native revision paint comparison (2026-10-06)
+
+Next unfinished item remains **7a**. Added test-local Chromium CDP tracing to the
+existing local-browser harness and revision/final fields to the numeric companion
+instrumentation. Production capture/model/output contracts and implementations,
+dependencies, checklist acceptance and runner are unchanged. No other agents,
+worktrees, credential files, cloud inference, push or publication were used.
+
+Actual commands (Ollama was stopped after both sessions):
+
+```sh
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-browser.mjs before
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-browser.mjs after
+node --import tsx --test tests/caption-paint.test.ts
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked
+PATH="$PWD/.tools/uv/bin:$PATH" npm run verify
+```
+
+Both real-browser sessions exited **0**. In each, used the native Extensions
+toolbar → Interpreter → Start, closed the popup, entered `measure`, then used
+native Stop → `stopped` → `exit`. Chrome for Testing **153.0.8010.12**, Playwright
+1.63.0, Apple M5 / 16 GiB, Python 3.12.15 / mlx-audio 0.5.8, Ollama 0.35.1,
+cached MLX Qwen3-ASR 0.6B 8bit and `qwen3:4b-instruct` Q4_K_M with 4096 context,
+English → Korean. Native active tabCapture, real companion PCM and both actual
+models were used; no generated caption messages or microphone stream substituted
+for capture. Hugging Face offline flags and Ollama cloud disabling were set.
+
+The **controlled baseline** uses 500 ms VAD silence and withholds delivery of
+partial captions to the browser. It still consumes the current real streaming
+translation request and uses the current prompt, quality boundary, model
+preparation and six-second cap. The revised path uses 300 ms and delivers partial
+revisions. This isolates the combined silence/display-streaming change; it is
+**not a historical-build benchmark**, nor a measurement of model-preparation
+improvement. Separate headed profiles/companion processes, sequential phase order
+and uncleared model/OS caches also limit the comparison.
+
+Same macOS Samantha 165 wpm weather and park WAV hashes match between phases.
+Each has **6 warm cues** (two short clips × three repetitions) and **1 separate
+first-inference cue**. Reports contain numeric/Boolean identity, geometry, revision
+and paint timing evidence, with no audio or transcript text:
+[baseline](verification/latency/paint-before.json),
+[streaming](verification/latency/paint-after.json).
+
+| Warm audio-end → Chromium Paint start | Baseline p50 / p95 (ms), n=6 | Revised p50 / p95 (ms), n=6 |
+| --- | --- | --- |
+| First painted revision | 1277.630 / 1432.930 | 632.452 / 908.936 |
+| Final painted revision | 1277.630 / 1432.930 | 1018.584 / 1374.987 |
+
+Warm first-paint p50 decreased **50.50%** in this sample. Every revised cue first
+painted a partial revision before its own increasing final revision. All recorded
+caption marks in both reports matched a qualifying Paint (0 missing/coalesced
+marks in this run); missing evidence is not synthesized by the analyzer. The
+two weather/park finals were reviewed in terminal across all repetitions. They
+say the weather is sunny today, and that we walk to the park after lunch. This
+short-speech review does not establish the long-speech acceptance or general
+translation accuracy.
+
+Timing method: a test listener installed **after** the built content listener
+marks its synchronous DOM update, including the message's session, utterance,
+revision/final state and visible cue rectangle. CDP records actual Chromium
+`Paint` events. The analyzer requires the main frame and a paint clip covering
+the whole cue after that mark and before the next caption/start/clear mark.
+It never pairs a revision to a subsequent revision's paint or a different frame.
+Epoch conversion uses the mark's `performance.timeOrigin + performance.now()`
+plus the trace timestamp difference. Audio origin is estimated from the first
+received PCM frame's capture timestamp and 20 ms duration, as in the existing
+browser companion instrumentation. Transport/clock scheduling error in that
+origin remains; this is not an acoustic endpoint measurement. Paint **start** is
+an actual browser rendering event, not rAF or server emission, but is also not
+GPU completion, compositor presentation, or the moment pixels reach a display.
+The cue-bounds check relies on the rendered DOM and paint clip, not OCR for every
+partial revision. No synthetic 0 ms timings or cold-speed claim is made.
+
+Separate first inference: baseline first/final paint **16089.145 / 16089.145 ms**,
+ASR **15087.544 ms**; revised first/final **1312.109 / 1687.763 ms**, ASR
+**937.222 ms**, n=1 each. Both were after model preparation, with existing caches;
+compilation/cache differences are not a cold-start streaming improvement. Native
+Start preparation elapsed time/model-loading p50/p95 were not measured here.
+
+Both phases have sampled waiting queue peak **0 ms**, dropped transport frames
+**0**, dropped utterances **0**. Receipts sample once per 50 frames, so these short
+isolated clips do not establish continuous queue peaks or 10-minute stability.
+Native Stop in each phase verified idle status, no active captured tab, offscreen
+contexts **0**, caption hosts **0**. This is real cleanup, not simulated Stop.
+
+After timing, `play` replayed the last selected park clip, then `accept` saved
+[paint-after.png](verification/latency/paint-after.png). `view_image` review shows
+the complete reviewed Korean park sentence in one readable white outlined line,
+small dark background, bottom center, clear of the native audio controls. The
+capture receipt then showed **3350 frames / 1,608,000 samples / peak 25,409**.
+This real screenshot is separate from the paint timing run. It verifies normal
+short-cue appearance; no new long/fullscreen appearance or original-speaker
+listening claim is made. The available UI inspection exposes state/screenshots,
+not speaker sound; unmuted media/real PCM are not human listening evidence.
+
+The new analyzer regression passed: rejects another frame, paint outside cue
+bounds, paint after a replacement revision, and hidden cues; accepts qualifying
+paint timestamps. Focused unit test, lint/typecheck/build and both real-model
+sessions passed without a failed acceptance check. The first small inspection
+command tried a nonexistent `extension/captions/dom-sink.ts`; actual sink is
+`overlay.ts`. No assertion was weakened to make a run pass.
+
+**7a stays unchecked.** Next: real long-cue streaming meaning/rendering without
+lost parts; native Stop/restart/provider replacement while real results are in
+flight with late-result rejection; original-sound listening; and explicit Start
+model-loading/first-inference versus prepared timing. Existing event/quality
+evidence remains separate. Short native paint before/after is now recorded and
+need not be reimplemented. Source Auto (7b), advancing TED 600 seconds (8) and
+final checks (9) remain. No external blocker prevents the next implementation
+and browser-verification work; no completion promise is made.
+
+Final base `uv sync --locked` then `npm run verify` exited **0**: lint/typecheck/
+build, **11 JS + 159 Python tests**, failures/skips/warnings **0**, Python
+**66.11 seconds**. `uv lock --check`, `git diff --check` and independent numeric
+report checks passed: identical hashes, seven samples per phase, increasing
+revision identity, final/partial distinctions, positive first/final ordering,
+epoch/latency arithmetic, nearest-rank warm p50/p95, queue/drop values. Dedicated
+browsers, companions, fixture servers and Ollama closed; no 8765/8766/11434
+listeners remain. No dependency/lockfile change, temporary `.ralph` state, model
+weights, keys, audio or user transcript is committed.

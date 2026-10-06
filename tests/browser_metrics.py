@@ -1,11 +1,17 @@
 """Numeric-only instrumentation for the real-browser acceptance companion."""
 
 import json
+import os
 import struct
 import time
 import weakref
 
-from server.sessions.local import MlxEngine, MlxTranscriber
+from server.sessions.local import MlxEngine, MlxTranscriber, SpeechSegments
+
+# Controlled display baseline only, never a product setting or historical build.
+baseline = os.environ.get("INTERPRETER_PAINT_BASELINE") == "1"
+if baseline:
+    SpeechSegments.silence_frames = 25
 
 transcribers = weakref.WeakSet()
 original_init = MlxTranscriber.__init__
@@ -75,10 +81,14 @@ async def app(scope, receive, send):
                     caption = reply["caption"]
                     metric.update(
                         utteranceId=caption["utteranceId"],
+                        revision=caption["revision"],
+                        final=caption["final"],
                         audioEndMs=caption["audioEndMs"],
                         emittedAtMs=caption["emittedAtMs"],
                     )
                 print(json.dumps(metric), flush=True)
+                if baseline and reply["type"] == "caption" and not caption["final"]:
+                    return
         await send(message)
 
     await companion(scope, measured_receive, measured_send)

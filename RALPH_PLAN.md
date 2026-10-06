@@ -1143,3 +1143,68 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   session 교체 뒤 늦은 결과 거부를 함께 확인해야 checkbox를 바꿀 수 있다.
   tests/local-browser.mjs,tests/browser_metrics.py,기존 local-latency.py를 출발점으로
   사용한다. 7b(Source Auto),8(TED연속600초),9/최종 완료는 남아 있다.
+
+### Ralph iteration 5/30 — 2026-10-06 — 항목 7a 실제 Chrome revision paint 실측
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7a만 진행**, 큰 항목 분할 규칙에 따라 **checkbox는 미체크로 유지**한다.
+  다른 agent/worktree/push/runner/acceptance 변경/credential 파일/cloud inference는 없다.
+- 기존 local-browser에 작은 test-local CDP Paint 계측을 추가했다. 실제 built content
+  sink 뒤 test listener가 session/utterance/revision/final/visible cue bounds를 mark하고,
+  같은 main frame에서 cue 전체를 덮는 실제 Chromium Paint를 다음 caption/start/clear
+  mark 전까지만 연결한다. rAF/서버 event를 paint로 대체하지 않는다. missing paint는
+  null이며 다른 frame/작은 paint/교체된 revision/hidden cue 거부 regression이 통과했다.
+  production capture/model/output 계약/구현과 dependency는 바꾸지 않았다.
+- `node tests/local-browser.mjs before`/`after` 실제 두 실행 exit0. 각 전용 headed
+  Chrome에서 **native toolbar Start**→popup 닫기→`measure`→**native Stop**→
+  `stopped`→`exit`를 실행했다. 첫 baseline의 `check`와 after의 `accept`에서도 active
+  native tabCapture를 확인했다. 실제 PCM과 실제 cached 두 모델이며 fake caption/
+  microphone 대체는 없다. Chrome for Testing153.0.8010.12/Playwright1.63.0,
+  AppleM5/16GiB/Python3.12.15/mlx-audio0.5.8/Ollama0.35.1,
+  0.6B8bit ASR/qwen3:4b-instruct Q4_K_M/context4096, English→Korean이다.
+  HF offline/Ollama cloud disabled이며 audio는 ignored profile 안에만 있다.
+- **controlled baseline이며 historical build가 아니다**: before는500ms silence와
+  partial delivery withholding, after는300ms와partial delivery다. 양쪽 모두 현재
+  prepared models/품질지침/streaming model request/quality boundary/6초 cap이다.
+  silence+표시 streaming의 합친 차이를 비교하며 준비 개선 효과를 주장하지 않는다.
+  sequential phase/별도 companion/기존 OS-model cache 한계를 기록했다.
+- 같은 Samantha165wpm 날씨/공원 WAV hash가 양쪽 일치한다. phase당 **warm6 cues**
+  (2clips×3회), 별도 first-inference1이다. 실제 **Paint start** first p50/p95
+  **1277.630/1432.930→632.452/908.936ms**, final
+  **1277.630/1432.930→1018.584/1374.987ms**, n6씩이다.
+  warm first p50은50.50% 감소했다. after의 모든 cue는 partial paint 뒤 증가 revision의
+  final paint가 왔고 전체 mark의 missing/coalescing0이었다. 원시 numeric/identity/
+  geometry evidence는 docs/verification/latency/paint-before.json,paint-after.json이다.
+  생성 날씨/점심 뒤 공원 의미를 모든 final에서 terminal로 검토했다.
+- 정확한 한계: Paint start는 실제 rendering event지만 GPU완료/화면 presentation/
+  pixel 도달 시각은 아니다. PCM첫 frame receipt의 timestamp−20ms로 epoch origin을
+  추정하므로 transport/clock scheduling 오차가 남는다. partial마다 OCR한 것은 아니다.
+  모델 준비 뒤 first-inference before first/final16089.145/16089.145ms,
+  ASR15087.544ms; after1312.109/1687.763ms,ASR937.222ms(n1씩)은 warm에서 제외했다.
+  caches/compile 차이이므로 cold 개선을 주장하지 않는다. native Start 준비/loading
+  elapsed는 미측정이다. 0ms 보장/실측 위조는 없다.
+- 각 phase sampled pending queue peak0ms, frame/utterance drop0이다. receipt50frames
+  간격의 짧은 isolated clips이며 continuous peak/600초 안정성의 근거가 아니다.
+  두 native Stop 모두 idle/active capture없음/offscreen0/caption host0을 통과했다.
+  after timing 뒤 `play`는 마지막 선택 park clip을 재생했고 `accept`의 실제 Korean
+  screenshot은 docs/verification/latency/paint-after.png다. view_image로 전체 공원
+  문장의 읽히는 흰 outline/작은 어두운 배경/하단중앙/controls와 분리됨을 검토했다.
+  receipt3350frames/1,608,000samples/peak25,409. normal short cue 증거이며 긴 cue/
+  fullscreen/원음 speaker 청취를 새 통과로 기록하지 않는다. UI inspection은 sound를
+  제공하지 않으므로 unmuted/PCM을 사람 청취의 근거로 대체하지 않았다.
+- focused analyzer/lint/typecheck/build와 실제 model runs가 실패 없이 통과했다.
+  초기 read가 존재하지 않는 dom-sink.ts를 참조했으나 실제 overlay.ts를 읽어 수정했다.
+  최종 base `uv sync --locked` 뒤 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify`
+  exit0: **JS11+Python159**, failures/skips/warnings0,Python66.11초.
+  `uv lock --check`, `git diff --check`, 독립 numeric/hash/percentile/revision/latency/
+  queue consistency 통과. dedicated browsers/companion/fixture/Ollama 종료,
+  8765/8766/11434 listener없음. README 재현 명령/docs 상세 근거를 보존했다.
+  dependency/lock 변경,키/weights/audio/user transcript/임시 .ralph 커밋은 없다.
+- **다음 iteration도7a**: real long-cue streaming의 의미/모든 part 표시, 실제 inference
+  진행 중 Stop/restart/provider/session교체 뒤 늦은 결과 거부, 원음 청취와 native Start
+  model loading/first inference 대 prepared timing을 확인해야 checkbox를 바꿀 수 있다.
+  짧은 동일음성 native revision Paint 비교는 기록했으므로 재구현하지 않는다.
+  cold-cache 비교를 기존 compile 차이로 대체하지 않는다. UI에서 소리를 확인하지 못한
+  한계를 유지하며 다음 구현/브라우저 작업을 진행할 외부 blocker는 없다.
+  7b(SourceAuto),8(TED600초),9/최종완료는 남아 있다.

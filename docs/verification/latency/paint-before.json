@@ -1,0 +1,229 @@
+{
+  "phase": "before",
+  "browser": "153.0.8010.12",
+  "measurement": "Chromium main-frame Paint covering cue bounds after matching revision DOM mark; not rAF or server emission",
+  "baseline": "before: 500ms silence, partial delivery withheld; after: 300ms silence, partial delivery; same prepared models/prompt/streaming requests",
+  "coldComparison": "none; cached models, separate first inference sample (repetition -1)",
+  "wavSha256": [
+    "f60cd64de3e4629052a881f6e6c10f0a934fd4a75b2d3330656e820ce7f80de3",
+    "5651a4e04038c11ae10babd8d3e98d96ec9c3698e19d333ec60c5ae47d787f6c"
+  ],
+  "samples": [
+    {
+      "repetition": -1,
+      "clip": 0,
+      "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+      "utteranceId": "1",
+      "audioEndMs": 4460,
+      "originMs": 1791250281606.757,
+      "asrMs": 15087.544167006854,
+      "firstPaintMs": 16089.14501953125,
+      "finalPaintMs": 16089.14501953125,
+      "revisions": [
+        {
+          "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+          "utteranceId": "1",
+          "revision": 9,
+          "final": true,
+          "audioEndMs": 4460,
+          "type": "caption",
+          "atMs": 1791250302155.7002,
+          "visible": true,
+          "left": 498.109375,
+          "right": 781.890625,
+          "top": 669,
+          "bottom": 720,
+          "paintAtMs": 1791250302155.902,
+          "markToPaintMs": 0.202
+        }
+      ]
+    },
+    {
+      "repetition": 0,
+      "clip": 0,
+      "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+      "utteranceId": "2",
+      "audioEndMs": 22420,
+      "originMs": 1791250281606.757,
+      "asrMs": 253.24583298061043,
+      "firstPaintMs": 1272.473876953125,
+      "finalPaintMs": 1272.473876953125,
+      "revisions": [
+        {
+          "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+          "utteranceId": "2",
+          "revision": 9,
+          "final": true,
+          "audioEndMs": 22420,
+          "type": "caption",
+          "atMs": 1791250305299,
+          "visible": true,
+          "left": 498.109375,
+          "right": 781.890625,
+          "top": 669,
+          "bottom": 720,
+          "paintAtMs": 1791250305299.231,
+          "markToPaintMs": 0.231
+        }
+      ]
+    },
+    {
+      "repetition": 0,
+      "clip": 1,
+      "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+      "utteranceId": "3",
+      "audioEndMs": 26100,
+      "originMs": 1791250281606.757,
+      "asrMs": 235.07900000549853,
+      "firstPaintMs": 1338.758056640625,
+      "finalPaintMs": 1338.758056640625,
+      "revisions": [
+        {
+          "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+          "utteranceId": "3",
+          "revision": 12,
+          "final": true,
+          "audioEndMs": 26100,
+          "type": "caption",
+          "atMs": 1791250309045.3,
+          "visible": true,
+          "left": 411.83984375,
+          "right": 868.16015625,
+          "top": 669,
+          "bottom": 720,
+          "paintAtMs": 1791250309045.5151,
+          "markToPaintMs": 0.215
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "clip": 0,
+      "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+      "utteranceId": "4",
+      "audioEndMs": 29300,
+      "originMs": 1791250281606.757,
+      "asrMs": 233.16220799461007,
+      "firstPaintMs": 1277.630126953125,
+      "finalPaintMs": 1277.630126953125,
+      "revisions": [
+        {
+          "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+          "utteranceId": "4",
+          "revision": 9,
+          "final": true,
+          "audioEndMs": 29300,
+          "type": "caption",
+          "atMs": 1791250312184.2002,
+          "visible": true,
+          "left": 498.109375,
+          "right": 781.890625,
+          "top": 669,
+          "bottom": 720,
+          "paintAtMs": 1791250312184.3872,
+          "markToPaintMs": 0.187
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "clip": 1,
+      "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+      "utteranceId": "5",
+      "audioEndMs": 32960,
+      "originMs": 1791250281606.757,
+      "asrMs": 259.058834053576,
+      "firstPaintMs": 1344.18701171875,
+      "finalPaintMs": 1344.18701171875,
+      "revisions": [
+        {
+          "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+          "utteranceId": "5",
+          "revision": 12,
+          "final": true,
+          "audioEndMs": 32960,
+          "type": "caption",
+          "atMs": 1791250315910.7002,
+          "visible": true,
+          "left": 411.83984375,
+          "right": 868.16015625,
+          "top": 669,
+          "bottom": 720,
+          "paintAtMs": 1791250315910.944,
+          "markToPaintMs": 0.244
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "clip": 0,
+      "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+      "utteranceId": "6",
+      "audioEndMs": 36180,
+      "originMs": 1791250281606.757,
+      "asrMs": 204.66295798541978,
+      "firstPaintMs": 1255.975830078125,
+      "finalPaintMs": 1255.975830078125,
+      "revisions": [
+        {
+          "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+          "utteranceId": "6",
+          "revision": 9,
+          "final": true,
+          "audioEndMs": 36180,
+          "type": "caption",
+          "atMs": 1791250319042.5,
+          "visible": true,
+          "left": 498.109375,
+          "right": 781.890625,
+          "top": 669,
+          "bottom": 720,
+          "paintAtMs": 1791250319042.733,
+          "markToPaintMs": 0.233
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "clip": 1,
+      "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+      "utteranceId": "7",
+      "audioEndMs": 39860,
+      "originMs": 1791250281606.757,
+      "asrMs": 426.4628749806434,
+      "firstPaintMs": 1432.929931640625,
+      "finalPaintMs": 1432.929931640625,
+      "revisions": [
+        {
+          "sessionId": "203113f0-e330-427c-9879-6ba7f2c8f656",
+          "utteranceId": "7",
+          "revision": 12,
+          "final": true,
+          "audioEndMs": 39860,
+          "type": "caption",
+          "atMs": 1791250322898,
+          "visible": true,
+          "left": 411.83984375,
+          "right": 868.16015625,
+          "top": 669,
+          "bottom": 720,
+          "paintAtMs": 1791250322899.687,
+          "markToPaintMs": 1.687
+        }
+      ]
+    }
+  ],
+  "maxPendingAudioMs": 0,
+  "droppedFrames": 0,
+  "droppedUtterances": 0,
+  "firstPaintMs": {
+    "n": 6,
+    "p50Ms": 1277.630126953125,
+    "p95Ms": 1432.929931640625
+  },
+  "finalPaintMs": {
+    "n": 6,
+    "p50Ms": 1277.630126953125,
+    "p95Ms": 1432.929931640625
+  }
+}

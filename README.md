@@ -310,6 +310,30 @@ status or `exit` to stop the browser/listeners. The generated audio is ignored
 and must not be committed. The screenshots need visual and meaning review;
 a Hangul assertion alone is not evidence of accurate translation.
 
+To compare actual caption revision paints on identical generated short speech:
+
+```sh
+# Keep local Ollama running. Run these headed browser sessions sequentially.
+npm run test:local-browser -- before
+npm run test:local-browser -- after
+```
+
+In each session use native Start, close the popup, then enter `measure`. This plays
+one separate first-inference sample followed by three repetitions of each of two
+short clips. Review the printed Korean finals. Use native Stop, enter `stopped`,
+then `exit`. Numeric evidence goes to `docs/verification/latency/paint-before.json`
+and `paint-after.json`; WAV hashes must match. The `before` mode is a test-only
+controlled baseline: 500 ms silence and withheld partial delivery. Both modes use
+the current prepared models, translation prompt and streaming model request; this
+is not a checkout of an earlier implementation. `after` uses 300 ms and partial
+delivery. The harness correlates session/utterance/revision marks after the built
+sink runs with Chromium main-frame Paint events covering the cue bounds before
+another caption command. Missing paints remain null and fail sample acceptance.
+It measures Paint start, not display presentation or sound from the speakers.
+Cached first-inference samples are separate from warm p50/p95; the run does not
+establish cold-start improvement or long-media queue stability. See the recorded
+limits and remaining 7a acceptance in `docs/verification.md`.
+
 ## OpenAI direct translation
 
 This optional paid path sends the selected tab's audio to OpenAI. It requires

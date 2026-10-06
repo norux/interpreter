@@ -2,11 +2,20 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { chromium } from "playwright";
+import { traceCaptionPaints } from "./caption-paint.mjs";
+
+const paintPhase = process.argv[2];
+assert.ok(paintPhase === undefined || ["before", "after"].includes(paintPhase));
+const metrics = [];
+let finishTrace;
+let paintReport;
+let lineBuffer = "";
 
 await mkdir(".ralph", { recursive: true });
 const profile = await mkdtemp(resolve(".ralph/local-browser-"));
@@ -14,8 +23,18 @@ execFileSync("say", ["-v", "Samantha", "-r", "165", "-o", `${profile}/speech.aif
   "The weather is sunny today. We will walk to the park after lunch."]);
 execFileSync("afconvert", ["-f", "WAVE", "-d", "LEI16@24000", "-c", "1", `${profile}/speech.aiff`, `${profile}/speech.wav`]);
 const audio = await readFile(`${profile}/speech.wav`);
+const clips = [];
+if (paintPhase) {
+  for (const [index, text] of ["The weather is sunny today.", "We will walk to the park after lunch."].entries()) {
+    execFileSync("say", ["-v", "Samantha", "-r", "165", "-o", `${profile}/${index}.aiff`, text]);
+    execFileSync("afconvert", ["-f", "WAVE", "-d", "LEI16@24000", "-c", "1", `${profile}/${index}.aiff`, `${profile}/${index}.wav`]);
+    clips.push(await readFile(`${profile}/${index}.wav`));
+  }
+}
 const fixture = createServer((request, response) => {
   if (request.url === "/speech.wav") { response.setHeader("Content-Type", "audio/wav"); response.end(audio); return; }
+  const clip = clips[Number(request.url?.match(/^\/([01])\.wav$/)?.[1])];
+  if (clip) { response.setHeader("Content-Type", "audio/wav"); response.end(clip); return; }
   response.setHeader("Content-Type", "text/html");
   response.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Local speech acceptance</title>
     <style>body{margin:0;background:#446879;color:white;font:24px system-ui}main{padding:48px}audio{width:80%}</style>
@@ -29,6 +48,8 @@ let input;
 let log = "";
 let passed = false;
 let stopped = false;
+let failed = false;
+let measured = false;
 try {
   await new Promise((ready) => fixture.listen(8766, "127.0.0.1", ready));
   const extension = resolve("extension/dist");
@@ -38,12 +59,23 @@ try {
   });
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
   const extensionId = new URL(worker.url()).host;
-  companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", "server.app:app",
+  companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", paintPhase ? "browser_metrics:app" : "server.app:app",
+    "--app-dir", paintPhase ? "tests" : ".",
     "--host", "127.0.0.1", "--port", "8765", "--ws-max-size", "4096", "--ws-max-queue", "8"], {
-    env: { ...process.env, INTERPRETER_EXTENSION_ID: extensionId, HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" },
+    env: { ...process.env, PYTHONPATH: ".", INTERPRETER_EXTENSION_ID: extensionId,
+      INTERPRETER_PAINT_BASELINE: paintPhase === "before" ? "1" : "0",
+      HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  companion.stdout.on("data", (chunk) => { log += chunk; });
+  companion.stdout.on("data", (chunk) => {
+    if (!paintPhase) { log += chunk; return; }
+    lineBuffer += chunk;
+    let end = lineBuffer.indexOf("\n");
+    while (end >= 0) {
+      try { const metric = JSON.parse(lineBuffer.slice(0, end)); if (metric.metric) metrics.push(metric); } catch {}
+      lineBuffer = lineBuffer.slice(end + 1); end = lineBuffer.indexOf("\n");
+    }
+  });
   companion.stderr.on("data", (chunk) => { log += chunk; });
   await new Promise((ready, reject) => {
     const timeout = setTimeout(() => reject(new Error(`Companion startup timed out: ${log}`)), 20000);
@@ -54,12 +86,82 @@ try {
   });
   const page = context.pages()[0];
   await page.goto("http://127.0.0.1:8766/");
+  if (paintPhase) {
+    const tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({})).find((tab) => tab.url === url)?.id, page.url());
+    assert.ok(tabId);
+    await worker.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, files: ["content.js"] }), tabId);
+    finishTrace = await traceCaptionPaints(context, page, worker, tabId);
+  }
   console.log(JSON.stringify({ ready: true, browser: context.browser().version(), extensionId,
-    instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Enter play, check, accept, stopped, or exit." }));
+    paintPhase, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Enter measure (paint mode), play, check, accept, stopped, or exit." }));
   input = createInterface({ input: process.stdin });
   for await (const command of input) {
     try {
       if (command === "exit") break;
+      if (command === "measure") {
+        assert.ok(paintPhase && finishTrace);
+        const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
+        assert.equal(captureStatus.state, "capturing");
+        const samples = [];
+        for (let repetition = -1; repetition < 3; repetition++) {
+          for (let clip = 0; clip < (repetition < 0 ? 1 : clips.length); clip++) {
+            const start = metrics.length;
+            await page.locator("audio").evaluate(async (element, index) => {
+              element.src = `/${index}.wav`; await element.play();
+            }, clip);
+            const deadline = Date.now() + 90000;
+            while (!metrics.slice(start).some((m) => m.metric === "caption" && m.final)) {
+              assert.ok(Date.now() < deadline, "No real final caption before deadline");
+              await page.waitForTimeout(50);
+            }
+            const captions = metrics.slice(start).filter((m) => m.metric === "caption");
+            assert.equal(new Set(captions.map((m) => m.utteranceId)).size, 1);
+            const final = captions.find((m) => m.final);
+            const text = await page.locator("#interpreter-captions .cue").textContent();
+            assert.match(text, /[가-힣]/);
+            console.log(JSON.stringify({ review: [repetition, clip], text }));
+            samples.push({ repetition, clip, sessionId: final.sessionId, utteranceId: final.utteranceId,
+              audioEndMs: final.audioEndMs, originMs: final.originMs, asrMs: final.asrMs });
+            await page.waitForTimeout(250);
+          }
+        }
+        const rows = await finishTrace(); finishTrace = undefined;
+        for (const sample of samples) {
+          const revisions = rows.filter((r) => r.sessionId === sample.sessionId && r.utteranceId === sample.utteranceId && r.type === "caption");
+          const first = revisions.find((r) => r.paintAtMs !== null);
+          const final = revisions.find((r) => r.final);
+          sample.firstPaintMs = first ? first.paintAtMs - sample.originMs - sample.audioEndMs : null;
+          sample.finalPaintMs = final?.paintAtMs !== null && final?.paintAtMs !== undefined
+            ? final.paintAtMs - sample.originMs - sample.audioEndMs : null;
+          sample.revisions = revisions;
+        }
+        const receipts = metrics.filter((m) => m.metric === "receipt" && m.sessionId === captureStatus.sessionId);
+        paintReport = { phase: paintPhase, browser: context.browser().version(),
+          measurement: "Chromium main-frame Paint covering cue bounds after matching revision DOM mark; not rAF or server emission",
+          baseline: "before: 500ms silence, partial delivery withheld; after: 300ms silence, partial delivery; same prepared models/prompt/streaming requests",
+          coldComparison: "none; cached models, separate first inference sample (repetition -1)",
+          wavSha256: clips.map((clip) => createHash("sha256").update(clip).digest("hex")), samples,
+          maxPendingAudioMs: Math.max(0, ...receipts.map((r) => r.pendingAudioMs)),
+          droppedFrames: receipts.at(-1)?.droppedFrames, droppedUtterances: receipts.at(-1)?.droppedUtterances };
+        for (const field of ["firstPaintMs", "finalPaintMs"]) {
+          const values = samples.filter((s) => s.repetition >= 0 && s[field] !== null).map((s) => s[field]).sort((a, b) => a - b);
+          paintReport[field] = { n: values.length, p50Ms: values[Math.ceil(values.length * .5) - 1] ?? null,
+            p95Ms: values[Math.ceil(values.length * .95) - 1] ?? null };
+        }
+        await writeFile(`${profile}/paint-report.json`, `${JSON.stringify(paintReport, null, 2)}\n`);
+        console.log(JSON.stringify(paintReport));
+        assert.equal(paintReport.firstPaintMs.n, 6);
+        assert.equal(paintReport.finalPaintMs.n, 6);
+        assert.ok(paintReport.maxPendingAudioMs <= 8000);
+        assert.equal(paintReport.droppedFrames, 0); assert.equal(paintReport.droppedUtterances, 0);
+        if (paintPhase === "after") {
+          const before = JSON.parse(await readFile("docs/verification/latency/paint-before.json", "utf8"));
+          assert.deepEqual(paintReport.wavSha256, before.wavSha256);
+          assert.ok(paintReport.firstPaintMs.p50Ms < before.firstPaintMs.p50Ms);
+        }
+        await writeFile(`docs/verification/latency/paint-${paintPhase}.json`, `${JSON.stringify(paintReport, null, 2)}\n`);
+        measured = true; passed = true;
+      }
       if (command === "play") { await page.locator("#play").click(); console.log("Generated speech playing"); }
       if (command === "check") {
         const status = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
@@ -88,15 +190,16 @@ try {
         const captured = await worker.evaluate(() => chrome.tabCapture.getCapturedTabs());
         assert.equal(captured[0]?.status, "active");
         await mkdir("docs/verification/local", { recursive: true });
-        await page.screenshot({ path: "docs/verification/local/normal.png" });
+        await page.screenshot({ path: paintPhase ? `docs/verification/latency/paint-${paintPhase}.png` : "docs/verification/local/normal.png" });
         passed = true;
         console.log(JSON.stringify({ realTabCapture: true, realLocalModels: true, generatedSpeech: true, text, status }));
       }
-    } catch (error) { console.log(JSON.stringify({ error: String(error) })); }
+    } catch (error) { failed = true; console.log(JSON.stringify({ error: String(error) })); }
   }
 } finally {
   input?.close();
   process.stdin.pause();
+  if (finishTrace) await finishTrace().catch(() => {});
   await context?.close();
   if (companion?.pid && companion.exitCode === null) {
     const exited = once(companion, "exit");
@@ -104,5 +207,5 @@ try {
     await exited;
   }
   await new Promise((closed) => fixture.close(closed));
-  if (!passed || !stopped) process.exitCode = 1;
+  if (failed || !passed || !stopped || (paintPhase && !measured)) process.exitCode = 1;
 }
