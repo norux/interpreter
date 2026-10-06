@@ -5223,3 +5223,34 @@ success. The candidate remains installed for evaluation; the default stays Qwen.
 No special adapter, automatic model migration, larger weights or paid API was
 introduced. Numeric committed evidence excludes raw text/audio. This small sample
 supports the specific observed errors and does not estimate general model quality.
+
+## Balanced provisional-caption display (2026-10-06)
+
+The user reported distracting real-time correction and chose immediate first
+output with roughly one-second correction intervals. The overlay now displays a
+new sentence immediately, keeps its currently readable text while provisional
+updates coalesce, and applies only the newest pending revision at most once per
+1000ms per sentence. This is a throttle anchored to the last displayed update,
+not a debounce that can postpone output indefinitely under continuous tokens.
+Final captions bypass the delay, cancel queued partials and start the existing
+full replay immediately. Clear/dispose/session replacement cancels display timers.
+Each active/waiting sentence holds at most one pending correction; existing
+sentence/audio bounds, final reading intervals and fade-out remain in place.
+
+The new `npm run test:captions-correction-browser` regression first failed because
+12 updates over 240ms immediately rewrote the sentence. After the fix it **exits
+0** with Chrome 153.0.8010.12: immediate first output; no rewrite before the
+1000ms deadline; newest revision only at the deadline; same node retained;
+immediate final; no queued partial overwriting final; independent first output
+for another sentence; clear/replacement prevents delayed resurrection. It executes
+the built content bundle in a real browser DOM with stubbed runtime messaging and
+a controlled clock, not real capture/audio/models or measured physical-screen Paint.
+
+`node tests/captions-overlap-browser.mjs` **exit 0** after waiting for the paced
+partial updates: normal/narrow/fullscreen, in-place corrections, complete final
+replay/reading time, fade-out, retired revisions, overload bounds and cleanup pass.
+`node tests/captions-browser.mjs` also **exits 0** for the extension-backed display,
+in-place correction, fullscreen and clear checks.
+Lint/typecheck/build and all **12 JS tests** pass. Translation/ASR requests, model
+selection and translation prompt are unchanged. This change reduces presentation
+churn; it does not establish improved translation meaning or model latency.

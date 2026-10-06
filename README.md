@@ -655,6 +655,14 @@ fades out over 250ms before removal. Interim corrections and resize/fullscreen
 continue to preserve the current reading position. Clear/Stop still removes the
 overlay immediately.
 
+The first caption of each sentence appears immediately. While it is provisional,
+display corrections are limited to one update per second; intervening token/source
+revisions coalesce into the latest pending caption. A final caption bypasses the
+delay, starts its full replay immediately and discards queued partial updates.
+Stop/clear/session replacement cancels pending display timers. This display pacing
+does not change the translation model, its accuracy or ASR/model request timing.
+Run `npm run test:captions-correction-browser` for the controlled-clock DOM regression.
+
 Hidden output waits at most four captions and twelve seconds of source audio,
 separately from the inference queue. Overload skips the oldest waiting sentence
 and shows a cumulative count/reason in a small status notice, also logging a

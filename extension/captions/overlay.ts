@@ -1,6 +1,7 @@
 import type { Caption, OutputSink } from "./contracts";
 
 export function createCaptionOverlay(): OutputSink {
+  const correctionIntervalMs = 1000;
   const host = document.createElement("div");
   host.id = "interpreter-captions";
   host.style.cssText = "all:initial!important;position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;";
@@ -33,12 +34,13 @@ export function createCaptionOverlay(): OutputSink {
   const notice = document.createElement("div");
   notice.className = "notice";
   shadow.append(style, cue, notice);
-  const entries: { caption: Caption; node: HTMLDivElement; offset: number; end: number; until: number; fading: boolean }[] = [];
+  const entries: { caption: Caption; pending?: Caption; updatedAt: number; node: HTMLDivElement; offset: number; end: number; until: number; fading: boolean }[] = [];
   // Audio position also rejects late corrections after a sentence has left the display.
   let retiredThrough = -Infinity;
   const retiredIds: string[] = [];
   let dropped = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let updateTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
 
   function attach() {
@@ -49,7 +51,9 @@ export function createCaptionOverlay(): OutputSink {
 
   function clear() {
     clearTimeout(timer);
+    clearTimeout(updateTimer);
     timer = undefined;
+    updateTimer = undefined;
     entries.length = 0;
     retiredThrough = -Infinity;
     retiredIds.length = 0;
@@ -65,6 +69,25 @@ export function createCaptionOverlay(): OutputSink {
     retiredIds.push(entry.caption.utteranceId);
     if (retiredIds.length > 128) retiredIds.shift();
     entry.node.remove();
+  }
+
+  function scheduleUpdates() {
+    clearTimeout(updateTimer);
+    updateTimer = undefined;
+    const waiting = entries.filter((entry) => entry.pending && !entry.fading);
+    if (!waiting.length) return;
+    updateTimer = setTimeout(() => {
+      updateTimer = undefined;
+      const now = performance.now();
+      for (const entry of [...entries]) {
+        if (entry.pending && now - entry.updatedAt >= correctionIntervalMs) {
+          const next = entry.pending;
+          entry.pending = undefined;
+          output.caption(next);
+        }
+      }
+      scheduleUpdates();
+    }, Math.max(1, Math.min(...waiting.map((entry) => entry.updatedAt + correctionIntervalMs - performance.now()))));
   }
 
   function layout() {
@@ -143,12 +166,22 @@ export function createCaptionOverlay(): OutputSink {
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["theater"] });
 
-  return {
+  const output: OutputSink = {
     caption(caption) {
       if (disposed || !caption.translation.trim()) return;
       const entry = entries.find((item) => item.caption.utteranceId === caption.utteranceId);
+      const now = performance.now();
       if (entry) {
-        if (entry.fading || entry.caption.revision >= caption.revision || (entry.caption.final && !caption.final)) return;
+        const latest = entry.pending ?? entry.caption;
+        if (entry.fading || latest.revision >= caption.revision || (latest.final && !caption.final)) return;
+        if (!caption.final && now - entry.updatedAt < correctionIntervalMs) {
+          // Keep the readable caption while frequent token/source updates coalesce.
+          entry.pending = caption;
+          scheduleUpdates();
+          return;
+        }
+        entry.pending = undefined;
+        entry.updatedAt = now;
         const changed = entry.caption.translation !== caption.translation || entry.caption.final !== caption.final;
         if (!entry.caption.final && caption.final) {
           entry.offset = entry.end = 0;
@@ -173,9 +206,10 @@ export function createCaptionOverlay(): OutputSink {
         const node = document.createElement("div");
         node.className = "sentence";
         node.dataset.utteranceId = caption.utteranceId;
-        entries.push({ caption, node, offset: 0, end: 0, until: 0, fading: false });
+        entries.push({ caption, updatedAt: now, node, offset: 0, end: 0, until: 0, fading: false });
       }
       layout();
+      scheduleUpdates();
     },
     status(message) { notice.textContent = message; attach(); },
     clear,
@@ -187,4 +221,5 @@ export function createCaptionOverlay(): OutputSink {
       window.removeEventListener("resize", layout);
     },
   };
+  return output;
 }

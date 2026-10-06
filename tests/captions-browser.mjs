@@ -68,6 +68,7 @@ try {
   await inspect(youtube ? "youtube-normal" : "normal");
   await send({ type: "caption", caption: { ...caption, revision: 2, translation: "같은 구절의 수정은 기존 자막을 교체합니다." } });
   await send({ type: "caption", caption });
+  await page.waitForFunction(() => document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue")?.textContent === "같은 구절의 수정은 기존 자막을 교체합니다.");
   assert.equal(await cue.textContent(), "같은 구절의 수정은 기존 자막을 교체합니다.");
   await worker.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, files: ["content.js"] }), tabId);
   assert.equal(await page.locator("#interpreter-captions").count(), 1);

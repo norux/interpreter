@@ -65,6 +65,10 @@ try {
   await page.locator(".sentence").evaluateAll((nodes) => { globalThis.originalNodes = nodes; });
   for (let i = 0; i < 2; i++) await send({ type: "caption", caption: { ...base,
     utteranceId: `partial-${i}`, revision: 2, translation: `${partials[i]} 오후 세 시입니다.`, final: false, audioStartMs: i * 1000 } });
+  await page.waitForFunction((texts) => {
+    const nodes = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelectorAll(".sentence");
+    return nodes?.length === texts.length && [...nodes].every((node, i) => node.textContent === texts[i]);
+  }, partials.map((text) => `${text} 오후 세 시입니다.`));
   assert.equal(await page.locator(".sentence").evaluateAll((nodes) => nodes.every((node, i) => node === globalThis.originalNodes[i])), true);
   assert.equal(await page.locator(".sentence").count(), 2);
   await send({ type: "caption", caption: { ...base, utteranceId: "partial-0", translation: "오래된 응답" } });
