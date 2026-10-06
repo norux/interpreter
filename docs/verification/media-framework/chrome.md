@@ -586,3 +586,162 @@ paths, user settings, unrelated files and user apps/recordings/mounted images
 remain unchanged. No runner edits, agents, checkbox completion, stage advance,
 push/publish or app installation occurred. Credentials, model weights, user
 audio/transcripts and temporary `.ralph` state are excluded from the commit.
+
+## 2026-10-07 — B2 FP16 WebGPU profile (iteration 3/5)
+
+Commit: the `feat: compare FP16 browser ASR profile` commit containing this
+section. **B2 remains unchecked; no default is selected.** Only the next
+unfinished Chrome item, B2, was extended. All tiny/base/small q8 modes, fixture
+hashes and isolation tags, three trials, the <= 0.2 CER/WER gate, pending Stop,
+overload, cached restart and actual GPU-loss assertions remain in the harness.
+
+### Profile identity, compatibility and ownership
+
+Registered an explicit small FP16 WebGPU profile at the same immutable model
+ID/revision as small q8: `onnx-community/whisper-small`,
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`. The registry, repository and loader
+now carry the selected precision; existing callers still select q8. Each precision
+has its own cache. Port checks establish that preparing/evicting FP16 leaves q8's
+cached state intact. These checks use fake metadata/loaders, not real recognition.
+The host rejects FP16/WASM before starting a worker; the worker rejects that pair
+before downloading, and the loader also checks it. FP16/WASM is **not qualified**.
+There is no automatic model/backend/server fallback or new user setting.
+
+The seven-file FP16 model inventory is **487,960,440 bytes**: config 2,227;
+generation config 3,893; tokenizer 2,480,466; tokenizer config 282,683;
+preprocessor config 339; encoder 176,607,756; merged decoder 308,583,076.
+Encoder SHA-256:
+`5549cd8666ff4b694ceb128bfa48b95bdcceec29075cf2c2212f90002cc058de`;
+decoder SHA-256:
+`22aba6c7f5193701cbe1519051b6ef097eb530ad6887b7093065ec59b830f61d`.
+Actual downloads verify both ONNX hashes. Required model bytes exclude the
+unchanged locally packaged asyncify runtime, separately cached for this profile.
+The final run fetched both `_fp16.onnx` files at the pinned revision, reached real
+pipeline readiness with all 487,960,440 bytes, and then performed inference.
+
+Primary sources: [Transformers.js dtype documentation](https://huggingface.co/docs/transformers.js/guides/dtypes)
+describes explicit precision selection and Whisper's sensitivity to quantization;
+[pinned Hub inventory](https://huggingface.co/api/models/onnx-community/whisper-small/revision/36050c46d777d46dc4b5f43f6d90574fc38f8732?blobs=true)
+provided the sizes/hashes. The web reader could not open the pinned inventory/card;
+ordinary public metadata retrieval with Python returned the exact pinned SHA,
+FP16 LFS sizes/hashes and `base_model: openai/whisper-small` /
+`library_name: transformers.js`, with no license field. Installed 4.3.0
+`src/models/session.js` and `src/utils/dtypes.js` confirm explicit `_fp16` selection
+and a WebGPU `shader-f16` check. Actual operator execution is evidenced by the
+run, not assumed from docs; exclusive GPU execution of every operator is not
+claimed. The earlier upstream Whisper MIT evidence remains, but separate
+conversion/distribution licensing confirmation is **unverified**. The previous
+2026 Qwen3-ASR compatibility assessment is not changed by this precision trial.
+
+### Actual measurements and accuracy
+
+Environment: Darwin arm64, Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, owned headed Chromium 153.0.8010.12,
+unchanged Transformers.js 4.3.0/locked ORT runtime. The same hash-checked
+synthetic VP8/Opus fixtures were decoded/resampled to 16 kHz: Japanese
+111,556 samples/6.97225 s; English 106,664 samples/6.6665 s. This is real ASR
+on **decoded fixture audio**, not live selected-video capture or Korean captions.
+Repository verification/preparation ran after these inference measurements.
+
+Final evidence: ignored `chrome-3-fp16-asr-second.log`. All **42 scored
+utterances** completed (seven modes × two languages × three trials). Text was
+identical across each language/mode's three trials. Values below are observed
+minimum–maximum, rounded to 0.001 ms, not percentiles. Preparation includes fresh
+download/load for q8 WASM and FP16 WebGPU; q8 WebGPU uses its preceding cache.
+Worker inference and host round trip use their own clocks independently.
+
+| Profile / backend | Preparation ms | Japanese inference / host round trip range ms | English inference / host round trip range ms | Japanese CER, all trials | English WER, all trials | Baseline / peak RSS KiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| tiny q8 / WASM | 9167.202 | 983.700–1101.400 / 984.800–1103.600 | 939.600–941.600 / 940.600–942.600 | 22.5% **FAIL** | 4.54545% | 1,295,520 / 2,616,112 |
+| tiny q8 / WebGPU | 728.507 | 1116.600–1533.000 / 1117.700–1534.500 | 981.700–992.100 / 982.800–993.100 | 20% | 4.54545% | 2,296,672 / 2,909,488 |
+| base q8 / WASM | 11674.676 | 2185.600–2305.300 / 2186.800–2307.100 | 2078.300–2083.400 / 2079.500–2084.500 | 17.5% | 4.54545% | 2,735,408 / 3,433,712 |
+| base q8 / WebGPU | 934.705 | 2293.900–2439.200 / 2295.100–2440.500 | 2047.300–2051.700 / 2048.400–2053.100 | 17.5% | 4.54545% | 2,860,240 / 3,462,912 |
+| small q8 / WASM | 29030.340 | 7825.000–7962.700 / 7826.600–7964.600 | 7674.800–7679.200 / 7676.100–7680.300 | 2.5% | 4.54545% | 2,802,912 / 3,245,984 |
+| small q8 / WebGPU | 1245.034 | 7367.800–7568.200 / 7369.300–7569.700 | 7023.500–7075.200 / 7024.800–7076.600 | 2.5% | 4.54545% | 2,759,760 / 3,711,872 |
+| small FP16 / WebGPU | 58487.164 | 726.400–1386.300 / 727.600–1388.300 | 616.900–633.800 / 617.800–634.800 | 2.5% | 4.54545% | 2,400,928 / 3,501,280 |
+
+FP16 preserved the tested meeting negation, tomorrow/afternoon/three/station and
+reservation non-cancellation meaning. Its only normalized Japanese edit remains
+`三` → `3`; English remains `three` → `3`. Numeric normalization was not added.
+Tiny/base's previously reported Japanese meaning errors remain. A baseline was
+not dropped to produce a passing comparison. FP16 real-time factors were
+Japanese 0.104184–0.198831 and English 0.092537–0.095072; its first Japanese trial
+was 1386.300 ms, followed by 726.400/727.300 ms. Small q8 remained slower than
+speech: WASM Japanese 1.122306–1.142056 / English 1.151249–1.151909;
+WebGPU Japanese 1.056732–1.085475 / English 1.053551–1.061307. FP16 is promising
+for further desktop qualification, **not evidence of sustained streaming**.
+
+Overall RSS baseline was 1,277,184 KiB. Only the owned Chromium process tree is
+summed every 250 ms, including browser/renderers/GPU process. Mode peaks cover
+preparation and scored inference before Stop/restart. Shared pages can be counted
+twice and allocator residency can carry over or be released between modes.
+These are not isolated model/GPU allocations, a leak test or phone limits.
+
+All seven modes passed bounded transfer and identity/epoch/range/revision checks,
+rejected overload while retaining 111,556 caller samples, and returned `ASR stopped`
+after observing real pipeline invocation while the host operation was pending.
+Cached WASM workers recognized speech after Stop; GPU profiles prepared a fresh
+cached worker and returned `gpu-lost` after destruction of the actual
+runtime-created device. No fallback or kernel-level cooperative cancel is claimed.
+All mode preparation console errors and final page errors were `[]`; pinned-model
+network assertions passed. Final native visibility event lists were empty and
+the final document was `visible`.
+
+### Interruption and observation changes
+
+First `npm run test:framework:chrome:asr` returned **exit 1**, ignored
+`chrome-3-fp16-asr.log`. Typecheck, eight port tests (8 passed/0 failed/skipped/
+cancelled, 80.7315 ms), build and all 24 tiny/base scored utterances/lifecycle
+checks completed. Small WASM preparation then timed out at **240,000 ms**;
+small inference, small GPU, FP16 and final network/page-error assertions were
+not reached. A read-only local CDP snapshot of that owned test document observed
+`prepared: false`, `prepareError: ASR stopped`, last state `downloading`,
+9,355,814/251,846,613 bytes. Its browser closed before a follow-up visibility
+snapshot, so the exact reason for Stop and the missed predicate remains unknown.
+This is a failed attempt, not successful preparation or FP16 evidence.
+
+The harness now records native visibility events and error-time document/model
+state, brings the owned tab natively to the foreground before each mode and
+asserts `document.visibilityState === visible`, and polls preparation every
+100 ms rather than relying on animation frames. Both 240-second initial and
+120-second restart timeouts and all success/failure assertions are preserved.
+No property override, synthetic visibility event, focus emulation, permission
+change, alternate user profile or browser-access workaround was used. The one
+independent second attempt completed every mode without any native visibility
+event. The interruption did not recur; its root cause is **unverified**. No third
+ASR attempt was made.
+
+### Acceptance, remaining work and boundaries
+
+| Command / evidence | Actual result |
+| --- | --- |
+| Initial `npm run typecheck && node --import tsx --test tests/framework-browser-model.test.ts tests/framework-browser-asr.test.ts` | **FAIL**, exit 1; typecheck passed, 7 tests passed/1 failed, 100.5415 ms. New test's inventory total was mistyped as 487,957,440; the authoritative file sizes sum to 487,960,440. Corrected that expected total; precision isolation and the existing numerical recognition gate were not relaxed. |
+| Final `npm run test:framework:chrome:asr`, `chrome-3-fp16-asr-second.log` | **FAIL**, exit 1. Typecheck, eight port tests (8 passed/0 failed/skipped/cancelled, 59.307834 ms), build, all 42 scored utterances and lifecycle/transport/network assertions completed. Only final failures: tiny/WASM Japanese trials 1–3 each 9/40 = 22.5% > 20%. No further ASR retry. |
+| `npm run test:framework:chrome:preparation`, `chrome-3-preparation.log` | **PASS**, exit 0. Typecheck, six repository port tests (0 failed/skipped/cancelled, 56.79475 ms), build, all eleven real B1 checks including native visibility/explicit restart, Stop, offline, corruption, eviction/disposal/UI. Tiny q8 inventory remains 43,613,734 bytes; initial preparation 9011.317166 ms, offline fresh-worker preparation 539.234084 ms, page errors `[]`. Expected injected fault console errors and a favicon 404 remain visible. |
+| `npm run verify`, `chrome-3-verify.log` | **PASS**, exit 0. Biome 100 files/44 ms/no findings, Ruff, typecheck, existing companion build, 85 JS tests passed/0 failed/skipped/cancelled (14889.341209 ms); 222 Python tests passed (66.96 s). Repository regressions, not recognition quality or end-to-end captions. |
+| `npm run test:framework:chrome`, `chrome-3-stage-acceptance.log` | **FAIL**, exit 1: `Missing script: "test:framework:chrome"`. B5's full selected-video PCM → ASR → Korean translation → DOM harness is still unimplemented; no preparation/ASR substitute or placeholder was added. |
+| Final targeted Biome | **PASS**, exit 0, 11 files/20 ms/no findings. Full verify also lints the final source. |
+| Final unstaged/staged whitespace and post-commit status | Checked before delivery; no whitespace errors or uncommitted intended changes. |
+
+Next unfinished item remains **B2**: qualify the FP16 desktop profile with bounded
+streaming/gap/queue evidence and distribution licensing before choosing a default.
+The failed baselines and gates remain. Broader speech/boundary/silence/VAD quality,
+live selected-video resampling/SpeechRecognizer composition, sustained GPU
+recovery/memory limits, B3–B6 translation/revision/DOM/offline end-to-end/ten-minute
+acceptance, external-site installation and all Safari/iPhone behavior are
+**unverified**. Three repeats of two synthetic utterances cannot complete them.
+No required environment/device/permission blocker remains after the second run;
+the first interruption's cause is still unknown. If it recurs, inspect the recorded
+native visibility/document state and require an uninterrupted permitted foreground
+execution environment; stop after two independent occurrences without new evidence.
+
+No root/nested AGENTS.md or requested independent runner failure file
+`2026-10-06T20-26-37-190Z-chrome-verification.txt` exists. Supplied instructions,
+plan, architecture and prior Chrome report were read. All changes are confined to
+this worktree. Companion v0.1.0, install/native messaging/server/core paths,
+existing user settings, unrelated files and user apps/recordings/mounted images
+were preserved. No agents, runner edits, checkbox completion, stage advancement,
+push/publish or app installation occurred. Only owned test browsers/profiles were
+closed; credentials, weights, user audio/transcripts and temporary `.ralph` state
+are excluded from the commit. No Chrome stage, whole-framework or iPhone
+completion is claimed.

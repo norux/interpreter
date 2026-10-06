@@ -26,8 +26,9 @@ export function isPreparationModel(model: ModelIdentity) {
 }
 
 export const asrCandidates = {
-  tiny: { model: preparationModel, files: modelFiles },
+  tiny: { model: preparationModel, files: modelFiles, dtype: "q8" },
   base: {
+    dtype: "q8",
     model: { id: "onnx-community/whisper-base", version: "1846881b6b3a3024392c1eea3ad983695bc23925" },
     files: [
       { path: "config.json", bytes: 2243 },
@@ -42,6 +43,7 @@ export const asrCandidates = {
     ],
   },
   small: {
+    dtype: "q8",
     model: { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732" },
     files: [
       { path: "config.json", bytes: 2227 },
@@ -55,15 +57,30 @@ export const asrCandidates = {
         sha256: "ec07c3cbb64172c39791e26ee870a65ac22b458c36722bfe2776b3dbf741e0c9" },
     ],
   },
+  smallFp16: {
+    dtype: "fp16",
+    model: { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732" },
+    files: [
+      { path: "config.json", bytes: 2227 },
+      { path: "generation_config.json", bytes: 3893 },
+      { path: "tokenizer.json", bytes: 2480466 },
+      { path: "tokenizer_config.json", bytes: 282683 },
+      { path: "preprocessor_config.json", bytes: 339 },
+      { path: "onnx/encoder_model_fp16.onnx", bytes: 176607756,
+        sha256: "5549cd8666ff4b694ceb128bfa48b95bdcceec29075cf2c2212f90002cc058de" },
+      { path: "onnx/decoder_model_merged_fp16.onnx", bytes: 308583076,
+        sha256: "22aba6c7f5193701cbe1519051b6ef097eb530ad6887b7093065ec59b830f61d" },
+    ],
+  },
 } as const;
 
-export function registeredCandidate(model: ModelIdentity) {
-  const candidate = Object.values(asrCandidates).find(value => value.model.id === model.id && value.model.version === model.version);
+export function registeredCandidate(model: ModelIdentity, dtype: "q8" | "fp16" = "q8") {
+  const candidate = Object.values(asrCandidates).find(value => value.model.id === model.id && value.model.version === model.version && value.dtype === dtype);
   if (!candidate) throw new Error("Unregistered model/version");
   return {
     ...candidate,
     requiredBytes: candidate.files.reduce((sum, file) => sum + file.bytes, 0),
-    cacheName: `interpreter-asr-${candidate.model.version}-q8`,
+    cacheName: `interpreter-asr-${candidate.model.version}-${candidate.dtype}`,
     url: (path: string) => `https://huggingface.co/${candidate.model.id}/resolve/${candidate.model.version}/${path}`,
   };
 }

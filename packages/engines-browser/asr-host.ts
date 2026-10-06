@@ -4,7 +4,7 @@ import { asrCandidates, registeredCandidate } from "./model";
 
 // This bounded utterance executor is not yet the streaming/VAD engine adapter.
 export function createAsrHost(document: Document, candidate: keyof typeof asrCandidates, device: "wasm" | "webgpu", receive: (status: ModelStatus) => void) {
-  const selected = registeredCandidate(asrCandidates[candidate].model);
+  const selected = registeredCandidate(asrCandidates[candidate].model, asrCandidates[candidate].dtype);
   let worker: Worker | undefined;
   let requestId = 0;
   let ready = false;
@@ -25,6 +25,7 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
     if (disposed || !document.defaultView?.isSecureContext || document.visibilityState !== "visible") return Promise.reject(new Error("A visible secure document is required"));
     if (pending) return Promise.reject(new Error("overloaded"));
     if (type === "prepare" && !document.defaultView.navigator.userActivation.isActive) return Promise.reject(new Error("Press Prepare in this document to start"));
+    if (type === "prepare" && selected.dtype === "fp16" && device !== "webgpu") return Promise.reject(new Error("FP16 candidate requires WebGPU"));
     if (type === "recognize" && (!ready || !validAsrJob(job))) return Promise.reject(new Error(failure ?? "Invalid ASR job or model not ready"));
     if (type === "prepare" && ready) return Promise.reject(new Error("Stop before preparing another model"));
     if (!worker) {

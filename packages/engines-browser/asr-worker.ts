@@ -17,14 +17,15 @@ globalThis.onmessage = async (event: MessageEvent<unknown>) => {
   if (lost) { send({ type: "error", reason: "gpu-lost" }); return; }
   busy = true;
   try {
-    if (value.type === "prepare" && "candidate" in value && (value.candidate === "tiny" || value.candidate === "base" || value.candidate === "small")
+    if (value.type === "prepare" && "candidate" in value && (value.candidate === "tiny" || value.candidate === "base" || value.candidate === "small" || value.candidate === "smallFp16")
       && "device" in value && (value.device === "wasm" || value.device === "webgpu") && !resident) {
-      const model = asrCandidates[value.candidate].model;
+      const { model, dtype } = asrCandidates[value.candidate];
       const device = value.device;
+      if (dtype === "fp16" && device !== "webgpu") { send({ type: "error", reason: "engine-failed" }); return; }
       const repository = createModelRepository(async (cache) => {
-        resident = await loadAsrPipeline(cache, model, device);
+        resident = await loadAsrPipeline(cache, model, device, dtype);
         return resident;
-      }, model);
+      }, model, dtype);
       for await (const status of repository.prepare(model)) {
         send({ type: "status", status });
         if (status.state === "failed") { send({ type: "error", reason: status.reason }); return; }

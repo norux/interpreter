@@ -43,6 +43,11 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
   try {
     await assert.rejects(host.prepare(), /Press Prepare/); assert.equal(workers.length, 0);
     (document.defaultView?.navigator.userActivation as { isActive: boolean }).isActive = true;
+    const unsupported = createAsrHost(document, "smallFp16", "wasm", () => {});
+    try {
+      await assert.rejects(unsupported.prepare(), /FP16 candidate requires WebGPU/);
+      assert.equal(workers.length, 0, "Unsupported precision/backend must not start a worker or fall back");
+    } finally { unsupported.dispose(); }
     const preparation = host.prepare(); const worker = workers[0];
     worker.reply({ type: "ready" }); await preparation;
     const input = job(); const originalIdentity = { ...input.identity };

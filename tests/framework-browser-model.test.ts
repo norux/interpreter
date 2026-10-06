@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ModelStatus } from "../packages/contracts";
 import { createModelRepository } from "../packages/engines-browser/model-repository";
-import { modelCacheName, modelFiles, modelUrl, preparationModel, requiredBytes } from "../packages/engines-browser/model";
+import { asrCandidates, modelCacheName, modelFiles, modelUrl, preparationModel, registeredCandidate, requiredBytes } from "../packages/engines-browser/model";
 
 // Port fault/lifecycle checks with fake cache metadata and loader. These are not
 // model loading or recognition evidence; the browser preparation test is separate.
@@ -80,6 +80,51 @@ test("model repository readiness, cancellation, cache ownership and failures", a
       await assert.rejects(repository.evict(wrong), /Unregistered/);
       await assert.rejects(async () => { for await (const _status of repository.prepare(wrong)) {} }, /Unregistered/);
     });
+  } finally {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else Reflect.deleteProperty(globalThis, name);
+    }
+  }
+});
+
+test("FP16 and q8 of the same revision prepare and evict independent caches", async () => {
+  const originals = ["caches", "navigator"].map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const);
+  const cachesByName = new Map<string, Map<string, Response>>();
+  const selected = asrCandidates.small.model;
+  const q8 = registeredCandidate(selected);
+  const fp16 = registeredCandidate(selected, "fp16");
+  for (const profile of [q8, fp16]) {
+    const files = new Map<string, Response>();
+    for (const file of profile.files) files.set(profile.url(file.path), new Response("fixture metadata only", { headers: { "Content-Length": String(file.bytes) } }));
+    cachesByName.set(profile.cacheName, files);
+  }
+  Object.defineProperty(globalThis, "caches", { configurable: true, value: {
+    has: async (name: string) => cachesByName.has(name),
+    open: async (name: string) => {
+      const files = cachesByName.get(name);
+      assert.ok(files, "Repository must open only the selected precision cache");
+      return { match: async (key: string) => files.get(key)?.clone() };
+    },
+    delete: async (name: string) => cachesByName.delete(name),
+  } });
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { storage: { estimate: async () => ({}) }, onLine: false } });
+  let q8Loads = 0; let fp16Loads = 0; let fp16Disposals = 0;
+  const q8Repository = createModelRepository(async () => { q8Loads++; return { dispose: async () => {} }; }, selected);
+  const fp16Repository = createModelRepository(async () => { fp16Loads++; return { dispose: async () => { fp16Disposals++; } }; }, selected, "fp16");
+  try {
+    assert.notEqual(q8.cacheName, fp16.cacheName);
+    assert.equal((await q8Repository.status(selected)).state, "cached");
+    assert.equal((await fp16Repository.status(selected)).state, "cached");
+    let last: ModelStatus | undefined;
+    for await (const status of fp16Repository.prepare(selected)) last = status;
+    assert.equal(last?.state, "ready"); assert.equal(last?.requiredBytes, 487960440);
+    assert.equal(fp16Loads, 1); assert.equal(q8Loads, 0);
+    assert.equal((await q8Repository.status(selected)).state, "cached");
+    await fp16Repository.evict(selected);
+    assert.equal(fp16Disposals, 1); assert.equal(cachesByName.has(fp16.cacheName), false);
+    assert.equal((await fp16Repository.status(selected)).state, "evicted");
+    assert.equal((await q8Repository.status(selected)).state, "cached");
   } finally {
     for (const [name, descriptor] of originals) {
       if (descriptor) Object.defineProperty(globalThis, name, descriptor);

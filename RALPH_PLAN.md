@@ -1190,3 +1190,92 @@ architecture/prior report를 읽었다. Worktree 밖 작업, unrelated files/use
 앱/녹화/mount 변경, agents/runner 수정/stage advance/push/publish/app installation
 없음. Credentials/model weights/user audio·transcripts/임시 `.ralph` state는 commit에서
 제외한다. Stage/whole-framework/iPhone 완료를 주장하지 않는다.
+
+### 2026-10-07 / chrome / iteration 3/5 — B2 FP16 WebGPU profile
+
+관련 commit: 이 기록을 포함한 `feat: compare FP16 browser ASR profile`.
+
+수행한 변경: 다음 미완료 B2만 진행했다. Small q8의 실제 처리 속도가 발화 길이보다
+느린 근거에 따라 동일 pinned `onnx-community/whisper-small` revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`의 FP16 WebGPU profile을 추가했다.
+7개 model files 487,960,440 bytes와 encoder/decoder SHA-256을 고정하고 실제
+다운로드에서 검증한다. Registry/repository/loader가 precision을 전달하고 q8/FP16
+cache를 분리한다. 기존 호출은 q8 그대로이며 FP16/WASM은 host가 worker 생성 전에,
+worker가 download 전에 거부하고 loader도 검사한다. 자동 fallback/새 사용자 설정은
+없다. 모든 기존 candidate/backend/fixture/hash/tag/3 trials/20% CER·WER gate와
+Stop/overload/restart/actual GPU loss acceptance를 보존했다. Cache 소유권 및
+unsupported backend fake-port 검사를 추가했다. Native visibility/error-state logging,
+실제 owned-tab foreground 확인과 100 ms timer polling으로 중단 증거를 개선했고
+240초/120초 timeout 및 모든 원래 assertion은 유지했다.
+
+실행한 명령과 결과:
+
+- FAIL → FIXED: 초기 typecheck + 두 port test files, exit 1; typecheck PASS,
+  7 passed/1 failed/100.5415 ms. 새 inventory expected total을 487,957,440으로
+  잘못 입력했다. 실제 pinned file sizes의 합 487,960,440으로 수정했고 cache isolation
+  assertion과 recognition gate를 유지했다. 이후 final port tests는 8 passed/0 failed.
+- FAIL: 첫 `npm run test:framework:chrome:asr`, exit 1
+  (`chrome-3-fp16-asr.log`). Typecheck/8 port tests(80.7315 ms)/build 및 tiny/base의
+  24 scored utterances/lifecycle checks 후 small WASM preparation에서 240000 ms
+  timeout. Owned document read-only snapshot: prepared=false, prepareError=
+  `ASR stopped`, downloading=9,355,814/251,846,613 bytes. Browser 종료 전 native
+  visibility를 확보하지 못해 중단의 정확한 원인은 미확인이다. Small inference/FP16/
+  최종 network/page-error checks는 미도달이며 성공 증거로 표시하지 않는다.
+- FAIL: 한 번의 독립 second `npm run test:framework:chrome:asr`, exit 1
+  (`chrome-3-fp16-asr-second.log`). Final typecheck/8 port tests(8 passed/0 failed/
+  skipped/cancelled, 59.307834 ms)/build, 7 modes × 2 languages × 3 trials =
+  **42 actual scored utterances**, metadata/transfer, invocation-observed pending
+  Stop/overload/111,556 rejected samples 보존, cached WASM recognition 재시작,
+  cached GPU preparation 및 실제 runtime GPUDevice.destroy → gpu-lost/no fallback,
+  pinned network assertions 모두 완료했다. Final failure는 유지한 tiny/WASM 일본어
+  trials 1–3의 CER 9/40=22.5% > 20%뿐이다. 모든 native visibility event list는
+  빈 배열, final document는 visible, page errors 및 mode preparation console errors
+  `[]`. 첫 중단은 재발하지 않았으며 세 번째 ASR attempt는 하지 않았다.
+- PASS: `npm run test:framework:chrome:preparation`, exit 0
+  (`chrome-3-preparation.log`); typecheck/6 port tests(56.79475 ms)/build와 11개 real
+  B1 checks 모두 통과. Native hidden/visible/explicit restart, Stop/offline/corruption/
+  eviction/disposal/UI 포함, tiny q8 43,613,734 bytes 유지, first preparation
+  9011.317166 ms, offline fresh-worker preparation 539.234084 ms, page errors `[]`.
+  Injected fault console errors와 favicon 404는 보고서에 구분했다.
+- PASS: `npm run verify`, exit 0 (`chrome-3-verify.log`); Biome 100 files/44 ms/
+  no findings, Ruff/typecheck/기존 build, JS 85 passed/0 failed/skipped/cancelled/
+  14889.341209 ms; Python 222 passed/66.96 s.
+- FAIL: `npm run test:framework:chrome`, exit 1, Missing script
+  (`chrome-3-stage-acceptance.log`). B5 full selected-video → ASR → Korean translation
+  → DOM harness는 미구현이며 preparation/ASR tests나 placeholder로 대체하지 않았다.
+- PASS: final targeted Biome, exit 0, 11 files/20 ms/no findings. 최종 문서 포함
+  unstaged/staged whitespace 및 commit 후 clean-worktree를 확인한다.
+
+실제 검증 범위: owned headed Chromium 153.0.8010.12/Darwin arm64,
+Node v24.15.0/npm 11.12.1/uv 0.12.23/Python 3.12.15, 동일 Transformers.js 4.3.0/
+locked ORT. 기존 hash-checked synthetic video를 decode/16 kHz resample한 일본어
+6.97225초/영어 6.6665초이며 live selected-video PCM/번역/DOM은 아니다. FP16의
+모든 trial CER 1/40=2.5%, WER 1/22=4.54545%; 테스트한 회의 부정/내일 오후 세 시/
+역/예약 취소 금지 의미를 보존했다. 숫자 三/three → 3 edit는 정규화하지 않았다.
+FP16 inference/host round-trip ranges: Japanese 726.400–1386.300 /
+727.600–1388.300 ms, English 616.900–633.800 / 617.800–634.800 ms;
+real-time factors 0.104184–0.198831 / 0.092537–0.095072. Fresh preparation
+58487.16425 ms, mode baseline/peak owned browser-tree RSS 2,400,928/3,501,280 KiB.
+이 수치는 worker/document별 독립 clock과 250 ms sampled process-tree 합계이며
+isolated GPU allocation/leak/장시간/phone qualification은 아니다. 기존 tiny/base 의미
+오류와 small q8의 RTF > 1은 보존했고 모든 mode의 3 trial text는 동일했다.
+
+실패·미검증과 증거 위치: [chrome 보고서](docs/verification/media-framework/chrome.md)에
+7 modes의 exact min/max latency/round trip/CER/WER/RSS, FP16 file sizes/hashes,
+공식 dtype docs/pinned metadata 및 installed shader-f16 check, interruption 진단과
+ignored `chrome-3-*.log`를 기록했다. Distribution licensing은 계속 미확인이다.
+Live streaming/VAD/resampling/gap/queue와 sustained GPU recovery/memory, broader
+speech quality, B3–B6 번역/revision/DOM/offline end-to-end/10분 검증 및 Safari/iPhone은
+미검증이다. Model loading/PCM 획득/mock port를 실제 전사 정확도로 표시하지 않는다.
+
+다음 미완료 항목: **B2 유지/default 미선택/checkbox 추가 없음.** FP16 desktop
+profile의 bounded streaming/gap/queue 근거와 distribution license를 검증한 뒤 default를
+선택한다. Second run 후 required environment/device/permission 차단은 없으며 first
+interruption root cause만 미확인이다. 재발하면 기록된 native visibility/document state와
+허용된 foreground 실행 환경을 확인하고 새 근거 없는 두 독립 실패 후 멈춘다.
+AGENTS.md 및 요청된 independent runner file은 없었고 supplied instructions/plan/
+architecture/prior report를 읽었다. Companion v0.1.0/설치/native messaging/server/core/
+사용자 설정/관련 없는 파일/앱/녹화/mounts를 보존했다. Agents/runner 수정/stage advance/
+push/publish/app installation/browser permission·profile 우회 없음. Owned test browsers만
+정리하며 credentials/weights/user audio·transcripts/temporary `.ralph` state는 commit에서
+제외한다. Chrome stage/전체 framework/iPhone 완료를 주장하지 않는다.

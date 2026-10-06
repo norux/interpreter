@@ -16,8 +16,9 @@ if (env.backends.onnx.wasm) {
   env.backends.onnx.wasm.proxy = false;
   env.backends.onnx.wasm.wasmPaths = { wasm: wasmUrl, mjs: wasmModuleUrl };
 }
-export async function loadAsrPipeline(cache: Cache, model: ModelIdentity = preparationModel, device: "wasm" | "webgpu" = "wasm") {
-  const { files: modelFiles, url: modelUrl } = registeredCandidate(model);
+export async function loadAsrPipeline(cache: Cache, model: ModelIdentity = preparationModel, device: "wasm" | "webgpu" = "wasm", dtype: "q8" | "fp16" = "q8") {
+  const { files: modelFiles, url: modelUrl } = registeredCandidate(model, dtype);
+  if (dtype === "fp16" && device !== "webgpu") throw new Error("FP16 candidate requires WebGPU");
   // Large WASM files are not reliably retained by HTTP cache. Store the bundled
   // runtime alongside this candidate so a new worker can load it offline.
   // The locked ORT WebGPU backend calls webgpuInit from asyncify. The jsep
@@ -49,6 +50,6 @@ export async function loadAsrPipeline(cache: Cache, model: ModelIdentity = prepa
     put: () => { throw new Error("Runtime must load prepared cache only"); },
   };
   return pipeline<"automatic-speech-recognition">("automatic-speech-recognition", model.id, {
-    revision: model.version, device, dtype: "q8", local_files_only: true,
+    revision: model.version, device, dtype, local_files_only: true,
   });
 }

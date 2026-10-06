@@ -32,6 +32,8 @@ const server = createServer(async (request, response) => {
         globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
         globalThis.host = createAsrHost(document, candidate, device, status => statuses.push(status));
       };
+      globalThis.visibilityEvents = [];
+      document.addEventListener('visibilitychange', () => visibilityEvents.push({state: document.visibilityState, atMs: performance.now()}));
       document.querySelector('button').onclick = () => {
         host.prepare().then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
       };
@@ -63,7 +65,7 @@ const server = createServer(async (request, response) => {
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const observations = { scope: "B2 bounded utterance ASR only; decoded synthetic video speech, not selected-video capture/translation/DOM", runs: [], checks: [] };
-let browser; let browserProcess; let browserExit; let profile; let monitor;
+let browser; let browserProcess; let browserExit; let profile; let monitor; let page;
 let peakRssKiB = 0;
 const execute = promisify(execFile);
 async function sampleRss() {
@@ -104,7 +106,7 @@ try {
   browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true });
   observations.browser = browser.version(); observations.platform = `${process.platform}/${process.arch}`;
   observations.memoryMetric = "Owned Chromium process-tree sum RSS KiB sampled every 250ms; includes shared pages/browser/GPU process, not allocation or physical GPU memory";
-  const context = browser.contexts()[0]; const page = context.pages()[0]; page.setDefaultTimeout(10000);
+  const context = browser.contexts()[0]; page = context.pages()[0]; page.setDefaultTimeout(10000);
   const pageErrors = []; page.on("pageerror", error => pageErrors.push(error.message));
   const consoleErrors = [];
   page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
@@ -128,18 +130,21 @@ try {
     }).catch(error => error.message);
   });
   const failures = [];
-  for (const candidate of ["tiny", "base", "small"]) {
-    for (const device of ["wasm", "webgpu"]) {
+  for (const candidate of ["tiny", "base", "small", "smallFp16"]) {
+    for (const device of candidate === "smallFp16" ? ["webgpu"] : ["wasm", "webgpu"]) {
+      await page.bringToFront();
+      assert.equal(await page.evaluate(() => document.visibilityState), "visible", "Preparation needs an actually visible owned test document");
       await page.evaluate(([candidate, device]) => { globalThis.host?.dispose(); makeHost(candidate, device); }, [candidate, device]);
       const errorStart = consoleErrors.length;
-      const run = { candidate, device, results: [] }; observations.runs.push(run);
+      const run = { candidate, device, dtype: candidate === "smallFp16" ? "fp16" : "q8", results: [] }; observations.runs.push(run);
       run.baselineRssKiB = await sampleRss(); peakRssKiB = run.baselineRssKiB;
       const begin = performance.now();
       await page.locator("#prepare").click();
-      await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 240000 });
+      await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 240000, polling: 100 });
       run.preparationMs = performance.now() - begin;
       run.status = await page.evaluate(() => ({ failure: globalThis.prepareError, last: statuses.at(-1), states: [...new Set(statuses.map(status => status.state))] }));
       run.workerInstrumentation = await instrumentation;
+      run.visibilityEvents = await page.evaluate(() => [...visibilityEvents]);
       run.consoleErrors = consoleErrors.slice(errorStart);
       if (run.status.failure) { run.peakRssKiB = peakRssKiB; failures.push(`${candidate}/${device}: ${run.status.failure}`); console.log(JSON.stringify({ run })); continue; }
       // Repeat the same preserved utterances to expose timing/output variability.
@@ -198,7 +203,7 @@ try {
       run.cancellation = cancellation;
       await page.evaluate(() => { globalThis.prepared = false; globalThis.prepareError = undefined; });
       await page.locator("#prepare").click();
-      await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 120000 });
+      await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 120000, polling: 100 });
       assert.equal(await page.evaluate(() => globalThis.prepareError), undefined);
       if (device === "webgpu") {
         run.workerInstrumentation = await instrumentation;
@@ -220,9 +225,13 @@ try {
     || ["us.aws.cdn.hf.co", "cas-bridge.xethub.hf.co", "cas-server.xethub.hf.co"].includes(new URL(path).hostname)), "Only pinned model artifacts and Hub storage redirects may be fetched");
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(failures, [], "Comparison gates must pass; no failed candidate is silently removed");
-  observations.checks.push("Three trials per language on all three candidates/both backends, preliminary CER/WER <= 0.2", "Transferred bounded PCM and original identity", "Real in-flight Stop, overload admission and fresh-worker restart", "Actual WebGPU device loss stays explicit");
+  observations.checks.push("Three trials per language on tiny/base/small q8 WASM/WebGPU and small FP16 WebGPU, preliminary CER/WER <= 0.2", "Transferred bounded PCM and original identity", "Real in-flight Stop, overload admission and fresh-worker restart", "Actual WebGPU device loss stays explicit");
   console.log(JSON.stringify({ passed: true, ...observations }));
-} catch (error) { console.error(JSON.stringify({ passed: false, ...observations, error: error.message })); throw error; }
+} catch (error) {
+  observations.documentState = await page?.evaluate(() => ({ visibility: document.visibilityState, visibilityEvents,
+    prepared: globalThis.prepared, prepareError: globalThis.prepareError, lastStatus: statuses.at(-1) })).catch(failure => ({ error: failure.message }));
+  console.error(JSON.stringify({ passed: false, ...observations, error: error.message })); throw error;
+}
 finally {
   clearInterval(monitor);
   await browser?.close(); browserProcess?.kill("SIGTERM"); await browserExit;
