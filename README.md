@@ -217,7 +217,7 @@ before the hard limit to avoid cutting a word. This is a quiet audio boundary,
 not a guarantee of a complete sentence. ASR resamples to 16 kHz float32 in memory.
 Silence alone does not call either model. One dedicated ASR worker is shared across
 sessions. Local ASR with local Ollama takes cumulative PCM snapshots after each
-new second of voiced audio, within the existing six-second speech boundary.
+new half-second of voiced audio, within the existing six-second speech boundary.
 These are repeated finite-array inferences, not native live PCM ingestion by MLX.
 Meaningful source changes trigger provisional translations of the same utterance;
 newer source cancels obsolete translation and replaces its caption with increasing
@@ -245,12 +245,19 @@ truncated response is an error, and the entire response has a 30-second deadline
 Snapshot timing and contextual accuracy still require the pending 7d browser
 acceptance. Small audio windows can produce inaccurate provisional source/text.
 Model loading and the time needed for a complete translation remain measurable.
+Preparation also imports the PCM resampler before capture starts, so its first
+import does not consume the initial speech window. The 500 ms snapshot interval
+is a measured model-only candidate; native Paint and sustained-load acceptance
+remain unverified.
 
 The paced model-only probe below uses generated weather and an ambiguous
 construction sentence, three repetitions per phase, and identical PCM/settings.
 `before` disables only snapshots; both phases prepare the current local models.
-It prints generated source/translation for review and numeric observations. It
-writes numeric reports only after every meaning/timing/queue check passes:
+It prints generated source/translation for review and numeric observations, and
+samples process memory through inference completion. All six trials run before
+the meaning/timing/queue assertions are aggregated. A failed check exits nonzero
+and writes only `model-{before,after}-failed.json` with `acceptancePassed: false`;
+passing report names require every check to pass:
 
 ```sh
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \

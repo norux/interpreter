@@ -131,10 +131,39 @@ async def main():
                     session = LocalSession(
                         f"{phase}-{repetition}-{index}", transcriber, translator
                     )
+                    prepare_start = time.monotonic()
                     await session.prepare()
+                    prepare_ms = (time.monotonic() - prepare_start) * 1000
                     origin = time.monotonic()
                     pending = []
                     rss = []
+                    frame_lag = []
+
+                    async def sample():
+                        while True:
+                            pending.append(
+                                (
+                                    transcriber.pending_audio_ms,
+                                    session.pending_translation_ms,
+                                )
+                            )
+                            process = await asyncio.create_subprocess_exec(
+                                "ps",
+                                "-o",
+                                "rss=",
+                                "-p",
+                                str(os.getpid()),
+                                stdout=asyncio.subprocess.PIPE,
+                            )
+                            try:
+                                output, _ = await process.communicate()
+                            finally:
+                                await process.wait()
+                            assert process.returncode == 0
+                            rss.append(int(output.strip()) * 1024)
+                            await asyncio.sleep(0.1)
+
+                    sampler = asyncio.create_task(sample())
 
                     async def frames():
                         for sequence in range(math.ceil(len(pcm) / 960) + 50):
@@ -143,28 +172,10 @@ async def main():
                                     0, origin + (sequence + 1) * 0.02 - time.monotonic()
                                 )
                             )
-                            if sequence % 50 == 0:
-                                pending.append(
-                                    (
-                                        transcriber.pending_audio_ms,
-                                        session.pending_translation_ms,
-                                    )
-                                )
-                                rss.append(
-                                    int(
-                                        subprocess.check_output(
-                                            [
-                                                "ps",
-                                                "-o",
-                                                "rss=",
-                                                "-p",
-                                                str(os.getpid()),
-                                            ],
-                                            text=True,
-                                        ).strip()
-                                    )
-                                    * 1024
-                                )
+                            frame_lag.append(
+                                (time.monotonic() - origin - (sequence + 1) * 0.02)
+                                * 1000
+                            )
                             yield AudioFrame(
                                 sequence,
                                 sequence * 20,
@@ -178,28 +189,38 @@ async def main():
                     review = []
                     previous_source = {}
                     corrections = 0
-                    async for event in session.run(frames()):
-                        assert event.type != "error", event.message
-                        if event.caption:
-                            c = event.caption
-                            at = (time.monotonic() - origin) * 1000
-                            if c.utterance_id in previous_source and (
-                                previous_source[c.utterance_id] != c.source
-                            ):
-                                corrections += 1
-                            previous_source[c.utterance_id] = c.source
-                            captions.append(
-                                {
-                                    "utteranceId": c.utterance_id,
-                                    "revision": c.revision,
-                                    "final": c.final,
-                                    "eventMs": at,
-                                    "audioStartMs": c.audio_start_ms,
-                                    "audioEndMs": c.audio_end_ms,
-                                    "audioPositionToEventMs": at - c.audio_end_ms,
-                                }
-                            )
-                            review.append((c.source, c.translation, c.final))
+                    try:
+                        async for event in session.run(frames()):
+                            assert event.type != "error", event.message
+                            if event.caption:
+                                c = event.caption
+                                at = (time.monotonic() - origin) * 1000
+                                if c.utterance_id in previous_source and (
+                                    previous_source[c.utterance_id] != c.source
+                                ):
+                                    corrections += 1
+                                previous_source[c.utterance_id] = c.source
+                                captions.append(
+                                    {
+                                        "utteranceId": c.utterance_id,
+                                        "revision": c.revision,
+                                        "final": c.final,
+                                        "eventMs": at,
+                                        "audioStartMs": c.audio_start_ms,
+                                        "audioEndMs": c.audio_end_ms,
+                                        "audioPositionToEventMs": at - c.audio_end_ms,
+                                    }
+                                )
+                                review.append((c.source, c.translation, c.final))
+                    finally:
+                        # Include inference after input ends; a PCM-only sample
+                        # misses the memory peak of a slow first inference.
+                        sampler.cancel()
+                        try:
+                            await sampler
+                        except asyncio.CancelledError:
+                            pass
+                    assert pending and rss
                     finals = [c for c in captions if c["final"]]
                     assert finals
                     for utterance_id in {c["utteranceId"] for c in captions}:
@@ -242,14 +263,18 @@ async def main():
                                 "sourceCorrections": corrections,
                                 "duringSpeechEvents": len(during),
                                 "asrCalls": len(engine.calls),
-                            "translationCalls": len(translator.calls),
-                            "asrTimingsMs": [c["inferenceMs"] for c in engine.calls],
-                            "translationTimingsMs": [
-                                c["requestMs"] for c in translator.calls
-                            ],
-                            "maxPendingAsrMs": max(p[0] for p in pending),
-                            "maxPendingTranslationMs": max(p[1] for p in pending),
-                            "sampledRssPeakBytes": max(rss),
+                                "translationCalls": len(translator.calls),
+                                "asrTimingsMs": [
+                                    c["inferenceMs"] for c in engine.calls
+                                ],
+                                "translationTimingsMs": [
+                                    c["requestMs"] for c in translator.calls
+                                ],
+                                "prepareMs": prepare_ms,
+                                "maxFrameLagMs": max(frame_lag),
+                                "maxPendingAsrMs": max(p[0] for p in pending),
+                                "maxPendingTranslationMs": max(p[1] for p in pending),
+                                "sampledRssPeakBytes": max(rss),
                                 "coalescedSnapshots": transcriber.coalesced_snapshots,
                                 "droppedUtterances": transcriber.dropped_utterances,
                                 "droppedTranslations": session.dropped_translations,
@@ -258,27 +283,32 @@ async def main():
                         flush=True,
                     )
                     final_text = " ".join(t for _, t, final in review if final)
-                    assert any("가" <= char <= "힣" for char in final_text)
+                    checks = {
+                        "korean": any("가" <= char <= "힣" for char in final_text),
+                        "noAsrDrops": transcriber.dropped_utterances == 0,
+                        "noTranslationDrops": session.dropped_translations == 0,
+                    }
                     if index == 0:
-                        assert "오늘" in final_text
-                        assert "맑" in final_text or "화창" in final_text
+                        checks["todayMeaning"] = "오늘" in final_text
+                        checks["sunnyMeaning"] = (
+                            "맑" in final_text or "화창" in final_text
+                        )
                     else:
-                        assert "크레인" in final_text
-                        assert "철" in final_text or "강철" in final_text
+                        checks["craneMeaning"] = "크레인" in final_text
+                        checks["steelMeaning"] = (
+                            "철" in final_text or "강철" in final_text
+                        )
                     if phase == "after" and index == 1:
-                        assert during, "Long speech must produce Korean before it ends"
-                        assert corrections, "Continuing source must revise the same cue"
-                    assert (
-                        transcriber.dropped_utterances
-                        == session.dropped_translations
-                        == 0
-                    )
+                        checks["duringSpeech"] = bool(during)
+                        checks["sourceCorrection"] = corrections > 0
                     import mlx.core as mx
 
                     results.append(
                         {
                             "clip": index,
                             "repetition": repetition,
+                            "checks": checks,
+                            "prepareMs": prepare_ms,
                             "firstInference": repetition == index == 0,
                             "wavSha256": wav_hash,
                             "voiceStartMs": voice_start,
@@ -298,6 +328,8 @@ async def main():
                             "droppedUtterances": transcriber.dropped_utterances,
                             "droppedTranslations": session.dropped_translations,
                             "sampledRssPeakBytes": max(rss),
+                            "memorySamples": len(rss),
+                            "maxFrameLagMs": max(frame_lag),
                             "mlxActiveBytes": mx.get_active_memory(),
                             "mlxPeakBytes": mx.get_peak_memory(),
                         }
@@ -314,7 +346,9 @@ async def main():
         "textModel": TEXT_MODEL,
         "source": "English",
         "target": "Korean",
-        "snapshotVoicedMs": 1000,
+        "snapshotVoicedMs": MlxTranscriber.snapshot_frames * 20,
+        "memorySampling": "100ms requested through session end; process RSS bytes",
+        "acceptancePassed": all(all(r["checks"].values()) for r in results),
         "results": results,
     }
     for index in range(len(SENTENCES)):
@@ -328,8 +362,17 @@ async def main():
             }
     directory = Path("docs/verification/interim")
     directory.mkdir(exist_ok=True)
-    (directory / f"model-{phase}.json").write_text(json.dumps(report, indent=2) + "\n")
+    suffix = "" if report["acceptancePassed"] else "-failed"
+    (directory / f"model-{phase}{suffix}.json").write_text(
+        json.dumps(report, indent=2) + "\n"
+    )
     print(json.dumps({k: v for k, v in report.items() if k != "results"}), flush=True)
+    assert report["acceptancePassed"], [
+        (r["repetition"], r["clip"], name)
+        for r in results
+        for name, passed in r["checks"].items()
+        if not passed
+    ]
 
 
 asyncio.run(main())

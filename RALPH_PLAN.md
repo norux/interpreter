@@ -1726,3 +1726,72 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   failures/skips/warnings0, Python **66.17초**다. uv lock --check/git diff --check 통과,
   8765/8766/11434 listener 없음. acceptance checkbox는 그대로 두고 source/tests/
   README/docs/plan의 구현 진척과 실패 근거를 한 Conventional Commit으로 보존한다.
+
+### Ralph iteration 3/30 — 2026-10-06 — 항목 7d 간격/준비 개선, 의미/브라우저 acceptance 미완료
+
+- 지정 checkout만 사용했다. AGENTS.md는 없으며 사용자 제공 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7d만 진행했고 checkbox는 미체크 유지**다. 7b/8/9, criteria/runner,
+  dependency/lock, agent/worktree/push/publish/credential/cloud 변경은 없다.
+- 기존 original before probe는 **exit1**: 정확한 crane 원문을 duck으로 오역했다.
+  첫 weather ASR **13878.879ms**, 다음 construction **302.307ms**다. 별도 worker
+  profile은 첫 **983.067ms** 중 import약**732ms**(주로 SciPy), 다음 **108.134ms**;
+  paced profile도 의미 검증 **exit1**이며 ASR **1012.933/193.818ms**였다. profile의
+  계측 영향/변동 때문에 이전13.9초의 원인은 확정하지 않는다. generic English/Korean/
+  user wrapper text-only 후보도 의미/문법/다른 word sense 문제가 있어 제품에 채택하지 않았다.
+- 기존 SciPy resampler를 **단일 MLX worker의 prepare에서 import**해 첫 PCM의 대기를
+  준비 단계로 옮기고, 미설치도 캡처 전에 안내한다. 새 dependency/모델/합성 warmup은 없다.
+  missing-resampler 회귀는 처음 `DID NOT RAISE RuntimeError`로 실패한 뒤 통과했다.
+  local prepare/interim/queue **36/36** 통과이며13.9초 변동 해소 주장은 없다.
+- 1000ms 후보의 engine-first weather 첫 event **1500.302ms**는 음성끝 proxy
+  **1356.792ms** 뒤였다. 같은 음성/모델/prompt/VAD/queue로 **500ms 유성 PCM** 후보를
+  실측해 적용했다. 같은ID/증가revision/final,500ms snapshot/후속교정 회귀를 유지했다.
+  느린 worker의 final보존/drop0 요구는 그대로이며 후보가 두 배라 coalesced기대만
+  4→9가 된다. local/local만 변경했고 paid ASR/text의 final-only 정책은 유지한다.
+- probe는 입력 종료 뒤 inference까지 **100ms 요청 간격의 async RSS/pending sample**,
+  prepare시간/feeder lag를 기록한다. sampler 오류를 삼키지 않는다. 같은 원래
+  의미/발화중/교정/drop 조건을 전체6trial 뒤 aggregate해 하나라도 실패하면 **exit1**다.
+  failed 숫자는 `acceptancePassed:false`/`-failed` 파일에만 남긴다. structural final/
+  revision/error assertion은 즉시 실패이며 passing 파일은 모든 조건 통과 때만 쓴다.
+  assertion 제거/다른 문장으로 대체/성공 우회는 없다.
+- 실제 1000ms와500ms 각각 before/after, **3회×2clip**, 총4명령 모두 **exit1**이다.
+  12개 construction final 전부 crane 의미 실패, weather/steel 조건은 통과했다.
+  provisional은 deer, final은 duck으로 오역한다. 숫자/identity/boolean만
+  `docs/verification/interim/model-{before,after}-1000-failed.json`과
+  `model-{before,after}-failed.json`(최종500ms)에 보존한다. passing model-before.json/
+  model-after.json은 없다. 생성 audio와 원문/번역 text는 JSON에 저장하지 않았다.
+- **최종500ms failed cohort model event**: warm weather n2 start→first p50/p95
+  **1980.522/2001.803→686.542/710.819ms**, end→final
+  **850.062/871.820→546.006/547.079ms**; construction n3
+  **3850.254/3874.227→676.159/711.071ms**, end→final
+  **1162.354/1193.755→822.571/825.088ms**다. first engine weather n1은
+  **2176.562→941.700ms**, after prepare**2117.094ms**/ASR**340.568ms**다.
+  PCM abs>=100 시작/끝 proxy와 monotonic session event이며 **tabCapture/DOM/Paint/
+  physical display/청취가 아니다**. cold cache도 아니다. current final-only 통제baseline,
+  cachedweights/OS/MLX 유지/freshengine/선택Ollama unload/prepare 뒤 계측이다.
+- 500ms after는 weather3trial 모두 발화중 event5/원문교정1/ASR3·번역2;
+  construction3trial 모두 event9/교정4/ASR7·번역6이다. 1000ms construction의
+  ASR4·번역3보다 호출이 늘고 final지연도 약100ms 늘었다. 먼저 나온 weather도
+  불완전한 원문/한국어 fragment였고 construction 의미교정은 실패한다. 빠른
+  **model-only 후보**일 뿐 모든 clause 정확성/깜빡임/브라우저 acceptance 완료가 아니다.
+- 최종pair sampled ASR/번역pending peak0ms/coalesced0/drop0, 최대feeder lag
+  before**15.231ms**/after**12.597ms**다. PythonRSS peak**161824768/757612544bytes**,
+  MLXactive**1011746444bytes**/phasepeak**1641162980bytes**다. 모든trial 뒤 별도
+  Ollama /api/ps snapshot은 model/Metal**3175339786/3175339786bytes**이며 peak/RSS가
+  아니다. unified memory는 합산하지 않는다. 짧은 isolated clips라 continuous queue/
+  메모리 안정성 근거가 아니다. AppleM5·16GiB/Python3.12.15/mlx-audio0.5.8/
+  Ollama0.35.1/ASR0.6B8bit/qwen3:4b-instruct Q4_K_M/context4096/English→Korean,
+  HFoffline/Ollamacloud disabled다. paired WAVhash/revision/산술/percentile/count/
+  queue/checkflag 독립 검사 통과이며1000ms 수치도 docs와JSON에 보존한다.
+- **다음도7d**: 원래 construction 의미 실패를 해결하고 같은 음성/설정으로 native
+  Chrome tabCapture/covering Paint의first/partial/final 비교, 짧은/긴/continuous/
+  쉼/무음, 전체문자/교정/expiry/appearance/원음, Stop/provider/session교체,
+  queue/drop/process·model memory를 검증한다. 500ms 후보의 장시간 처리량도 미검증이다.
+  이번에 browser/companion/fixture를 띄우지 않아 새 실제capture/시각/청취/access실패
+  근거가 없다. 사용자 입력/키/외부 상태 변경이 필요한 blocker가 아니며 계속 진행한다.
+  7a/7c의 기존 근거를 새7d 성공으로 재사용하지 않는다. 전체 completion은 아직 아니다.
+- **최종 source npm run verify exit0**: lint/typecheck/build, **JS12+Python168**,
+  failures/skips/warnings0,Python**66.17초**다. base uv sync --locked를 복원했고
+  uv lock --check/git diff --check 통과다. ownedOllama/runner 정상종료,8765/8766/11434
+  listener 없음. source/tests/README/docs/plan/실패numeric 근거만 Conventional Commit으로
+  보존한다. 키/weights/user audio·transcript/임시.ralph/build는 커밋하지 않는다.

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import threading
+from types import ModuleType
 
 import httpx
 import pytest
@@ -13,6 +14,33 @@ from server.sessions.local import (
     MlxTranscriber,
     OllamaTranslator,
 )
+
+
+def test_missing_resampler_fails_preparation_before_capture(monkeypatch):
+    import builtins
+    import sys
+
+    hub = ModuleType("huggingface_hub")
+    hub.snapshot_download = lambda *_args, **_kwargs: "cached-fixture"
+    stt = ModuleType("mlx_audio.stt")
+    stt.load = lambda _path: object()
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
+    monkeypatch.setitem(sys.modules, "mlx_audio.stt", stt)
+    original_import = builtins.__import__
+
+    def missing(name, *args, **kwargs):
+        if name == "scipy" or name.startswith("scipy."):
+            raise ImportError("resampler unavailable")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", missing)
+    engine = MlxEngine()
+    try:
+        with pytest.raises(RuntimeError, match="uv sync --locked --extra local"):
+            engine.prepare(ASR_MODEL)
+        assert engine.model is None
+    finally:
+        engine.close()
 
 
 def test_prepare_loads_selected_local_models_without_audio_or_translation():

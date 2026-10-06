@@ -2696,3 +2696,152 @@ Both owned Ollama processes were stopped; no companion/fixture/browser was
 started, no dependency/lock/runner/acceptance criterion changed, and no keys,
 weights, temporary `.ralph` state, user audio/transcripts, agents, push or publishing
 are part of this commit.
+
+## 2026-10-06 — Ralph iteration 3/30: snapshot interval and preparation (7d, incomplete)
+
+Worked only in this checkout. No repository AGENTS.md is present;
+`.ralph/verification.txt` says `No completion verification attempted in this run.`
+Continued 7d without changing its acceptance or checkbox. No browser, companion,
+cloud inference, agents, credentials, publishing, push, dependencies, lockfile or
+runner changes were involved. Existing 7a/7c capture/appearance/listening evidence
+remains historical.
+
+The unchanged original model probe failed again, exit 1, on construction crane
+meaning. The full source was recognized correctly. Its first weather ASR call
+was **13,878.879 ms** (first event **15,751.347 ms** from the speech-start proxy),
+while the following construction ASR call was **302.307 ms**. A separate native
+worker profile with generated weather audio observed **983.067 ms** first ASR
+and **108.134 ms** next ASR; about **732 ms** of the first call was Python imports,
+primarily SciPy signal modules. An instrumented paced profile also failed crane
+meaning, with **1,012.933 ms** first ASR and **193.818 ms** next ASR. Profiling
+changes timing; this does **not** establish the cause of the earlier 13.9-second
+call. Generic English/Korean instruction and user-wrapper text-only probes
+produced incorrect animals, incorrect word senses or grammatical ambiguity.
+None was adopted as a product prompt change or successful translation evidence.
+
+Moved the existing SciPy resampler import into the shared MLX worker's preparation
+and retained the function for PCM processing. This finishes a measured expensive
+import before capture accepts audio and reports a missing resampler during
+preparation. It adds no synthetic inference, alternate model or framework.
+The new missing-resampler regression first failed `DID NOT RAISE RuntimeError`,
+then passed after the fix. The local prepare/interim/queue suite passed **36/36**.
+It does not prove that all first-inference variability is fixed.
+
+The original one-second candidate still missed the first weather utterance's
+speech window: its first event was **1,500.302 ms**, versus the PCM end proxy
+**1,356.792 ms**. Changed the local/local snapshot interval to **500 ms of new
+voiced PCM** and measured it with the same generated speech, unchanged models,
+prompt, VAD boundaries, queues and meaning checks. Updated the snapshot regression
+to require an event at 500 ms, later same-ID revisions and a confirmed final.
+The slow-worker regression still requires final preservation and zero drops; it
+now observes nine coalesced snapshots rather than four because there are twice
+as many candidate snapshots. Luna/Anthropic and OpenAI-ASR request policy is
+unchanged. The interval remains a **model-only candidate pending native acceptance**.
+
+The probe now samples process RSS and pending work at a requested 100 ms interval
+through session completion, including inference after PCM feeding ends, and
+records preparation duration and maximum feeder scheduling lag. Sampling is
+asynchronous and sampler errors propagate. Previously, memory sampling ended
+with audio feeding and could miss a slow inference's memory peak. It runs all
+six trials before aggregating the original meaning/during-speech/correction/drop
+checks; **any failed check still exits nonzero**. Failed numeric files have
+`acceptancePassed: false` and a `-failed` filename. Passing filenames still
+require every check; neither `model-before.json` nor `model-after.json` exists.
+Structural final/revision/provider-error assertions remain immediate failures.
+This aggregation records more failed observations and does not waive a check.
+
+Actual commands (owned Ollama was stopped afterwards):
+
+```sh
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+# Ran both commands first with 1000ms, then with the final 500ms candidate.
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py before
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py after
+uv sync --locked
+npm run verify
+```
+
+Both candidates' before/after phases completed **three repetitions of two clips**
+and all **four commands exited 1**: every construction final failed crane meaning.
+Weather and steel keywords passed. Console review confirmed that the continuing
+construction source added lifting, steel beams and construction site, but Korean
+provisionals used deer and finals still used duck. There is no successful
+contextual-meaning correction claim. Numeric observations are preserved in
+`docs/verification/interim/model-{before,after}-1000-failed.json` and
+`model-{before,after}-failed.json` (the latter are the final 500 ms candidate).
+All contain numeric/identity/boolean data, without audio or source/translation text.
+
+These are failed-cohort **session event** measurements, not tabCapture, DOM,
+Chromium Paint, physical display or acoustic timing. The PCM proxies use first/
+last absolute samples at least 100, with weather **0.417–1,356.792 ms** and
+construction **1.542–3,181.958 ms**. Each phase has a fresh engine/process, explicitly
+unloads only the selected Ollama model and prepares both adapters before timing.
+Weights/OS/MLX caches remain; first inference is separate, not cold-cache evidence.
+The current final-only path is the controlled `before` baseline, not a historical
+build. Percentiles use nearest rank, exclude only the engine's first weather
+inference, and consequently have weather **n=2** and construction **n=3**:
+
+| Candidate / clip | Before start→first event p50 / p95 ms | After start→first event p50 / p95 ms | Before end→final event p50 / p95 ms | After end→final event p50 / p95 ms |
+| --- | ---: | ---: | ---: | ---: |
+| 1000 ms / weather (n=2) | 1995.554 / 1998.369 | 1213.070 / 1259.792 | 860.981 / 864.104 | 534.192 / 546.929 |
+| 1000 ms / construction (n=3) | 3846.359 / 3906.805 | 1230.778 / 1262.809 | 1157.345 / 1219.663 | 707.466 / 744.421 |
+| 500 ms / weather (n=2) | 1980.522 / 2001.803 | 686.542 / 710.819 | 850.062 / 871.820 | 546.006 / 547.079 |
+| 500 ms / construction (n=3) | 3850.254 / 3874.227 | 676.159 / 711.071 | 1162.354 / 1193.755 | 822.571 / 825.088 |
+
+The 500 ms engine-first weather sample's start→first / end→final events were
+**941.700 / 541.420 ms**, with preparation **2,117.094 ms** and first ASR
+**340.568 ms**. The corresponding final-only phase was **2,176.562 / 1,047.037 ms**,
+preparation **2,392.438 ms**, first ASR **314.012 ms**. These are n=1 observations,
+not proof of cold-start improvement or an explanation of the earlier 13.9-second
+outlier. Moving imports can move waiting to preparation; capture-start/UI timing
+has not been remeasured.
+
+At 500 ms all three weather trials had five provisional events during speech,
+one source change and **3 ASR / 2 translation calls**. Construction had
+nine during-speech provisional events, four source changes and **7 / 6 calls**
+each, compared with 1000 ms construction **4 / 3 calls**, two source changes and
+15 during-speech events. These counts include streamed initial tokens, not nine
+independent complete translations. Shorter intervals reduced observed first-event
+waiting but increased calls and construction final latency. The initial weather
+source was incomplete and its provisional Korean was fragmentary before final
+correction. No claim of accurate provisional clauses or acceptable flashing can
+be made without the remaining semantic and visual acceptance.
+
+For the final 500 ms pair, sampled ASR/translation pending peaks were **0 ms**,
+coalesced snapshots **0**, ASR/translation drops **0**, and maximum feeder lag
+across trials was **15.231 ms before / 12.597 ms after**. These are isolated clips,
+not continuous-load/no-backlog proof. Sampled process RSS peaks across the phases
+were **161,824,768 / 757,612,544 bytes**; MLX active memory after trials was
+**1,011,746,444 bytes**, with phase peaks **1,641,162,980 bytes**. A separate
+`/api/ps` snapshot after all trials reported selected Ollama model / Metal
+allocation **3,175,339,786 / 3,175,339,786 bytes**; this is not a sampled peak or
+Ollama process RSS. Apple unified-memory metrics overlap and must not be added.
+RSS varied greatly between first and subsequent inferences; these short trials
+cannot establish memory stability. Reports retain per-call timings and each
+caption's audio-position→event measurement for later native comparison.
+
+Environment: **Apple M5 / 16 GiB**, Python **3.12.15**, mlx-audio **0.5.8**,
+Ollama **0.35.1**, cached MLX Qwen3-ASR **0.6B 8bit**, Ollama
+**qwen3:4b-instruct Q4_K_M/context4096**, English→Korean, HF offline and Ollama
+cloud disabled. Independent JSON audit passed paired WAV hashes, every increasing
+same-ID revision, first/final arithmetic, nearest-rank percentiles, sample counts,
+bounded sampled queues, zero recorded drops and failed acceptance flags. The
+four JSON files are failed observations, not passing acceptance receipts.
+
+7d remains unchecked. Next work is still the original construction meaning
+failure, then native Chrome tabCapture/covering-Paint comparisons of the selected
+candidate with the same speech/settings, continuous speech/short pauses/silence,
+subtitle full-character/expiry/correction appearance, speaker playback,
+Stop/provider/session replacement, queue/drop and process/model memory. No new
+browser/listening/visual evidence or interactive-access failure exists from this
+iteration. There is no blocker requiring user input or credentials.
+
+Final-source `npm run verify` passed **exit 0**: lint/typecheck/build, **JS 12 +
+Python 168**, zero failures/skips/warnings, Python **66.17 seconds**. Base locked
+environment was restored before verification. `uv lock --check` and
+`git diff --check` passed. The owned Ollama server/runner stopped normally and no
+8765/8766/11434 listeners remain. Only source, tests, README, plan and failed
+numeric observations are intended for commit; `.ralph`, model weights, audio,
+transcripts, build outputs and credentials are excluded.

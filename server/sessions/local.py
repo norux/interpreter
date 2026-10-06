@@ -102,16 +102,20 @@ class MlxEngine:
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx-asr")
         self.model = None
         self.model_id = ""
+        self.resample_poly = None
 
     def prepare(self, model_id: str):
         try:
             from huggingface_hub import snapshot_download
             from mlx_audio.stt import load
+            from scipy.signal import resample_poly
         except ImportError as error:
             raise RuntimeError(
                 "Local ASR dependencies are missing. "
                 "Run uv sync --locked --extra local."
             ) from error
+        # SciPy's first import is substantial; finish it before accepting PCM.
+        self.resample_poly = resample_poly
         if self.model is None or self.model_id != model_id:
             try:
                 path = snapshot_download(model_id, local_files_only=True)
@@ -133,12 +137,11 @@ class MlxEngine:
         self.prepare(model_id)
         import mlx.core as mx
         import numpy as np
-        from scipy.signal import resample_poly
 
         pcm = b"".join(frame.pcm for frame in utterance.frames)
         samples = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768
         # Qwen3-ASR's in-memory input is 16 kHz float32, not the capture's 24 kHz.
-        audio = mx.array(resample_poly(samples, 2, 3).astype(np.float32))
+        audio = mx.array(self.resample_poly(samples, 2, 3).astype(np.float32))
         try:
             result = self.model.generate(audio, language=language, max_tokens=256)
         except Exception as error:
@@ -152,6 +155,8 @@ class MlxEngine:
 
 
 class MlxTranscriber:
+    snapshot_frames = 25
+
     def __init__(
         self, engine: MlxEngine, model_id: str, language: str, *, interim: bool = False
     ):
@@ -213,13 +218,13 @@ class MlxTranscriber:
                     if segments.utterance_id != snapshot_id:
                         snapshot_id = segments.utterance_id
                         snapshot_voice = 0
-                    # One cumulative snapshot per new second of voiced PCM. The
+                    # One cumulative snapshot per new half-second of voiced PCM. The
                     # installed model takes finite arrays, not native live PCM.
                     if (
                         self.interim
                         and segments.frames
                         and segments.silent == 0
-                        and segments.voiced - snapshot_voice >= 50
+                        and segments.voiced - snapshot_voice >= self.snapshot_frames
                     ):
                         snapshot_voice = segments.voiced
                         enqueue(

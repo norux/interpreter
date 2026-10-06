@@ -38,26 +38,34 @@ def test_local_snapshots_arrive_during_speech_and_finalize_the_same_utterance(
         transcriber = local.MlxTranscriber(engine, "fixture", "English", interim=True)
         iterator = transcriber.transcribe(frames())
         try:
-            for i in range(50):
+            for i in range(25):
                 audio.put_nowait(frame(i, True))
             first = await asyncio.wait_for(anext(iterator), 1)
             assert not first.final
-            assert (first.audio_start_ms, first.audio_end_ms) == (0, 1000)
-            for i in range(50, 100):
+            assert (first.audio_start_ms, first.audio_end_ms) == (0, 500)
+            for i in range(25, 50):
                 audio.put_nowait(frame(i, True))
             second = await asyncio.wait_for(anext(iterator), 1)
             assert not second.final
             assert second.utterance_id == first.utterance_id
             assert second.revision > first.revision
+            assert second.audio_end_ms == 1000
+            for i in range(50, 100):
+                audio.put_nowait(frame(i, True))
+            third = await asyncio.wait_for(anext(iterator), 1)
+            assert not third.final
+            assert third.utterance_id == first.utterance_id
+            assert third.revision > second.revision
+            assert third.audio_end_ms == 2000
             for i in range(100, 115):
                 audio.put_nowait(frame(i))
             final = await asyncio.wait_for(anext(iterator), 1)
             assert final.final
             assert final.utterance_id == first.utterance_id
-            assert final.revision > second.revision
+            assert final.revision > third.revision
             assert final.audio_end_ms == 2000
-            assert [len(u.frames) for u in calls] == [50, 100, 115]
-            assert calls[1].frames[:50] == calls[0].frames
+            assert [len(u.frames) for u in calls] == [25, 50, 100, 115]
+            assert calls[1].frames[:25] == calls[0].frames
             assert transcriber.dropped_utterances == 0
             audio.put_nowait(None)
             assert [t async for t in iterator] == []
@@ -126,7 +134,7 @@ def test_slow_snapshot_coalesces_pending_work_and_keeps_final(monkeypatch):
             assert [len(u.frames) for u in calls] == [50, 255]
             assert [t.final for t in results] == [False, True]
             assert len({t.utterance_id for t in results}) == 1
-            assert transcriber.coalesced_snapshots == 4
+            assert transcriber.coalesced_snapshots == 9
             assert transcriber.dropped_utterances == 0
         finally:
             release.set()
