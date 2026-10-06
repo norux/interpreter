@@ -1,0 +1,20 @@
+{
+  "existingComparisonApp": true,
+  "generatedSpeech": true,
+  "realCapture": false,
+  "asrModel": "mlx-community/Qwen3-ASR-1.7B-8bit",
+  "samples": [
+    {
+      "language": "Japanese",
+      "pcmSha256": "dff17c637c80f6d3c1dc90c0052259a320889586ff6fb50ef2579fdf190bf294",
+      "asrMs": 1949.949,
+      "anchorPassed": true
+    },
+    {
+      "language": "English",
+      "pcmSha256": "54aa04076a73360d6303913cc47f1eeaf5725951b8801cad9f43a910c1131a9a",
+      "asrMs": 506.927,
+      "anchorPassed": true
+    }
+  ]
+}

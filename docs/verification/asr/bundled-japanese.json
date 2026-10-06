@@ -1,0 +1,53 @@
+{
+  "generatedSpeech": true,
+  "voice": "Kyoko",
+  "sourceLanguage": "ja",
+  "asrModel": "mlx-community/Qwen3-ASR-1.7B-8bit",
+  "textModel": "qwen3.5:9b",
+  "realCapture": false,
+  "samples": [
+    {
+      "fixture": 0,
+      "pcmSha256": "b2ee67be7bb6d914615b224b7cba45a9bd2c40c2f577489b4aa6fbb7a442f713",
+      "audioMs": 1760,
+      "asrMs": 1637.593,
+      "sourceCharacters": 10,
+      "exactSourceMatch": false,
+      "translationCharacters": 14,
+      "final": true
+    },
+    {
+      "fixture": 1,
+      "pcmSha256": "743ff3fccdc1adb127519a501ed3da0cb0d685c5ccaad481a1c8cca20f8ea857",
+      "audioMs": 2040,
+      "asrMs": 873.641,
+      "sourceCharacters": 14,
+      "exactSourceMatch": true,
+      "translationCharacters": 16,
+      "final": true
+    },
+    {
+      "fixture": 2,
+      "pcmSha256": "dff17c637c80f6d3c1dc90c0052259a320889586ff6fb50ef2579fdf190bf294",
+      "audioMs": 2400,
+      "asrMs": 920.969,
+      "sourceCharacters": 12,
+      "exactSourceMatch": true,
+      "translationCharacters": 14,
+      "final": true
+    },
+    {
+      "fixture": 3,
+      "pcmSha256": "1df0fbfb4eca930243ca0f9569d46ae83f1b8c98865c71fc91d8fe5e4073467e",
+      "audioMs": 2040,
+      "asrMs": 732.093,
+      "sourceCharacters": 12,
+      "exactSourceMatch": true,
+      "translationCharacters": 18,
+      "final": true
+    }
+  ],
+  "exitCode": 1,
+  "exactMatches": 3,
+  "runtime": "Final bundled Python -I -B and macOS-14-targeted wheels; existing Ollama reused"
+}

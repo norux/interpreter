@@ -5491,3 +5491,69 @@ bundled `transcript.html`, `transcript.js` and service worker exactly match the
 verified extension build. The **4 focused companion Python tests pass** after
 adding the build-output argument; a new full model smoke was not repeated because
 models, engines and locked bundled dependencies did not change.
+
+## Japanese ASR model upgrade trial (2026-10-06)
+
+The user identified Japanese as the problematic input. The default ASR is now
+`mlx-community/Qwen3-ASR-1.7B-8bit` in the extension, server, setup app, environment
+example and local/cloud-text setup examples. This is the 2026
+[Qwen3-ASR model](https://huggingface.co/Qwen/Qwen3-ASR-1.7B), with the
+[MLX conversion](https://huggingface.co/mlx-community/Qwen3-ASR-1.7B-8bit) at
+revision `a8379a2e2f9e313c9292cdf1af4055ab56d50d55`; weights are 2,463,307,541 bytes.
+The translation default remains Qwen3.5 9B. Saved selections are not migrated;
+current installations can select the compatible new ASR ID after Stop, with
+Input language Japanese. The model cache is already downloaded on this machine.
+The initial Xet download showed no file progress and was stopped; normal Hugging
+Face HTTP download completed in 3m49s without disabling certificate verification.
+
+`tests/local-japanese-model.py` now accepts `--asr-model` for a controlled comparison.
+Both models receive the same four generated Kyoko clips (PCM digests match).
+0.6B reproduces three literal mismatches and two clear meaning changes. 1.7B
+corrects noon and send-tomorrow, improving exact matches **1/4 → 3/4**; travel
+cancellation is still decoded as lack of emphasis. Both strict accuracy runs
+therefore **exit 1**, with every sample saved before the assertion. This is a
+small synthetic comparison, not a general recognition accuracy percentage.
+On this M5/16 GB machine with the user's companion active, warm short-clip ASR
+medians were **140.037 ms → 275.649 ms**; first-inference observations were
+314.114 and 868.086 ms, excluding model preparation. These are finite component
+measurements, not an isolated repeated real-capture latency benchmark.
+
+The new `tests/local-japanese-stream.py` feeds 9.7 seconds of generated Japanese
+PCM at real-time cadence through actual VAD and provisional ASR. Both complete
+without dropped utterances, leave no queued audio and stay within the 8-second
+queue bound. Selected final meaning anchors improve **3/6 → 4/6**, but both
+accuracy gates **exit 1**. The six-second forced boundary splits “afternoon three
+ o'clock” into a truncated time and a next-clause homophone; both models suffer
+that loss. Cancellation/emphasis also remains wrong. A temporary eight-second
+boundary experiment moved the cut to send-tomorrow and failed that anchor, so
+it was rejected. No segmentation/cadence change or phrase-specific correction
+was applied. Interim audio snapshots remain every 0.5 seconds; presentation
+correction pacing remains once per second.
+
+The numeric, source-free comparison is
+[asr/japanese-comparison.json](verification/asr/japanese-comparison.json).
+This selects the larger model as a measured improvement while keeping remaining
+accuracy failures explicit. Native streaming/context-aware segmentation and
+natural Japanese video accuracy remain open; model replacement does not complete
+those separate acceptance checks.
+
+`npm run verify` **exits 0**: lint, typecheck, extension build, all **13 JS tests**
+and **222 Python tests in 67.02s**. Existing explicit 0.6B settings remain valid
+for compatibility. The final app is built separately under `dist/companion-asr17`
+to preserve the currently mounted/running comparison build. Bundled Python `-I -B`
+prepares the new ASR and exercises the existing 9B Japanese time fixture with
+strict app signature checks before and after; that smoke **exits 0**, recorded in
+[asr/bundled-smoke.json](verification/asr/bundled-smoke.json). This proves model
+loading/translation/signature integrity, not recognition accuracy.
+
+The final bundled four-clip Japanese ASR → Qwen3.5 translation run also completes
+all four Korean finals and retains **3/4** exact transcripts; its accuracy assertion
+**exits 1** for cancellation/emphasis. Evidence is
+[asr/bundled-japanese.json](verification/asr/bundled-japanese.json).
+A separate smoke using the currently mounted comparison app's own Python confirms
+that it can load the new ASR ID and recognize generated Japanese noon and English
+weather/after-lunch anchors without a reinstall or settings manipulation; that
+check **exits 0**, recorded in [asr/existing-app.json](verification/asr/existing-app.json).
+It is component inference, not capture of the user's tab. Strict signature checks
+still pass after bundled inference, and the new DMG passes its SHA256SUMS check.
+The user's active capture, app and saved selection were not interrupted or changed.

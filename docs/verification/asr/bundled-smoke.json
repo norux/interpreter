@@ -1,0 +1,11 @@
+{
+  "bundledPython": true,
+  "realCapture": false,
+  "asrPrepared": true,
+  "asrModel": "mlx-community/Qwen3-ASR-1.7B-8bit",
+  "textModel": "qwen3.5:9b",
+  "japaneseTimeAnchorPassed": true,
+  "firstOutputMs": 324.809,
+  "signatureStrictBeforeAndAfter": true,
+  "existingOllamaReused": true
+}

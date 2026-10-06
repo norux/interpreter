@@ -25,21 +25,21 @@ CLIPS = [
 ]
 
 
-async def verify(text_model, report_path):
+async def verify(asr_model, text_model, report_path):
     engine = MlxEngine()
     adapter = OllamaTranslator(text_model, "Japanese", "Korean") if text_model else None
     report = {
         "generatedSpeech": True,
         "voice": "Kyoko",
         "sourceLanguage": "ja",
-        "asrModel": ASR_MODEL,
+        "asrModel": asr_model,
         "textModel": text_model,
         "realCapture": False,
         "samples": [],
     }
     try:
         await asyncio.get_running_loop().run_in_executor(
-            engine.executor, engine.prepare, ASR_MODEL
+            engine.executor, engine.prepare, asr_model
         )
         if adapter:
             await adapter.prepare()
@@ -86,7 +86,7 @@ async def verify(text_model, report_path):
                     engine.executor,
                     engine.transcribe,
                     Utterance(frames, 0, len(frames) * 20),
-                    ASR_MODEL,
+                    asr_model,
                     "Japanese",
                 )
                 asr_ms = (time.monotonic() - started) * 1000
@@ -145,7 +145,8 @@ async def verify(text_model, report_path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--asr-model", default=ASR_MODEL)
     parser.add_argument("--text-model")
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
-    asyncio.run(verify(args.text_model, args.report))
+    asyncio.run(verify(args.asr_model, args.text_model, args.report))

@@ -21,7 +21,7 @@ from server.sessions.contracts import (
     Translation,
 )
 
-ASR_MODEL = "mlx-community/Qwen3-ASR-0.6B-8bit"
+ASR_MODEL = "mlx-community/Qwen3-ASR-1.7B-8bit"
 TEXT_MODEL = "qwen3.5:9b"
 
 

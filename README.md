@@ -260,7 +260,7 @@ Start uses cached weights and does not call an external inference service.
 
 ```sh
 uv sync --locked --extra local
-uv run --locked --extra local python -c 'from huggingface_hub import snapshot_download; snapshot_download("mlx-community/Qwen3-ASR-0.6B-8bit", token=False)'
+uv run --locked --extra local python -c 'from huggingface_hub import snapshot_download; snapshot_download("mlx-community/Qwen3-ASR-1.7B-8bit", token=False)'
 # Install Ollama using https://ollama.com/download, then start it in another terminal:
 ollama serve
 ollama pull qwen3.5:9b
@@ -271,7 +271,7 @@ INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
   --port 8765 --ws-max-size 4096 --ws-max-queue 8
 ```
 
-The defaults are `mlx-community/Qwen3-ASR-0.6B-8bit` and Ollama
+The defaults are `mlx-community/Qwen3-ASR-1.7B-8bit` and Ollama
 `qwen3.5:9b` (Q4_K_M, about 6.6 GB of model files). Set exported
 `INTERPRETER_ASR_MODEL` and `INTERPRETER_TEXT_MODEL` for compatible IDs. The ASR adapter expects an
 MLX-converted Qwen3-ASR checkpoint with its tokenizer/feature extractor and a
@@ -283,7 +283,18 @@ Use `INTERPRETER_SOURCE_LANGUAGE=English` and `INTERPRETER_TARGET_LANGUAGE=Korea
 to change language names until the settings UI is implemented. ASR must support
 the chosen source language.
 
-Existing extension settings retain their saved model. To try the new local model,
+For Japanese recognition, the new ASR default is the 2026
+[Qwen3-ASR 1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B), using its
+[MLX 8-bit conversion](https://huggingface.co/mlx-community/Qwen3-ASR-1.7B-8bit).
+The weights are about 2.5 GB. In four generated Kyoko clips, exact recognition
+improved from 1/4 on 0.6B to 3/4 on 1.7B; inference is slower. Cancel/emphasize
+confusion and mid-word cuts in continuous speech remain. This is a trial default,
+not general Japanese accuracy. Existing app builds support the same model format:
+Stop, choose **Local · MLX**, set **ASR model** to
+`mlx-community/Qwen3-ASR-1.7B-8bit`, choose **日本語** as Input language and Start.
+Download/cache preparation is required once; existing saved settings are retained.
+
+Existing extension settings retain their saved model. To try the new local text model,
 Stop capture, set **Text model** to `qwen3.5:9b`, then Start again. For Japanese,
 set **Source language** to Japanese. The model is from the 2026
 [Qwen3.5 family](https://huggingface.co/Qwen/Qwen3.5-9B), with an
@@ -307,7 +318,10 @@ long clauses, negation, time, future tense and mixed-language output. Its Japane
 meaning anchors are limited checks, not a general accuracy score. The second uses
 macOS Kyoko speech with real MLX ASR and optional translation, without tab capture.
 It writes all numeric results before failing on transcript mismatches; currently
-the small ASR model does fail that check.
+the ASR models still fail that check. For the real VAD/interim path on generated
+Japanese speech, run `tests/local-japanese-stream.py --asr-model MODEL --report PATH`
+with the same offline/local environment. It reports selected meaning anchors,
+queue bounds and dropped speech separately from recognition completion.
 
 The worklet sends mono 24 kHz PCM16. Local VAD uses an 8 kHz decision stream,
 200 ms pre-roll, 300 ms silence boundary, at least 200 ms speech, and a six-second
@@ -914,7 +928,7 @@ clients without a settings body:
 # OPENAI_API_KEY must already be exported. Local ASR keeps audio on this Mac.
 INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
   INTERPRETER_PROVIDER=luna INTERPRETER_ASR=local \
-  INTERPRETER_ASR_MODEL=mlx-community/Qwen3-ASR-0.6B-8bit \
+  INTERPRETER_ASR_MODEL=mlx-community/Qwen3-ASR-1.7B-8bit \
   INTERPRETER_TEXT_MODEL=gpt-6-luna \
   HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
   uv run --locked --extra local uvicorn server.app:app --host 127.0.0.1 \
@@ -923,7 +937,7 @@ INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
 # ANTHROPIC_API_KEY and a non-secret ANTHROPIC_MODEL_ID must already be exported.
 INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
   INTERPRETER_PROVIDER=anthropic INTERPRETER_ASR=local \
-  INTERPRETER_ASR_MODEL=mlx-community/Qwen3-ASR-0.6B-8bit \
+  INTERPRETER_ASR_MODEL=mlx-community/Qwen3-ASR-1.7B-8bit \
   INTERPRETER_TEXT_MODEL="$ANTHROPIC_MODEL_ID" \
   HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
   uv run --locked --extra local uvicorn server.app:app --host 127.0.0.1 \
