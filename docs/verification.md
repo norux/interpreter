@@ -5004,3 +5004,82 @@ removed. Commit contains the existing harness extension, README, plan,
 verification documentation and payload-free numeric evidence. Earlier evidence,
 runner, product source and dependency/lock files are unchanged. No secrets,
 weights, audio/transcripts, profiles, build outputs or `.ralph` state are included.
+
+## Ralph iteration 18 — native appearance check blocked before Start
+
+Continued unfinished **7d**. Added an `appearance` command to the existing
+`tests/local-interim-browser.mjs after` harness. It requires an observed native
+popup Start and active tab capture with the unchanged product schedule. The
+intended run observes three isolated long clips at normal, 270px narrow and
+fullscreen sizes, final-character coverage, final-part reading intervals,
+sentence-node identity, geometry, controls and drops. It waits for real ASR/text
+calls and queues to drain before subtitle expiry. Raw caption text and screenshots
+stay in the ignored owned profile; the numeric report excludes text. Automated
+checks and pending visual review are separate, and full 7d remains false.
+No product capture/model/output contract, model, prompt, cadence, dependency,
+runner, acceptance criterion or previous evidence was changed.
+
+**Native verification is blocked; no appearance acceptance passed.** Chrome for
+Testing **153.0.8010.12** opened the owned `Interim subtitle acceptance` window.
+Orca's native state command exited **1**, reporting `permission_denied` and:
+
+```text
+app 'Google Chrome for Testing' has visible windows but no accessibility window (AX reads stayed blocked for 1500ms after retries). macOS Accessibility may need Orca Computer Use toggled off and on again in System Settings.
+```
+
+The permission diagnostic exited **0** and reported both accessibility and
+screenshots **granted**. It opened the existing helper/settings UI; no permission
+was changed. The exact owned PID's window inventory showed a visible,
+non-minimized **1282×926** window, but a state retry with `--restore-window`
+returned the same error. CUA app-name and exact Playwright app-path selection
+both returned `Computer Use server error -10005: cgWindowNotFound`; window-ID
+selection is unsupported on macOS. No further native retries or injected Start
+were used. Restore authorized native Chrome window/accessibility access before
+resuming; the helper suggests toggling its existing Accessibility grant off/on.
+The evidence does not establish which OS/helper condition caused the failure.
+
+Executed twice in a PTY:
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs after
+```
+
+The first received `check`, `appearance`, `exit`: capture status was `{}`, and
+accessing its missing state produced a TypeError, **exit 1**. Replaced that access
+with a descriptive assertion. The second received `appearance`, `exit` and
+failed `Appearance requires actual native Start before measurement`, **exit 1**.
+Both stopped before capture/model inference and before any appearance checks.
+This proves missing Start is refused, not audio-to-caption success. The later
+report metadata/drain changes passed focused syntax/lint; their real-caption
+execution remains unverified.
+
+Two `node --input-type=module` stdin/headless Playwright diagnostics exited **0**.
+One extracted the exact changed HTML fixture, clicked its control, entered/exited
+fullscreen and observed zero page errors. The other executed the exact new
+observer closure with generated DOM/caption metadata: **4 observations**, one
+node across partial→final correction, final revision metadata, removal observed,
+and 270×700 geometry. These verify the controls/collector only; they do not
+verify final coverage, reading intervals, aggregation, native Paint, meaning,
+listening, throughput or real caption appearance. No synthetic captions were
+used to pass the native harness or mark 7d complete.
+
+Payload-free failure evidence:
+`docs/verification/interim/appearance-iteration18-blocked.json`. README contains
+the resume workflow: local Ollama → `after` harness → native **Start** → close
+popup → `appearance` → native **Stop** → `stopped` → `exit`, then review all three
+screenshots and audit the numeric results. Keep **7d unchecked**. Existing
+construction/noon meaning and continuous during-speech failures remain, as do
+same-sentence contextual correction, paired latency, appearance/listening and
+later 7b→8→9 acceptance. This iteration introduces an actual external native
+access blocker, rather than treating model-quality failures as blockers.
+
+`PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` **exit 0**: lint, typecheck,
+build, **12 JS + 216 Python tests**, zero failures/skips/warnings; Python
+**66.80 s**. Node syntax, focused Biome, base `uv sync --locked`, `uv lock --check`
+and `git diff --check` pass. These checks do not execute native appearance.
+Owned Ollama **0.35.1**, cloud disabled, SIGINT **exit 0**; both owned profiles
+and generated speech removed; no listeners on 8765/8766/11434. Commit includes
+only the unfinished harness, README, plan and failure evidence/documentation.
+No secrets, weights, user audio/transcripts, temporary `.ralph` state or build
+outputs are committed. Native access must be restored before the next required
+appearance run can proceed.

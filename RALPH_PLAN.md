@@ -2951,3 +2951,51 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   auditrecord삭제다. runner/제품source/dependency·lock/기존evidence diff없음이다.
   기존harness확장/README/docs/numeric/plan만 Conventional Commit으로 보존하며
   secrets/weights/audio·transcript/.ralph/build는 커밋하지 않는다. 7d/전체완료 미체크다.
+
+### Ralph iteration 18/30 — 2026-10-06 — 7d appearance harness, native access blocker
+
+- 다음 미완료 **7d만 진행, checkbox 미체크**다. 시작 worktree clean,
+  AGENTS.md 없음, `.ralph/verification.txt`는 `No completion verification attempted
+  in this run.`이다. 지정 checkout/일반 cache/명시적 local app 검증만 사용했다.
+  agent/credentials/cloud inference/새 모델/runner/criteria/push/publish 변경없다.
+- 기존 `tests/local-interim-browser.mjs after`에 작은 test-only `appearance` 명령과
+  fixture controls를 추가했다. 실제 native Start/active tabCapture/default schedule을
+  요구하고 normal/270px narrow/fullscreen의 실제 final 문자/읽기시간/node identity/
+  geometry/controls/drop을 관측하도록 구현했다. ASR와 text의 실제 종료/queue drain,
+  표시 만료를 기다린다. text/raw/screenshot은 ignored owned profile, numeric은 `.ralph`
+  report다. 자동 checks와 pending 시각검토를 구분하고 appearance/full7d acceptance는
+  false로 남긴다. 제품 capture/model/output/prompt/500ms/queue/paid 정책 변경없음이다.
+- **실제 acceptance 실행 전 외부 blocker**: Chrome for Testing153.0.8010.12의
+  owned window가 inventory상 visible/non-minimized1282×926인데 Orca native state가
+  exit1/`permission_denied`다. 정확한 오류: `app 'Google Chrome for Testing' has
+  visible windows but no accessibility window (AX reads stayed blocked for 1500ms
+  after retries). macOS Accessibility may need Orca Computer Use toggled off and
+  on again in System Settings.` permission diagnostic은 exit0/accessibility·screenshots
+  granted다. 기존 helper/settings UI만 열었으며 권한 변경없다. exact PID + restore도
+  같은 실패, CUA name/owned app path는 `Computer Use server error -10005:
+  cgWindowNotFound`, window-ID는 macOS unsupported다. 실제 원인을 확정하지 않는다.
+- 두 PTY harness 모두 **exit1**, 실제 Start/캡처/추론/appearance checks 전 중단이다.
+  처음 missing status TypeError를 descriptive native-Start assertion으로 고쳤고 재실행은
+  `Appearance requires actual native Start before measurement`로 실패했다. native Start를
+  주입하거나 접근 오류를 fixture 성공으로 바꾸지 않았다. 수치/시각/real model 증거없다.
+- headless fixture diagnostic2개는 각각 exit0: 변경 HTML의 control/fullscreen/오류0,
+  실제 observer closure + generated DOM/metadata의4observations/같은 node partial→final/
+  revision/제거/270×700을 확인했다. **collector/controls만의 fixture 근거**다. 실제 final
+  coverage/읽기시간/drain·Paint aggregation/screenshot은 미검증이며 harness도 미완료다.
+- exact limitation/commands/errors/fixture 범위는
+  `docs/verification/interim/appearance-iteration18-blocked.json`, 상세는
+  `docs/verification.md`, resume 명령은 README다. 기존 의미/continuous 실패를 보존한다.
+- **필요한 외부 변경**: authorized native Chrome window/accessibility 접근을 복구한다.
+  helper는 기존 Accessibility grant off/on을 제안한다. 복구 후 local Ollama +
+  `PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs after` → native
+  Start → popup닫기 → `appearance` → native Stop → `stopped` → `exit`, screenshot3개
+  직접검토/numeric audit를 수행한다. 그 뒤 construction/noon 의미, warm continuous
+  duringSpeech/문맥교정/paired Paint/원음청취와 나머지7d를 완료한다. 이후7b→8→9다.
+- **npm run verify exit0**: lint/typecheck/build, **JS12+Python216**, failures/skips/
+  warnings0, Python **66.80s**다. Node syntax/focusedBiome/base uv sync --locked/
+  uv lock --check/git diff --check pass다. owned Ollama0.35.1/cloud disabled SIGINTexit0,
+  두 owned profile/generated speech 삭제, 8765/8766/11434 listener없음이다. 추가 report
+  metadata/drain 변경 후 focused checks를 재실행하며 native 실행은 주장하지 않는다.
+  harness/README/docs/failed evidence/plan을 Conventional Commit으로 보존한다.
+  secrets/weights/user audio·transcript/.ralph/build는 커밋하지 않는다. 7d와 전체 완료는
+  미체크이고 실제 native-access blocker로 이번 runner를 종료한다.

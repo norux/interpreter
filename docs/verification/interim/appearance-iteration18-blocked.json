@@ -1,0 +1,119 @@
+{
+  "iteration": 18,
+  "item": "7d",
+  "browser": "153.0.8010.12",
+  "acceptancePassed": false,
+  "full7dAcceptancePassed": false,
+  "status": "blocked before native Start; new appearance collector remains unverified",
+  "captureStarted": false,
+  "audioToCaptionVerified": false,
+  "appearanceMeasurements": null,
+  "screenshotsReviewed": false,
+  "nativeAccess": {
+    "orcaStateCommand": "/Users/norux/.local/bin/orca computer get-app-state --app 'Google Chrome for Testing' --json --no-screenshot",
+    "stateExitCode": 1,
+    "errorCode": "permission_denied",
+    "errorMessage": "app 'Google Chrome for Testing' has visible windows but no accessibility window (AX reads stayed blocked for 1500ms after retries). macOS Accessibility may need Orca Computer Use toggled off and on again in System Settings.",
+    "permissionsCommand": "/Users/norux/.local/bin/orca computer permissions --id accessibility --json",
+    "permissionsExitCode": 0,
+    "reportedPermissions": {
+      "accessibility": "granted",
+      "screenshots": "granted"
+    },
+    "permissionChangesMade": false,
+    "windowInventory": {
+      "title": "Interim subtitle acceptance",
+      "width": 1282,
+      "height": 926,
+      "isOffscreen": false,
+      "isMinimized": false
+    },
+    "pidTargetWithRestoreExitCode": 1,
+    "pidTargetErrorCode": "permission_denied",
+    "cuaAppNameError": "Computer Use server error -10005: cgWindowNotFound",
+    "cuaOwnedAppPathError": "Computer Use server error -10005: cgWindowNotFound",
+    "cuaWindowIdError": "macOS getApp requires an app name, path, or bundle ID."
+  },
+  "harnessAttempts": [
+    {
+      "command": "PATH=\"$PWD/.tools/uv/bin:$PATH\" node tests/local-interim-browser.mjs after",
+      "stdin": [
+        "check",
+        "appearance",
+        "exit"
+      ],
+      "exitCode": 1,
+      "captureStatus": {},
+      "error": "TypeError: Cannot read properties of undefined (reading 'state')",
+      "nativeStart": false,
+      "acceptanceChecksExecuted": false
+    },
+    {
+      "command": "PATH=\"$PWD/.tools/uv/bin:$PATH\" node tests/local-interim-browser.mjs after",
+      "stdin": [
+        "appearance",
+        "exit"
+      ],
+      "exitCode": 1,
+      "error": "AssertionError [ERR_ASSERTION]: Appearance requires actual native Start before measurement\n+ actual - expected\n\n+ undefined\n- 'capturing'\n",
+      "nativeStart": false,
+      "acceptanceChecksExecuted": false
+    }
+  ],
+  "guardCorrection": "Missing capture status now fails a descriptive native-Start assertion instead of TypeError; the second attempt confirms refusal, not appearance acceptance.",
+  "ownedOllama": {
+    "version": "0.35.1",
+    "cloudDisabled": true,
+    "shutdownExitCode": 0
+  },
+  "nextAction": "Restore authorized native Chrome window/accessibility access, then rerun after \u2192 native Start \u2192 appearance \u2192 native Stop \u2192 stopped \u2192 exit. Review screenshots and audit numeric results. Keep 7d unchecked until all original checks pass.",
+  "limitations": [
+    "No tab capture, model inference, Korean-caption appearance, reading-time or fullscreen evidence in this iteration.",
+    "Existing meaning and continuous during-speech failures remain unresolved.",
+    "No cloud calls, credentials, new models or agents."
+  ],
+  "fixtureDiagnostics": {
+    "command": "node --input-type=module (stdin Playwright diagnostic)",
+    "fixtureControlsAndFullscreen": {
+      "exitCode": 0,
+      "controlsClicked": true,
+      "fullscreenEnteredAndExited": true,
+      "pageErrors": 0
+    },
+    "collector": {
+      "exitCode": 0,
+      "observations": 4,
+      "sameNodeCorrection": true,
+      "finalMetadata": true,
+      "removalObserved": true,
+      "viewport": {
+        "width": 270,
+        "height": 700
+      }
+    },
+    "method": "Extracted the exact HTML template and appearance observer closure from the modified harness and executed them in headless Chromium with generated DOM/caption metadata; no native Start, capture or models.",
+    "appearanceAcceptance": false,
+    "scope": "Controls and observer only. Real final coverage/reading/drain/Paint aggregation and screenshots are unverified."
+  },
+  "repositoryVerification": {
+    "command": "PATH=\"$PWD/.tools/uv/bin:$PATH\" npm run verify",
+    "exitCode": 0,
+    "jsTestsPassed": 12,
+    "pythonTestsPassed": 216,
+    "pythonDurationSeconds": 66.8,
+    "failures": 0,
+    "skips": 0,
+    "warnings": 0,
+    "nodeSyntaxCheck": true,
+    "focusedBiome": true,
+    "uvSyncLocked": true,
+    "uvLockCheck": true,
+    "gitDiffCheck": true,
+    "nativeAppearanceCovered": false
+  },
+  "cleanup": {
+    "ownedProfilesRemoved": 2,
+    "generatedSpeechRemoved": true,
+    "listenersOn8765_8766_11434": false
+  }
+}

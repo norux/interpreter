@@ -409,6 +409,27 @@ inference; warm samples are n=2 per clip. This finite test does not replace
 ten-minute public playback, listening or full appearance verification.
 Do not run other `uv` commands while a native phase owns the shared `.venv`.
 
+The unfinished native appearance check uses the default product schedule:
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs after
+```
+
+With local Ollama running, use native toolbar **Start**, close the popup, then
+enter `appearance`. It plays the generated long clip in normal, 270px narrow
+and fullscreen views, observing final-character coverage, final-part reading
+time, sentence-node identity, geometry, controls and drops. Each clip waits for
+inference and subtitle expiry; this is separate from continuous throughput and
+meaning checks. Finish with native **Stop**, `stopped`, `exit`.
+Numeric output is ignored `.ralph/interim-appearance.json` (or `-failed.json`);
+screenshots and text-bearing diagnostic observations stay in the printed owned
+profile. Exit 0 only indicates automated checks; the report leaves visual review
+pending and appearance/7d acceptance false. Review the screenshots before
+claiming appearance success, then remove that profile. No actual appearance
+acceptance has passed yet: iteration 18
+could not access the native Chrome window and stopped before Start. Missing
+Start fails the command and exits 1; it does not substitute injected captions.
+
 The separate native in-flight Stop/restart check uses the same local adapters:
 
 ```sh

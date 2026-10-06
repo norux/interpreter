@@ -52,8 +52,9 @@ const fixture = createServer((request, response) => {
   if (clip) { response.setHeader("Content-Type", "audio/wav"); response.end(clip); return; }
   response.setHeader("Content-Type", "text/html");
   response.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Interim subtitle acceptance</title>
-    <style>body{margin:0;background:#446879;color:white;font:24px system-ui}main{padding:48px}audio{width:80%}</style>
-    <main><h1>Generated English speech</h1><p>Snapshot comparison: ${phase}</p><audio controls></audio></main></html>`);
+    <style>body{margin:0;background:#446879;color:white;font:24px system-ui}main{padding:48px}audio{width:80%}#scene:fullscreen{background:#446879}#control{position:fixed;bottom:24px;left:40%;height:36px}</style>
+    <main id="scene"><h1>Generated English speech</h1><p>Snapshot comparison: ${phase}</p><audio controls></audio><button id="fullscreen">Fullscreen</button><button id="control">Caption-area control</button></main>
+    <script>fullscreen.onclick=()=>scene.requestFullscreen();control.onclick=()=>control.dataset.clicks=String(Number(control.dataset.clicks||0)+1);</script></html>`);
 });
 let context;
 let companion;
@@ -107,6 +108,12 @@ try {
   const tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({})).find((tab) => tab.url === url)?.id, page.url());
   assert.ok(tabId);
   await worker.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, files: ["content.js"] }), tabId);
+  await worker.evaluate(() => {
+    globalThis.interimNativeStarts = [];
+    chrome.runtime.onMessage.addListener((message, sender) => {
+      if (sender.url === chrome.runtime.getURL("popup.html") && message.target === "worker" && message.type === "start") globalThis.interimNativeStarts.push(Date.now());
+    });
+  });
   finishTrace = await traceCaptionPaints(context, page, worker, tabId);
   await worker.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, func: () => {
     globalThis.interimCaptions = [];
@@ -115,12 +122,144 @@ try {
     });
   } }), tabId);
   console.log(JSON.stringify({ ready: true, browser: context.browser().version(), phase, profile,
-    instructions: "Native Extensions toolbar → Interpreter → Start; close popup. measure (isolated short clips) OR continuous (nine clips without inference/expiry waits) → native Stop → stopped → exit. Failed semantic reports still require Stop cleanup." }));
+    instructions: "Native Extensions toolbar → Interpreter → Start; close popup. measure (isolated short clips) OR continuous (nine clips without inference/expiry waits) OR appearance (after, default only) → native Stop → stopped → exit. Failed reports still require Stop cleanup." }));
   input = createInterface({ input: process.stdin });
   for await (const command of input) {
     try {
       if (command === "exit") break;
       if (command === "check") console.log(JSON.stringify(await worker.evaluate(() => chrome.storage.session.get("captureStatus"))));
+      if (command === "appearance") {
+        assert.equal(phase, "after");
+        assert.equal(trial, undefined, "Appearance verifies the unchanged product schedule");
+        assert.ok(!measured && finishTrace);
+        const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
+        assert.equal(captureStatus?.state, "capturing", "Appearance requires actual native Start before measurement");
+        assert.equal((await worker.evaluate(() => globalThis.interimNativeStarts)).length, 1);
+        assert.ok((await worker.evaluate(() => chrome.tabCapture.getCapturedTabs())).some((tab) => tab.tabId === tabId && tab.status === "active"));
+        const appearances = [];
+        for (const mode of ["normal", "narrow", "fullscreen"]) {
+          await page.setViewportSize(mode === "narrow" ? { width: 270, height: 700 } : { width: 1280, height: 800 });
+          if (mode === "fullscreen") {
+            await page.locator("#fullscreen").click();
+            await page.waitForFunction(() => !!document.fullscreenElement);
+          }
+          await worker.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, func: () => {
+            globalThis.appearanceViews = [];
+            const identities = new WeakMap();
+            let identity = 0;
+            let shadow;
+            const record = () => {
+              const host = document.querySelector("#interpreter-captions");
+              const root = host?.shadowRoot;
+              if (root && root !== shadow) { shadow = root; observer.observe(root, { childList: true, subtree: true, characterData: true }); }
+              const cue = root?.querySelector(".cue");
+              const box = cue?.getBoundingClientRect();
+              const css = cue && getComputedStyle(cue);
+              globalThis.appearanceViews.push({ atMs: performance.timeOrigin + performance.now(),
+                width: innerWidth, height: innerHeight, fullscreen: !!document.fullscreenElement,
+                fullscreenAttached: !!document.fullscreenElement?.contains(host),
+                hostCount: document.querySelectorAll("#interpreter-captions").length,
+                lineHeight: css ? Number.parseFloat(css.lineHeight) : 0,
+                surfaceHeight: box?.height ?? 0, left: box?.left ?? 0, right: box?.right ?? 0,
+                top: box?.top ?? 0, bottom: box?.bottom ?? 0, pointerEvents: css?.pointerEvents,
+                notice: root?.querySelector(".notice")?.textContent ?? "",
+                sentences: [...(root?.querySelectorAll(".sentence") ?? [])].map((node) => {
+                  if (!identities.has(node)) identities.set(node, ++identity);
+                  const caption = globalThis.interimCaptions.filter((c) => c.utteranceId === node.dataset.utteranceId).at(-1);
+                  return { id: node.dataset.utteranceId, nodeId: identities.get(node), text: node.textContent,
+                    revision: caption?.revision, final: caption?.final, height: node.getBoundingClientRect().height };
+                }) });
+            };
+            const observer = new MutationObserver(record);
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+            globalThis.appearanceObserver = observer;
+            record();
+          } }), tabId);
+          const start = metrics.length;
+          const media = await page.locator("audio").evaluate(async (element) => {
+            element.src = "/2.wav"; await element.play();
+            return { startedAtMs: performance.timeOrigin + performance.now(), durationMs: element.duration * 1000 };
+          });
+          const observed = () => metrics.slice(start).filter((m) => m.sessionId === captureStatus.sessionId);
+          const deadline = Date.now() + 90000;
+          while (!observed().some((m) => m.metric === "caption" && m.final)) {
+            assert.ok(Date.now() < deadline, "No actual final for appearance");
+            await page.waitForTimeout(20);
+          }
+          await page.waitForFunction(() => !!document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".sentence"));
+          await page.screenshot({ path: `${profile}/appearance-${mode}.png` });
+          await page.locator("#control").click();
+          const controlsClicked = Number(await page.locator("#control").getAttribute("data-clicks"));
+          // Finish all real audio/inference and every displayed part, without injecting captions.
+          await page.waitForFunction(() => document.querySelector("audio").ended);
+          let drain = 0;
+          while (drain < 10) {
+            const receipt = observed().filter((m) => m.metric === "receipt").at(-1);
+            const running = observed().some((m) => ["asrStart", "translationStart"].includes(m.metric)
+              && !observed().some((end) => end.metric === m.metric.replace("Start", "") && end.startedAtMs === m.startedAtMs));
+            assert.ok(Date.now() < deadline, "Appearance inference did not drain");
+            drain = receipt && !running && receipt.pendingAudioMs === 0 && receipt.pendingTranslationMs === 0 ? drain + 1 : 0;
+            await page.waitForTimeout(100);
+          }
+          await page.waitForFunction(() => !document.querySelector("#interpreter-captions"), undefined, { timeout: 45000 });
+          const raw = await worker.evaluate(async (id) => (await chrome.scripting.executeScript({ target: { tabId: id }, func: () => {
+            globalThis.appearanceObserver.disconnect();
+            return { views: globalThis.appearanceViews, captions: globalThis.interimCaptions };
+          } }))[0].result, tabId);
+          const finals = observed().filter((m) => m.metric === "caption" && m.final);
+          const parts = finals.map((final) => {
+            const full = raw.captions.find((c) => c.utteranceId === final.utteranceId && c.revision === final.revision).translation.trim();
+            const views = raw.views.filter((v) => v.sentences.some((s) => s.id === final.utteranceId));
+            const finalViews = raw.views.filter((v) => v.atMs >= final.atMs);
+            const changes = [];
+            for (const view of finalViews) {
+              const sentence = view.sentences.find((s) => s.id === final.utteranceId);
+              if (sentence?.final && sentence.text !== changes.at(-1)?.text) changes.push({ ...sentence, atMs: view.atMs });
+            }
+            const covered = new Set();
+            for (const view of views) {
+              const text = view.sentences.find((s) => s.id === final.utteranceId).text;
+              const offset = full.indexOf(text);
+              if (offset >= 0) for (let i = offset; i < offset + text.length; i++) covered.add(i);
+            }
+            for (const part of changes) {
+              const end = finalViews.find((v) => v.atMs > part.atMs && v.sentences.find((s) => s.id === part.id)?.text !== part.text);
+              part.untilMs = end?.atMs ?? null;
+              part.requiredReadingMs = Math.min(6000, Math.max(2500, part.text.length * 90));
+            }
+            return { utteranceId: final.utteranceId, finalRevision: final.revision, finalCharacters: full.length,
+              coveredFinalCharacters: covered.size, nodeIds: [...new Set(views.flatMap((v) => v.sentences.filter((s) => s.id === final.utteranceId).map((s) => s.nodeId)))],
+              finalParts: changes.map(({ text, ...part }) => ({ ...part, characters: text.length })),
+              fullFinalCovered: covered.size === full.length,
+              finalReadingTime: changes.length > 0 && changes.every((p) => p.untilMs !== null && p.untilMs - p.atMs >= p.requiredReadingMs - 100) };
+          });
+          const visible = raw.views.filter((v) => v.sentences.length);
+          const receipt = observed().filter((m) => m.metric === "receipt").at(-1);
+          const checks = { actualFinals: finals.length > 0, fullFinalCovered: parts.every((p) => p.fullFinalCovered),
+            finalReadingTime: parts.every((p) => p.finalReadingTime), inPlaceRevisions: parts.every((p) => p.nodeIds.length === 1),
+            geometry: visible.length > 0 && visible.every((v) => v.hostCount === 1 && v.left >= 0 && v.right <= v.width + 1 && v.top >= 0 && v.bottom <= v.height && v.surfaceHeight <= v.lineHeight * 4 + 9 && v.sentences.every((s) => s.height <= v.lineHeight * 2 + 1)),
+            fullscreen: mode !== "fullscreen" || visible.every((v) => v.fullscreen && v.fullscreenAttached),
+            controls: controlsClicked === appearances.length + 1 && visible.every((v) => v.pointerEvents === "none"),
+            noDisplayDrops: visible.every((v) => !v.notice), noInferenceDrops: receipt?.droppedFrames === 0 && receipt.droppedUtterances === 0 && receipt.droppedTranslations === 0 };
+          appearances.push({ mode, media, checks, parts, observations: raw.views.map((v) => ({ ...v, notice: !!v.notice,
+            sentences: v.sentences.map(({ text, ...s }) => ({ ...s, characters: text.length })) })),
+            captionRevisions: observed().filter((m) => m.metric === "caption"), receipt });
+          await writeFile(`${profile}/appearance-${mode}-raw.json`, `${JSON.stringify(raw, null, 2)}\n`);
+          console.log(JSON.stringify({ appearance: mode, checks, screenshot: `${profile}/appearance-${mode}.png` }));
+          if (mode === "fullscreen") { await page.evaluate(() => document.exitFullscreen()); await page.waitForFunction(() => !document.fullscreenElement); }
+        }
+        const rows = await finishTrace(); finishTrace = undefined;
+        const preparation = metrics.find((m) => m.metric === "prepare");
+        const report = { browser: context.browser().version(), realTabCapture: true, realLocalModels: true,
+          measurement: "Mutation-observed DOM appearance and final reading intervals; covering caption Paint recorded separately, not acoustic timing",
+          limitations: "Three isolated long clips with drain/expiry waits; no throughput, latency comparison, meaning, listening or physical-screen flicker acceptance",
+          modelSettings: preparation, wavSha256: createHash("sha256").update(clips[2]).digest("hex"), appearances, paints: rows,
+          automatedChecksPassed: appearances.every((a) => Object.values(a.checks).every(Boolean)),
+          visualReview: "pending; review the three owned-profile screenshots", appearanceAcceptancePassed: false, full7dAcceptancePassed: false };
+        await writeFile(`.ralph/interim-appearance${report.automatedChecksPassed ? "" : "-failed"}.json`, `${JSON.stringify(report, null, 2)}\n`);
+        measured = true;
+        assert.ok(report.automatedChecksPassed, "Actual caption appearance checks failed; numeric evidence preserved");
+      }
       if (command === "measure") {
         assert.ok(!["first500", "first300"].includes(trial), "Use continuous for the direct first-snapshot comparison");
         assert.ok(finishTrace && !measured);
