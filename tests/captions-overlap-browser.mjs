@@ -44,6 +44,14 @@ try {
   await send({ type: "caption", caption: { ...base, utteranceId: "two", revision: 3,
     translation: "점심 뒤 공원으로 갑니다.", audioStartMs: 1000, audioEndMs: 2000 } });
   assert.equal(await page.locator(".sentence").first().evaluate((node) => node === globalThis.firstSentence), true);
+  await page.waitForFunction(() => document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".sentence")?.style.opacity === "0",
+    null, { timeout: 2400 });
+  const fading = await page.locator(".sentence").first().evaluate(async (node) => {
+    await new Promise((ready) => requestAnimationFrame(() => requestAnimationFrame(ready)));
+    return { connected: node.isConnected, opacity: Number(getComputedStyle(node).opacity) };
+  });
+  assert.ok(fading.connected && fading.opacity > 0 && fading.opacity < 1,
+    "An expired sentence must fade while still attached before removal");
   await page.waitForFunction(() => !document.querySelector("#interpreter-captions")?.shadowRoot?.textContent.includes("오늘은 맑습니다."), null, { timeout: 2400 });
   assert.match(await cue.textContent(), /점심 뒤 공원/);
   await send({ type: "caption", caption: { ...base, revision: 99, translation: "만료 문장 부활" } });
@@ -79,6 +87,7 @@ try {
   await send({ type: "caption", caption: { ...base, translation: "미확정.", final: false } });
   await page.waitForTimeout(2700);
   await send({ type: "caption", caption: { ...base, utteranceId: "next", translation: "다음 문장.", audioStartMs: 1000 } });
+  await page.waitForFunction(() => document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue")?.textContent === "다음 문장.", null, { timeout: 1000 });
   assert.equal(await cue.textContent(), "다음 문장.", "A newer utterance retires a fully read provisional cue");
   await send({ type: "caption", caption: { ...base, revision: 4, translation: "늦은 확정" } });
   assert.equal(await cue.textContent(), "다음 문장.");
@@ -171,19 +180,35 @@ try {
   await send({ type: "caption", caption: { ...base, revision: 2, translation: `준비하며 ${unreadSuffix}`, final: false } });
   assert.equal(await page.locator(".sentence").textContent(), visibleSuffix,
     "Shortening a read prefix must preserve the visible suffix rather than skip its characters");
-  await send({ type: "caption", caption: { ...base, revision: 3, translation: `여행 준비를 모두 마친 다음에는 ${unreadSuffix}` } });
+  await send({ type: "caption", caption: { ...base, revision: 3, translation: `여행 준비를 모두 마친 다음에는 ${unreadSuffix}`, final: false } });
   assert.equal(await page.locator(".sentence").textContent(), visibleSuffix,
     "Lengthening a read prefix must not replay its words into the visible suffix");
   assert.equal(await page.locator(".sentence").evaluate((node) => node === globalThis.correctedSentence), true);
+  const finalText = `여행 준비를 모두 마친 다음에는 ${unreadSuffix}`;
+  await send({ type: "caption", caption: { ...base, revision: 4, translation: finalText } });
+  const finalPrefix = await page.locator(".sentence").textContent();
+  assert.ok(finalText.startsWith(finalPrefix) && finalPrefix !== visibleSuffix,
+    "Finalization must replay the complete translation from its beginning");
   await page.screenshot({ path: ".ralph/reading-position-corrected.png" });
   await page.waitForTimeout(1000);
-  assert.equal(await page.locator(".sentence").textContent(), visibleSuffix, "The final correction retains its reading time");
+  assert.equal(await page.locator(".sentence").textContent(), finalPrefix, "The final correction grants fresh reading time");
   await send({ type: "caption", caption: { ...base, revision: 2, translation: "오래된 임시 응답", final: false } });
-  assert.equal(await page.locator(".sentence").textContent(), visibleSuffix);
+  assert.equal(await page.locator(".sentence").textContent(), finalPrefix);
+  await page.evaluate(() => {
+    globalThis.finalParts = [document.querySelector("#interpreter-captions").shadowRoot.querySelector(".sentence").textContent];
+    globalThis.finalWatcher = new MutationObserver(() => {
+      const text = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".sentence")?.textContent;
+      if (text && text !== globalThis.finalParts.at(-1)) globalThis.finalParts.push(text);
+    });
+    globalThis.finalWatcher.observe(document.querySelector("#interpreter-captions").shadowRoot, { childList: true, subtree: true, characterData: true });
+  });
+  await page.waitForFunction(() => !document.querySelector("#interpreter-captions"), null, { timeout: 20000 });
+  assert.equal(await page.evaluate(() => { globalThis.finalWatcher.disconnect(); return globalThis.finalParts.join(""); }), finalText,
+    "The final replay must display every character in order before expiring");
   await send({ type: "clear", sessionId: base.sessionId });
   const correctionTrace = await finishCorrectionTrace();
-  assert.ok(correctionTrace.find((row) => row.revision === 3)?.visible,
-    "Paint instrumentation must recognize the visible final suffix after the read prefix expires");
+  assert.ok(correctionTrace.find((row) => row.revision === 4)?.visible,
+    "Paint instrumentation must recognize the restarted final translation");
 
   // A replacement of the current part must show its corrected words from the edit.
   await send({ type: "start", sessionId: base.sessionId });
@@ -232,7 +257,7 @@ try {
     audioTranslation: "not exercised", samples, readingTime: true, inPlaceCorrections: true, oldRevisionsRejected: true,
     expiredRevisionRejected: true, provisionalRetention: true, delayedFinalReadingTime: true, abandonedProvisionalRetired: true,
     tiedAudioTimestamps: true, resizeReadingPosition: true, correctedReadingPosition: true, rewrittenCurrentPart: true,
-    suffixTraceVisibility: true, fullscreen: true, controls: true,
+    finalReplay: true, finalReplayTraceVisibility: true, fadeOut: true, fadeDurationMs: 250, fullscreen: true, controls: true,
     maxLines: 4, maxWaitingCaptions: 4, maxWaitingAudioMs: 12000, overloadDropped: 4, audioBudgetDropped: 2, clear: true, replacement: true };
   await writeFile("docs/verification/captions/rolling-fixture.json", `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report));

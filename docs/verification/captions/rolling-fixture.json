@@ -19,8 +19,8 @@
               "id": "long-0",
               "height": 43,
               "line": 43.008,
-              "at": 10527.5,
-              "hiddenAtMs": 14322.899999976158,
+              "at": 11285.899999976158,
+              "hiddenAtMs": 15316.800000011921,
               "length": 42
             }
           ]
@@ -34,8 +34,8 @@
               "id": "long-1",
               "height": 43,
               "line": 43.008,
-              "at": 10528.899999976158,
-              "hiddenAtMs": 14322.899999976158,
+              "at": 11287,
+              "hiddenAtMs": 15579.699999988079,
               "length": 38
             }
           ]
@@ -60,16 +60,16 @@
               "id": "long-0",
               "height": 50,
               "line": 25.2,
-              "at": 14344.300000011921,
-              "hiddenAtMs": 17043.30000001192,
+              "at": 15608.5,
+              "hiddenAtMs": 18305.80000001192,
               "length": 30
             },
             {
               "id": "long-0",
               "height": 25,
               "line": 25.2,
-              "at": 17043.30000001192,
-              "hiddenAtMs": 19545.19999998808,
+              "at": 18305.80000001192,
+              "hiddenAtMs": 21058.099999964237,
               "length": 12
             }
           ]
@@ -83,16 +83,16 @@
               "id": "long-1",
               "height": 50,
               "line": 25.2,
-              "at": 14345.199999988079,
-              "hiddenAtMs": 19545.19999998808,
+              "at": 15610.899999976158,
+              "hiddenAtMs": 21058.099999964237,
               "length": 30
             },
             {
               "id": "long-1",
               "height": 25,
               "line": 25.2,
-              "at": 19545.19999998808,
-              "hiddenAtMs": 22063.19999998808,
+              "at": 21058.099999964237,
+              "hiddenAtMs": 23811.69999998808,
               "length": 8
             }
           ]
@@ -114,7 +114,6 @@
   "resizeReadingPosition": true,
   "correctedReadingPosition": true,
   "rewrittenCurrentPart": true,
-  "suffixTraceVisibility": true,
   "fullscreen": true,
   "controls": true,
   "maxLines": 4,
@@ -123,5 +122,9 @@
   "overloadDropped": 4,
   "audioBudgetDropped": 2,
   "clear": true,
-  "replacement": true
+  "replacement": true,
+  "finalReplay": true,
+  "finalReplayTraceVisibility": true,
+  "fadeOut": true,
+  "fadeDurationMs": 250
 }

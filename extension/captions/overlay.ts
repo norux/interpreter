@@ -18,6 +18,7 @@ export function createCaptionOverlay(): OutputSink {
       pointer-events: none;
     }
     .cue:empty { display: none; }
+    .sentence { transition: opacity 250ms ease-out; }
     .measure { position: absolute; visibility: hidden; left: 12px; right: 12px; }
     .notice {
       position: absolute; top: 12px; right: 12px; padding: 4px 8px;
@@ -32,7 +33,7 @@ export function createCaptionOverlay(): OutputSink {
   const notice = document.createElement("div");
   notice.className = "notice";
   shadow.append(style, cue, notice);
-  const entries: { caption: Caption; node: HTMLDivElement; offset: number; end: number; until: number }[] = [];
+  const entries: { caption: Caption; node: HTMLDivElement; offset: number; end: number; until: number; fading: boolean }[] = [];
   // Audio position also rejects late corrections after a sentence has left the display.
   let retiredThrough = -Infinity;
   const retiredIds: string[] = [];
@@ -79,12 +80,18 @@ export function createCaptionOverlay(): OutputSink {
     // Advance only the oldest visible sentence, after its own reading time.
     while (entries[0]?.until && entries[0].until <= now) {
       const entry = entries[0];
+      if (entry.fading) { retire(0); continue; }
       // Keep the latest provisional ending available for its delayed correction.
       if (!entry.caption.final && entries.length === 1 && entry.end >= Array.from(entry.caption.translation.trim()).length) break;
+      if (entry.end >= Array.from(entry.caption.translation.trim()).length) {
+        entry.fading = true;
+        entry.node.style.opacity = "0";
+        entry.until = now + 250;
+        break;
+      }
       entry.offset = entry.end;
       entry.until = 0;
-      if (entry.offset >= Array.from(entry.caption.translation.trim()).length) retire(0);
-      else break;
+      break;
     }
     cue.append(measure);
     const lineHeight = Number.parseFloat(getComputedStyle(cue).lineHeight);
@@ -141,9 +148,11 @@ export function createCaptionOverlay(): OutputSink {
       if (disposed || !caption.translation.trim()) return;
       const entry = entries.find((item) => item.caption.utteranceId === caption.utteranceId);
       if (entry) {
-        if (entry.caption.revision >= caption.revision || (entry.caption.final && !caption.final)) return;
+        if (entry.fading || entry.caption.revision >= caption.revision || (entry.caption.final && !caption.final)) return;
         const changed = entry.caption.translation !== caption.translation || entry.caption.final !== caption.final;
-        if (entry.offset && entry.caption.translation !== caption.translation) {
+        if (!entry.caption.final && caption.final) {
+          entry.offset = entry.end = 0;
+        } else if (entry.offset && entry.caption.translation !== caption.translation) {
           const previous = Array.from(entry.caption.translation.trim());
           const next = Array.from(caption.translation.trim());
           let prefix = 0;
@@ -164,7 +173,7 @@ export function createCaptionOverlay(): OutputSink {
         const node = document.createElement("div");
         node.className = "sentence";
         node.dataset.utteranceId = caption.utteranceId;
-        entries.push({ caption, node, offset: 0, end: 0, until: 0 });
+        entries.push({ caption, node, offset: 0, end: 0, until: 0, fading: false });
       }
       layout();
     },
