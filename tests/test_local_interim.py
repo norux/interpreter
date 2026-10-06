@@ -9,6 +9,127 @@ from server.sessions.contracts import Transcript, Translation
 from tests.test_local import SpeechDetector, frame
 
 
+def test_final_asr_keeps_quiet_samples_that_vad_does_not_hear(monkeypatch):
+    class Segments(local.SpeechSegments):
+        def __init__(self):
+            super().__init__()
+            self.vad = SpeechDetector()
+
+    monkeypatch.setattr(local, "SpeechSegments", Segments)
+
+    async def check():
+        audio = asyncio.Queue()
+        calls = []
+
+        class Engine:
+            executor = ThreadPoolExecutor(max_workers=1)
+
+            def transcribe(self, utterance, *_):
+                calls.append(utterance)
+                return f"Recognized audio {len(calls)}"
+
+        async def frames():
+            while (value := await audio.get()) is not None:
+                yield value
+
+        engine = Engine()
+        transcriber = local.MlxTranscriber(engine, "fixture", "English", interim=True)
+        iterator = transcriber.transcribe(frames())
+        try:
+            for i in range(25):
+                audio.put_nowait(frame(i, True))
+            partial = await asyncio.wait_for(anext(iterator), 1)
+            assert not partial.final and len(calls) == 1
+            # VAD does not hear this sample after downsampling; ASR still must.
+            value = frame(25)
+            quiet = local.AudioFrame(
+                value.sequence,
+                value.timestamp_ms,
+                value.sample_rate,
+                b"\x01\x00" + value.pcm[2:],
+            )
+            audio.put_nowait(quiet)
+            start = 26
+            for i in range(start, start + 15):
+                audio.put_nowait(frame(i))
+            final = await asyncio.wait_for(anext(iterator), 1)
+            assert len(calls) == 2
+            assert quiet in calls[-1].frames
+            assert final.final and final.utterance_id == partial.utterance_id
+            assert final.revision == partial.revision + 1
+            assert final.text == "Recognized audio 2"
+            assert final.audio_end_ms == 500
+
+            # The next utterance must start fresh despite its matching duration.
+            for i in range(start + 15, start + 40):
+                audio.put_nowait(frame(i, True))
+            next_partial = await asyncio.wait_for(anext(iterator), 1)
+            assert next_partial.utterance_id != final.utterance_id
+            assert next_partial.text == "Recognized audio 3"
+            audio.put_nowait(None)
+            assert [t async for t in iterator] == []
+            assert transcriber.pending_audio_ms == transcriber.dropped_utterances == 0
+        finally:
+            await iterator.aclose()
+            await transcriber.close()
+            engine.executor.shutdown()
+
+    asyncio.run(check())
+
+
+def test_empty_snapshot_still_gets_final_inference(monkeypatch):
+    class Segments(local.SpeechSegments):
+        def __init__(self):
+            super().__init__()
+            self.vad = SpeechDetector()
+
+    monkeypatch.setattr(local, "SpeechSegments", Segments)
+
+    async def check():
+        audio = asyncio.Queue()
+        inferred = threading.Event()
+        calls = []
+
+        class Engine:
+            executor = ThreadPoolExecutor(max_workers=1)
+
+            def transcribe(self, utterance, *_):
+                calls.append(utterance)
+                inferred.set()
+                return "" if len(calls) == 1 else "Recognized full speech"
+
+        async def frames():
+            while (value := await audio.get()) is not None:
+                yield value
+
+        engine = Engine()
+        transcriber = local.MlxTranscriber(engine, "fixture", "English", interim=True)
+        iterator = transcriber.transcribe(frames())
+        task = asyncio.create_task(anext(iterator))
+        try:
+            for i in range(25):
+                audio.put_nowait(frame(i, True))
+            for _ in range(100):
+                if inferred.is_set():
+                    break
+                await asyncio.sleep(0.001)
+            assert inferred.is_set() and not task.done()
+            for i in range(25, 40):
+                audio.put_nowait(frame(i))
+            audio.put_nowait(None)
+            final = await asyncio.wait_for(task, 1)
+            assert final.final and final.text == "Recognized full speech"
+            assert final.revision == 1 and len(calls) == 2
+            assert [t async for t in iterator] == []
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            await iterator.aclose()
+            engine.executor.shutdown()
+
+    asyncio.run(check())
+
+
 @pytest.mark.parametrize("snapshot_frames", [25, 50])
 def test_local_snapshots_arrive_during_speech_and_finalize_the_same_utterance(
     monkeypatch, snapshot_frames

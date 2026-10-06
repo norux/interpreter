@@ -2428,3 +2428,51 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   native/browser/청취 검증을 시도하지 않았고 credential/browseraccess blocker를
   진단하지 않았다. revision fixture/modelevent를 실제브라우저 성공으로 기록하지 않는다.
   checkbox/전체completion은 그대로이고 이후7b→8→9다.
+
+### Ralph iteration 10/30 — 2026-10-06 — 7d silent-tail reuse 후보 기각
+
+- 다음 미완료 **7d만 진행, checkbox는 미체크 유지**다. 시작 checkout clean,
+  AGENTS.md 없음, `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. 저장소/일반 cache에서만
+  작업했고 agent/credential/cloud/모델교체/runner/criteria/lock/push/publish 변경 없다.
+- 같은 utterance의 최신 snapshot에 digital-zero PCM만 추가된 final은 ASR 결과를
+  재사용하는 작은 후보를 구현/검증했지만 **전부 제거/기각, 최종 제품 source 불변**이다.
+  실제 quiet audio도 VAD가 놓칠 수 있으므로 byte-prefix/zero 조건을 사용했다.
+  원래 source의 새 후보check는 1fail/2pass/30deselected/0.10초/exit1이었다.
+  후보는 통과했으나 기존 inference-count2개를 달리해야 했고, empty snapshot은
+  final 대신 StopAsyncIteration이 나는 1fail/33deselected/0.09초를 발견했다.
+  nonempty guard 뒤 후보34pass/0.47초였지만 실제 효과 없어서 count변경도 복원했다.
+- 기존 `tests/local-interim-model.py after`를 원래 source→후보로 순차2회 실행했다.
+  같은 WAVhash/settings/MLX0.6B8bit/Ollama qwen3:4b-instruct Q4_K_M/English→Korean/
+  500ms, freshengine/선택Ollamaunload/cachedweights·OS·compiler cache다. coldcache 아니다.
+  **각 exit1/acceptancefalse**, 3round/6trial/6final, craneMeaning3개만 실패한다.
+  final ASR은 맞고 번역은 animal인 것을 직접검토했다. 각ASR30/text24/완료21/
+  미완료·취소3/coalesced0/drop0/queuepeak0이다. **model-only, tabCapture/Paint/청취 아님**.
+- 새 `docs/verification/interim/model-iteration10-reuse-rejected.json`에 두 numeric
+  report/실제exitcode/기각을 보존, 기존 model-after-failed.json은 byte대로 복원했다.
+  weather first/final p50/p95(ms,n2):719.145/720.440→714.290/715.578,
+  544.156/549.425→543.227/547.244. construction(n3):669.100/684.735→679.858/683.677,
+  803.214/808.430→804.477/815.187. 호출감소/firstPaint/의미/속도개선 주장 없다.
+  prepare/ASR시간합/RSS183samples/MLX는 docs/numeric에 기록했고 memory는 합산하지 않는다.
+- 별도 임시 eligibility diagnostic은 기존 weather음성을 Samantha100..225의
+  26rate/5step으로 생성해 실제 SpeechSegments/snapshot PCM을 검사했다. **eligible0/
+  exit1**, `No eligible speech found; do not claim model reuse evidence.`이다.
+  assertion이 모델prepare/inference **전**에 실패했으므로 real-model reuse 성공근거 없다.
+  모든 media가 불가능하다는 뜻이 아니며 실제 유용한 근거가 없어 후보를 기각했다.
+- 유지한 코드변경은 **final ASR quiet-sample/empty-snapshot 회귀2개**뿐이다.
+  VAD downsample이0으로 놓친 nonzero1sample도 final modelinput에 있고 final/source/
+  revision/timing/다음utterance/queue drain을 확인한다. empty interim도 final추론을 받는다.
+  원래제품에서 **interim32pass/0.51초/exit0**, focusedRuff통과다. 새제품bugfix 주장은 없다.
+- 독립 numeric audit exit0: 동일hash/settings/배정/6final/단조revision/시각산술/
+  exact n·percentile/호출합/queue/drop/정확한3개의미실패 확인. acceptancepass 아니다.
+  생성audio는 tempdircleanup으로 삭제, ownedOllama SIGINTexit0/base uv sync --locked복원.
+  새browser/appearance/원음청취/inflightStop/provider교체/10분검증은 시도하지 않았다.
+  browser/credential의 새외부 blocker도 진단하지 않았다.
+- **다음도7d**: native directstage의 ASR/번역/표시대기와 원래 construction/long 의미를
+  해결하고 unreadfinal/읽기시간을 유지한다. 기각후보를 제품지연개선으로 재채택하지 않는다.
+  실제firstPaint/의미교정/좁은화면·fullscreen/청취/inflight수명/지속처리 acceptance가
+  필요하며 이후7b→8→9다. weights/키/audio·transcript/.ralph/build는 커밋하지 않는다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python197**,
+  failures/skips/warnings0, Python66.58초다. uv lock --check/git diff --check 통과,
+  8765/8766/11434 listener없음이다. 회귀2개/기각numeric/docs/plan을 Conventional Commit으로
+  보존하며 제품source/checkbox/전체completion은 바꾸지 않는다.

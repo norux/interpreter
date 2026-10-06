@@ -4144,3 +4144,112 @@ No runner, acceptance criteria, dependencies, model defaults, prompt, cadence,
 VAD, queue budget, reading-time, or paid-provider policy changes were made.
 No keys, weights, audio/transcripts, build artifacts, or temporary `.ralph` files
 are committed. No other agents, worktrees, push, or publishing were used.
+
+## Ralph iteration 10/30 — 2026-10-06 — silent-tail ASR reuse rejected
+
+Continued **7d**, leaving its checkbox unchecked. The specified checkout started
+clean, had no AGENTS.md, and `.ralph/verification.txt` contained
+`No completion verification attempted in this run.` Work stayed in this repository
+and normal dependency/model caches. No agents, credentials, cloud inference,
+model changes, runner/criteria changes, push or publication were used.
+**The final product source is unchanged.**
+
+Tested a small candidate that reused the latest same-utterance ASR result when
+finalization added only byte-for-byte digital-zero PCM. It required the complete
+snapshot frame prefix to match and otherwise performed fresh inference. It kept
+500ms snapshots, the single worker, final priority, VAD, queue limits, models,
+prompt and output contracts. This is a candidate experiment, not an adopted
+optimization. The initial new fixture failed with **1 failed/2 passed/30
+deselected, 0.10s, exit1** on the old source because it expected one fewer ASR
+call. The candidate passed that check; two existing tests then failed only on
+expected inference counts. Updating those candidate count expectations produced
+**33 passed/0.49s**. An additional empty-recognition check exposed
+`StopAsyncIteration` instead of a final (1 failed/33 deselected,0.09s); requiring
+nonempty cached text fixed it, yielding **34 passed/0.47s**. Those candidate count
+expectations and the product change were subsequently **removed**, not adopted.
+
+The real same-audio comparison did not exercise useful reuse. Commands:
+
+```sh
+uv sync --locked --extra local
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py after
+```
+
+Ran the existing probe once with original source and once with the candidate,
+sequentially without overlapping tests. The candidate probe preceded the added
+empty-result guard; no eligible reuse occurred, and it was not rerun after that
+guard. Neither candidate version was adopted. Both commands **exited1**, with
+`acceptancePassed:false`: each construction `craneMeaning` check failed in all
+three rounds. Generated finals were reviewed; ASR recognized the construction
+sentence, but translation still substituted an animal. All other existing probe
+checks passed. Each run completed six trials/six finals, **30 ASR calls,24 text
+requests,21 completed responses/3 incomplete or cancelled**, increasing caption
+revisions, coalesced0, drops0, queue peaks0/0ms audio. This is **two real models
+with paced PCM**, not Chrome tabCapture, playback, browser Paint or listening.
+
+[Numeric evidence](verification/interim/model-iteration10-reuse-rejected.json)
+retains both complete numeric reports, actual exit codes and the rejection.
+The old `model-after-failed.json` was restored byte-for-byte. Event p50/p95 in
+milliseconds, original→candidate; weather n2, construction n3 (the existing
+harness excludes only its first `firstInference` trial):
+
+| Clip | Speech start→first event | Speech end→final event |
+| --- | --- | --- |
+| Weather | 719.145/720.440 → 714.290/715.578 | 544.156/549.425 → 543.227/547.244 |
+| Construction | 669.100/684.735 → 679.858/683.677 | 803.214/808.430 → 804.477/815.187 |
+
+First preparation18222.010→1833.384ms is separate. Both had fresh Python engines
+and selected Ollama model unloads, with cached weights and shared OS/compiler
+caches; this is not cold-cache evidence. ASR time sum4934.990→5039.688ms, process
+RSS183 samples per run/peak155025408→1246986240bytes, MLX active
+peak1011746444bytes each/global phase peak1641165028→1641162980bytes. RSS and MLX
+are not added together. Ollama/browser total memory and sustained throughput are
+unmeasured. No first-event, memory, first-Paint or semantic improvement is claimed.
+
+A separate ignored diagnostic generated the existing weather sentence with
+Samantha at **26 rates,100..225 inclusive in steps of5**, and inspected actual
+SpeechSegments/snapshot PCM prefixes for eligibility. It found **zero eligible
+clips** and exited1 with
+`No eligible speech found; do not claim model reuse evidence.` Its assertion
+occurred **before model preparation/inference**, so this is not a successful
+real-model reuse smoke. The scan and the unchanged original probe call counts
+are sufficient reason to reject this candidate; they do not prove that digital
+silence is impossible in every media source. No ASR reuse result or latency
+measurement was invented. The temporary speech files were deleted by each
+probe's TemporaryDirectory cleanup.
+
+Retained two focused regression guards with the original implementation:
+a single nonzero PCM sample that averages to zero in the VAD's 8kHz decision
+still reaches final ASR, and empty snapshot recognition still receives a fresh
+final inference. The former checks the actual quiet frame in the model input,
+final source/revision/timing, next-utterance separation and drained queues; the
+latter checks that an empty interim does not silently suppress the final.
+These guard against losing source content during future latency work; they are
+not a newly fixed production defect. Final focused interim suite:
+**32 passed/0.51s/exit0**; focused Ruff passed.
+
+Independent numeric audit **exit0** checked matching model/settings/WAV hashes
+and speech bounds, exact six-trial assignment, one final per trial, monotonically
+increasing revisions, event-time arithmetic, exact n/p50/p95, ASR/text call totals,
+queue bounds/drop0 and the precise three meaning failures per report. It validates
+failed evidence, not 7d acceptance. No new browser/appearance/listening/provider
+replacement or ten-minute verification was attempted; browser access and
+credential blockers were not diagnosed.
+
+Owned Ollama stopped by SIGINT/exit0; base `uv sync --locked` restored. Temporary
+review logs/audio and the rejected candidate are not committed. Next remains
+**7d**: address the observed native ASR/translation/display waits and original
+construction/long-sentence meaning, preserving unread final reading time. This
+silent-tail candidate must not be claimed as an implemented latency improvement.
+Actual interim first Paint, semantic correction, narrow/fullscreen appearance,
+listening, in-flight lifecycle and sustained queue/memory checks still need
+passing evidence, followed by7b→8→9.
+
+Final `npm run verify` **exit0**: lint/typecheck/build, **JS12 + Python197**,
+zero failures/skips/warnings, Python66.58s. `uv lock --check` and
+`git diff --check` passed; no listeners on8765/8766/11434. All intended changes
+are regression tests and rejected numeric evidence/documentation/plan progress;
+models, keys, generated speech/transcripts, build and temporary `.ralph` state
+are excluded from the commit.
