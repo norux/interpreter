@@ -418,10 +418,41 @@ including memory pressure and thermal behavior. Numerical latency/accuracy
 release thresholds are not established yet; baseline candidate engines on the
 actual target device before choosing them. No mobile performance claim is made.
 
+### First iPhone validation profile
+
+The user identified **iPhone 18 Pro** as the first physical target. The requested
+content is ordinary video, with no dependency on YouTube or any particular site.
+This is a user-supplied device target, not a completed device test. Record its
+actual iOS/Safari version and available execution capabilities during testing;
+do not infer model performance or supported operators from the device name.
+
+Start with a controlled HTML5 video page and media served from the same origin.
+Use Japanese and English speech with known source text and Korean meaning
+anchors. Run the same files through desktop and mobile candidates. The initial
+fixture must exercise selected-video PCM, not existing subtitles or microphone
+audio, and must not depend on YouTube extraction.
+
+Then verify these independent media-access cases:
+
+| Fixture | Expected outcome |
+| --- | --- |
+| Same-origin ordinary video | Actual selected-video samples reach ASR; original playback remains audible |
+| Cross-origin video correctly loaded with CORS permission | Verify samples and complete interpretation rather than assuming permission implies success |
+| Cross-origin video without the required CORS permission | Playback remains intact; interpretation reports the unsupported route without fabricated source text |
+| Two visible, audible videos | Only the user's selected video's samples are interpreted |
+| Selected video seek, pause, rate change and source replacement | Epoch cancellation prevents stale captions from appearing at the new position |
+
+A controlled fixture establishes the framework's working path. It does not
+establish compatibility with every external site's player. After the controlled
+run, expand to ordinary external video pages whose actual media routes have been
+verified. Native fullscreen and Safari suspension remain separate acceptance
+cases on the physical device.
+
 Before publishing iPhone support, resolve these with evidence:
 
-1. Target sites and actual media routes, including their iframe/fullscreen modes.
-2. Physical iPhone model and minimum OS supported by evaluated engines.
+1. External video sites and actual media routes, including iframe/fullscreen modes.
+2. Actual iOS/Safari version on the first iPhone 18 Pro and the minimum OS supported
+   by evaluated engines.
 3. Browser ASR/translation model versions and licensing/storage requirements.
 4. Safari execution lifetime, audio graph restart behavior and model persistence.
 5. Native integration, if needed, as a separately justified adapter rather than
