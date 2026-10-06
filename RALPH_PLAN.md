@@ -229,7 +229,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
   - Acceptance: provider 변경 시 이전 세션을 중단하고 새 세션만 표시한다. 중복 overlay,
     자막 HTML injection, 오래된 응답의 자막 덮어쓰기가 없다. 페이지에 키가 노출되지 않는다.
 
-- [ ] 7a. 로컬 자막 지연 개선
+- [x] 7a. 로컬 자막 지연 개선
   - 현재 500ms silence/최대 6초 구절, ASR → 전체 번역 응답 → 표시의 지연을
     기준으로 같은 공개/생성 음성의 변경 전후 VAD 대기, ASR, 번역, 첫 표시를 측정한다.
     모델 로딩이 포함된 첫 실행과 모델이 준비된 실행을 분리한다.
@@ -1481,3 +1481,22 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   ownedOllama 정상종료/8765·8766·11434 listener없음. dependency/lock/runner 변경 없음.
   intended harness/숫자evidence/README/docs/plan만 Conventional Commit으로 보존한다.
   키/weights/사용자audio·transcript/임시 .ralph/builtcopy는 커밋하지 않는다.
+
+### 사용자 청취 확인 — 2026-10-06 — 항목 7a 완료
+
+- 사용자가 청취 확인을 요청하여 기존 `npm run test:local-browser`를 재실행했다.
+  Chrome for Testing 153.0.8010.12에서 native Extensions → Interpreter → Start로
+  실제 local MLX/Ollama 캡처를 시작하고 Capturing을 확인한 뒤 Escape로 popup을 닫았다.
+  `play`로 비민감 생성 영어 weather/park 음성을 재생했다. active tabCapture,
+  850 PCM frames/408000 samples/peak25036을 확인했다.
+- 캡처를 켜고 popup을 닫은 상태에서 영어 음성이 끝까지 들렸는지 질문했고,
+  사용자는 **“네, 끝까지 들렸어요”**라고 답했다. 실제 청취의 근거는 이 사용자
+  응답이며 UI tool/PCM/자막만으로 청취를 추정하지 않았다. 이전 청취 blocker는 해소됐다.
+- 추가 `play`/`accept`는 실제 local 경로의 Korean partial을 확인했다. native Stop 뒤
+  `stopped`는 idle/active capture 없음/offscreen0/captionHosts0을 확인했고 `exit`는
+  **exit0**이다. 기존 normal PNG는 복원했고 새 지연 수치나 시각 검증으로 주장하지 않는다.
+  browser/companion/fixture/owned Ollama를 종료했으며 8765/8766/11434 listener는 없다.
+- 기존 7a의 지연 비교, real overlap/Start 계측, 의미/긴 cue/수명/queue/drop 근거와
+  이번 원음 청취 응답을 합쳐 **7a를 완료 체크**했다. 구현·acceptance·runner 변경은 없다.
+  다음 미완료는 **7b(Source Auto)**이며 8(TED600초)/9/전체 완료는 남아 있다.
+  상세 실행·초기 stdin 종료 실패·청취 응답·정리는 docs/verification.md에 기록한다.

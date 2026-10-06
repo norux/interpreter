@@ -2422,3 +2422,39 @@ generated audio, profiles, build copies and temporary Ralph state are ignored.
 Only harness code, numeric evidence, README, verification documentation and the
 durable plan are included in the Conventional Commit; no secrets, model weights,
 user audio/transcripts, runner or dependency/lock changes are included.
+
+## User listening confirmation — 2026-10-06 — item 7a complete
+
+The user requested a real listening check. Started the cached local Ollama
+0.35.1 server with `OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve` and ran
+`npm run test:local-browser` with interactive stdin. The initial non-interactive
+invocation reached READY, then closed on stdin EOF with exit 1 before native
+capture; it supplies no acceptance evidence. The interactive retry used Chrome
+for Testing 153.0.8010.12 and the existing generated weather/park speech fixture.
+
+Used native Extensions → Interpreter → Start, observed Preparing then listening,
+and closed the popup with Escape. Ran `play`, then asked whether the English
+speech was audible to the end while capture was active and the popup was closed.
+The user answered **“네, 끝까지 들렸어요”** (“Yes, I heard it to the end”). This
+response is the physical listening evidence; UI tools still expose no speaker
+audio. The concurrent `check` reported active tabCapture, state `capturing`,
+850 PCM frames, 408000 samples and peak 25036. Those numbers corroborate capture
+activity and do not substitute for the user's hearing confirmation.
+
+An additional `play`/`accept` passed the existing real-local-model caption check,
+observing the Korean partial `오늘 날씨는` with 2100 frames / 1008000 samples.
+This partial is not a new full-translation quality or latency measurement.
+Native Stop followed by `stopped` verified idle state, no active captured tabs,
+zero offscreen contexts and zero caption hosts. `exit` completed with **exit 0**.
+Restored the existing normal screenshot after the harness wrote its temporary
+partial screenshot; no new visual evidence or benchmark report is committed.
+The dedicated browser, companion, fixture and owned Ollama server were closed;
+`lsof` found no listeners on 8765/8766/11434 (exit 1 for no matches).
+
+The previous remaining listening blocker is now resolved. Combining this user
+confirmation with the existing passing delay comparison, real overlap/startup,
+quality, lifecycle and queue/drop evidence completes item 7a. Its plan checkbox
+is checked; the next unfinished item is 7b (Source Auto), followed by items 8/9.
+No implementation, acceptance criteria, runner, dependencies or numeric evidence
+changed. The earlier 171-test full verification remains historical; this update
+reran the targeted native browser acceptance and cleanup, not the full suite.
