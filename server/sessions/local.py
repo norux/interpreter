@@ -44,6 +44,7 @@ class SpeechSegments:
         self.voiced = 0
         self.last_voice_ms = 0.0
         self.previous_sequence = -1
+        self.utterance_id = 0
 
     def push(self, frame: AudioFrame) -> Utterance | None:
         # A dropped transport frame must not splice unrelated speech together.
@@ -65,6 +66,7 @@ class SpeechSegments:
                 return None
             self.frames = list(self.preroll)
             self.preroll.clear()
+            self.utterance_id += 1
         else:
             self.frames.append(frame)
         if speech:
@@ -150,10 +152,14 @@ class MlxEngine:
 
 
 class MlxTranscriber:
-    def __init__(self, engine: MlxEngine, model_id: str, language: str):
+    def __init__(
+        self, engine: MlxEngine, model_id: str, language: str, *, interim: bool = False
+    ):
         self.engine = engine
         self.model_id = model_id
         self.language = language
+        self.interim = interim
+        self.coalesced_snapshots = 0
         self.dropped_utterances = 0
         self.pending_audio_ms = 0.0
         self.reader: asyncio.Task | None = None
@@ -168,27 +174,79 @@ class MlxTranscriber:
 
     async def transcribe(self, frames: AsyncIterator[AudioFrame]):
         segments = SpeechSegments()
-        queue: asyncio.Queue[Utterance | None] = asyncio.Queue(maxsize=2)
+        pending: deque[tuple[str, Utterance, bool]] = deque()
+        ready = asyncio.Event()
+        ended = False
+
+        def enqueue(utterance, final):
+            utterance_id = str(segments.utterance_id)
+            # A final supersedes its waiting snapshot; snapshots never evict finals.
+            for old in list(pending):
+                if not old[2]:
+                    pending.remove(old)
+                    self.pending_audio_ms -= len(old[1].frames) * 20
+                    self.coalesced_snapshots += 1
+            duration = len(utterance.frames) * 20
+            if not final and (
+                len(pending) >= 2 or self.pending_audio_ms + duration > 8000
+            ):
+                self.coalesced_snapshots += 1
+                return
+            while len(pending) >= 2 or self.pending_audio_ms + duration > 8000:
+                old = pending.popleft()
+                self.pending_audio_ms -= len(old[1].frames) * 20
+                self.dropped_utterances += 1
+            self.pending_audio_ms += duration
+            pending.append((utterance_id, utterance, final))
+            ready.set()
 
         async def read():
-            async for frame in frames:
-                utterance = segments.push(frame)
-                if utterance is None:
-                    continue
-                duration = len(utterance.frames) * 20
-                while queue.full() or self.pending_audio_ms + duration > 8000:
-                    old = queue.get_nowait()
-                    if old is not None:
-                        self.pending_audio_ms -= len(old.frames) * 20
-                        self.dropped_utterances += 1
-                self.pending_audio_ms += duration
-                queue.put_nowait(utterance)
-            await queue.put(None)
+            nonlocal ended
+            snapshot_id = 0
+            snapshot_voice = 0
+            try:
+                async for frame in frames:
+                    utterance = segments.push(frame)
+                    if utterance is not None:
+                        enqueue(utterance, True)
+                        continue
+                    if segments.utterance_id != snapshot_id:
+                        snapshot_id = segments.utterance_id
+                        snapshot_voice = 0
+                    # One cumulative snapshot per new second of voiced PCM. The
+                    # installed model takes finite arrays, not native live PCM.
+                    if (
+                        self.interim
+                        and segments.frames
+                        and segments.silent == 0
+                        and segments.voiced - snapshot_voice >= 50
+                    ):
+                        snapshot_voice = segments.voiced
+                        enqueue(
+                            Utterance(
+                                tuple(segments.frames),
+                                segments.frames[0].timestamp_ms,
+                                segments.last_voice_ms,
+                            ),
+                            False,
+                        )
+            finally:
+                ended = True
+                ready.set()
 
         self.reader = asyncio.create_task(read())
-        sequence = 0
+        previous_id = ""
+        previous_text = ""
+        revision = 0
         try:
-            while (utterance := await queue.get()) is not None:
+            while True:
+                if not pending:
+                    if ended:
+                        break
+                    ready.clear()
+                    await ready.wait()
+                    continue
+                utterance_id, utterance, final = pending.popleft()
                 self.pending_audio_ms -= len(utterance.frames) * 20
                 self.inference = asyncio.get_running_loop().run_in_executor(
                     self.engine.executor,
@@ -198,13 +256,20 @@ class MlxTranscriber:
                     self.language,
                 )
                 text = await self.inference
-                if text:
-                    sequence += 1
+                self.inference = None
+                if utterance_id != previous_id:
+                    previous_id = utterance_id
+                    previous_text = ""
+                    revision = 0
+                meaningful = " ".join(text.split()).casefold().strip(".,!?")
+                if meaningful and (final or meaningful != previous_text):
+                    previous_text = meaningful
+                    revision += 1
                     yield Transcript(
-                        str(sequence),
-                        1,
+                        utterance_id,
+                        revision,
                         text,
-                        True,
+                        final,
                         utterance.start_ms,
                         utterance.end_ms,
                     )
@@ -277,7 +342,7 @@ class OllamaTranslator:
             self.request = None
 
     async def translate(self, transcript: Transcript, context: list[tuple[str, str]]):
-        if not transcript.final or self.cancelled:
+        if self.cancelled:
             return
         messages = [
             {
@@ -393,6 +458,9 @@ class LocalSession:
         self.transcriber = transcriber
         self.translator = translator
         self.cancelled = False
+        self.revision_task: asyncio.Task | None = None
+        self.pending_translation_ms = 0.0
+        self.dropped_translations = 0
 
     async def prepare(self):
         # Only local adapters load here; cloud preparation must not spend API calls.
@@ -408,6 +476,10 @@ class LocalSession:
             "status", self.session_id, message="Speech translation session ready."
         )
         try:
+            if getattr(self.transcriber, "interim", False):
+                async for event in self._revising(frames):
+                    yield event
+                return
             async for transcript in self.transcriber.transcribe(frames):
                 if self.cancelled:
                     return
@@ -453,13 +525,190 @@ class LocalSession:
         finally:
             await self.close()
 
+    async def _revising(self, frames):
+        self.revision_task = asyncio.current_task()
+        transcripts = self.transcriber.transcribe(frames)
+        incoming = asyncio.create_task(anext(transcripts))
+        translation_task = None
+        stream = None
+        current = None
+        completed = None
+        pending: list[Transcript] = []
+        retired: deque[str] = deque(maxlen=128)
+        context: list[tuple[str, str]] = []
+        revision = 0
+        dropped = (0, 0)
+        correcting = False
+
+        async def stop_stream():
+            nonlocal translation_task, stream
+            if translation_task:
+                translation_task.cancel()
+                await asyncio.gather(translation_task, return_exceptions=True)
+                translation_task = None
+            if stream:
+                await stream.aclose()
+                stream = None
+
+        def enqueue(transcript):
+            for old in list(pending):
+                if old.utterance_id == transcript.utterance_id:
+                    if old.revision >= transcript.revision or (
+                        old.final and not transcript.final
+                    ):
+                        return
+                    pending.remove(old)
+                elif not old.final:
+                    pending.remove(old)
+                    retired.append(old.utterance_id)
+            duration = transcript.audio_end_ms - transcript.audio_start_ms
+            self.pending_translation_ms = sum(
+                t.audio_end_ms - t.audio_start_ms for t in pending
+            )
+            if not transcript.final and (
+                len(pending) >= 2 or self.pending_translation_ms + duration > 8000
+            ):
+                return
+            while len(pending) >= 2 or self.pending_translation_ms + duration > 8000:
+                old = pending.pop(0)
+                retired.append(old.utterance_id)
+                self.pending_translation_ms -= old.audio_end_ms - old.audio_start_ms
+                self.dropped_translations += 1
+            pending.append(transcript)
+            self.pending_translation_ms += duration
+
+        try:
+            while not self.cancelled:
+                if pending and (current is None or completed is not None):
+                    if current is not None:
+                        # A missing/empty ASR final cannot turn provisional text
+                        # into confirmed context or stall the following utterance.
+                        retired.append(current.utterance_id)
+                    current = pending.pop(0)
+                    self.pending_translation_ms -= (
+                        current.audio_end_ms - current.audio_start_ms
+                    )
+                    completed = None
+                    revision = 0
+                    correcting = False
+                if current is not None and stream is None and completed is None:
+                    stream = self.translator.translate(current, context)
+                    translation_task = asyncio.create_task(anext(stream))
+                tasks = [task for task in (incoming, translation_task) if task]
+                if not tasks:
+                    break
+                done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                value = None
+                # Observe newer source first if source and old output arrive together.
+                if incoming in done:
+                    try:
+                        transcript = incoming.result()
+                    except StopAsyncIteration:
+                        incoming = None
+                    else:
+                        incoming = asyncio.create_task(anext(transcripts))
+                        if transcript.utterance_id not in retired:
+                            if (
+                                current
+                                and transcript.utterance_id == current.utterance_id
+                            ):
+                                if transcript.revision > current.revision and not (
+                                    current.final and not transcript.final
+                                ):
+                                    source = " ".join(transcript.text.split())
+                                    previous = " ".join(current.text.split())
+                                    if source.casefold().strip(".,!?") != (
+                                        previous.casefold().strip(".,!?")
+                                    ):
+                                        await stop_stream()
+                                        completed = None
+                                        correcting = revision > 0
+                                    current = transcript
+                                    if current.final and completed:
+                                        value = completed
+                            else:
+                                enqueue(transcript)
+                    count = (
+                        getattr(self.transcriber, "dropped_utterances", 0),
+                        self.dropped_translations,
+                    )
+                    if count != dropped:
+                        dropped = count
+                        yield SessionEvent(
+                            "status",
+                            self.session_id,
+                            message=(
+                                f"Speech processing is behind; dropped {count[0]} "
+                                f"ASR and {count[1]} translation segments."
+                            ),
+                        )
+                if translation_task in done:
+                    try:
+                        value = translation_task.result()
+                    except StopAsyncIteration as error:
+                        raise RuntimeError(
+                            "Local translation stream ended before completion."
+                        ) from error
+                    if value.final:
+                        completed = value
+                        await stop_stream()
+                    else:
+                        translation_task = asyncio.create_task(anext(stream))
+                if value is not None and not self.cancelled:
+                    if value.utterance_id != current.utterance_id:
+                        raise RuntimeError(
+                            "Local translation returned an unexpected cue."
+                        )
+                    # Keep the readable earlier translation while a correction
+                    # streams; restarting from one token makes the cue flash.
+                    if correcting and not value.final:
+                        continue
+                    if value.final:
+                        correcting = False
+                    revision += 1
+                    final = current.final and value.final
+                    yield SessionEvent(
+                        "caption",
+                        self.session_id,
+                        Caption(
+                            self.session_id,
+                            current.utterance_id,
+                            revision,
+                            current.text,
+                            value.text,
+                            final,
+                            current.audio_start_ms,
+                            current.audio_end_ms,
+                            time.time() * 1000,
+                        ),
+                    )
+                    if final:
+                        context.append((current.text[:1000], value.text[:1000]))
+                        context = context[-3:]
+                        retired.append(current.utterance_id)
+                        current = completed = None
+        finally:
+            if incoming:
+                incoming.cancel()
+                await asyncio.gather(incoming, return_exceptions=True)
+            await stop_stream()
+            await transcripts.aclose()
+            self.pending_translation_ms = 0
+            self.revision_task = None
+
     async def cancel(self):
         self.cancelled = True
         await self.transcriber.cancel()
         await self.translator.cancel()
+        if self.revision_task and self.revision_task is not asyncio.current_task():
+            self.revision_task.cancel()
+            await asyncio.gather(self.revision_task, return_exceptions=True)
 
     async def close(self):
         self.cancelled = True
+        if self.revision_task and self.revision_task is not asyncio.current_task():
+            self.revision_task.cancel()
+            await asyncio.gather(self.revision_task, return_exceptions=True)
         await self.transcriber.close()
         await self.translator.close()
 
@@ -470,7 +719,10 @@ def local_session(session_id: str, engine: MlxEngine) -> LocalSession:
     return LocalSession(
         session_id,
         MlxTranscriber(
-            engine, os.environ.get("INTERPRETER_ASR_MODEL", ASR_MODEL), source
+            engine,
+            os.environ.get("INTERPRETER_ASR_MODEL", ASR_MODEL),
+            source,
+            interim=True,
         ),
         OllamaTranslator(
             os.environ.get("INTERPRETER_TEXT_MODEL", TEXT_MODEL), source, target

@@ -216,24 +216,57 @@ maximum segment. After four seconds, a 100 ms VAD pause can end the segment
 before the hard limit to avoid cutting a word. This is a quiet audio boundary,
 not a guarantee of a complete sentence. ASR resamples to 16 kHz float32 in memory.
 Silence alone does not call either model. One dedicated ASR worker is shared across
-sessions; translation processes finalized segments with up to three recent
-source/translation pairs. Waiting speech is limited to two segments and eight
-seconds of audio; incoming PCM waits at most two seconds. Older waiting data is
+sessions. Local ASR with local Ollama takes cumulative PCM snapshots after each
+new second of voiced audio, within the existing six-second speech boundary.
+These are repeated finite-array inferences, not native live PCM ingestion by MLX.
+Meaningful source changes trigger provisional translations of the same utterance;
+newer source cancels obsolete translation and replaces its caption with increasing
+revisions. A completed provisional translation stays partial until the speech
+boundary confirms it. Unchanged source can reuse that translation at the boundary.
+The first translation streams immediately; later corrections keep the earlier
+text visible until the replacement response completes, avoiding repeated erasure
+to a one-token prefix. This completion still does not confirm provisional speech.
+Only confirmed source/translation pairs enter the three-pair recent context.
+Local ASR with Luna/Anthropic and OpenAI ASR with text translators retain final-only
+translation requests. Waiting work in each local stage is limited to two segments
+and eight seconds of audio; incoming PCM waits at most two seconds. Waiting
+snapshots coalesce and cannot evict finals. Older waiting final data is
 dropped with status/counts instead of accumulating unbounded delay. Stop cancels
 pending work and discards late results; native MLX inference already running
 finishes on its worker before another inference can start. Audio/transcripts
 are never written by the companion.
 
-Ollama streams one response for each finalized source segment. Its accumulated
-translation replaces the same caption with increasing partial revisions, then a
-final revision; partial output does not add translation requests or context entries.
+Ollama streams one response per selected source snapshot or final segment. Its
+accumulated translation replaces the same caption; translation tokens alone do
+not add requests or context entries. Only a completed translation of confirmed
+source becomes a final caption.
 Stop closes the stream and rejects late output. A missing completion marker or
 truncated response is an error, and the entire response has a 30-second deadline.
-Streaming improves the time to the first token; it does not remove model loading,
-VAD waiting, or the time needed for a complete translation.
+Snapshot timing and contextual accuracy still require the pending 7d browser
+acceptance. Small audio windows can produce inaccurate provisional source/text.
+Model loading and the time needed for a complete translation remain measurable.
 
-To measure the real models on paced, generated English PCM with fixed language
-settings, start Ollama and run:
+The paced model-only probe below uses generated weather and an ambiguous
+construction sentence, three repetitions per phase, and identical PCM/settings.
+`before` disables only snapshots; both phases prepare the current local models.
+It prints generated source/translation for review and numeric observations. It
+writes numeric reports only after every meaning/timing/queue check passes:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py before
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py after
+```
+
+This probe does not exercise tabCapture, speaker playback, the subtitle DOM, or
+browser Paint. Its reported event times cannot stand in for browser appearance.
+Failed meaning checks remain failures and do not create passing reports. See
+`docs/verification.md` for current observations and remaining acceptance work.
+
+To repeat the older final-only model timing probe on paced, generated English PCM
+with fixed language settings (it deliberately leaves snapshots disabled), start
+Ollama and run:
 
 ```sh
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \

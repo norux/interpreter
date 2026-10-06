@@ -1653,3 +1653,76 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   작은 누적/겹치는 PCM snapshot과 최신 중간 revision 우선 처리부터 구현/실측한다.
   현재 text token streaming을 발화 중 ASR/번역으로 주장하지 않는다. 7b/8(TED600초)/9도
   미완료이며 전체 completion promise는 출력하지 않는다.
+
+### Ralph iteration 2/30 — 2026-10-06 — 항목 7d 구현 단계, 실제 의미/지연 검증 미완료
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 제공 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7d만 진행하며 checkbox는 미체크 유지**다. 큰 항목의 구현 단계이며
+  7b/8/9, runner/criteria/dependency/lock 변경, agent/worktree/push/publish/credential
+  파일/cloud inference는 없다. 기존 7a/7c의 실제 capture/시각/청취 근거는 보존했다.
+- `server/sessions/local.py` 안에서 기존 모델의 **유성 PCM 1초마다 누적 snapshot**을
+  단일 native worker로 추론한다. 설치 mlx-audio0.5.8의 Qwen3ASRModel.generate는
+  finite array 입력이며 stream=True도 그 입력의 token streaming이다. native live
+  PCM 지원으로 표시하지 않는다. 1초는 후보 간격이고 최적화/처리량 실측은 미완료다.
+  기존 VAD300ms/4초 이후100ms pause/6초 cap을 유지한다. snapshot은 최신 것으로
+  합치며 finals를 밀어내지 않는다. ASR와 번역 각각 대기2개/원음8초 제한과 실제 final
+  drop 상태/숫자가 있다. capture/Caption/OutputSink 계약과 overlay는 변경하지 않았다.
+- 같은 utterance의 ASR와 caption revision을 증가시키고 의미 있는 원문 변경만 번역한다.
+  whitespace/case/끝 punctuation만 달라지면 재요청하지 않는다. 새 원문은 obsolete
+  번역 stream을 닫고 cancellation을 삼킨 늦은 결과도 버린다. 최초 번역은 streaming,
+  뒤 교정은 이전 문장을 읽을 수 있도록 새 응답 완료 때 한 번 교체한다. 번역 응답
+  완료와 발화 확정을 구분하며 interim 완료도 partial이다. 원문이 같은 final은 기존
+  완료 번역을 재사용한다. 확정된3쌍만 context에 넣는다. local/local에서만 활성화하고
+  Luna/Anthropic/local ASR와 OpenAI ASR/text는 기존 final-only 호출 정책을 유지한다.
+  기존 browser_metrics의 init wrapper는 internal keyword를 전달하도록 수정했다.
+- 새 regression은 처음 snapshot API가 없어 **2fail**, partial 원문을 버리는 session에서
+  **2timeout fail**했다. 현재 **7 checks pass**: pre-boundary/같은ID/final, native worker
+  coalescing/final보존, prefix지우기 없는 교정, duplicate/old ASR와 늦은 번역 거부,
+  interim 완료/발화final/context 구분, bounded translation queue/final우선/drop상태,
+  cancel/close drain을 확인한다. 느린 ASR fixture의265frame 기대는 기존4초 후100ms
+  pause로255frame 종료가 맞아 고쳤다. boundary/queue assertions를 약화하지 않았다.
+  번역 과부하 fixture는 IDs1/6/7, pending8000ms와 waiting final drop4를 요구해 통과했다.
+  provider selection fixtures도 local/local만 snapshot을 켜는 것을 확인했다.
+- `tests/local-interim-model.py`와 README 재현 명령을 추가했다. 실제 cached
+  MLX0.6B8bit/Ollama qwen3:4b-instruct, context4096, English→Korean,
+  HF offline/Ollama cloud disabled이며 생성 음성을20ms마다 paced PCM으로 공급했다.
+  **Chrome/tabCapture/Paint가 아니다.** 양 phase는 current code의 snapshot 켜기/끄기만
+  비교하고 prepare 뒤 계측한다. fresh engine/선택한 Ollama model unload지만 weights/
+  OS/MLX cache는 유지한다. 성공 JSON은 모든3회 반복/meaning/queue/timing assertion
+  뒤에만 쓴다. 실제 run들은 반복0의 crane meaning assertion으로 **exit1**했으며
+  `docs/verification/interim/model-before.json`, model-after.json은 생성되지 않았다.
+- 실제 before **2trial**에서 ASR는 crane/steel beams/construction site를 정확히
+  인식했으나 번역은 crane을 duck으로 오역했다. generic ambiguity reminder도 실패해
+  제품 prompt 변경을 제거했다. 추가 text-only generic prompt3개도 deer/duck으로 오역해
+  채택하지 않았다. 원래 assertion을 없애거나 다른 문장으로 성공을 대신하지 않았다.
+- 첫 after(token교정) trial은 긴 speech 중 provisional29개/원문교정2개,
+  first event1214.515ms/끝→final702.058ms, 첫 weather는1950.286ms로 speech 끝 뒤였다.
+  **최종 제품의 교정 표시 정책**으로 재실행한 failed after trial은:
+  weather 첫 inference **n1**, 시작→first16637.043ms/끝→final15534.581ms,
+  speech중 event0/원문교정0/ASR2·번역1; construction 후속 inference **n1**은
+  **1239.534ms/696.497ms**, speech중 event15/원문교정2/ASR4·번역3이다.
+  둘 다 coalesced snapshot0/ASR·번역 drop0을 관측했다. weather 의미만 통과했고
+  crane은 최종에도 duck으로 오역했다. 전체 성공이나 p50/p95/sample3 통과가 아니다.
+  PCM |sample|>=100의 시작/끝 proxy(0.417–1356.792,1.542–3181.958ms)이며
+  VAD/실제청취/DOM/Paint 시각이 아니다. first inference 변동 원인은 미확정이고
+  최적화/속도개선/원음유지/메모리안정성/지속처리를 주장하지 않는다. 다음 probe의
+  per-call duration/pending/RSS 관측 출력을 추가했지만 이번 trial에는 그 숫자가
+  기록되지 않아 해당 근거는 없다.
+- **다음 iteration도7d**: 같은 모델과 원래 probe assertion으로 crane 의미 오류와
+  first-inference 변동을 진단하고 paired sample3/warm 비교를 완료한다. 이어 native
+  Chrome tabCapture/covering Paint로 short/long/continuous/문맥교정/쉼/무음, 실제
+  caption 의미/글자/시각/expiry, 원음, Stop/provider/session 교체, queue/drop과
+  process/model memory를 검증한다. 이번 iteration은 browser를 띄우지 않았으므로
+  새 native/시각/청취 증거나 browser접근 blocker가 없다. 사용자 입력/키/외부 변경을
+  요구하는 blocker가 아니며 구현·정확도·계측 작업을 계속할 수 있다. 7d는 체크하지 않는다.
+- 상세 명령/failed probes/정확한 한계는 docs/verification.md 끝에 보존했다.
+  첫 base `npm run verify`는 **exit0/JS12+Python167/66.08초**, failures/skips/warnings0,
+  lint/typecheck/build 통과다. 최종 제품 수정 뒤 전체 verify는 아래에 결과를 기록한다.
+  uv lock --check/git diff --check 통과, 각 real run 후 uv sync --locked로 base를 복원했다.
+  owned Ollama2개는 정상 종료했고 companion/fixture/browser는 띄우지 않았다.
+  키/weights/user audio·transcript/.ralph/model-cache/build는 커밋하지 않는다.
+- **최종 source `npm run verify exit0`**: lint/typecheck/build, **JS12+Python167**,
+  failures/skips/warnings0, Python **66.17초**다. uv lock --check/git diff --check 통과,
+  8765/8766/11434 listener 없음. acceptance checkbox는 그대로 두고 source/tests/
+  README/docs/plan의 구현 진척과 실패 근거를 한 Conventional Commit으로 보존한다.

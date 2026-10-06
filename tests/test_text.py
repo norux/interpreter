@@ -238,6 +238,8 @@ def test_selection_models_and_server_keys(monkeypatch, provider, asr):
         if asr == "openai":
             assert session.transcriber.language == "fr"
             assert session.transcriber.api_key == "fixture-openai"
+        else:
+            assert session.transcriber.interim is (provider == "local")
         if provider != "local":
             assert session.translator.api_key == (
                 "fixture-openai" if provider == "luna" else "fixture-anthropic"

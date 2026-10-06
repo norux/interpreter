@@ -33,6 +33,7 @@ def text_session(
             if settings
             else os.environ.get("INTERPRETER_ASR_MODEL", ASR_MODEL),
             source,
+            interim=provider == "local",
         )
     elif asr == "openai":
         transcriber = LiveTranscriber(

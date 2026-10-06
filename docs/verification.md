@@ -2579,3 +2579,120 @@ companion, fixture and owned Ollama were closed after each actual run. The final
 listeners remain on 8765/8766/11434 after all browser/model/fixture cleanup. Only source/tests, numeric evidence, generated-speech
 screenshots, README/docs and plan are intended for commit; `.ralph`, build copies,
 models, credentials and user audio/transcripts are excluded.
+
+## 2026-10-06 — Ralph iteration 2/30: local speech snapshots (7d, incomplete)
+
+Implemented the local-ASR/local-Ollama revision path within `server/sessions/local.py`.
+MLX still receives finite 16 kHz float32 arrays. The installed mlx-audio 0.5.8
+`Qwen3ASRModel.generate` accepts arrays; its `stream=True` option streams tokens
+from an already supplied input. This implementation instead takes cumulative
+snapshots every **1,000 ms of new voiced PCM**, within the unchanged 300 ms
+silence/100 ms long-pause/six-second boundaries. The interval is a candidate,
+not a measured optimum. One shared native worker remains serialized. Waiting
+snapshots replace one another; finals take priority. ASR and translation each
+retain at most two pending segments/eight seconds of audio, with final loss
+reported in status/counts rather than hidden.
+
+The same utterance retains its ID across ASR revisions and caption revisions
+increase across separate translation requests. Whitespace/case/terminal-punctuation
+changes alone do not retrigger translation. A new meaningful source revision
+closes the obsolete response and rejects its late bytes. Only the first response
+streams its tokens into the caption immediately; subsequent corrections preserve
+the earlier displayed text until the replacement response completes, avoiding
+repeated collapse to a one-token prefix. A complete response for provisional
+source stays a partial caption. An unchanged final source reuses its completed
+translation without another request. Only confirmed pairs enter the three-pair
+context. Existing caption contracts/sink/capture abstractions are unchanged.
+Luna/Anthropic with local ASR and text paths with OpenAI ASR retain final-only
+translation. `tests/browser_metrics.py` now forwards the internal constructor
+keyword so the existing instrumented native harness can instantiate this path.
+
+Regression work first failed with two missing-snapshot API checks, then two
+pre-boundary translation timeouts. All **seven** new checks now pass: paced
+pre-boundary snapshots, same-ID finalization, native inference coalescing, source
+correction without prefix erasure, provisional-response versus speech-final,
+unchanged/older source suppression, confirmed-only context, cancellation-resistant
+late output, final priority/two-segment/eight-second limits/status, and cancel/close
+cleanup. The deliberately slow ASR fixture first expected 265 frames; the existing
+100 ms pause after four seconds correctly ends it at 255. Corrected the fixture
+expectation to the already tested boundary, retaining all timing/queue assertions.
+The translator pressure fixture keeps IDs 1/6/7, reports four dropped waiting
+finals, and reaches exactly 8,000 ms pending. Provider fixtures verify that only
+the local/local selection enables snapshots. No live cloud request was made.
+
+Real model probe commands, with the repository-local Ollama binary and cloud
+inference disabled:
+
+```sh
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py before
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py after
+```
+
+The probe uses macOS-generated weather and construction speech, paced at 20 ms
+per PCM frame, with the actual cached MLX 0.6B 8bit and Ollama
+`qwen3:4b-instruct` models, English → Korean, context 4096. Each phase starts a
+fresh engine, unloads only the selected Ollama model, and prepares both models
+before timing. Weights/OS/MLX caches remain. “First inference” is not a cold-cache
+claim. Three repetitions are required for a passing report, but these runs
+stopped in repetition 0 at a failed meaning check, so **no passing report or
+p50/p95 comparison exists**. Temporary generated audio and console review remain
+ignored; no audio/transcript or failed run is committed as successful evidence.
+
+Both before trials correctly recognized the complete construction sentence,
+but mistranslated **crane as duck**, despite steel beams/construction context.
+A generic ambiguity reminder failed again and was removed. Three further
+text-only generic prompt probes produced deer/duck mistranslations; none became
+product changes. The after probe also fails the unchanged crane/steel meaning
+assertion, **exit 1**. The new script prints observation-only numbers before its
+assertions but writes `docs/verification/interim/model-{before,after}.json` only
+when all repetitions/checks pass. Neither file exists from this iteration.
+
+An earlier after trial with token-streamed corrections produced 29 provisional
+events during the construction speech, two source changes, first-event latency
+1,214.515 ms from the PCM start proxy, final-event latency 702.058 ms after the
+end proxy; its first weather inference took 1,950.286 ms to first event and did
+not finish before speech ended. These were failed model-only observations.
+After preserving displayed text during correction, reran the actual models on
+the final product path. The final failed trial observed:
+
+| Generated clip | First event from PCM speech start proxy | Last final event after speech end proxy | Events during speech | Source changes | ASR / translation calls |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Weather, first inference (n=1) | 16,637.043 ms | 15,534.581 ms | 0 | 0 | 2 / 1 |
+| Construction, following inference (n=1) | 1,239.534 ms | 696.497 ms | 15 | 2 | 4 / 3 |
+
+Weather meaning passed; construction meaning failed again. Both clips observed
+zero coalesced waiting snapshots and zero dropped ASR/translation segments.
+The PCM start/end proxies are the first/last samples with absolute amplitude
+at least 100 (weather 0.417–1,356.792 ms; construction 1.542–3,181.958 ms), not
+VAD decisions or perceived acoustic boundaries. Event times are monotonic-clock
+session events, **not tabCapture, DOM, Chromium Paint or physical display/audio**.
+The large first-inference variation is unresolved; no speedup/cold-start claim
+is supported. Added per-call duration/pending/RSS fields to future observation
+output for diagnosis; those added fields were not reported or retained in these completed
+trials. A two-clip failed trial cannot establish continuous throughput, stable
+memory, normal-load completeness, or short-speech improvement.
+
+7d remains unchecked. Next work is to diagnose first-inference latency and the
+contextual meaning failure using these original models/checks, finish the paired
+model probe, then implement native Chrome/covering-Paint comparison with identical
+speech/settings. Short/long/continuous speech, hesitation/silence, full caption
+meaning/characters, visible correction/expiry, playback, Stop/provider/session
+replacement, queue/drop and process/model memory still require that acceptance.
+No browser was launched in this iteration, so there is no new screenshot,
+interactive-access failure, native Start, or speaker-listening evidence. Previous
+7a/7c evidence remains historical. This is unfinished verification/quality work,
+not a blocker requiring credentials or user input.
+
+Restored the base locked environment after each real-model run. The initial full
+`npm run verify` passed lint/typecheck/build, JS 12 + Python 167 (66.08 seconds),
+with zero failures/skips/warnings. After the correction-display change, the
+final full `npm run verify` also passed: JS 12 + Python 167 (66.17 seconds),
+lint/typecheck/build, zero failures/skips/warnings, exit 0. `uv lock --check` and
+`git diff --check` pass. No listeners remain on 8765/8766/11434.
+Both owned Ollama processes were stopped; no companion/fixture/browser was
+started, no dependency/lock/runner/acceptance criterion changed, and no keys,
+weights, temporary `.ralph` state, user audio/transcripts, agents, push or publishing
+are part of this commit.

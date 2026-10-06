@@ -54,8 +54,8 @@ if lifecycle:
     LocalSession.prepare = prepare
 
 
-def initialize(self, *args):
-    original_init(self, *args)
+def initialize(self, *args, **kwargs):
+    original_init(self, *args, **kwargs)
     transcribers.add(self)
 
 
