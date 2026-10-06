@@ -2376,3 +2376,55 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   acceptance도 남았다. 이번 native/browseraccess/credential blocker는 진단하지
   않았고 새 실제browser 검증을 시도하지 않았다. 130/140 fixture utterance는
   실제10분media 근거가 아니다. checkbox/전체completion은 그대로이며 이후7b→8→9다.
+
+
+### Ralph iteration 9/30 (resumed run) — 2026-10-06 — 7d translation revision ordering
+
+- 다음 미완료 **7d만 진행, checkbox는 미체크 유지**다. 시작 checkout은 clean,
+  AGENTS.md는 없고 `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. 이 checkout에서만 작업했고
+  agent/다른worktree/credential/cloud/runner/criteria/dependency/lock/push/publish
+  변경은 없다. capture/model/output 계약과 모델/prompt/500ms/VAD/queue/읽기시간은 유지한다.
+- **out-of-order contract fix**: `_revising`이 translator의 오래된/반복 revision도
+  새 caption revision으로 바꾸어 표시하고 stale completion을 final/context로
+  받아들이는 결함을 fault fixture로 재현했다. 정상 Ollama가 순서를 뒤집는다고
+  주장하지 않는다. response별 last accepted revision으로 stale 결과를 거부하며
+  stale final도 stream을 닫지 않는다. source 교정의 새 response는 번호를 다시
+  시작하고 caption 번호는 이어간다. source 확정 시 completed provisional 재사용,
+  unexpected cue/미완료 stream 오류를 유지한다. source 9줄/공개 API·설정 추가 없음이다.
+- 먼저 `uv run --locked pytest tests/test_local_interim.py -k translation_revisions -q`
+  실행: 원래 source에서 **8fail/20deselected/0.18초/exit1**이다. older/repeated,
+  partial/completion, provisional/final source 조합이다. 최종 interim suite는
+  **30pass/0.47초/exit0**이며 source 교정의 response revision reset, 단조 caption,
+  추가 inference 없는 final화, 확정 문맥, 다음 cue, queue/task drain, stale-only 종료/
+  wrong-cue 오류, 기존 cancellation-resistant late output도 통과했다. focused Ruff도 통과다.
+- 기존 실제 model probe `local-interim-model.py after`를 최종 source로 1회 실행했다.
+  **exit1/acceptancefalse**, 3round/6trial/6final 모두 처리했고 construction의
+  `craneMeaning` **3개만 실패**다. 생성 final을 직접검토해 ASR은 맞고 번역은 animal로
+  틀리는 것을 확인했다. weather 의미/발화중 construction event·sourcechange/증가revision/
+  queue bounds/ASR·textdrop0은 통과다. **model-only, tabCapture/Paint/청취 근거 아니다**.
+  `docs/verification/interim/model-iteration9-translation-order-failed.json`에
+  numeric report/실제 exitcode/한계만 보존하고 기존 report는 byte대로 복원했다.
+- first/final event p50/p95(ms): weather **714.790/722.076**, **527.255/537.337**(n2),
+  construction **687.418/693.573**, **793.060/801.718**(n3). 첫 `firstInference`만
+  제외하는 기존 modelharness 정의다. 최초 prepare18665.346ms는 별도다. freshengine/
+  선택Ollamaunload/cachedweights·OS·compiler cache이며 coldcache/속도개선 비교는 아니다.
+  model실행에 fixture test를 겹치지 않았다. ASR30/text24/완료21/미완료·취소3,
+  source변경15(단어연장 포함)/coalesced0, queuepeak1000/0ms audio이다.
+  RSS183sample/peak187121664bytes, MLXactivepeak1011746444/globalpeak1641162980bytes며
+  합산하지 않는다. browser/Ollama 전체 memory와 지속10분처리는 미측정이다.
+- 독립 numeric audit는 동일 WAVhash/6trial 정확배정/각1final/증가revision/exactpercentile/
+  n/시각산술/queue/drop0/정확한3개 의미실패를 확인해 **exit0**다. acceptancepass가 아니다.
+  생성audio는 probe tempdir cleanup으로 삭제, owned Ollama SIGINT/exit0,
+  model 임시 review log삭제/base `uv sync --locked`복원,8765/8766/11434 listener없음이다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12 + Python195**,
+  failures/skips/warnings0, Python**66.52초**다. `uv lock --check`/`git diff --check`
+  통과다. source/regressions/numeric failed evidence/README/docs/plan을 Conventional Commit으로
+  보존하고 key/weights/audio·transcript/.ralph/build는 커밋하지 않는다.
+- **다음도7d**: 기존 directstage/native harness로 warmshort model/session 대기와
+  sink 표시대기를 분리해 줄이고 originalconstruction·long 의미를 해결한다.
+  unreadfinal/읽기시간을 유지하며 실제narrow/fullscreen/원음청취/inflightStop/
+  provider·session교체/장시간queue·memory acceptance를 통과해야 한다. 이번에는
+  native/browser/청취 검증을 시도하지 않았고 credential/browseraccess blocker를
+  진단하지 않았다. revision fixture/modelevent를 실제브라우저 성공으로 기록하지 않는다.
+  checkbox/전체completion은 그대로이고 이후7b→8→9다.

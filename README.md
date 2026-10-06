@@ -223,6 +223,9 @@ Meaningful source changes trigger provisional translations of the same utterance
 newer source cancels obsolete translation and replaces its caption with increasing
 revisions. A completed provisional translation stays partial until the speech
 boundary confirms it. Unchanged source can reuse that translation at the boundary.
+Each provisional translation stream rejects older or repeated output revisions,
+including stale completion markers. A source correction starts a fresh response
+while the caption's revisions continue increasing.
 The first translation streams immediately; later corrections keep the earlier
 text visible until the replacement response completes, avoiding repeated erasure
 to a one-token prefix. This completion still does not confirm provisional speech.

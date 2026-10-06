@@ -4047,3 +4047,100 @@ models and complete real-browser acceptance before checking 7d or moving to
 7b → 8 → 9.
 
 Final `npm run verify` exits **0**: lint/typecheck/build, **12 JavaScript + 185 Python tests**, no failures/skips/warnings; Python **66.52 s**. `uv lock --check` and `git diff --check` pass. All intended iteration changes are committed; no runner/criteria/dependency/lock changes, credentials, weights, generated audio/transcripts, build artifacts, or temporary `.ralph` state are included. Item 7d remains unchecked.
+
+## Ralph iteration 9/30 — 2026-10-06 — local translation revision ordering
+
+Item **7d remains unchecked**. This iteration covers its out-of-order output
+acceptance branch. The local provisional session previously assigned a fresh
+caption revision to every translation result, even an older/repeated provider
+revision. A stale completion could therefore finalize stale text and enter it
+into recent context. Fault-injection fixtures demonstrate this contract gap;
+the normal Ollama adapter is not claimed to emit reordered records.
+
+`LocalSession._revising` now tracks the last accepted revision within each
+translation response. Older/repeated results do not emit captions, enter context,
+or close the stream, even when marked complete. Each new source correction starts
+fresh response numbering; caption numbering continues across corrections.
+An unchanged final source can still promote its completed provisional response.
+The existing unexpected-cue and missing-completion errors remain enforced.
+The change adds nine source lines and no new public contract or setting.
+
+Regression commands (repository-local uv on PATH):
+
+```sh
+uv run --locked pytest tests/test_local_interim.py -k translation_revisions -q
+uv run --locked pytest tests/test_local_interim.py -q
+uv run --locked ruff check server/sessions/local.py tests/test_local_interim.py
+```
+
+Before the source fix, the first command failed **8 tests / 20 deselected,
+0.18 s, exit 1**: an older or repeated partial/completion replaced the newer
+translation, with provisional and final source tested separately. After the fix,
+the interim suite passed **30 tests / 0.47 s / exit 0**, and focused lint passed.
+The new tests also cover source correction with response numbering restarted at
+one, unchanged-source finalization without another request, confirmed context,
+new-utterance numbering, queue/task cleanup, stale-only stream termination, and
+wrong-cue errors. Existing cancellation-resistant late-output regressions pass.
+
+The existing real-model probe was run once on the final source:
+
+```sh
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py after
+```
+
+[Numeric evidence](verification/interim/model-iteration9-translation-order-failed.json)
+records its actual **exit 1 / acceptancePassed:false**. All six trials and six
+finals completed; all three construction `craneMeaning` checks failed. Manual
+review of the generated final confirms correct construction ASR but an animal
+translation; the generated weather final preserves its meaning. The other
+existing checks pass, including construction events during speech/source changes,
+increasing caption revisions, bounded queues, and ASR/text drops **0**. This is
+paced generated **model-only** audio, not tabCapture or browser Paint evidence.
+
+| Model event timing | n | p50 ms | p95 ms |
+| --- | --- | --- | --- |
+| Weather speech start → first event | 2 | 714.790 | 722.076 |
+| Weather speech end → final event | 2 | 527.255 | 537.337 |
+| Construction speech start → first event | 3 | 687.418 | 693.573 |
+| Construction speech end → final event | 3 | 793.060 | 801.718 |
+
+These percentiles exclude only the first `firstInference` trial, following this
+model harness's existing definition. Initial preparation **18665.346 ms** is
+separate. The engine was fresh and the selected Ollama model unloaded; model
+weights, OS, and compiler caches were retained. This is not a cold-cache trial or
+a before/after latency comparison. No fixture test overlapped the model probe.
+There were **30 ASR / 24 translation calls**, **21 completed / 3 incomplete or
+cancelled** responses, **15 source changes**, and **0 coalesced snapshots**.
+Source changes include word extensions and do not establish correct semantics.
+Sampled ASR/text queue peaks were **1000 / 0 ms audio**. Requested 100 ms memory
+sampling yielded **183 samples**, RSS peak **187121664 bytes**, MLX active peak
+**1011746444 bytes**, and MLX global peak **1641162980 bytes**. RSS and MLX overlap
+and are not summed; browser/Ollama total memory was not measured.
+
+An independent numeric audit passed (exit 0): six exact trial assignments,
+identical WAV hashes against preserved prior evidence, one final per trial,
+monotone caption revisions, exact percentiles/sample counts, timestamp arithmetic,
+queue bounds/drop0, and exactly the three failed meaning flags. Report consistency
+does not establish 7d acceptance. Existing reports were restored byte-for-byte.
+Generated audio was deleted by the probe's temporary-directory cleanup. The owned
+Ollama process exited 0 on SIGINT, and `uv sync --locked` restored base dependencies.
+
+No native browser, first-Paint improvement, narrow/fullscreen appearance, audible
+playback, inflight provider/session replacement, or sustained-media verification
+was attempted here. No credential/browser-access blocker was diagnosed. Continue
+7d with the existing stage/native harness to resolve warm short-speech waiting
+and original construction/long meaning while preserving unread finals and reading
+time; complete the real-browser/lifetime/sustained checks before checking 7d.
+The following items remain **7b → 8 → 9**.
+
+Final `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exited **0**:
+lint/typecheck/build, **12 JavaScript + 195 Python tests**, no failures/skips/warnings;
+Python **66.52 s**. `uv lock --check` and `git diff --check` pass. Ports
+8765/8766/11434 have no listeners. The revision guard, regressions, numeric failed
+evidence, README, this report, and plan are the intended commit contents.
+No runner, acceptance criteria, dependencies, model defaults, prompt, cadence,
+VAD, queue budget, reading-time, or paid-provider policy changes were made.
+No keys, weights, audio/transcripts, build artifacts, or temporary `.ralph` files
+are committed. No other agents, worktrees, push, or publishing were used.

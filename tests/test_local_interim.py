@@ -348,6 +348,133 @@ def test_interim_translation_is_corrected_without_finalizing_or_reusing_old_cont
     asyncio.run(check())
 
 
+@pytest.mark.parametrize("stale_revision", [1, 2])
+@pytest.mark.parametrize("stale_final", [False, True])
+@pytest.mark.parametrize("source_final", [False, True])
+def test_translation_revisions_cannot_regress_or_finalize_with_stale_text(
+    stale_revision, stale_final, source_final
+):
+    async def check():
+        incoming = asyncio.Queue()
+        output = asyncio.Queue()
+        calls = []
+
+        class ASR:
+            interim = True
+
+            async def transcribe(self, _frames):
+                while (value := await incoming.get()) is not None:
+                    yield value
+
+            async def close(self):
+                pass
+
+        class Translator:
+            async def translate(self, transcript, context):
+                calls.append((transcript, list(context)))
+                if len(calls) == 1:
+                    yield Translation("1", 2, "최신 임시 번역", False)
+                    yield Translation("1", stale_revision, "오래된 번역", stale_final)
+                    yield Translation("1", 3, "최신 완료 번역", True)
+                else:
+                    # Revisions belong to a response, not the whole utterance.
+                    yield Translation(transcript.utterance_id, 1, "교정 중", False)
+                    yield Translation(transcript.utterance_id, 2, "교정 완료", True)
+
+            async def close(self):
+                pass
+
+        session = local.LocalSession("ordered-output", ASR(), Translator())
+
+        async def collect():
+            async for event in session.run(None):
+                assert event.type != "error", event.message
+                if event.caption:
+                    output.put_nowait(event.caption)
+
+        task = asyncio.create_task(collect())
+        try:
+            incoming.put_nowait(Transcript("1", 1, "First", source_final, 0, 1000))
+            first = await asyncio.wait_for(output.get(), 1)
+            complete = await asyncio.wait_for(output.get(), 1)
+            assert [first.translation, complete.translation] == [
+                "최신 임시 번역", "최신 완료 번역"
+            ]
+            assert [first.revision, complete.revision] == [1, 2]
+            assert not first.final and complete.final == source_final
+            if not source_final:
+                incoming.put_nowait(
+                    Transcript("1", 2, "First corrected", False, 0, 1500)
+                )
+                correction = await asyncio.wait_for(output.get(), 1)
+                assert correction.translation == "교정 완료"
+                assert correction.revision == 3 and not correction.final
+                incoming.put_nowait(
+                    Transcript("1", 3, "First corrected", True, 0, 1600)
+                )
+                final = await asyncio.wait_for(output.get(), 1)
+                assert final.translation == "교정 완료"
+                assert final.final and final.revision == 4
+                assert len(calls) == 2 and calls[-1][1] == []
+            incoming.put_nowait(Transcript("2", 1, "Next", True, 2000, 3000))
+            next_partial = await asyncio.wait_for(output.get(), 1)
+            next_final = await asyncio.wait_for(output.get(), 1)
+            assert next_partial.utterance_id == next_final.utterance_id == "2"
+            assert [next_partial.revision, next_final.revision] == [1, 2]
+            assert not next_partial.final and next_final.final
+            assert calls[-1][1] == [
+                ("First", "최신 완료 번역") if source_final
+                else ("First corrected", "교정 완료")
+            ]
+            incoming.put_nowait(None)
+            await asyncio.wait_for(task, 1)
+            assert output.empty()
+            assert session.pending_translation_ms == session.dropped_translations == 0
+            assert session.revision_task is None
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize(
+    "utterance_id,expected",
+    [("1", "ended before completion"), ("wrong-cue", "unexpected cue")],
+)
+def test_rejecting_stale_completion_preserves_translation_errors(
+    utterance_id, expected
+):
+    async def check():
+        class ASR:
+            interim = True
+
+            async def transcribe(self, _frames):
+                yield Transcript("1", 1, "Speech", True, 0, 1000)
+
+            async def close(self):
+                pass
+
+        class Translator:
+            async def translate(self, _transcript, _context):
+                yield Translation("1", 2, "최신 임시 번역", False)
+                yield Translation(utterance_id, 1, "오래된 완료", True)
+
+            async def close(self):
+                pass
+
+        session = local.LocalSession("stale-end", ASR(), Translator())
+        events = [event async for event in session.run(None)]
+        captions = [event.caption for event in events if event.caption]
+        assert len(captions) == 1
+        assert captions[0].translation == "최신 임시 번역" and not captions[0].final
+        errors = [event.message for event in events if event.type == "error"]
+        assert len(errors) == 1 and expected in errors[0]
+        assert session.pending_translation_ms == 0 and session.revision_task is None
+
+    asyncio.run(check())
+
+
 def test_new_source_cancels_obsolete_translation_even_if_it_returns_late_bytes():
     async def check():
         incoming = asyncio.Queue()

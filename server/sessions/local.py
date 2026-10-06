@@ -610,6 +610,7 @@ class LocalSession:
                     correcting = False
                 if current is not None and stream is None and completed is None:
                     stream = self.translator.translate(current, context)
+                    translation_revision = -1
                     translation_task = asyncio.create_task(anext(stream))
                 tasks = [task for task in (incoming, translation_task) if task]
                 if not tasks:
@@ -693,6 +694,14 @@ class LocalSession:
                         raise RuntimeError(
                             "Local translation stream ended before completion."
                         ) from error
+                    if (
+                        value.utterance_id == current.utterance_id
+                        and value.revision <= translation_revision
+                    ):
+                        # A stale completion cannot finalize newer provisional text.
+                        translation_task = asyncio.create_task(anext(stream))
+                        continue
+                    translation_revision = value.revision
                     if value.final:
                         completed = value
                         await stop_stream()
