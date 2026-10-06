@@ -373,8 +373,35 @@ weather speech three times. The test requires the next real caption to arrive
 before the previous final's unread part, both Korean meanings, every final
 character and a covering Paint for each part. Use native Stop, `stopped`, `exit`.
 Only a passing run writes `docs/verification/latency/stream-overlap.json`.
-Iteration 8 could not reach the acceptance window with native UI control, so this
-real overlap mode remains unverified; generated-caption success is separate.
+The resumed native run passed three real long/short pairs with covering Paints
+for every final part; its numeric report is saved separately from fixture evidence.
+It does not establish 600-second stability or physical speaker listening.
+
+To measure native Start, model preparation and the first actual subtitle:
+
+```sh
+# Keep local Ollama running; run the two headed phases sequentially.
+npm run test:local-browser -- startup-before
+npm run test:local-browser -- startup-after
+```
+
+Enter `startup` **before** using native toolbar Start; observe Preparing or
+Capturing, then close the popup.
+Generated weather speech plays automatically once capture is ready. Review the
+printed actual Korean final, use native Stop, and enter `stopped`. Repeat this
+sequence three times, then enter `startup-report` and `exit`. The test observes a
+trusted native Start click using a passive listener appended only to an ignored
+copy of the built popup script. It sends no capture commands or fake captions.
+The before phase skips only test-local model preparation; the after phase uses
+the product preparation. Both keep the same current VAD, prompt and streaming
+requests. Each phase starts a new companion and unloads only the selected Ollama
+test model. Cached weights and OS/MLX caches stay intact, so this is a controlled
+lazy-loading comparison, not a historical build or cold-cache benchmark.
+Numeric reports separate the first inference from two warm restarts and
+record click-to-capture, preparation, ASR, audio-end-to-first/final covering Paint,
+and click-to-first/final Paint. Missing clicks/Paints, incorrect weather meaning
+or incomplete cleanup fail the test. Small-sample percentiles and Paint start
+are not physical display presentation or speaker-listening evidence.
 
 To verify Stop during actual local ASR and a provider change during translation:
 

@@ -23,6 +23,7 @@ original_init = MlxTranscriber.__init__
 original_transcribe = MlxEngine.transcribe
 model_metrics = {}
 lifecycle = os.environ.get("INTERPRETER_LIFECYCLE_METRICS") == "1"
+lazy_start = os.environ.get("INTERPRETER_LAZY_START_BASELINE") == "1"
 current_session = None
 
 
@@ -44,7 +45,8 @@ async def prepare(self):
     global current_session
     current_session = self.session_id
     lifecycle_metric("prepare.start", self.session_id)
-    await original_prepare(self)
+    if not lazy_start:
+        await original_prepare(self)
     lifecycle_metric("prepare.end", self.session_id)
 
 

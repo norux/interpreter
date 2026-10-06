@@ -2290,3 +2290,135 @@ and the owned Ollama server are stopped; no listeners remain on 8765/8766/11434.
 No new visual or real-model overlap success is claimed. All intended source,
 verification and plan changes are committed together; no secrets, model weights,
 audio/transcripts from the user or temporary `.ralph` state are included.
+
+## Ralph iteration 1/30 (resumed) — real overlapping cues and native startup (2026-10-06)
+
+The next unfinished item remains **7a**, with its checkbox open. Work stayed in
+the specified checkout. No AGENTS.md is present; the supplied instructions apply.
+`.ralph/verification.txt` reads `No completion verification attempted in this run.`
+No other agents, worktrees, cloud inference, credentials, publication, push,
+runner changes, dependencies or production capture/model/output changes were used.
+
+Native access was available in this run: `cua.getApp` using the cached Chrome for
+Testing app path selected **Local speech acceptance**, rather than New Tab.
+Actual native Extensions → Interpreter → Start began preparation and capture;
+Escape closed the popup. The unchanged built extension then passed
+`npm run test:local-browser -- overlap`: three real long → sunny-weather pairs,
+actual tabCapture/PCM/cached MLX ASR/loopback Ollama, **exit 0** after native Stop,
+`stopped`, `exit`. No microphone, injected captions or existing site subtitles
+were used. Both printed sources and Korean finals were reviewed: blue umbrella,
+warm coat, station, afternoon three, trip and sunny weather were preserved.
+The first two long finals contain **41 characters**, the third **43**; short
+finals contain **11** each. All characters were displayed in order, within two
+lines, with **9 / 9 covering final-part Chromium Paints**. The next caption's
+browser receipt preceded the unread long part by **1077.800 / 1220.400 / 1036.000 ms**.
+[Numeric real-overlap evidence](verification/latency/stream-overlap.json) contains
+identity, ranges, geometry, timestamps and waveform hashes, without transcript.
+An independent check passed their arithmetic, identity, ranges, geometry and
+queue/drop consistency. A native screenshot was inspected while a real long
+part was visible: white outlined Korean text on a small dark background, bottom
+center, two lines and separate from the audio controls. No new PNG is committed.
+This does not establish 600-second stability or lossless overloaded output.
+
+The small existing local-browser harness now also measures startup in two modes:
+
+```sh
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-browser.mjs startup-before
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-browser.mjs startup-after
+```
+
+For each phase: `startup` arms the next native Start; observe native Preparing or
+Capturing before closing the popup. Generated weather speech automatically plays
+after capture is ready. Native Stop/`stopped` is required between each of three
+samples and before `startup-report`/`exit`. Both final phases exited **0**.
+All six actual Korean finals conveyed today's clear weather; each had eight
+partials and final revision nine, **54 / 54 covering revision Paints**. Each native
+Stop asserted idle, no active capture, offscreen contexts zero and caption hosts
+zero. The waveform hash matches between phases and the previous short-weather
+Paint measurement. Numeric evidence is in
+[startup-before](verification/latency/startup-before.json) and
+[startup-after](verification/latency/startup-after.json).
+
+The before mode skips only `LocalSession.prepare` in the test companion wrapper;
+the after mode uses product preparation. Both retain current 300 ms silence,
+quality boundary, six-second cap, models, translation prompt and streaming.
+Each phase starts a new companion and unloads only the selected Ollama test model.
+Weights/OS/MLX caches remain; this is not a historical build or cold-cache trial.
+A passive listener appended to `popup.js` **only in an ignored copy of the built
+extension** records the trusted native Start click. It sends no capture command,
+creates no caption and does not alter permissions or product source. Startup
+includes popup configuration, offscreen creation, preparation and capture.
+
+| Timing (ms) | Lazy before | Prepared after |
+| --- | ---: | ---: |
+| First inference: native click → capture | 106.100 | 3096.300 |
+| First inference: prepare → ready | 0.098 (skipped) | 2965.260 |
+| First inference: ASR (includes lazy load before) | 2305.362 | 912.732 |
+| First inference: audio end → first / final Paint | 4566.952 / 4939.792 | 1360.681 / 1742.709 |
+| First inference: native click → first / final Paint | 6319.855 / 6692.695 | 6121.747 / 6503.775 |
+| Warm restart click → capture p50 / p95 (n=2) | 157.800 / 204.000 | 65.700 / 66.800 |
+| Warm audio end → first Paint p50 / p95 (n=2) | 743.000 / 747.661 | 736.412 / 739.244 |
+| Warm audio end → final Paint p50 / p95 (n=2) | 1139.603 / 1141.498 | 1150.602 / 1179.926 |
+| Warm click → first Paint p50 / p95 (n=2) | 2552.234 / 2597.466 | 2426.853 / 2450.391 |
+| Warm click → final Paint p50 / p95 (n=2) | 2946.071 / 2994.069 | 2861.749 / 2870.367 |
+
+Preparation moves model loading ahead of audio capture, rather than removing it.
+The first native-click-to-caption totals are similar, and warm audio-end-to-final
+is slightly slower after. **No cold-start or general speedup is claimed from this
+small sequential comparison.** First inference is n=1 per phase, excluded from
+the two warm restarts. Earlier iteration 5's n=6 controlled VAD/streamed-display
+improvement remains separate. Paint means main-frame Paint start covering the cue,
+not GPU completion/physical display presentation. Audio-end epochs use first PCM
+receipt minus its frame timestamp and 20 ms, retaining clock/transport error.
+Native click uses popup performance epoch; worker capture-state timestamps have
+millisecond precision. Automatic play has a recorded 19–55 ms request delay after
+capture plus media startup; that delay is included in click-to-caption totals.
+
+All three passing model runs used Chrome for Testing **153.0.8010.12**,
+Playwright **1.63.0**, Apple **M5 / 16 GiB**, Python **3.12.15**, mlx-audio **0.5.8**,
+Ollama **0.35.1**, cached Qwen3-ASR 0.6B 8bit and qwen3:4b-instruct Q4_K_M,
+context 4096, English → Korean. Hugging Face is offline and Ollama cloud disabled.
+Sampled pending-audio peak **0 ms**, frame drops **0**, utterance drops **0** in
+each passing run. Receipts are every 50 frames; short isolated/pair samples do
+not prove continuous queue peaks, display-overload losslessness or long-media
+memory stability. Independent startup JSON checks passed ordering, session and
+revision identity, all Paints/geometry, arithmetic, percentiles, hash and queues.
+
+Failed startup instrumentation is preserved as failure, without successful
+timing evidence: first the page init script did not observe native popup clicks;
+then listening only to CDP target creation also missed the click. Both probes
+stopped native capture/cleaned up and exited **1** before playing startup speech.
+Watching target-info changes attached the observer, but an inspector window
+appeared and the native popup was unavailable; that probe timed out without
+capture and exited **1**. That approach was removed in favor of the small ignored
+build-copy hook. An initial prepared-phase click followed immediately by Escape
+showed no capturing state and returned to Ready. Its cause was not established.
+A second native click, observed at Preparing before Escape, supplied that phase's
+first accepted capture and the reported timestamp. The earlier unsuccessful
+attempt is not a startup sample; closing the popup immediately after clicking
+Start is not claimed as verified. Subsequent accepted samples observed Capturing before
+closure. The acceptance gates, native invocation and cleanup requirements remain.
+
+**Remaining blocker: original-sound listening.** A listening question was sent
+while real native capture was active and the generated English playback began;
+no reply arrived. These UI tools expose no speaker audio. Unmuted/active media,
+PCM, destination wiring and Paints cannot replace hearing confirmation. The prior
+tone confirmation is preserved as prior evidence, not a new speech-listening
+check. To finish 7a, a person at this Mac must confirm generated speech remains
+audible during capture and after popup closure (or report the actual failure).
+Use the README overlap or startup command and native Start sequence. Real overlap
+and startup measurement now have passing evidence and need no reimplementation.
+Source Auto (7b), TED advancing 600 seconds (8) and final documentation/checks (9)
+remain. 7a stays unchecked; no completion claim is made.
+
+After the model/browser runs, base `uv sync --locked` and `npm run verify` passed
+**exit 0**, lint/typecheck/build, **11 JS + 160 Python tests**, failures/skips/warnings
+**0**, Python **66.09 seconds**. `uv lock --check`, `git diff --check` and the
+independent numeric evidence checks passed. Dedicated browsers, harnesses,
+companions, fixtures and the owned Ollama server stopped normally. No listeners
+remain on 8765/8766/11434 (`lsof` exit 1 means none). The optional MLX environment,
+generated audio, profiles, build copies and temporary Ralph state are ignored.
+Only harness code, numeric evidence, README, verification documentation and the
+durable plan are included in the Conventional Commit; no secrets, model weights,
+user audio/transcripts, runner or dependency/lock changes are included.

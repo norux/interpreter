@@ -1406,3 +1406,78 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   독립 numeric 검사 통과. dedicated harness/browser/companion/fixture와 owned Ollama는
   종료했고 8765/8766/11434 listener는 없다. intended source/문서/숫자 evidence/plan을
   한 Conventional Commit으로 보존한다. 키/weights/사용자 음성·전사문/임시 .ralph는 없다.
+
+### Ralph iteration 1/30 (재개) — 2026-10-06 — 항목 7a 실제 연속 cue/Start 실측, 청취 차단
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7a만 진행**, **checkbox는 미체크 유지**다. 다른 agent/worktree/
+  push/publish/runner/acceptance 변경/credential 파일/cloud inference는 없다.
+- 이번에는 cached Chrome for Testing app path로 native **Local speech acceptance**
+  창에 접근했다. 이전 iteration8의 창 접근 blocker는 해소됐다. 실제 native toolbar
+  Start/준비/캡처 → popup 닫기 → `overlap` → native Stop/`stopped`/`exit`가 **exit0**다.
+  현재 built extension/실제 tabCapture/PCM/cached MLX/Ollama로 long→sunny **3쌍**을
+  처리했다. 원문과 한국어를 terminal로 검토해 파란 우산/따뜻한 코트/역/오후3시/여행/
+  맑은 날씨 의미를 확인했다. finals **41/41/43 + 11/11/11문자** 모두 순서대로
+  두 줄 이내에 표시되고 **9/9 final-part Paint**가 있다. 다음 caption receipt는
+  이전 unread part보다 **1077.800/1220.400/1036.000ms** 먼저 왔다.
+  docs/verification/latency/stream-overlap.json의 identity/range/geometry/paint산술/
+  queue/hash를 독립 검사했다. native screenshot에서 실제 두 줄 Korean part가
+  읽히고 audio controls와 떨어져 있는 것을 검토했으며 새 PNG는 커밋하지 않는다.
+- 기존 local-browser에 **startup-before/after**와 test-only lazy preparation 비교를
+  추가했다. ignored built extension copy의 popup.js에 작은 **passive trusted-click
+  listener만** 붙이며 capture 명령/가짜 caption/권한/제품 capture/model/output 계약은
+  바꾸지 않는다. native Start click부터 configuration/offscreen/모델준비/캡처와
+  실제 generated speech의 covering Paint를 계측한다. before는 test wrapper에서
+  LocalSession.prepare만 생략하고 after는 제품 준비를 사용한다. 두 phase는 새
+  companion/선택한 Ollama model unload, 동일 현재300ms/quality boundary/6초 cap/
+  streaming/prompt/English→Korean이다. weights/OS/MLX cache는 지우지 않는다.
+- 각 phase의 `startup`(arm) → **native Start** → Preparing/Capturing 관측 뒤 popup닫기
+  → 자동 실제 weather 재생/final → **native Stop**/`stopped`를 **3회** 실행했다.
+  `startup-report`/`exit` 둘 다 **exit0**다. 모든 실제 한국어 final의 오늘/맑은 날씨
+  의미를 검토했으며 각8partial+final revision9, **54/54 revision Paint**가 있다.
+  모든 native Stop은 idle/active capture없음/offscreen0/host0을 통과했다.
+  docs/verification/latency/startup-before.json과 startup-after.json은 숫자/identity/
+  geometry/hash만 보존하고 WAV hash는 양쪽 및 기존 weather paint와 일치한다.
+- fresh companion **첫 inference n1씩**: click→capture **106.100→3096.300ms**,
+  prepare→ready **0.098(생략)→2965.260ms**, ASR(lazy load 포함 before)
+  **2305.362→912.732ms**, audio-end→first/final Paint
+  **4566.952/4939.792→1360.681/1742.709ms**,
+  click→first/final **6319.855/6692.695→6121.747/6503.775ms**다.
+  준비는 loading을 캡처 전으로 옮기며 총 click→caption은 비슷하다.
+  **cold-cache/일반 속도 개선으로 주장하지 않는다**; 기존 compile/cache 차이 한계를 유지한다.
+- warm restart **n2씩**, first Paint p50/p95 **743.000/747.661→736.412/739.244ms**,
+  final **1139.603/1141.498→1150.602/1179.926ms**다. click→first
+  **2552.234/2597.466→2426.853/2450.391ms**, click→final
+  **2946.071/2994.069→2861.749/2870.367ms**다. 작은 sequential sample의 새
+  개선 주장은 없다. iteration5의 n6 VAD/streaming 표시 개선과 별도다.
+  Paint start≠GPU완료/physical display, PCM epoch 추정/clock/transport 오차,
+  worker시각1ms/자동play요청19–55ms 등의 한계를 docs에 보존했다.
+- Chrome153.0.8010.12/Playwright1.63.0/AppleM5·16GiB/Python3.12.15/
+  mlx-audio0.5.8/Ollama0.35.1, ASR0.6B8bit/qwen3:4b-instruct Q4_K_M/context4096이다.
+  HF offline/Ollama cloud disabled다. 각 passing run receipt50frames 간격 sampled
+  pending peak0ms/frame·utterance drop0이며 continuous600초/과부하 무손실/메모리
+  안정성 증거가 아니다. 독립 startup 순서/identity/revision/Paint/geometry/산술/
+  percentile/hash/queue 검사 통과. 기존 inference중단/교체 근거는 다시 구현하지 않았다.
+- 실패는 보존한다: initScript가 native popup click을 못 읽었고 CDP targetCreated만
+  감시한 probe도 같은 assertion으로 **exit1**이다. 둘 다 speech 전 실패/nativeStop/
+  cleanup했다. targetInfoChanged를 추가한 probe는 inspector 창/원래 popup 접근 문제로
+  capture 없이 timeout/**exit1**였다. 해당 CDP 접근은 제거하고 작은 ignored copy hook으로
+  수정 후 최종 두 phase를 통과했다. 첫 after의 click→즉시Escape는 capture가 시작되지
+  않고 Ready를 보였다. 원인은 미확인이다. native click을 다시 누르고 Preparing을
+  관측한 뒤 닫은 실제 capture만 첫 sample/새click시각으로 기록했다. 직후popup닫기
+  성공을 보장하지 않는다. 테스트/native invocation/cleanup/acceptance는 약화하지 않았다.
+- **남은 blocker: 원음 청취 확인**. active native capture에서 생성 영어 재생을 시작할 때
+  async 청취 질문을 보냈으나 답변이 없다. 이 UI tool은 speaker audio를 제공하지 않는다.
+  unmuted/PCM/destination/Paint를 실제 청취 성공으로 바꾸지 않는다. 과거 tone 사용자
+  확인은 기존 항목2 근거이며 새 speech 청취 근거가 아니다. 이 Mac에서 native Start 후
+  capture와 popup닫기 뒤에도 generated speech가 계속 들리는지 사용자 확인이 필요하다.
+  README overlap/startup 명령으로 재개해 실제 응답 또는 실패를 기록한 뒤 acceptance를
+  검토한다. **7a의 real overlap/Start 계측은 완료했으므로 재구현하지 않는다**.
+  다음 미완료는 여전히7a; 7b(SourceAuto)/8(TED600초)/9와 최종완료는 남아 있다.
+- 최종 base `uv sync --locked` 후 **npm run verify exit0**: lint/typecheck/build,
+  **JS11+Python160**, failures/skips/warnings0,Python66.09초다. uv lock --check/
+  git diff --check/독립 numeric검사 통과. dedicatedbrowser/harness/companion/fixture 및
+  ownedOllama 정상종료/8765·8766·11434 listener없음. dependency/lock/runner 변경 없음.
+  intended harness/숫자evidence/README/docs/plan만 Conventional Commit으로 보존한다.
+  키/weights/사용자audio·transcript/임시 .ralph/builtcopy는 커밋하지 않는다.

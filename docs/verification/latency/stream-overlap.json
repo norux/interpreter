@@ -1,0 +1,263 @@
+{
+  "browser": "153.0.8010.12",
+  "nativeCapture": true,
+  "realLocalModels": true,
+  "speech": "macOS Samantha 165 wpm; umbrella/coat/station/trip, followed by sunny weather",
+  "viewport": {
+    "width": 270,
+    "height": 700
+  },
+  "wavSha256": [
+    "936452426614f2e343042acd563e74b5cb6e30ea37b9e0edd84f6921274f9ba8",
+    "c54a064bc9435df7335033e997fa6b4cd122463125ad83d2fb777e628fc26003"
+  ],
+  "samples": [
+    {
+      "repetition": 0,
+      "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+      "firstInference": true,
+      "nextCaptionAtMs": 1791253194124.0999,
+      "unreadPartAtMs": 1791253195201.9,
+      "finals": [
+        {
+          "utteranceId": "1",
+          "revision": 28,
+          "characterCount": 41,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "1",
+              "revision": 28,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253192497.5,
+              "offset": 0,
+              "length": 30,
+              "twoLines": true,
+              "visible": true,
+              "left": 27,
+              "right": 243,
+              "top": 561.609375,
+              "bottom": 620,
+              "paintAtMs": 1791253192497.645,
+              "markToPaintMs": 0.145
+            },
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "1",
+              "revision": 28,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253195201.9,
+              "offset": 30,
+              "length": 11,
+              "twoLines": true,
+              "visible": true,
+              "left": 53.71484375,
+              "right": 216.28515625,
+              "top": 586.8046875,
+              "bottom": 620,
+              "paintAtMs": 1791253195209.9148,
+              "markToPaintMs": 8.015
+            }
+          ]
+        },
+        {
+          "utteranceId": "2",
+          "revision": 10,
+          "characterCount": 11,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "2",
+              "revision": 10,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253197704.7998,
+              "offset": 0,
+              "length": 11,
+              "twoLines": true,
+              "visible": true,
+              "left": 53.71484375,
+              "right": 216.28515625,
+              "top": 586.8046875,
+              "bottom": 620,
+              "paintAtMs": 1791253197704.9497,
+              "markToPaintMs": 0.15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+      "firstInference": false,
+      "nextCaptionAtMs": 1791253208805.5999,
+      "unreadPartAtMs": 1791253210026,
+      "finals": [
+        {
+          "utteranceId": "3",
+          "revision": 28,
+          "characterCount": 41,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "3",
+              "revision": 28,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253207324.4,
+              "offset": 0,
+              "length": 30,
+              "twoLines": true,
+              "visible": true,
+              "left": 27,
+              "right": 243,
+              "top": 561.609375,
+              "bottom": 620,
+              "paintAtMs": 1791253207324.522,
+              "markToPaintMs": 0.122
+            },
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "3",
+              "revision": 28,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253210026,
+              "offset": 30,
+              "length": 11,
+              "twoLines": true,
+              "visible": true,
+              "left": 53.71484375,
+              "right": 216.28515625,
+              "top": 586.8046875,
+              "bottom": 620,
+              "paintAtMs": 1791253210026.13,
+              "markToPaintMs": 0.13
+            }
+          ]
+        },
+        {
+          "utteranceId": "4",
+          "revision": 10,
+          "characterCount": 11,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "4",
+              "revision": 10,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253212527.0999,
+              "offset": 0,
+              "length": 11,
+              "twoLines": true,
+              "visible": true,
+              "left": 53.71484375,
+              "right": 216.28515625,
+              "top": 586.8046875,
+              "bottom": 620,
+              "paintAtMs": 1791253212527.3628,
+              "markToPaintMs": 0.263
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+      "firstInference": false,
+      "nextCaptionAtMs": 1791253223725.7,
+      "unreadPartAtMs": 1791253224761.7,
+      "finals": [
+        {
+          "utteranceId": "5",
+          "revision": 30,
+          "characterCount": 43,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "5",
+              "revision": 30,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253222240.0999,
+              "offset": 0,
+              "length": 28,
+              "twoLines": true,
+              "visible": true,
+              "left": 27,
+              "right": 243,
+              "top": 561.609375,
+              "bottom": 620,
+              "paintAtMs": 1791253222240.2397,
+              "markToPaintMs": 0.14
+            },
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "5",
+              "revision": 30,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253224761.7,
+              "offset": 28,
+              "length": 15,
+              "twoLines": true,
+              "visible": true,
+              "left": 28.21484375,
+              "right": 241.78515625,
+              "top": 586.8046875,
+              "bottom": 620,
+              "paintAtMs": 1791253224762.045,
+              "markToPaintMs": 0.345
+            }
+          ]
+        },
+        {
+          "utteranceId": "6",
+          "revision": 10,
+          "characterCount": 11,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "daa1618e-539e-43ad-a529-3ea959aef45d",
+              "utteranceId": "6",
+              "revision": 10,
+              "final": true,
+              "type": "part",
+              "atMs": 1791253227262.2998,
+              "offset": 0,
+              "length": 11,
+              "twoLines": true,
+              "visible": true,
+              "left": 53.71484375,
+              "right": 216.28515625,
+              "top": 586.8046875,
+              "bottom": 620,
+              "paintAtMs": 1791253227262.4238,
+              "markToPaintMs": 0.124
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "maxPendingAudioMs": 0,
+  "droppedFrames": 0,
+  "droppedUtterances": 0,
+  "listening": "not verified; UI tools expose no speaker audio"
+}

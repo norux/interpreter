@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { appendFile, cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -11,12 +11,14 @@ import { chromium } from "playwright";
 import { traceCaptionPaints } from "./caption-paint.mjs";
 
 const mode = process.argv[2];
-assert.ok(mode === undefined || ["before", "after", "stream", "overlap", "lifecycle"].includes(mode));
+assert.ok(mode === undefined || ["before", "after", "stream", "overlap", "lifecycle", "startup-before", "startup-after"].includes(mode));
 const lifecycle = mode === "lifecycle";
+const startup = mode?.startsWith("startup-");
+const starts = [];
 const overlap = mode === "overlap";
 const streaming = mode === "stream" || overlap;
-const paintPhase = streaming || lifecycle ? undefined : mode;
-const instrumented = !!paintPhase || streaming || lifecycle;
+const paintPhase = streaming || lifecycle || startup ? undefined : mode;
+const instrumented = !!paintPhase || streaming || lifecycle || startup;
 const metrics = [];
 const interruptions = [];
 let finishTrace;
@@ -63,19 +65,46 @@ let measured = false;
 let tabId;
 try {
   await new Promise((ready) => fixture.listen(8766, "127.0.0.1", ready));
-  const extension = resolve("extension/dist");
+  let extension = resolve("extension/dist");
+  if (startup) {
+    // A passive hook in an ignored build copy observes native popup clicks.
+    extension = resolve(profile, "extension");
+    await cp(resolve("extension/dist"), extension, { recursive: true });
+    await appendFile(resolve(extension, "popup.js"), `\ndocument.addEventListener("click", (event) => {
+      if (event.isTrusted && event.target?.id === "start") {
+        void chrome.storage.session.set({ startupClickAtMs: performance.timeOrigin + performance.now() });
+      }
+    }, true);\n`);
+  }
   context = await chromium.launchPersistentContext(profile, {
     channel: "chromium", headless: false, viewport: { width: 1280, height: 800 },
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
   });
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
   const extensionId = new URL(worker.url()).host;
+  if (startup) {
+    const unloaded = await fetch("http://127.0.0.1:11434/api/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "qwen3:4b-instruct", keep_alive: 0 }),
+    });
+    assert.ok(unloaded.ok, "Unload only the selected local test model for a fresh-process sample");
+    await worker.evaluate(() => {
+      globalThis.startupStates = [];
+      chrome.storage.onChanged.addListener((changes, area) => {
+        const status = changes.captureStatus?.newValue;
+        if (area === "session" && status) globalThis.startupStates.push({
+          state: status.state, sessionId: status.sessionId, atMs: Date.now(),
+        });
+      });
+    });
+  }
   companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", instrumented ? "browser_metrics:app" : "server.app:app",
     "--app-dir", instrumented ? "tests" : ".",
     "--host", "127.0.0.1", "--port", "8765", "--ws-max-size", "4096", "--ws-max-queue", "8"], {
     env: { ...process.env, PYTHONPATH: ".", INTERPRETER_EXTENSION_ID: extensionId,
       INTERPRETER_PAINT_BASELINE: paintPhase === "before" ? "1" : "0",
-      INTERPRETER_LIFECYCLE_METRICS: lifecycle ? "1" : "0",
+      INTERPRETER_LIFECYCLE_METRICS: lifecycle || startup ? "1" : "0",
+      INTERPRETER_LAZY_START_BASELINE: mode === "startup-before" ? "1" : "0",
       HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -142,11 +171,103 @@ try {
     } }), tabId);
   }
   console.log(JSON.stringify({ ready: true, browser: context.browser().version(), extensionId,
-    mode, profile, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Lifecycle: interrupt → native Start → recover → replace → native Start → recover → lifecycle-report → native Stop → stopped → exit. Other modes: overlap, long, measure, play, check, accept, stopped, exit." }));
+    mode, profile, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Startup: startup (arm) → native Start/close → native Stop/stopped; repeat three times, startup-report, exit. Lifecycle: interrupt → native Start → recover → replace → native Start → recover → lifecycle-report → native Stop → stopped → exit. Other modes: overlap, long, measure, play, check, accept, stopped, exit." }));
   input = createInterface({ input: process.stdin });
   for await (const command of input) {
     try {
       if (command === "exit") break;
+      if (command === "startup") {
+        assert.ok(startup && starts.length < 3);
+        const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
+        assert.ok(!captureStatus || captureStatus.state === "idle");
+        if (starts.length) assert.ok(stopped, "Native Stop/stopped is required between samples");
+        stopped = false;
+        await worker.evaluate(() => {
+          globalThis.startupStates.length = 0;
+          return chrome.storage.session.remove("startupClickAtMs");
+        });
+        const begin = metrics.length;
+        console.log(JSON.stringify({ armed: starts.length, next: "Native toolbar Start, then close popup; speech plays automatically after capture is ready" }));
+        const deadline = Date.now() + 90000;
+        let state;
+        while (!state) {
+          assert.ok(Date.now() < deadline, "No native Start/capturing state");
+          state = await worker.evaluate(() => globalThis.startupStates.find((s) => s.state === "capturing"));
+          if (!state) await page.waitForTimeout(10);
+        }
+        const { startupClickAtMs } = await worker.evaluate(() => chrome.storage.session.get("startupClickAtMs"));
+        assert.ok(Number.isFinite(startupClickAtMs), "No observed trusted native Start click");
+        assert.ok(state.atMs >= startupClickAtMs);
+        const playback = await page.locator("audio").evaluate(async (element) => {
+          const playRequestedAtMs = performance.timeOrigin + performance.now();
+          const playing = new Promise((resolve) => element.addEventListener("playing", () => resolve(performance.timeOrigin + performance.now()), { once: true }));
+          element.src = "/0.wav";
+          await element.play();
+          return { playRequestedAtMs, playingAtMs: await playing };
+        });
+        const sessionMetrics = () => metrics.slice(begin).filter((m) => m.sessionId === state.sessionId);
+        while (!sessionMetrics().some((m) => m.metric === "caption" && m.final)) {
+          assert.ok(Date.now() < deadline, "No actual startup final caption");
+          await page.waitForTimeout(10);
+        }
+        const text = await page.locator("#interpreter-captions .cue").textContent();
+        console.log(JSON.stringify({ review: starts.length, translation: text }));
+        assert.match(text, /(?:맑|화창)/); assert.match(text, /오늘/);
+        const prepare = sessionMetrics().find((m) => m.metric === "prepare.start");
+        const ready = sessionMetrics().find((m) => m.metric === "ready");
+        const asrStart = sessionMetrics().find((m) => m.metric === "asr.start");
+        const asrEnd = sessionMetrics().find((m) => m.metric === "asr.end");
+        const final = sessionMetrics().find((m) => m.metric === "caption" && m.final);
+        assert.ok(prepare && ready && asrStart && asrEnd && final);
+        starts.push({ repetition: starts.length, firstInference: starts.length === 0, sessionId: state.sessionId,
+          utteranceId: final.utteranceId, nativeClickAtMs: startupClickAtMs, capturingAtMs: state.atMs, ...playback,
+          prepareStartAtMs: prepare.atMs, readyAtMs: ready.atMs, asrStartAtMs: asrStart.atMs, asrEndAtMs: asrEnd.atMs,
+          audioEndMs: final.audioEndMs, originMs: final.originMs, qualityChecks: true,
+          startToCaptureMs: state.atMs - startupClickAtMs, prepareToReadyMs: ready.atMs - prepare.atMs,
+          asrMs: asrEnd.atMs - asrStart.atMs });
+        await page.waitForTimeout(100);
+        console.log(JSON.stringify({ startupSample: starts.at(-1), next: "Native Stop, stopped; then startup arms the next native Start" }));
+      }
+      if (command === "startup-report") {
+        assert.ok(startup && finishTrace && stopped);
+        assert.equal(starts.length, 3);
+        assert.equal(new Set(starts.map((s) => s.sessionId)).size, 3);
+        const rows = await finishTrace(); finishTrace = undefined;
+        for (const sample of starts) {
+          const revisions = rows.filter((r) => r.type === "caption" && r.sessionId === sample.sessionId && r.utteranceId === sample.utteranceId);
+          const first = revisions[0];
+          const final = revisions.find((r) => r.final);
+          assert.ok(first && final && revisions.some((r) => !r.final));
+          assert.ok(revisions.every((r) => r.paintAtMs !== null), "Every startup revision must have a covering Paint");
+          sample.firstPaintMs = first.paintAtMs - sample.originMs - sample.audioEndMs;
+          sample.finalPaintMs = final.paintAtMs - sample.originMs - sample.audioEndMs;
+          sample.startToFirstPaintMs = first.paintAtMs - sample.nativeClickAtMs;
+          sample.startToFinalPaintMs = final.paintAtMs - sample.nativeClickAtMs;
+          sample.revisions = revisions;
+        }
+        const receipts = metrics.filter((m) => m.metric === "receipt");
+        const report = { browser: context.browser().version(), phase: mode, nativeCapture: true, realLocalModels: true,
+          measurement: "Trusted native popup Start click through capturing and Chromium covering Paint; automatic generated speech after capture ready",
+          baseline: "before skips only test-local LocalSession.prepare; after uses product preparation; both use current 300ms/quality boundary/streaming/prompt",
+          cacheLimit: "Cached weights/OS/MLX caches retained; new companion and selected Ollama model unloaded per phase; first inference separate, no cold-cache improvement claim",
+          wavSha256: createHash("sha256").update(clips[0]).digest("hex"), samples: starts,
+          maxPendingAudioMs: Math.max(0, ...receipts.map((r) => r.pendingAudioMs)),
+          droppedFrames: Math.max(0, ...receipts.map((r) => r.droppedFrames)),
+          droppedUtterances: Math.max(0, ...receipts.map((r) => r.droppedUtterances)),
+          listening: "not verified; UI tools expose no speaker audio" };
+        for (const field of ["startToCaptureMs", "firstPaintMs", "finalPaintMs", "startToFirstPaintMs", "startToFinalPaintMs"]) {
+          const values = starts.filter((s) => !s.firstInference).map((s) => s[field]).sort((a, b) => a - b);
+          report[field] = { n: values.length, p50Ms: values[Math.ceil(values.length * .5) - 1], p95Ms: values[Math.ceil(values.length * .95) - 1] };
+        }
+        assert.ok(report.maxPendingAudioMs <= 8000);
+        assert.equal(report.droppedFrames, 0); assert.equal(report.droppedUtterances, 0);
+        if (mode === "startup-after") {
+          const before = JSON.parse(await readFile("docs/verification/latency/startup-before.json", "utf8"));
+          assert.equal(report.wavSha256, before.wavSha256);
+        }
+        await writeFile(`docs/verification/latency/${mode}.json`, `${JSON.stringify(report, null, 2)}\n`);
+        console.log(JSON.stringify(report)); measured = true; passed = true;
+      }
       if (command === "interrupt" || command === "replace") {
         assert.ok(lifecycle);
         assert.equal(interruptions.length, command === "interrupt" ? 0 : 1);
