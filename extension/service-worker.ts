@@ -1,3 +1,4 @@
+import { captionHistoryLimit } from "../packages/core/presentation-policy";
 import type { CaptureCommand, CaptureStatus } from "./capture/contracts";
 
 import { defaultSettings, type SessionSettings } from "./capture/settings";
@@ -42,7 +43,7 @@ function recordTranscript(caption: Caption) {
     transcriptCaptions[index] = caption;
   } else {
     transcriptCaptions.push(caption);
-    if (transcriptCaptions.length > 300) {
+    if (transcriptCaptions.length > captionHistoryLimit) {
       removedId = transcriptCaptions.shift()?.utteranceId;
       transcriptDropped++;
     }

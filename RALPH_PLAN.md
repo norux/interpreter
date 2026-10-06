@@ -150,7 +150,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 
 - [x] C1. 버전 1 계약을 정의한다: opaque 영상 handle, session/epoch, audio chunk, playback event, 원문/번역 별 revision, capability, status/reason, output. 기존 서버 프로토콜은 companion bridge에서 매핑하며 변경하지 않는다.
 - [x] C2. 코어의 session controller·bounded queue·timeline·revision store를 분리한다. DOM/Chrome ambient type 없이 컴파일하고, 늦은 이벤트·준비 중 Stop·연속 Start·탐색 시 취소를 검증한다.
-- [ ] C3. 교정 1초 간격, 첫 결과/최종 결과 즉시 반영, 긴 최종 번역 처음부터 순차 재표시, 250ms fade, 최근 300 발화 정책을 코어/renderer 경계로 분리한다. 화면 크기에 따른 line fitting은 renderer가 맡는다.
+- [x] C3. 교정 1초 간격, 첫 결과/최종 결과 즉시 반영, 긴 최종 번역 처음부터 순차 재표시, 250ms fade, 최근 300 발화 정책을 코어/renderer 경계로 분리한다. 화면 크기에 따른 line fitting은 renderer가 맡는다.
 - [ ] C4. 기존 companion을 combined interpretation adapter로 연결한다. 중복 VAD/ASR을 실행하지 않는다. 서버가 제공하지 않는 ASR-only 이벤트는 capability로 명시하고 원문/번역 짝과 기존 사용자 설정을 보존한다.
 - [ ] C5. `test:framework:core`와 코어용 타입/의존성 검증을 추가한다. `npm run verify`, 기존 correction browser 검사와 transcript browser 검사를 실제 실행하고 단계 보고서를 작성한다.
 
@@ -324,3 +324,67 @@ uv 0.12.23/Python 3.12.15. 첫 verify가 worktree의 ignored `.venv`에 locked
 다음 미완료 항목: C3 교정 cadence, 즉시 첫/최종 반영, 긴 최종 번역의 처음부터
 순차 replay, 250 ms fade, 최근 300 발화를 core/renderer 경계로 분리한다.
 C3–C5 및 이후 stage 체크박스를 보존한다. 현재 C2 검증의 환경 차단은 없다.
+
+
+### 2026-10-06 / core / iteration 2/5 — C3
+
+관련 commit: 이 기록을 포함한 `feat: extract shared caption presentation policy`.
+
+수행한 변경: 다음 미완료 항목 C3만 구현했다. 브라우저 없는 core presentation
+policy에 1000 ms 교정 coalescing, 즉시 첫 원문/첫 번역/최종 교정, 정확히 짝지어진
+최종 번역의 part 0 replay, 순차 표시 acknowledgement, 2.5–6초 reading time,
+250 ms fade/remove intent, 최근 300 발화와 epoch/retirement/clear 정책을 분리했다.
+기존 overlay/comparison은 이 정책을 호출하고, DOM renderer가 측정 line fitting,
+읽지 않은 suffix의 위치, fullscreen, safe text와 CSS fade를 맡는다. 별도 source/
+translation revision과 표시 part/visibility/character count를 검증하며 Stop은 비교
+기록을 보존하고 Clear는 지연 작업을 취소한 뒤 sink를 재사용할 수 있게 한다.
+기존 Caption 메시지의 presentation-only wrapper를 사용했으며 C4 combined engine/
+capability/transport 매핑은 구현하지 않았다. companion v0.1.0, 설치 경로, 서버
+PCM1/Caption 프로토콜과 사용자 설정은 보존했다. 중복 VAD/ASR·새 모델 없음.
+공유 core 때문에 content script가 module로 바뀌는 회귀를 재현하고, main build의
+write hook으로 standalone IIFE를 생성하여 기존 build/dev watch 흐름을 보존했다.
+
+실행한 명령과 결과:
+
+- PASS: `npm run test:framework:core` (최종 exit 0, ES2022/no-DOM 타입/의존성,
+  presentation policy 포함 21 passed/0 failed/0 skipped, 80.649375 ms).
+- PASS: `npm run verify` (최종 exit 0, Biome 62 files/20 ms/no findings, Ruff,
+  extension typecheck, Vite main 23 modules/30 ms + content IIFE 8 modules/6 ms,
+  JS 54 passed/0 failed/0 skipped/14684.56475 ms, Python 222 passed/66.90 s).
+- PASS: `npm run test:captions-correction-browser` (최종 exit 0, Chromium
+  153.0.8010.12, 1000 ms cadence, 즉시 첫/최종, burst/latest/in-place/clear/replacement).
+- PASS: `npm run test:transcript-browser` (최종 exit 0, comparison/runtime 두 script,
+  generated 원문/번역/time/cadence/safe text/history/eviction/reopen/Stop retention,
+  실제 extension messaging/window, UI page errors `[]`).
+- PASS: `npm run test:captions-overlap-browser` (exit 0, 실제 DOM 측정 순차 replay
+  42/42·38/38 문자, narrow parts 30+12·30+8, reading time, 250 ms CSS fade,
+  fullscreen/resize, provisional retention/correction/final replay, retirement,
+  대기 과부하 4개/count 및 2개/audio budget 생략 표시).
+- PASS: local Vite watch API check (exit 0, 첫 build 및 overlay dependency touch 후
+  rebuild 모두 classic script 파싱 성공, `watchBuilds: 2`, watcher 종료).
+- FAIL → FIXED: 첫 correction browser (exit 1, module content가 classic injection에서
+  초기화되지 않아 `globalThis.sendCaption is not a function`). 최종 IIFE/동일 검사 통과.
+- FAIL → FIXED: 첫 policy core 검사 (exit 1, 19 passed/1 failed/122.822375 ms,
+  final source 교정의 이전 pairing 즉시 제거 실패). 수정 후 동일 assertion 통과.
+- FAIL → FIXED: 중간 direct main build 후 `node --import tsx --test tests/build.test.ts`
+  (exit 1, 0 passed/2 failed/45.528833 ms, content.js 누락). main write hook 수정 후
+  동일 검사 2 passed/0 failed/43.273459 ms; 최종 full verify/watch 검사에도 포함.
+- PASS: `git diff --check` (exit 0, whitespace 오류 없음).
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, existing Chromium 153.0.8010.12. core는 controlled clock와
+생성된 caption으로 정책을 검증하고 브라우저는 실제 DOM layout/fade/메시징을
+검증했다. 실제 영상 PCM, ASR 정확도·번역 품질, 모델 로드, Safari/iPhone은
+미검증이다. 의존성/모델 다운로드·앱 설치·push·게시·다음 stage 진행 없음.
+
+실패·미검증과 증거 위치: [core 보고서](docs/verification/media-framework/core.md).
+로컬 `.ralph/media-framework/core-2-c3-*.log`는 커밋하지 않는다. 요청된 독립 runner
+failure 파일은 없었다. rolling fixture JSON의 측정 시간과 transcript runtime의
+window ID(2092352814 → 308564494)만 바뀌어 새 증거를 읽고 원래 파일을 복원했다.
+기존 screenshots/UI JSON은 동일했고 사용자 파일·앱·녹화·마운트 이미지를 보존했다.
+현재 필수 명령은 통과하지만 C4/C5의 adapter 및 전체 acceptance는 미완료다.
+
+다음 미완료 항목: C4 companion combined interpretation adapter, 정확한 source/
+translation normalization과 ASR-only 미지원 capability, 기존 설정 및 단일 VAD/ASR
+보존. C4–C5 및 이후 stage 체크박스는 보존한다. C3 환경 차단은 없으며 stage 또는
+전체 framework/iPhone 완료를 주장하지 않는다.

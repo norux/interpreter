@@ -195,3 +195,136 @@ even though all four required commands pass for the currently implemented scope.
 No selected-video acquisition, real inference/model preparation, recognition or
 translation accuracy, Safari or physical iPhone acceptance was performed. This is
 C2 progress, not Stage core or whole-framework completion.
+
+## 2026-10-06 — core iteration 2/5 (C3)
+
+Result: C3 implemented and verified; current core/project/browser acceptance
+commands pass. C4–C5 remain unchecked; Stage core is not complete.
+Commit: the `feat: extract shared caption presentation policy` commit containing
+this report. The requested independent runner file
+`.ralph/media-framework/2026-10-06T11-28-49-587Z-core-verification.txt` was absent,
+and no repository AGENTS.md was present. The supplied standing instructions apply.
+
+### Implemented scope and boundaries
+
+`packages/core/presentation-policy.ts` owns accepted revisions, 1000 ms correction
+coalescing, immediate first source/first paired translation and final corrections,
+final paired replay from part zero, ordered part advancement, reading deadlines,
+250 ms fade/remove intent and recent-300 history. It uses the revision store and
+an injected monotonic clock/scheduler; it has no DOM, browser, Node or model
+imports. Source finality alone cannot initiate translation replay. A final source
+correction immediately invalidates the displayed old pairing. Old identity,
+source/translation revisions and part acknowledgements cannot skip unread text.
+Only a paired final source and final translation start final replay.
+
+Renderer progress now carries an explicit part index, visibility and measured
+character count. The core preserves the existing `min(6000, max(2500, count * 90))`
+reading duration. Hidden parts receive reading time when actually shown;
+unchanged resize/fullscreen acknowledgements do not restart deadlines. A longer
+visible part receives more reading time. Only the front visible sentence advances
+or fades; the last complete provisional cue remains readable until corrected,
+finalized or superseded. Fading/retired overlay entries cannot be revived, while
+comparison history can still retain their latest complete accepted records.
+Epoch activation clears live output and keeps history; disposal cancels delayed
+work and retains history. Explicit Clear resets history and leaves a sink reusable.
+The controller caps its declared storage profile at 300; the service worker uses
+the same core retention limit.
+
+The existing overlay and transcript comparison now call the shared core policy.
+The overlay retains measured binary-search line fitting, four visible lines,
+unread-suffix anchoring across edits, fullscreen placement, safe `textContent`
+insertion and its existing visible overload notice/4-caption/12-second waiting
+budget. DOM/CSS owns fade animation; core supplies its duration and removal time.
+The comparison view renders full original/translation/time rows with the same
+cadence, no expiry acknowledgements, and bounded history/eviction/reopen behavior.
+No viewport-dependent character splitting or line fitting was moved into core.
+
+`extension/captions/presentation.ts` is a presentation-only compatibility wrapper
+for the existing Caption messages. It uses the existing caption counter for both
+display revisions, labels unavailable source language `und`, and uses an explicit
+`legacy-tab-output` display sentinel. It neither issues a selected-video handle
+nor claims to expose server ASR revisions or early ASR-only updates. C4 still owns
+combined-engine normalization, capabilities, settings and transport integration.
+No second VAD/ASR, new model, selected-video acquisition or server protocol was added.
+The published companion v0.1.0, installation paths and user settings are unchanged.
+
+Sharing core between views makes the main Vite graph emit module chunks. Chrome
+injects content as a classic script, so `vite.content.config.ts` builds an IIFE
+and the main build's `writeBundle` hook writes that standalone `content.js`.
+Content stays in the main dependency graph: both `npm run build` and the existing
+`npm run dev` watch flow regenerate the injectable script. A committed build
+regression parses the actual output as a classic script. A local watch check also
+verified the first build and a second build after touching the overlay dependency
+without changing its contents; the watcher was closed afterwards.
+
+### Environment and exact acceptance evidence
+
+Executed only in the requested worktree on Darwin arm64, Node v24.15.0,
+npm 11.12.1, uv 0.12.23, Python 3.12.15, TypeScript 7.0.2, Biome 2.5.15,
+Vite 8.3.2 and existing Playwright Chromium 153.0.8010.12. No dependencies,
+models or apps were installed/downloaded. Existing locked Python dependencies
+and browser caches were used.
+
+| Command | Actual result | Evidence |
+| --- | --- | --- |
+| `npm run test:framework:core` | PASS, final exit 0: ES2022/no-DOM compilation, dependency graph including presentation policy, 21 passed/0 failed/0 skipped; 80.649375 ms | `.ralph/media-framework/core-2-c3-framework.log`; committed core and presentation regressions |
+| `npm run verify` | PASS, final exit 0: Biome 62 files/20 ms/no findings, Ruff passed, extension typecheck, Vite main 23 modules/30 ms and standalone content 8 modules/6 ms; JS 54 passed/0 failures/skips/14684.56475 ms; Python 222 passed/66.90 s | `.ralph/media-framework/core-2-c3-verify-acceptance.log` |
+| `npm run test:captions-correction-browser` | PASS, final exit 0: Chromium 153.0.8010.12, 1000 ms cadence, immediate first/final, burst/latest/in-place/clear/replacement; `realAudioOrModels: false` | `.ralph/media-framework/core-2-c3-correction-browser.log` |
+| `npm run test:transcript-browser` | PASS, final exit 0: both comparison/runtime scripts, source/translation/time/cadence/safe text, history/eviction/reopen/stale rejection/Stop retention and actual extension messaging/window; UI page errors `[]` | `.ralph/media-framework/core-2-c3-transcript-browser.log`; freshly generated UI/runtime artifacts inspected |
+| `npm run test:captions-overlap-browser` | PASS, exit 0: full sequential final display 42/42 and 38/38 characters, narrow parts 30+12 and 30+8; reading time, coexisting sentences/front expiry, actual CSS fade/250 ms, resize/fullscreen, provisional retention/correction/final replay, retirement and visible waiting loss (4 caption-limit drops, 2 audio-budget drops) | `.ralph/media-framework/core-2-c3-overlap-browser.log`; generated caption fixture only, no audio/models |
+| Local Vite watch check using `build({ configFile: 'vite.config.ts', build: { watch: {} } })` | PASS, exit 0: `watchBuilds: 2`, classic script parsed after initial build and overlay dependency touch; regenerated output modification time increased; watcher closed | `.ralph/media-framework/core-2-c3-watch.log` |
+| `node --import tsx --test tests/build.test.ts` (after standalone-build fix) | PASS, exit 0: 2 passed/0 failed/0 skipped; 43.273459 ms | `.ralph/media-framework/core-2-c3-watch-regression-fixed.log`; also included in final full verify |
+| `git diff --check` | PASS, exit 0, no whitespace errors | CLI output after implementation and report updates |
+
+Resolved implementation failures were verified before fixing them:
+
+- First `npm run test:captions-correction-browser`: FAIL, exit 1; sharing policy
+  caused a module import in injected `content.js`, so the classic script did not
+  initialize (`globalThis.sendCaption is not a function`). The final IIFE build
+  passes the same browser check and classic-script parsing regression. Evidence:
+  `.ralph/media-framework/core-2-c3-bundle-regression.log`.
+- First `npm run test:framework:core` with policy tests: FAIL, exit 1;
+  19 passed/1 failed/122.822375 ms. A new final-source revision did not immediately
+  clear the stale pairing (`replay` remained last instead of a new `update`). The
+  final-source revision condition was corrected; that unchanged assertion passes
+  in all final core/JS checks. Evidence:
+  `.ralph/media-framework/core-2-c3-framework-initial.log`.
+- An intermediate separate-build approach omitted content from a direct main
+  build, breaking the existing watch flow. `./node_modules/.bin/vite build`
+  followed by `node --import tsx --test tests/build.test.ts`: FAIL, test exit 1,
+  0 passed/2 failed/45.528833 ms, missing `content.js`. The main write hook now
+  performs the standalone build for regular and watch builds; both regressions
+  pass. Evidence: `.ralph/media-framework/core-2-c3-watch-regression.log`.
+- Earlier full verifies passed for intermediate implementations: first had
+  53 JS tests/15211.686041 ms and 222 Python tests/66.95 s; the Clear-contract
+  refinement had 54 JS tests/14253.916625 ms and 222 Python tests/66.84 s. The final
+  full verify above reruns the completed main/watch build integration. Evidence:
+  `.ralph/media-framework/core-2-c3-verify.log` and
+  `.ralph/media-framework/core-2-c3-verify-final.log`.
+
+Seven new controlled-clock core tests exercise cadence/finality, independent
+source/translation pairing, sequential acknowledged replay, the 2.5–6 second
+bounds, exact fade/removal, layout visibility/deadlines, recent-300 eviction,
+epoch/disposal fencing and reusable Clear. They establish deterministic policy
+behavior. The longer existing browser check independently establishes actual
+measured narrow-screen splitting and CSS fading; those are DOM fixture results.
+Neither set of generated texts establishes transcription accuracy.
+
+Browser checks regenerated existing verification artifacts. Screenshots and
+`transcript/ui.json` matched committed versions. The rolling fixture JSON changed
+only measured timings; it was inspected then restored. The final transcript
+runtime JSON changed only nondeterministic `closedWindowId`
+(2092352814 → 308564494); it was inspected then restored. New evidence is recorded
+here; unrelated artifacts and user apps/settings/recordings/mounted images were
+preserved. Local `.ralph` logs/state are ignored and excluded from the commit.
+No credentials, model weights, user audio or user transcripts were committed.
+
+### Remaining scope
+
+No required environment/device/permission blocker remains for C3. C4 is next:
+connect the existing companion as a combined interpretation engine, normalize
+observed source and translation revisions atomically, declare absence of ASR-only
+updates, preserve settings and avoid duplicate VAD/ASR. C5's full adapter/policy
+acceptance remains unfinished even though current core and browser checks pass.
+No selected-video PCM, real inference/model loading, ASR/translation accuracy,
+Safari or physical iPhone acceptance was performed. This is C3 progress only.

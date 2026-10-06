@@ -153,7 +153,8 @@ export type InterpretationEvent =
   | { readonly type: "status"; readonly status: SessionStatus };
 
 export type PresentationEvent =
-  | { readonly type: "insert" | "update" | "replay"; readonly caption: CaptionRevision }
+  | { readonly type: "insert" | "update"; readonly caption: CaptionRevision }
+  | { readonly type: "replay"; readonly caption: CaptionRevision; readonly partIndex: number }
   | { readonly type: "fade"; readonly identity: SessionIdentity; readonly utteranceId: string; readonly durationMs: number }
   | { readonly type: "remove"; readonly identity: SessionIdentity; readonly utteranceId: string }
   | { readonly type: "clear"; readonly identity: SessionIdentity };
@@ -165,6 +166,9 @@ export interface DisplayProgress {
   readonly translationRevision: number;
   readonly partIndex: number;
   readonly complete: boolean;
+  // Measured by the renderer; core never estimates line fitting.
+  readonly visible: boolean;
+  readonly characterCount: number;
 }
 
 export type FrameworkMessage =

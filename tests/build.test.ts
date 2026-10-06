@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import { test } from "node:test";
+import { Script } from "node:vm";
 
 const dist = new URL("../extension/dist/", import.meta.url);
 
@@ -36,4 +37,9 @@ test("MV3 build contains its declared pages and reserved capture/sink entries", 
     }
     assert.ok(!html.includes(".ts\""), `${page} references uncompiled TypeScript`);
   }
+});
+
+test("injected content remains a standalone classic script", async () => {
+  const content = await readFile(new URL("content.js", dist), "utf8");
+  assert.doesNotThrow(() => new Script(content));
 });

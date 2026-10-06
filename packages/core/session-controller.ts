@@ -1,6 +1,7 @@
 import type { CaptionRevision, InterpretationEngine, LanguagePair, MediaTarget, PlaybackEvent, ReasonCode, RuntimeLimits, SessionIdentity, SessionStatus, VideoInput } from "../contracts";
 import { createAudioQueue } from "./audio-queue";
 import { sameIdentity } from "./identity";
+import { captionHistoryLimit } from "./presentation-policy";
 import { createRevisionStore } from "./revision-store";
 import { createTimeline } from "./timeline";
 
@@ -176,7 +177,7 @@ export function createSessionController(ports: {
     }
     run.limits = engine.limits;
     if (!run.store) {
-      run.store = createRevisionStore(identity, engine.limits.maxStoredCaptions);
+      run.store = createRevisionStore(identity, Math.min(captionHistoryLimit, engine.limits.maxStoredCaptions));
       lastStore = run.store;
     }
     return true;

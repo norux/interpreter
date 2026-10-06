@@ -41,12 +41,12 @@ export const envelopes: readonly FrameworkEnvelope[] = [
   { version: 1, message: { type: "translation", revision: translation } },
   { version: 1, message: { type: "paired-caption", caption: paired } },
   { version: 1, message: { type: "presentation", event: { type: "update", caption: pending } } },
-  { version: 1, message: { type: "presentation", event: { type: "replay", caption: paired } } },
+  { version: 1, message: { type: "presentation", event: { type: "replay", caption: paired, partIndex: 0 } } },
   { version: 1, message: { type: "presentation", event: { type: "fade", identity, utteranceId: source.utteranceId, durationMs: 250 } } },
   { version: 1, message: { type: "presentation", event: { type: "remove", identity, utteranceId: source.utteranceId } } },
   { version: 1, message: { type: "presentation", event: { type: "clear", identity } } },
   { version: 1, message: { type: "status", status: { identity, state: "preparing", message: companion.availability.state } } },
-  { version: 1, message: { type: "display-progress", progress: { identity, utteranceId: source.utteranceId, sourceRevision: 3, translationRevision: 1, partIndex: 0, complete: false } } },
+  { version: 1, message: { type: "display-progress", progress: { identity, utteranceId: source.utteranceId, sourceRevision: 3, translationRevision: 1, partIndex: 0, complete: false, visible: true, characterCount: 4 } } },
 ];
 
 // Negative conformance checks: tsc fails if a prohibited shape becomes accepted.

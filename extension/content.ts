@@ -13,7 +13,7 @@ if (!scope.interpreterCaptionsInstalled) {
     if (message.type === "start") {
       output?.dispose();
       sessionId = message.sessionId;
-      output = createCaptionOutput(sessionId, [createCaptionOverlay()]);
+      output = createCaptionOutput(sessionId, [createCaptionOverlay(sessionId)]);
     } else if (message.type === "caption" && message.caption.sessionId === sessionId) {
       output?.event({ type: "caption", caption: message.caption });
     } else if (message.type === "clear" && message.sessionId === sessionId) {

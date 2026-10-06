@@ -1,5 +1,5 @@
 import "./view.css";
-import type { Caption } from "../captions/contracts";
+import { createLegacyPresentation, displayCaption } from "../captions/presentation";
 import type { CaptureStatus } from "../capture/contracts";
 import type { TranscriptMessage } from "./contracts";
 
@@ -8,9 +8,9 @@ const empty = document.querySelector("#empty") as HTMLParagraphElement;
 const status = document.querySelector("#status") as HTMLParagraphElement;
 const retention = document.querySelector("#retention") as HTMLSpanElement;
 let sessionId: string | undefined;
-let timer: ReturnType<typeof setTimeout> | undefined;
+let policy: ReturnType<typeof createLegacyPresentation> | undefined;
 const entries = new Map<string, {
-  caption: Caption; pending?: Caption; updatedAt: number; row: HTMLTableRowElement;
+  row: HTMLTableRowElement;
   source: HTMLTableCellElement; translation: HTMLTableCellElement;
   start: HTMLSpanElement; end: HTMLSpanElement; phase: HTMLSpanElement;
 }>();
@@ -22,38 +22,10 @@ function time(milliseconds: number) {
   return `${hours ? `${String(hours).padStart(2, "0")}:` : ""}${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}.${String(Math.floor(milliseconds % 1000)).padStart(3, "0")}`;
 }
 
-function schedule() {
-  clearTimeout(timer);
-  timer = undefined;
-  const pending = [...entries.values()].filter((entry) => entry.pending);
-  if (!pending.length) return;
-  timer = setTimeout(() => {
-    timer = undefined;
-    const now = performance.now();
-    for (const entry of entries.values()) {
-      if (entry.pending && now - entry.updatedAt >= 1000) {
-        const caption = entry.pending;
-        entry.pending = undefined;
-        render(caption);
-      }
-    }
-    schedule();
-  }, Math.max(1, Math.min(...pending.map((entry) => entry.updatedAt + 1000 - performance.now()))));
-}
-
-function render(caption: Caption) {
+function render(caption: ReturnType<typeof displayCaption>) {
   if (caption.sessionId !== sessionId) return;
   let entry = entries.get(caption.utteranceId);
-  const now = performance.now();
-  if (entry) {
-    const latest = entry.pending ?? entry.caption;
-    if (caption.revision <= latest.revision || (latest.final && !caption.final)) return;
-    if (!caption.final && now - entry.updatedAt < 1000) {
-      entry.pending = caption;
-      schedule();
-      return;
-    }
-  } else {
+  if (!entry) {
     const row = document.createElement("tr");
     row.dataset.utteranceId = caption.utteranceId;
     const source = document.createElement("td");
@@ -66,14 +38,11 @@ function render(caption: Caption) {
     phase.className = "phase";
     center.append(start, end, phase);
     row.append(source, center, translation);
-    entry = { caption, updatedAt: now, row, source, translation, start, end, phase };
+    entry = { row, source, translation, start, end, phase };
     entries.set(caption.utteranceId, entry);
     body.append(row);
   }
   const follow = window.scrollY + innerHeight >= document.documentElement.scrollHeight - 100;
-  entry.caption = caption;
-  entry.pending = undefined;
-  entry.updatedAt = now;
   entry.source.textContent = caption.source || "원문 제공 안 됨";
   entry.translation.textContent = caption.translation;
   entry.start.textContent = time(caption.audioStartMs);
@@ -82,7 +51,6 @@ function render(caption: Caption) {
   entry.row.dataset.final = String(caption.final);
   empty.hidden = true;
   if (follow) window.scrollTo({ top: document.documentElement.scrollHeight });
-  schedule();
 }
 
 function renderStatus(capture: CaptureStatus) {
@@ -94,20 +62,25 @@ function renderStatus(capture: CaptureStatus) {
 function receive(message: TranscriptMessage) {
   if (message.type === "status") { renderStatus(message.status); return; }
   if (message.type === "snapshot") {
-    clearTimeout(timer);
-    timer = undefined;
+    policy?.dispose();
     sessionId = message.sessionId;
     entries.clear();
     body.replaceChildren();
     empty.hidden = false;
-    for (const caption of message.captions) render(caption);
+    policy = sessionId === undefined ? undefined : createLegacyPresentation(sessionId, (event) => {
+      if (event.type === "insert" || event.type === "update" || event.type === "replay") render(displayCaption(event.caption));
+      else if (event.type === "remove") {
+        entries.get(event.utteranceId)?.row.remove();
+        entries.delete(event.utteranceId);
+      }
+    });
+    for (const caption of message.captions) policy?.caption(caption);
   } else {
     if (message.caption.sessionId !== sessionId) return;
     if (message.removedId) {
-      entries.get(message.removedId)?.row.remove();
-      entries.delete(message.removedId);
+      policy?.retire(message.removedId);
     }
-    render(message.caption);
+    policy?.caption(message.caption);
   }
   retention.textContent = message.dropped
     ? `최근 300개 발화 · 이전 ${message.dropped}개는 화면에서 제외되었습니다.`
@@ -121,4 +94,4 @@ void chrome.runtime.sendMessage({ target: "worker", type: "transcript-snapshot" 
   receive(snapshot);
   renderStatus(snapshot.status);
 }, () => { status.textContent = "확장을 새로고침한 뒤 창을 다시 여세요."; });
-window.addEventListener("pagehide", () => { clearTimeout(timer); });
+window.addEventListener("pagehide", () => { policy?.dispose(); });

@@ -1,11 +1,18 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { build, defineConfig } from "vite";
 
 const extension = fileURLToPath(new URL("./extension", import.meta.url));
 
 export default defineConfig({
   root: extension,
   base: "./",
+  plugins: [{
+    name: "standalone-content",
+    async writeBundle() {
+      // Also runs on watch rebuilds; content remains in the graph for file watching.
+      await build({ configFile: fileURLToPath(new URL("./vite.content.config.ts", import.meta.url)) });
+    },
+  }],
   build: {
     outDir: "dist",
     emptyOutDir: true,

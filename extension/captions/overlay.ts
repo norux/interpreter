@@ -1,7 +1,8 @@
-import type { Caption, OutputSink } from "./contracts";
+import type { CaptionRevision, PresentationEvent } from "../../packages/contracts";
+import type { OutputSink } from "./contracts";
+import { createLegacyPresentation, displayCaption } from "./presentation";
 
-export function createCaptionOverlay(): OutputSink {
-  const correctionIntervalMs = 1000;
+export function createCaptionOverlay(sessionId: string): OutputSink {
   const host = document.createElement("div");
   host.id = "interpreter-captions";
   host.style.cssText = "all:initial!important;position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;";
@@ -34,14 +35,10 @@ export function createCaptionOverlay(): OutputSink {
   const notice = document.createElement("div");
   notice.className = "notice";
   shadow.append(style, cue, notice);
-  const entries: { caption: Caption; pending?: Caption; updatedAt: number; node: HTMLDivElement; offset: number; end: number; until: number; fading: boolean }[] = [];
-  // Audio position also rejects late corrections after a sentence has left the display.
-  let retiredThrough = -Infinity;
-  const retiredIds: string[] = [];
+  const entries: { caption: CaptionRevision; node: HTMLDivElement; offset: number; end: number; partIndex: number }[] = [];
   let dropped = 0;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let updateTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
+  const policy = createLegacyPresentation(sessionId, present);
 
   function attach() {
     if ((!entries.length && !notice.textContent) || disposed) return;
@@ -50,48 +47,14 @@ export function createCaptionOverlay(): OutputSink {
   }
 
   function clear() {
-    clearTimeout(timer);
-    clearTimeout(updateTimer);
-    timer = undefined;
-    updateTimer = undefined;
     entries.length = 0;
-    retiredThrough = -Infinity;
-    retiredIds.length = 0;
     dropped = 0;
     cue.replaceChildren();
     notice.textContent = "";
     host.remove();
   }
 
-  function retire(index: number) {
-    const [entry] = entries.splice(index, 1);
-    retiredThrough = Math.max(retiredThrough, entry.caption.audioStartMs);
-    retiredIds.push(entry.caption.utteranceId);
-    if (retiredIds.length > 128) retiredIds.shift();
-    entry.node.remove();
-  }
-
-  function scheduleUpdates() {
-    clearTimeout(updateTimer);
-    updateTimer = undefined;
-    const waiting = entries.filter((entry) => entry.pending && !entry.fading);
-    if (!waiting.length) return;
-    updateTimer = setTimeout(() => {
-      updateTimer = undefined;
-      const now = performance.now();
-      for (const entry of [...entries]) {
-        if (entry.pending && now - entry.updatedAt >= correctionIntervalMs) {
-          const next = entry.pending;
-          entry.pending = undefined;
-          output.caption(next);
-        }
-      }
-      scheduleUpdates();
-    }, Math.max(1, Math.min(...waiting.map((entry) => entry.updatedAt + correctionIntervalMs - performance.now()))));
-  }
-
   function layout() {
-    clearTimeout(timer);
     if (disposed) return;
     attach();
     const youtubePlayer = document.querySelector("ytd-watch-flexy #movie_player");
@@ -99,29 +62,12 @@ export function createCaptionOverlay(): OutputSink {
       ? Math.max(80, innerHeight - youtubePlayer.getBoundingClientRect().bottom + 80)
       : Math.max(80, innerHeight * 0.1);
     cue.style.bottom = `${bottom}px`;
-    const now = performance.now();
-    // Advance only the oldest visible sentence, after its own reading time.
-    while (entries[0]?.until && entries[0].until <= now) {
-      const entry = entries[0];
-      if (entry.fading) { retire(0); continue; }
-      // Keep the latest provisional ending available for its delayed correction.
-      if (!entry.caption.final && entries.length === 1 && entry.end >= Array.from(entry.caption.translation.trim()).length) break;
-      if (entry.end >= Array.from(entry.caption.translation.trim()).length) {
-        entry.fading = true;
-        entry.node.style.opacity = "0";
-        entry.until = now + 250;
-        break;
-      }
-      entry.offset = entry.end;
-      entry.until = 0;
-      break;
-    }
     cue.append(measure);
     const lineHeight = Number.parseFloat(getComputedStyle(cue).lineHeight);
     let available = Math.max(1, Math.min(4, Math.floor((innerHeight - bottom - 24) / lineHeight)));
     for (const [index, entry] of entries.entries()) {
-      if (!available) { entry.node.remove(); entry.until = 0; continue; }
-      const characters = Array.from(entry.caption.translation.trim());
+      if (!available) { entry.node.remove(); report(entry, false); continue; }
+      const characters = Array.from(displayCaption(entry.caption).translation.trim());
       let low = entry.offset + 1;
       let high = characters.length;
       const followingVisible = entries.slice(index + 1).filter((item) => item.node.isConnected).length;
@@ -133,19 +79,19 @@ export function createCaptionOverlay(): OutputSink {
         else high = middle - 1;
       }
       const text = characters.slice(entry.offset, low).join("");
-      const extended = low > entry.end;
       if (entry.node.textContent !== text) entry.node.textContent = text;
       entry.end = low;
       if (!entry.node.isConnected) cue.insertBefore(entry.node, measure);
       available -= Math.max(1, Math.round(entry.node.clientHeight / lineHeight));
-      if (!entry.until || extended) entry.until = Math.max(entry.until, now + Math.min(6000, Math.max(2500, text.length * 90)));
+      report(entry, true);
     }
     measure.remove();
     // Bound hidden work separately from the four visible lines; report actual loss.
     let skipped = 0;
     const waiting = () => entries.filter((entry) => !entry.node.isConnected);
-    while (waiting().length > 4 || waiting().reduce((ms, entry) => ms + entry.caption.audioEndMs - entry.caption.audioStartMs, 0) > 12000) {
-      retire(entries.findIndex((entry) => !entry.node.isConnected));
+    while (waiting().length > 4 || waiting().reduce((ms, entry) => ms + entry.caption.source.audioRange.endMs - entry.caption.source.audioRange.startMs, 0) > 12000) {
+      const entry = entries.find((entry) => !entry.node.isConnected);
+      if (entry) policy.retire(entry.caption.source.utteranceId);
       skipped++;
     }
     if (skipped) {
@@ -153,8 +99,61 @@ export function createCaptionOverlay(): OutputSink {
       notice.textContent = `자막 표시 과부하: 대기 문장 ${dropped}개 생략 (4개/12초 제한)`;
       console.warn(`Interpreter skipped ${skipped} waiting captions (total ${dropped}; 4 captions/12 seconds of audio).`);
     }
-    if (entries[0]?.until > now) timer = setTimeout(layout, Math.max(1, entries[0].until - performance.now()));
-    else if (!entries.length && !notice.textContent) host.remove();
+    if (!entries.length && !notice.textContent) host.remove();
+  }
+
+  function report(entry: typeof entries[number], visible: boolean) {
+    const caption = entry.caption;
+    if (caption.translation.state !== "paired") return;
+    policy.progress({ identity: caption.source.identity, utteranceId: caption.source.utteranceId,
+      sourceRevision: caption.source.sourceRevision, translationRevision: caption.translation.revision.translationRevision,
+      partIndex: entry.partIndex, complete: entry.end >= Array.from(caption.translation.revision.text.trim()).length,
+      visible, characterCount: entry.node.textContent?.length ?? 0 });
+  }
+
+  function present(event: PresentationEvent) {
+    if (event.type === "clear") { clear(); return; }
+    if (event.type === "fade" || event.type === "remove") {
+      const index = entries.findIndex((entry) => entry.caption.source.utteranceId === event.utteranceId);
+      const entry = entries[index];
+      if (!entry) return;
+      if (event.type === "fade") {
+        entry.node.style.transitionDuration = `${event.durationMs}ms`;
+        entry.node.style.opacity = "0";
+      } else {
+        entries.splice(index, 1);
+        entry.node.remove();
+        layout();
+      }
+      return;
+    }
+    const caption = event.caption;
+    let entry = entries.find((item) => item.caption.source.utteranceId === caption.source.utteranceId);
+    if (entry) {
+      if (event.type === "replay") {
+        entry.offset = event.partIndex === 0 ? 0 : entry.end;
+        entry.end = entry.offset;
+        entry.partIndex = event.partIndex;
+      } else if (entry.offset && displayCaption(entry.caption).translation !== displayCaption(caption).translation) {
+        const previous = Array.from(displayCaption(entry.caption).translation.trim());
+        const next = Array.from(displayCaption(caption).translation.trim());
+        let prefix = 0;
+        while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) prefix++;
+        let suffix = 0;
+        while (suffix < previous.length - prefix && suffix < next.length - prefix && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]) suffix++;
+        // Preserve the measured unread suffix across edits to the read prefix.
+        if (entry.offset >= previous.length - suffix) entry.offset += next.length - previous.length;
+        else if (entry.offset > prefix) entry.offset = prefix;
+      }
+      entry.caption = caption;
+    } else {
+      const node = document.createElement("div");
+      node.className = "sentence";
+      node.dataset.utteranceId = caption.source.utteranceId;
+      entry = { caption, node, offset: 0, end: 0, partIndex: 0 };
+      entries.push(entry);
+    }
+    layout();
   }
 
   document.addEventListener("fullscreenchange", layout);
@@ -169,53 +168,13 @@ export function createCaptionOverlay(): OutputSink {
   const output: OutputSink = {
     caption(caption) {
       if (disposed || !caption.translation.trim()) return;
-      const entry = entries.find((item) => item.caption.utteranceId === caption.utteranceId);
-      const now = performance.now();
-      if (entry) {
-        const latest = entry.pending ?? entry.caption;
-        if (entry.fading || latest.revision >= caption.revision || (latest.final && !caption.final)) return;
-        if (!caption.final && now - entry.updatedAt < correctionIntervalMs) {
-          // Keep the readable caption while frequent token/source updates coalesce.
-          entry.pending = caption;
-          scheduleUpdates();
-          return;
-        }
-        entry.pending = undefined;
-        entry.updatedAt = now;
-        const changed = entry.caption.translation !== caption.translation || entry.caption.final !== caption.final;
-        if (!entry.caption.final && caption.final) {
-          entry.offset = entry.end = 0;
-        } else if (entry.offset && entry.caption.translation !== caption.translation) {
-          const previous = Array.from(entry.caption.translation.trim());
-          const next = Array.from(caption.translation.trim());
-          let prefix = 0;
-          while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) prefix++;
-          let suffix = 0;
-          while (suffix < previous.length - prefix && suffix < next.length - prefix && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]) suffix++;
-          // Anchor an unread suffix across edits to the read prefix; show a changed
-          // current part from the edit boundary instead of skipping its new words.
-          if (entry.offset >= previous.length - suffix) entry.offset += next.length - previous.length;
-          else if (entry.offset > prefix) entry.offset = prefix;
-        }
-        entry.caption = caption;
-        // Only this sentence gets a new reading deadline; other sentences keep theirs.
-        if (changed) entry.until = 0;
-      } else {
-        // Direct translation can assign several distinct cues the same audio timestamp.
-        if (caption.audioStartMs < retiredThrough || retiredIds.includes(caption.utteranceId)) return;
-        const node = document.createElement("div");
-        node.className = "sentence";
-        node.dataset.utteranceId = caption.utteranceId;
-        entries.push({ caption, updatedAt: now, node, offset: 0, end: 0, until: 0, fading: false });
-      }
-      layout();
-      scheduleUpdates();
+      policy.caption(caption);
     },
     status(message) { notice.textContent = message; attach(); },
-    clear,
+    clear() { policy.clear(); },
     dispose() {
       disposed = true;
-      clear();
+      policy.dispose();
       observer.disconnect();
       document.removeEventListener("fullscreenchange", layout);
       window.removeEventListener("resize", layout);
