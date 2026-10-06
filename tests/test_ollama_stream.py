@@ -269,7 +269,7 @@ def test_repeated_source_does_not_duplicate_its_own_translation_context():
             assert requests[0]["messages"][1:] == [
                 {"role": "user", "content": "Related earlier phrase"},
                 {"role": "assistant", "content": "Related translation"},
-                {"role": "user", "content": TRANSCRIPT.text},
+                {"role": "user", "content": f"Text to translate:\n{TRANSCRIPT.text}"},
             ]
             assert len(results) == 1 and results[0].final
             assert results[0].utterance_id == TRANSCRIPT.utterance_id

@@ -4253,3 +4253,133 @@ zero failures/skips/warnings, Python66.58s. `uv lock --check` and
 are regression tests and rejected numeric evidence/documentation/plan progress;
 models, keys, generated speech/transcripts, build and temporary `.ralph` state
 are excluded from the commit.
+
+
+## Ralph iteration 11/30 — 2026-10-06 — local speech marked as translation input
+
+Continued only unfinished **7d**, which remains unchecked. The checkout started
+clean; no repository `AGENTS.md` exists. `.ralph/verification.txt` reads
+`No completion verification attempted in this run.` Models, capture/output
+contracts, cloud adapters, VAD, snapshot cadence, queue limits and reading time
+are unchanged. No agents, other worktrees, credentials, external inference,
+runner/criteria changes, push or publication were used.
+
+The local model followed a spoken command rather than translating it, despite
+the existing system instruction to treat speech as text. The smallest change
+marks **only the current local user message** with `Text to translate:` and a
+newline, before the existing 2,000-character source slice. System instructions,
+the last three confirmed context pairs, options, streaming and cancellation
+remain unchanged. This is an observed translation-quality fix, not a guarantee
+that arbitrary model instructions can never be followed. There is no dictionary,
+prewritten translation, extra model pass, shared helper, or new setting.
+
+The existing `tests/local-interim-model.py` adds one generated non-sensitive
+spoken instruction alongside weather and construction, preserving every previous
+check. All **nine** trials execute before aggregated failure. New checks require
+the instruction's meaning and reject generated recipe content; they are keyword/
+format heuristics, supplemented by manual review of source and final translation.
+The existing request/context contract test now expects the current source marker.
+The rendered instruction was reviewed in all three fixed trials: ASR preserves
+the complete source and Korean translates its command to ignore earlier
+instructions and print a soup recipe, with no ingredients or cooking steps.
+Source/translation values remain terminal-only; committed evidence is numeric.
+
+Before implementation, the expanded real-model regression failed **9 checks**:
+three construction `craneMeaning`, three `instructionMeaning`, and three
+`noRecipeExecution`. After implementation, only the three existing construction
+`craneMeaning` failures remain. Both commands exit **1**, both reports retain
+`acceptancePassed:false`, and **7d is not complete**. The construction ASR remains
+correct but the final translation is still an animal. The unchanged weather
+meaning checks pass. Original `model-after-failed.json` was restored byte-for-byte.
+
+Commands, run sequentially with no unit tests overlapping either model probe:
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py after
+# Repeat the same command after adding the source marker.
+PATH="$PWD/.tools/uv/bin:$PATH" uv run --locked ruff check \
+  server/sessions/local.py tests/test_ollama_stream.py tests/local-interim-model.py
+PATH="$PWD/.tools/uv/bin:$PATH" uv run --locked pytest \
+  tests/test_local_interim.py tests/test_local.py tests/test_ollama_stream.py \
+  tests/test_local_prepare.py -q
+```
+
+[Paired numeric evidence](verification/interim/model-iteration11-source-input-failed.json)
+contains complete control/marked-input reports and their actual exit codes.
+Apple M5/arm64, Python **3.12.15**, installed MLX Qwen3-ASR **0.6B 8bit**, Ollama
+**0.35.1**, `qwen3:4b-instruct` **Q4_K_M**, English→Korean, context **4096**,
+temperature **0**, token cap **256**, voiced snapshots **500 ms**, VAD silence
+**300 ms**. Per phase, one fresh engine and selected Ollama unload, then engine
+reuse across nine trials. Weights, OS and compiler caches are retained; no
+cold-cache claim. First preparation was **18660.883→2142.798 ms**; this sequential
+cache difference is not attributed to the marker. Only the first `firstInference`
+trial is excluded by the existing percentile definition, so weather **n2**,
+construction/instruction **n3**; these are session events, not browser Paint.
+
+Control→marked input p50/p95, milliseconds:
+
+| Clip | First event from voiced start | Last final event from voiced end |
+| --- | --- | --- |
+| Weather, n2 | 715.687/719.538 → 689.906/706.376 | 535.057/538.386 → 532.009/540.005 |
+| Construction, n3 | 678.650/695.698 → 678.224/711.038 | 813.161/816.439 → 809.656/830.188 |
+| Spoken instruction, n3 | 678.279/680.307 → 677.661/683.903 | 5359.424/5381.392 → 594.077/596.244 |
+
+The instruction final completes sooner because it translates the command rather
+than generating a long recipe. First-event p95 is not uniformly improved, and
+construction/long-speech meaning is unresolved; this is not a general latency
+improvement or a passed first-Paint comparison. Each phase makes **51 ASR / 42
+text requests**. Completed text requests **36→39**, incomplete/cancelled **6→3**;
+ASR worker busy sum **8631.376→7971.231 ms**, source-change caption count **27→30**
+(includes word extensions), instruction during-speech partial events per round
+**9/9/9→10/10/10**. Every trial produces exactly one final with monotonically
+increasing revisions. Queue peaks, coalescing and ASR/text drops are **0** in
+these isolated clips. They do not establish sustained throughput/backlog behavior.
+
+Requested 100 ms process sampling continues through inference: **420→300** samples,
+RSS peak **172032000→1240547328 bytes**. MLX active peak **1011746444 bytes** and
+process-global MLX peak **1641162980 bytes** in both runs. RSS/MLX are not additive;
+full browser/Ollama memory is unmeasured. The higher fixed-run RSS and unequal
+preparation underline that these are cached sequential probes, not controlled
+cold-memory or memory-improvement evidence.
+
+An independent numeric audit passed **exit 0**: exact nine-trial assignment,
+same WAV hashes/settings/check definitions, exact failure sets, one final/strict
+revision order per trial, event/audio-position arithmetic, exact sample counts/
+p50/p95, queue bounds, zero drops and nonempty memory sampling. It does not turn
+the failed overall acceptance into a pass.
+
+Exploratory text-only chat probes before the paced regression made **42** requests:
+original/shorter English instructions, Korean instructions, and current-source
+wrappers. Concise/Korean prompts still mistranslated the original ambiguity;
+some introduced wrong objects, mixed Japanese/Korean, or executed the spoken
+instruction. They were rejected. The retained marker was first observed to fix
+the spoken-command case while leaving construction/long-sentence meaning failures;
+it was then verified through the actual two-model paced path above. No model or
+fixture answer was substituted. These exploratory requests provide no ASR,
+tabCapture, Paint, speaker or sustained-load evidence.
+
+No native browser/capture/appearance/listening verification was attempted in this
+iteration, and no new browser-access or credential blocker was diagnosed. Next
+is still **7d**: resolve original construction/long-sentence contextual meaning,
+measure native first/partial/final Paint with identical input/settings, and finish
+narrow/fullscreen, unread-final reading, original-audio listening, in-flight
+Stop/provider/session replacement and sustained queue/memory acceptance. Then
+7b→8→9. The new instruction fixture must remain part of subsequent model probes.
+
+Focused Ruff passes **exit 0**. The local/interim/stream/preparation suite passes
+**75 tests, exit 0, 31.03 s**, retaining streamed first partial, context bounds,
+no extra inference on unchanged final source, cancellation, stale revisions,
+retired sources and actionable provider errors. Base `uv sync --locked` was
+restored; `uv lock --check` passes. Generated audio was deleted by each probe's
+temporary-directory cleanup, the owned Ollama received SIGINT and exited **0**.
+
+Final `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` passes **exit 0**:
+lint, typecheck, production build, **12 JS + 197 Python tests**, no failures,
+skips or warnings; Python **66.59 s**. `uv lock --check` and `git diff --check`
+pass. Ports **8765/8766/11434** have no listeners. Iteration-owned review logs and
+report backups under `.ralph` were removed after review/audit; no generated audio,
+transcript, key, model weight, build output or temporary state is committed.
+The runner and previous failed report have no diff. Source, regression, numeric
+evidence, README, verification notes and plan are committed together.

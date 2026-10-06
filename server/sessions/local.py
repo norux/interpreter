@@ -380,7 +380,10 @@ class OllamaTranslator:
                     {"role": "assistant", "content": translation[:1000]},
                 ]
             )
-        messages.append({"role": "user", "content": transcript.text[:2000]})
+        # Bare spoken commands can otherwise be followed instead of translated.
+        messages.append(
+            {"role": "user", "content": f"Text to translate:\n{transcript.text[:2000]}"}
+        )
         self.request = asyncio.current_task()
         text = ""
         revision = 0

@@ -2476,3 +2476,73 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   failures/skips/warnings0, Python66.58초다. uv lock --check/git diff --check 통과,
   8765/8766/11434 listener없음이다. 회귀2개/기각numeric/docs/plan을 Conventional Commit으로
   보존하며 제품source/checkbox/전체completion은 바꾸지 않는다.
+
+
+### Ralph iteration 11/30 — 2026-10-06 — 7d spoken-command translation fix
+
+- 다음 미완료 **7d만 진행, checkbox는 미체크 유지**다. 시작 checkout clean,
+  AGENTS.md 없음, `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. 지정 저장소/일반 모델cache만
+  사용했고 agent/다른worktree/credential/cloud/runner/criteria/모델/lock/push/publish
+  변경은 없다. capture/model/output 계약, prompt system/context/options, 500ms cadence,
+  VAD/queue/읽기시간과 cloud partial 정책도 유지한다.
+- **작은 제품fix**: 로컬 모델이 발화된 명령을 번역하지 않고 실행해 자막으로 recipe를
+  만드는 오류를 실제 두 모델의 paced audio로 재현했다. 현재 local user message만
+  `Text to translate:` + newline으로 표시하고 기존 2000자 source slice를 넣는다.
+  system/최근확정문맥3개/stream/cancel/모델은 그대로다. source3줄과 의도comment1개이며
+  새helper/config/사전/미리쓴번역/추가inference/모델fallback은 없다. 임의명령 전부의
+  비실행을 보장한다고 주장하지 않는다.
+- 기존 `tests/local-interim-model.py`에 비민감 생성 spokeninstruction을 추가해
+  **3round/9trial**을 실행하며 이전 weather/construction/발화중/교정/queuecheck는 보존한다.
+  새meaning/recipe비실행check는 keyword·format heuristic이고 실제final을 직접검토했다.
+  unit context 계약의 current input 기대도 marker를 반영했다. source/translation은
+  console에서만 검토하며 numeric report에 저장하지 않는다.
+- fix 전 expanded real-model regression은 **exit1/9checkfail**: construction
+  craneMeaning3개 + instructionMeaning3개 + noRecipeExecution3개다. ASR은 명령을
+  정확하게 인식했다. fix 뒤 **exit1/3checkfail**, 원래construction craneMeaning3개만
+  남는다. 명령은3회 모두 의미가 맞는 한국어번역이며 ingredients/recipe steps가 없다.
+  weather 의미와 각1final/단조revision/queue/drop은 통과다. **둘 다 acceptancefalse,
+  model-only/tabCapture·Paint·청취 근거 아니다**. 새
+  `docs/verification/interim/model-iteration11-source-input-failed.json`에 paired numeric/
+  실제exitcode/한계/7d미완료를 보존했고 이전 failedreport는 byte대로 복원했다.
+- 같은WAVhash/설정/MLX0.6B8bit/Ollama0.35.1 qwen3:4b-instruct Q4_K_M/context4096/
+  temp0/num_predict256/English→Korean/HFoffline/Ollamaclouddisabled다. phase별freshengine/
+  선택Ollamaunload, 이후9trial enginereuse이며 weights/OS/compilercache는 유지한다.
+  coldcache 아니다. 최초prepare **18660.883→2142.798ms**는 sequentialcache 차이며
+  marker개선으로 해석하지 않는다. 모델probe에 unit tests를 겹치지 않았다.
+- first/final event p50/p95(ms), control→fix: weather(n2)
+  **715.687/719.538→689.906/706.376**, **535.057/538.386→532.009/540.005**;
+  construction(n3) **678.650/695.698→678.224/711.038**,
+  **813.161/816.439→809.656/830.188**; instruction(n3)
+  **678.279/680.307→677.661/683.903**, **5359.424/5381.392→594.077/596.244**다.
+  기존 firstInference1개만 제외하는 정의다. 명령final은 긴recipe를 생성하지 않아
+  빨라졌지만 전체first/p95개선이나 firstPaint/7d통과 주장은 없다.
+- 각 **ASR51/text42**, 완료 **36→39**/미완료·취소 **6→3**,
+  ASRbusy합 **8631.376→7971.231ms**, source-change caption **27→30**(단어연장 포함),
+  instruction during-speech event **9/9/9→10/10/10**, queuepeak/coalescing/drop0이다.
+  isolated9clip이며 지속처리량/장시간backlog 근거가 아니다. RSS **420→300sample**,
+  peak **172032000→1240547328bytes**, MLXactivepeak **1011746444**/
+  globalpeak **1641162980bytes**다. 합산하지 않으며 전체browser/Ollama 미측정이다.
+  independentnumeric audit는 배정/hash/setting/check동일/정확한failure/final/revision/
+  시각산술/exact n·percentile/queue/drop/sample을 확인해 **exit0**다. acceptancepass 아니다.
+- paced regression 이전 **42회 text-only**로 shorterEnglish/Korean/wrapper를 비교했다.
+  ambiguous 의미가 여전히 틀리고 Korean후보는 wrongobject/mixedlanguage/명령실행도
+  발생해 기각했다. marker는 명령 오류만 개선하는 관측 뒤 실제두모델로 검증했다.
+  원래construction/long을 해결했다고 기록하지 않는다. fixture답/새모델로 대체하지 않았다.
+- focusedRuff **exit0**, local/interim/stream/prepare **75pass/31.03초/exit0**다.
+  generatedaudio는 tempdircleanup으로 삭제, ownedOllama SIGINT/exit0,
+  base `uv sync --locked`복원/uv lock --check 통과다. 이번에는 native/browser/appearance/
+  원음청취/inflightStop/provider교체/10분검증을 시도하지 않았고 새browser/credential의
+  외부blocker도 진단하지 않았다.
+- **다음도7d**: 새instruction regression을 유지하며 원래construction/long의 문맥의미,
+  동일input/settings의 nativefirst/partial/finalPaint, narrow/fullscreen/전체문자·읽기시간/
+  원음청취/inflightStop/provider·session/지속queue·memory acceptance를 완료한다.
+  이후7b→8→9다. 이번fix만으로7d체크/전체completion하지 않는다.
+
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python197**,
+  failures/skips/warnings0, Python**66.59초**다. uv lock --check/git diff --check 통과,
+  8765/8766/11434 listener없음이다. 이번 .ralph reviewlog/reportbackup 삭제,
+  원래failedreport/runner diff없음을 확인했다. source/focused계약/expandedmodelregression/
+  numeric failed evidence/README/docs/plan을 `fix(local): mark speech as translation input`
+  Conventional Commit으로 보존한다. key/weights/audio·transcript/.ralph/build는 커밋하지
+  않으며 checkbox/전체completion은 바꾸지 않는다.

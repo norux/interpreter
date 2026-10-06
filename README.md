@@ -234,6 +234,9 @@ time while awaiting correction. Finalization starts the corrected cue's reading
 time; a newer utterance retires a fully read provisional cue, and late corrections
 cannot revive it. Stop/session replacement clears it immediately.
 Only confirmed source/translation pairs enter the three-pair recent context.
+The latest local ASR text is marked as translation input in the Ollama request;
+the paced instruction fixture checks that spoken commands are translated instead
+of performed. This does not resolve the observed ambiguous-word meaning failures.
 If ASR yields no final text for a provisional utterance, a newer finalized
 utterance cancels its unfinished translation so finalized speech can proceed.
 The abandoned provisional text stays outside recent context.
@@ -263,11 +266,12 @@ import does not consume the initial speech window. Snapshot cadence has model
 and native Paint measurements; contextual accuracy and sustained-load acceptance
 remain incomplete.
 
-The paced model-only probe below uses generated weather and an ambiguous
-construction sentence, three repetitions per phase, and identical PCM/settings.
+The paced model-only probe below uses generated weather, an ambiguous
+construction sentence, and a spoken instruction, three repetitions per phase,
+and identical PCM/settings.
 `before` disables only snapshots; both phases prepare the current local models.
 It prints generated source/translation for review and numeric observations, and
-samples process memory through inference completion. All six trials run before
+samples process memory through inference completion. All nine trials run before
 the meaning/timing/queue assertions are aggregated. A failed check exits nonzero
 and writes only `model-{before,after}-failed.json` with `acceptancePassed: false`;
 passing report names require every check to pass:
