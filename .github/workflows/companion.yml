@@ -1,0 +1,35 @@
+name: Build macOS companion development installer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: npm run build
+      - name: Fetch pinned Ollama macOS runtime
+        run: |
+          mkdir -p .tools/ollama
+          curl --fail --location --retry 3 https://github.com/ollama/ollama/releases/download/v0.35.1/ollama-darwin.tgz -o .tools/ollama-darwin.tgz
+          tar -xzf .tools/ollama-darwin.tgz -C .tools/ollama
+      - run: npm run build:companion
+      - run: npm run lint && npm run typecheck && npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Interpreter-Companion-macos-arm64-development
+          path: |
+            dist/companion/Interpreter-Companion-macos-arm64.dmg
+            dist/companion/SHA256SUMS
+            extension/dist/
+          if-no-files-found: error

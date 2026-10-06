@@ -15,12 +15,14 @@ export interface CaptureStatus {
   frames?: number;
   samples?: number;
   peak?: number;
+  installRequired?: boolean;
 }
 
 export type CaptureCommand =
   | { target: "worker"; type: "start" | "stop" | "status" }
   | { target: "worker"; type: "configure"; settings: SessionSettings }
   | { target: "worker"; type: "settings" }
+  | { target: "worker"; type: "install-companion" }
   | { target: "offscreen"; type: "start"; tabId: number; settings?: SessionSettings }
   | { target: "worker"; type: "stream-id"; tabId: number }
   | { target: "offscreen"; type: "stop" | "status" }

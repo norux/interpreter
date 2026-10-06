@@ -11,10 +11,15 @@ test("popup configuration stops the old session, persists selection and routes o
   let count = 0;
   let preparing = false;
   let releasePreparation: ((status: CaptureStatus) => void) | undefined;
+  let downloaded: string | undefined;
+  let downloadId: number | undefined;
+  let downloadChanged: (value: { id: number; state: { current: string } }) => void = () => {};
   const messages: unknown[] = [];
   const starts: SessionSettings[] = [];
   let listener: (message: CaptureCommand, sender: chrome.runtime.MessageSender, respond: (value: unknown) => void) => void = () => {};
   const original = Object.getOwnPropertyDescriptor(globalThis, "chrome");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response('{"status":"ok"}');
   Object.defineProperty(globalThis, "chrome", { configurable: true, value: {
     runtime: {
       id: "test", getURL: (path: string) => `chrome-extension://test/${path}`,
@@ -37,15 +42,23 @@ test("popup configuration stops the old session, persists selection and routes o
       },
     },
     storage: {
-      session: { get: async () => ({ captureStatus: status }), set: async (value: { captureStatus: CaptureStatus }) => { status = value.captureStatus; } },
+      session: {
+        get: async () => ({ captureStatus: status, companionDownloadId: downloadId }),
+        set: async (value: { captureStatus?: CaptureStatus; companionDownloadId?: number }) => {
+          if (value.captureStatus) status = value.captureStatus;
+          if (value.companionDownloadId !== undefined) downloadId = value.companionDownloadId;
+        },
+        remove: async () => { downloadId = undefined; },
+      },
       local: { get: async () => ({ sessionSettings: settings }), set: async (value: { sessionSettings: SessionSettings }) => { settings = value.sessionSettings; } },
     },
     offscreen: { Reason: { USER_MEDIA: "USER_MEDIA" }, createDocument: async () => { documentOpen = true; }, closeDocument: async () => { documentOpen = false; } },
+    downloads: { onChanged: { addListener: (callback: typeof downloadChanged) => { downloadChanged = callback; } }, download: async ({ url }: { url: string }) => { downloaded = url; return 1; } },
     tabCapture: { getMediaStreamId: async () => "fixture-stream-id" },
     scripting: { executeScript: async () => {} },
     tabs: { query: async () => [{ id: 1, url: "http://127.0.0.1/fixture" }], sendMessage: async (_id: number, message: unknown) => { messages.push(message); }, onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
   } });
-  t.after(() => { if (original) Object.defineProperty(globalThis, "chrome", original); else Reflect.deleteProperty(globalThis, "chrome"); });
+  t.after(() => { globalThis.fetch = originalFetch; if (original) Object.defineProperty(globalThis, "chrome", original); else Reflect.deleteProperty(globalThis, "chrome"); });
   await import("../extension/service-worker");
   const popup = (message: CaptureCommand) => new Promise<unknown>((resolve) => listener(message, { id: "test", url: "chrome-extension://test/popup.html" }, resolve));
   assert.deepEqual(await popup({ target: "worker", type: "settings" }), defaultSettings);
@@ -82,4 +95,13 @@ test("popup configuration stops the old session, persists selection and routes o
     assert.equal(status.state, "idle", "Stop and provider changes must interrupt pending Start");
     assert.equal(documentOpen, false);
   }
+  listener({ target: "worker", type: "install-companion" }, { id: "test", url: "chrome-extension://test/content.js" }, () => {});
+  await setImmediate();
+  assert.equal(downloaded, undefined, "A content script cannot download an installer");
+  await popup({ target: "worker", type: "install-companion" });
+  assert.equal(downloaded, "https://github.com/norux/interpreter/releases/latest/download/Interpreter-Companion-macos-arm64.dmg");
+  downloadChanged({ id: 1, state: { current: "interrupted" } });
+  await setImmediate();
+  assert.equal(status.installRequired, true, "A late HTTP/download failure must remain actionable after the popup closes");
+  assert.equal(status.state, "error");
 });

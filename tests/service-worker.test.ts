@@ -25,6 +25,7 @@ test("terminal offscreen reports release its document without clearing errors or
       get: async () => ({ captureStatus: saved }),
     } },
     offscreen: { closeDocument: async () => { documentOpen = false; } },
+    downloads: { onChanged: { addListener() {} } },
     tabs: { sendMessage: async (_tabId: number, message: { sessionId: string; caption?: { sessionId: string } }) => { if (message.caption) delivered.push(message.caption.sessionId); else cleared.push(message.sessionId); }, onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
   } });
   t.after(() => {

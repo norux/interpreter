@@ -1,6 +1,7 @@
 import type { CaptureCommand, CaptureStatus } from "./capture/contracts";
 
 import { defaultSettings, type SessionSettings } from "./capture/settings";
+import { createCompanionConnection } from "./companion";
 
 async function readSettings(): Promise<SessionSettings> {
   const saved = await chrome.storage.local.get("sessionSettings") as { sessionSettings?: SessionSettings };
@@ -10,9 +11,18 @@ async function readSettings(): Promise<SessionSettings> {
 const idle: CaptureStatus = { state: "idle", message: "Ready to capture tab audio." };
 let operations = Promise.resolve();
 let startGeneration = 0;
+const companion = createCompanionConnection((message) => {
+  void interruptStart().then(() => enqueue(async () => {
+    await stopCapture();
+    const next: CaptureStatus = { state: "error", message };
+    await chrome.storage.session.set({ captureStatus: next });
+    return next;
+  }));
+});
 
 async function interruptStart() {
   startGeneration++;
+  companion.cancelStart();
   if ((await readStatus()).state === "starting" && await hasOffscreen()) {
     await chrome.runtime.sendMessage({ target: "offscreen", type: "stop" });
   }
@@ -40,6 +50,7 @@ async function stopCapture(): Promise<CaptureStatus> {
     await chrome.runtime.sendMessage({ target: "offscreen", type: "stop" });
     await chrome.offscreen.closeDocument();
   }
+  await companion.stop();
   await chrome.storage.session.set({ captureStatus: idle });
   return idle;
 }
@@ -55,12 +66,15 @@ async function startCapture(): Promise<CaptureStatus> {
   }
   await chrome.storage.session.set({ captureStatus: { state: "starting", tabId: tab.id, message: "Starting tab capture…" } });
   try {
+    const settings = await readSettings();
+    await chrome.storage.session.set({ captureStatus: { state: "starting", tabId: tab.id, message: "Starting Interpreter Companion…" } });
+    await companion.start(settings.provider === "local");
+    if (started !== startGeneration) return stopCapture();
     await chrome.offscreen.createDocument({
       url: "offscreen.html",
       reasons: [chrome.offscreen.Reason.USER_MEDIA],
       justification: "Capture user-selected tab audio and preserve its original playback.",
     });
-    const settings = await readSettings();
     if (started !== startGeneration) return stopCapture();
     const next: CaptureStatus = await chrome.runtime.sendMessage({ target: "offscreen", type: "start", tabId: tab.id, settings });
     if (started !== startGeneration) return stopCapture();
@@ -68,12 +82,14 @@ async function startCapture(): Promise<CaptureStatus> {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
       await chrome.tabs.sendMessage(tab.id, { target: "captions", type: "start", sessionId: next.sessionId });
     }
-    if (next.state === "error") await chrome.offscreen.closeDocument();
+    if (next.state === "error") { await chrome.offscreen.closeDocument(); await companion.stop(); }
     await chrome.storage.session.set({ captureStatus: next });
     return next;
   } catch (error) {
     await stopCapture();
+    if (started !== startGeneration) return idle;
     const next: CaptureStatus = { state: "error", message: error instanceof Error ? error.message : "Tab capture failed." };
+    if (error instanceof Error && "installRequired" in error && error.installRequired) next.installRequired = true;
     await chrome.storage.session.set({ captureStatus: next });
     return next;
   }
@@ -118,6 +134,7 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
             const saved = await previous;
             if (saved?.captureStatus) await clearCaptions(saved.captureStatus);
             if (await hasOffscreen()) await chrome.offscreen.closeDocument();
+            await companion.stop();
             await chrome.storage.session.set({ captureStatus: current });
           }
           return current;
@@ -128,6 +145,17 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
   }
   // Only the extension popup can initiate recording; page/content messages cannot.
   if (sender.url !== chrome.runtime.getURL("popup.html")) return;
+  if (message.type === "install-companion") {
+    void chrome.downloads.download({
+      url: "https://github.com/norux/interpreter/releases/latest/download/Interpreter-Companion-macos-arm64.dmg",
+      saveAs: true,
+    }).then(async (downloadId) => {
+      await chrome.storage.session.set({ companionDownloadId: downloadId });
+      respond({ state: "idle", message: "Downloading the installer. When complete, move the app to Applications, open it and prepare the models." });
+    },
+      () => respond({ state: "error", installRequired: true, message: "Companion download failed. A GitHub release may not be available yet; use the local installer." }));
+    return true;
+  }
   if (message.type === "settings") {
     void readSettings().then(respond);
     return true;
@@ -144,6 +172,21 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
     ? enqueue(startCapture) : interruptStart().then(() => enqueue(stopCapture));
   void task.then(respond, (error) => respond({ state: "error", message: String(error) }));
   return true;
+});
+
+chrome.downloads.onChanged.addListener((download) => {
+  if (download.state?.current !== "interrupted" && download.state?.current !== "complete") return;
+  void chrome.storage.session.get<{ companionDownloadId?: number }>("companionDownloadId").then(async (saved) => {
+    if (saved.companionDownloadId !== download.id) return;
+    await chrome.storage.session.remove("companionDownloadId");
+    const current = await readStatus();
+    if (current.state === "starting" || current.state === "capturing") return;
+    const next: CaptureStatus = download.state?.current === "interrupted"
+      ? { state: "error", installRequired: true, message: "Companion download failed. A GitHub release may not be available yet; use the local installer." }
+      : { state: "idle", message: "Installer downloaded. Move the app to Applications, open it and prepare the models, then press Start." };
+    await chrome.storage.session.set({ captureStatus: next });
+    void chrome.runtime.sendMessage({ target: "worker", type: "capture-status", status: next }).catch(() => {});
+  });
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {

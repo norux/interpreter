@@ -4,11 +4,12 @@
   "version": "0.1.0",
   "description": "Korean captions for audio from a user-selected Chrome tab (in development).",
   "minimum_chrome_version": "116",
-  "permissions": ["tabCapture", "offscreen", "activeTab", "scripting", "storage"],
+  "permissions": ["tabCapture", "offscreen", "activeTab", "scripting", "storage", "nativeMessaging", "downloads"],
   "host_permissions": ["http://127.0.0.1/*"],
   "background": { "service_worker": "service-worker.js", "type": "module" },
   "action": { "default_popup": "popup.html", "default_title": "Interpreter" },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:8765 ws://127.0.0.1:8765"
-  }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAneLefytrrvEUxz7QY9IxsVIhAdQU4ZySYMfKSSju5H2uLOK0lE/HTVaasCiwBNFy8V86xqPaNHo0PAF3r7NJpHASRv9n56kRCAXQMNGv2khyxiiOyLXG/tRcjixw/C0h5KzMEGW9g33leD3P0GS5WnRnM8j2fQ2wBtUCJjOLoiGfyCDb38DQfl20kFo1JUVkeghY0NGkAs/PxBH8MVDocK5jLYg1ScwuqEYTqCMJHowEGtl+3I8esamr/ATlnZJhglwhDVk14lnzFaPSe6n6iOB8PoHhwOVEDkWmm9n4OX2NET2PFWTUNX9sixM0oxaoK3n9cthilCDy5EsFnuKDxwIDAQAB"
 }

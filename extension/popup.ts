@@ -7,7 +7,8 @@ const metrics = document.querySelector<HTMLParagraphElement>("#metrics");
 const start = document.querySelector<HTMLButtonElement>("#start");
 const stop = document.querySelector<HTMLButtonElement>("#stop");
 const form = document.querySelector<HTMLFormElement>("#settings");
-if (!status || !metrics || !start || !stop || !form) throw new Error("Popup controls are missing.");
+const install = document.querySelector<HTMLButtonElement>("#install-companion");
+if (!status || !metrics || !start || !stop || !form || !install) throw new Error("Popup controls are missing.");
 const provider = form.elements.namedItem("provider") as HTMLSelectElement;
 const asr = form.elements.namedItem("asr") as HTMLSelectElement;
 const asrModel = form.elements.namedItem("asrModel") as HTMLInputElement;
@@ -19,6 +20,7 @@ const render = (capture: CaptureStatus) => {
   status.dataset.state = capture.state;
   start.disabled = capture.state === "starting";
   stop.disabled = capture.state === "idle";
+  install.hidden = !capture.installRequired;
   metrics.textContent = capture.frames === undefined ? "" : `${capture.frames} PCM frames received`;
 };
 
@@ -65,6 +67,7 @@ start.addEventListener("click", () => {
   });
 });
 stop.addEventListener("click", () => { pending = send({ type: "stop" }); });
+install.addEventListener("click", () => { void send({ type: "install-companion" }); });
 chrome.runtime.onMessage.addListener((message) => {
   if (message.target === "worker" && message.type === "capture-status") render(message.status);
 });

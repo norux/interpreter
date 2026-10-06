@@ -11,6 +11,8 @@ import { chromium } from "playwright";
 import { traceCaptionPaints } from "./caption-paint.mjs";
 
 const mode = process.argv[2];
+const installedApp = process.env.INTERPRETER_COMPANION_APP;
+assert.ok(!installedApp || mode === undefined, "Installed app acceptance uses the uninstrumented product path");
 assert.ok(mode === undefined || ["before", "after", "stream", "overlap", "lifecycle", "startup-before", "startup-after"].includes(mode));
 const lifecycle = mode === "lifecycle";
 const startup = mode?.startsWith("startup-");
@@ -98,33 +100,42 @@ try {
       });
     });
   }
-  companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", instrumented ? "browser_metrics:app" : "server.app:app",
-    "--app-dir", instrumented ? "tests" : ".",
-    "--host", "127.0.0.1", "--port", "8765", "--ws-max-size", "4096", "--ws-max-queue", "8"], {
-    env: { ...process.env, PYTHONPATH: ".", INTERPRETER_EXTENSION_ID: extensionId,
-      INTERPRETER_PAINT_BASELINE: paintPhase === "before" ? "1" : "0",
-      INTERPRETER_LIFECYCLE_METRICS: lifecycle || startup ? "1" : "0",
-      INTERPRETER_LAZY_START_BASELINE: mode === "startup-before" ? "1" : "0",
-      HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  companion.stdout.on("data", (chunk) => {
-    if (!instrumented) { log += chunk; return; }
-    lineBuffer += chunk;
-    let end = lineBuffer.indexOf("\n");
-    while (end >= 0) {
-      try { const metric = JSON.parse(lineBuffer.slice(0, end)); if (metric.metric) metrics.push(metric); } catch {}
-      lineBuffer = lineBuffer.slice(end + 1); end = lineBuffer.indexOf("\n");
-    }
-  });
-  companion.stderr.on("data", (chunk) => { log += chunk; });
-  await new Promise((ready, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`Companion startup timed out: ${log}`)), 20000);
-    companion.once("error", reject);
-    companion.stderr.on("data", () => {
-      if (log.includes("Uvicorn running")) { clearTimeout(timeout); ready(); }
+  if (!installedApp) {
+    companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", instrumented ? "browser_metrics:app" : "server.app:app",
+      "--app-dir", instrumented ? "tests" : ".",
+      "--host", "127.0.0.1", "--port", "8765", "--ws-max-size", "4096", "--ws-max-queue", "8"], {
+      env: { ...process.env, PYTHONPATH: ".", INTERPRETER_EXTENSION_ID: extensionId,
+        INTERPRETER_PAINT_BASELINE: paintPhase === "before" ? "1" : "0",
+        INTERPRETER_LIFECYCLE_METRICS: lifecycle || startup ? "1" : "0",
+        INTERPRETER_LAZY_START_BASELINE: mode === "startup-before" ? "1" : "0",
+        HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
     });
-  });
+    companion.stdout.on("data", (chunk) => {
+      if (!instrumented) { log += chunk; return; }
+      lineBuffer += chunk;
+      let end = lineBuffer.indexOf("\n");
+      while (end >= 0) {
+        try { const metric = JSON.parse(lineBuffer.slice(0, end)); if (metric.metric) metrics.push(metric); } catch {}
+        lineBuffer = lineBuffer.slice(end + 1); end = lineBuffer.indexOf("\n");
+      }
+    });
+    companion.stderr.on("data", (chunk) => { log += chunk; });
+    await new Promise((ready, reject) => {
+      const timeout = setTimeout(() => reject(new Error(`Companion startup timed out: ${log}`)), 20000);
+      companion.once("error", reject);
+      companion.stderr.on("data", () => {
+        if (log.includes("Uvicorn running")) { clearTimeout(timeout); ready(); }
+      });
+    });
+  } else {
+    for (const url of ["http://127.0.0.1:8765/health", "http://127.0.0.1:11434/api/tags"]) {
+      const healthy = await fetch(url).catch(() => undefined);
+      assert.ok(!healthy, "Stop manual local servers before installed-app acceptance");
+    }
+    const config = JSON.parse(await readFile(`${installedApp}/Contents/Resources/companion.json`, "utf8"));
+    assert.equal(extensionId, config.extensionId);
+  }
   const page = context.pages()[0];
   await page.goto("http://127.0.0.1:8766/");
   if (instrumented) {
@@ -650,6 +661,11 @@ try {
         assert.equal(captured.some((tab) => tab.status === "active"), false);
         assert.equal(offscreen.length, 0);
         assert.equal(await page.locator("#interpreter-captions").count(), 0);
+        if (installedApp) {
+          for (const url of ["http://127.0.0.1:8765/health", "http://127.0.0.1:11434/api/tags"]) {
+            assert.equal(await fetch(url).then(() => true, () => false), false, "Owned engines must stop with capture");
+          }
+        }
         stopped = true;
         console.log(JSON.stringify({ stopped: true, captionHosts: 0, offscreenContexts: 0, status, captured }));
       }
@@ -662,8 +678,8 @@ try {
         assert.equal(status.captureStatus.state, "capturing");
         const captured = await worker.evaluate(() => chrome.tabCapture.getCapturedTabs());
         assert.equal(captured[0]?.status, "active");
-        await mkdir("docs/verification/local", { recursive: true });
-        await page.screenshot({ path: paintPhase ? `docs/verification/latency/paint-${paintPhase}.png` : "docs/verification/local/normal.png" });
+        await mkdir(installedApp ? "docs/verification/companion" : "docs/verification/local", { recursive: true });
+        await page.screenshot({ path: installedApp ? "docs/verification/companion/captions.png" : paintPhase ? `docs/verification/latency/paint-${paintPhase}.png` : "docs/verification/local/normal.png" });
         passed = true;
         console.log(JSON.stringify({ realTabCapture: true, realLocalModels: true, generatedSpeech: true, text, status }));
       }

@@ -14,6 +14,64 @@ selected and billed by their API provider separately from chat subscriptions.
 
 ## Setup
 
+### macOS companion app (development build)
+
+Apple Silicon macOS 14+ can run the existing MLX/Ollama pipeline without terminal
+servers. The app bundles Python 3.12, locked local dependencies, Ollama and the
+built extension; model weights remain in the user's existing Hugging Face/Ollama
+caches. It does not switch models or send inference to the cloud.
+
+1. Open `dist/companion/Interpreter-Companion-macos-arm64.dmg` and move
+   **Interpreter Companion.app** to Applications (or `~/Applications`).
+2. Open the app once. It registers its native host for Chrome, Chrome for Testing
+   and Chromium and copies the bundled extension to
+   `~/Library/Application Support/Interpreter/extension`.
+3. Click **모델 준비 시작**. Missing default models download explicitly; cached
+   models are reused. Wait for **준비 완료**.
+4. Click **확장 폴더 열기**. In `chrome://extensions`, enable Developer mode and
+   load that folder. Existing checkout users can reload `extension/dist` instead.
+5. Select an ordinary audio tab and press **Start**. The extension starts its
+   installed companion and local translation engine automatically. **Stop**, tab
+   closure/navigation or Chrome closing releases owned processes. An already
+   running Ollama is reused and not terminated. Manually running companions
+   remain available for development, using the exact extension ID below.
+
+The extension now pins its development ID to
+`kclhipphbdcaemaceceplhocjeccadne`; existing unpacked installations may need removing
+and loading again to adopt the ID/new permissions. Before Chrome Web Store
+distribution, use that listing's public key and rebuild the matching app; the
+current key is for this development distribution. No extension-ID entry or shell
+environment variable is needed when the app starts the server.
+
+The current DMG is a **local development build with an ad-hoc signature**, not
+Developer ID signed/notarized software. No Gatekeeper settings are changed.
+Developer ID signing, notarization and a GitHub Release upload remain required
+for normal public distribution. GitHub currently has no companion release. If
+the native host is absent, the popup offers a user-triggered download from
+`norux/interpreter`'s latest release asset named
+`Interpreter-Companion-macos-arm64.dmg`; unavailable/interrupted downloads show
+an actionable error. The download does not install or execute the app silently.
+Automatic app updating is not implemented in this first version.
+
+Build locally with Xcode Command Line Tools, Node and uv available:
+
+```sh
+npm ci
+uv python install 3.12
+# Place the official Ollama v0.35.1 macOS archive contents in .tools/ollama.
+npm run build:companion
+# Includes the app, DMG and SHA256SUMS. This build needs no model downloads.
+INTERPRETER_COMPANION_APP="$HOME/Applications/Interpreter Companion.app" \
+  npm run test:companion-browser
+```
+
+The manual GitHub Actions workflow `companion.yml` builds development artifacts;
+it does not publish a release or sign/notarize one. Native logs are at
+`~/Library/Logs/Interpreter/companion.log`. The app uses default local settings;
+existing cloud/key configuration still belongs to the manual server setup.
+
+### Terminal setup
+
 Requirements: Node.js 22.12+ (Node 24 recommended), npm, uv, Chrome 116+.
 Python 3.12 is selected by `.python-version`; uv can download it automatically.
 MLX dependencies are optional and loaded only for local ASR.

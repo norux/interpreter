@@ -9,7 +9,7 @@ test("MV3 build contains its declared pages and reserved capture/sink entries", 
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.minimum_chrome_version, "116");
   assert.equal(manifest.background.type, "module");
-  for (const permission of ["tabCapture", "offscreen", "activeTab", "scripting"]) {
+  for (const permission of ["tabCapture", "offscreen", "activeTab", "scripting", "nativeMessaging", "downloads"]) {
     assert.ok(manifest.permissions.includes(permission));
   }
   for (const file of [

@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "installedApp": true,
+  "browser": "153.0.8010.12",
+  "nativeMessaging": true,
+  "ownedEngines": true,
+  "configuredOrigin": true,
+  "modelPreparation": true,
+  "stoppedEngines": true,
+  "realAudioOrPaint": false,
+  "packagingStage": "installed first build; native protocol unchanged in final build",
+  "finalBuildMacOS14MlxPreparation": true,
+  "finalBuildFullTabCapture": "pending: a user capture currently owns the engine ports"
+}

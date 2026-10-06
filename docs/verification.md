@@ -34,6 +34,10 @@ Remaining product work is tracked here:
   accurate Korean captions, normal/fullscreen appearance, bounded queues, tab
   changes, Start/Stop and companion recovery. Record YouTube-specific limitations
   and use another public video where necessary. Live cloud calls remain unverified.
+- Companion distribution: the macOS development app/DMG is built and local native
+  startup/model preparation/shutdown passes. Developer ID signing/notarization,
+  GitHub Release upload and full native capture with the final installed build
+  remain pending; see the companion evidence section below.
 - Final project acceptance: finish the remaining checks above before recording
   project completion. This workflow closure records the user's stop request.
 
@@ -5254,3 +5258,73 @@ in-place correction, fullscreen and clear checks.
 Lint/typecheck/build and all **12 JS tests** pass. Translation/ASR requests, model
 selection and translation prompt are unchanged. This change reduces presentation
 churn; it does not establish improved translation meaning or model latency.
+
+## macOS companion development installer (2026-10-06)
+
+Scope: preserve local MLX ASR → Ollama translation while removing terminal startup
+from normal use. A Swift/AppKit setup window registers a native host, installs the
+bundled extension in the user's Application Support folder and explicitly prepares
+missing default models. The app includes managed Python 3.12, hash-checked locked
+local dependencies, Ollama 0.35.1 and the built extension, without model weights.
+The extension pins development ID `kclhipphbdcaemaceceplhocjeccadne`, attempts native
+startup when no manual companion is available, keeps the host port for the capture
+lifetime and waits for owned shutdown before a subsequent Start. Stop, terminal
+capture reports and tab lifecycle release owned services; reused Ollama is left
+running. First setup requires opening the app; downloads do not silently install it.
+
+`npm run build:companion` **exit 0** produces the app, DMG and SHA256SUMS under
+`dist/companion`. The final image is about 373 MiB. Build selection explicitly
+targets macOS 14 for Swift and native Python wheels, rather than choosing the build
+machine's macOS-26-specific MLX wheels. The final bundled Python, executed from
+`/tmp` with isolated imports and offline settings, successfully computes a Metal
+array and prepares/closes the cached Qwen3-ASR model without repository Python/uv.
+Actual macOS 14 hardware has not been tested.
+
+An additional packaging regression found that Python imports wrote new `.pyc`
+files inside the app, invalidating its sealed-resource signature after use.
+`codesign --verify --strict` first failed after bundled model preparation.
+The native/GUI/server launch arguments now include `-B`. A fresh final build
+passes strict signature verification both before and after offline bundled MLX
+model preparation. The installed native browser check now also asserts this
+invariant; its updated version awaits an idle final-build installation.
+
+The first app build was copied to `~/Applications/Interpreter Companion.app` and
+registered there. `INTERPRETER_COMPANION_APP=... node tests/companion-browser.mjs`
+**exit 0** using real Chrome 153.0.8010.12 native messaging: matching extension ID;
+owned Ollama and companion start; origin-authorized POST and authenticated audio
+socket; both default cached models prepare through bundled dependencies; Stop is
+acknowledged only after both owned listeners are gone. This check uses no audio
+frames and does not measure Paint or translation accuracy. Compact evidence is
+[companion/native.json](verification/companion/native.json).
+The first setup window was inspected with native accessibility and its screenshot
+[companion/setup-first-build.png](verification/companion/setup-first-build.png);
+its model preparation completed. The final build adds the bundled extension/folder
+button and the macOS-14-targeted MLX wheels after that native browser check; native
+protocol/lifecycle is unchanged, but the browser result is not relabelled as a
+fresh final-build full-capture test.
+
+Checks: lint, typecheck, extension build and **13 JS tests pass**. The full Python
+suite **221 pass in 67.09s** at the initial implementation stage; after extension
+installation was added, all **4 focused companion tests pass**. They cover Stop
+while startup is pending, EOF cleanup, owned-process-only shutdown and exact-origin
+registration/extension installation. JS checks cover queued shutdown, cancellation,
+missing installation, unexpected disconnect, manual-server compatibility and
+popup-only installer download with an actionable late interruption. Caption cadence
+and normal/narrow/fullscreen generated browser checks also **exit 0**.
+
+A subsequent installed-app full native tabCapture attempt (`tests/local-browser.mjs`
+with `INTERPRETER_COMPANION_APP`) **exited 1 before capture**, correctly refusing to
+reuse ports already owned by the user's new companion session in ordinary Chrome.
+The user session was retained; an asynchronous request to stop when convenient
+remains pending. This is an environment precondition, not a passing full-capture
+check. No claim of improved translation quality, latency or new ten-minute public
+media acceptance is made.
+
+The GitHub download points to the named latest-release DMG. `gh release list`
+returned no releases, so remote installation is not available yet. A manual Actions
+workflow builds development artifacts; it has not been run remotely. The local
+machine has **0 valid code-signing identities**: this app has only a local ad-hoc
+signature. Developer ID signing, Apple notarization and release publication are
+pending. No Gatekeeper settings were changed. Automatic app updates are outside
+this first implementation. The installed first app remains in use; the final DMG
+is available for replacement after the current capture ends.
