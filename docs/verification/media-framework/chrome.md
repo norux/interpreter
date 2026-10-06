@@ -1,4 +1,4 @@
-# Chrome stage — B1 model preparation
+# Chrome stage — B1 preparation and B2 ASR evaluation
 
 2026-10-06. Commit: the `feat: add browser model preparation host` commit containing
 this report. The original B1 blocker was resolved on 2026-10-07 as recorded below;
@@ -228,3 +228,185 @@ build, 82 JS tests and 222 Python tests (66.92 s). Final whitespace checks pass.
 Evidence: ignored `chrome-focus-fix-verify.log`. B1 is now checked in the plan;
 the next unfinished item is B2. No automatic loop restart or later-stage work
 was performed during this investigation.
+
+## 2026-10-07 — B2 bounded ASR candidate comparison (iteration 1/5)
+
+Commit: the `feat: evaluate browser ASR candidates` commit containing this section.
+**B2 remains unchecked; no default is selected.** B1 remains complete. This work
+implements a bounded utterance executor and comparison harness, not B3–B6, a
+streaming/VAD `SpeechRecognizer` composition, or standalone selected-video captions.
+
+### Implementation and exact evaluation scope
+
+Added an ASR document host and dedicated worker using the existing pinned model
+repository. The repository now explicitly selects one registered candidate and
+keeps each candidate's cache/identity separate. The shared loader serves both B1
+preparation and B2 recognition without changing B1's default preparation candidate.
+No dependency versions, core contracts, companion v0.1.0, published installation,
+existing manifest/native messaging, server protocol or user settings changed.
+
+Each job carries session/target/epoch, utterance, language and audio range. The
+boundary accepts only finite mono Float32 PCM at the declared 16 kHz rate, 0.1–30
+seconds, with a matching duration and a bounded, exclusively transferred buffer.
+The host snapshots metadata before transfer. One active preparation/inference is
+allowed; further admission rejects `overloaded` and retains the rejected PCM.
+Stop invalidates the request and terminates only the owned worker, so backend
+inference need not support cooperative cancellation. Suspension also stops this
+host. A failed/lost GPU cannot silently select WASM, another model or a server.
+Results are final source revision 1, with no invented confidence or partial speech.
+Streaming segmentation, resampling of live input, VAD and gap handling are not
+implemented by this complete-utterance interface.
+
+`test:framework:chrome:asr` loads actual production workers and model files in a
+headed, test-owned Chromium 153.0.8010.12 on Darwin arm64, with the same
+`connectOverCDP(..., { noDefaults: true })` lifetime arrangement as B1. It verifies
+the existing synthetic fixture hashes, decodes their real VP8/Opus video audio,
+and resamples one speech period with `OfflineAudioContext` to 16 kHz. Japanese
+input is 111,556 samples/6.97225 s; English is 106,664 samples/6.6665 s. The
+6500/9000 Hz source-isolation tags and failing sentences were not removed.
+**These samples are decoded fixture audio, not the production selected-video
+capture stream.** No microphone, user recording/transcript, companion, Ollama,
+translation or caption DOM supplies an expected answer. This is real recognition
+accuracy on two synthetic speech periods, not B5 end-to-end or B6 release quality.
+
+Both candidates use the exact existing Transformers.js 4.3.0 and locked ORT
+1.31.0-dev.20260914-8d85527a0, q8, one WASM thread, `task: transcribe`, explicit
+Japanese/English and a 256-token bound. These are existing Whisper checkpoints;
+newer model candidates have not been compared or presumed worse.
+
+| Candidate | Immutable revision | Fresh seven-file model inventory |
+| --- | --- | --- |
+| `onnx-community/whisper-tiny` | `ff4177021cc41f7db950912b73ea4fdf7d01d8e7` | 43,613,734 bytes |
+| `onnx-community/whisper-base` | `1846881b6b3a3024392c1eea3ad983695bc23925` | 79,664,191 bytes |
+
+Base's q8 encoder is 23,201,314 bytes, SHA-256
+`5862993336bf33acd23736071aae2b32261d3b1b2f37780194460d4ef974dd46`;
+merged decoder is 53,693,315 bytes, SHA-256
+`fa3ef9902734ce5ae6f9ef2bdb2ba9a6c4b5785b09f4f420ce036573dc9d090b`.
+Its remaining files are config 2,243; generation config 3,832; tokenizer 2,480,466;
+tokenizer config 282,682; preprocessor config 339 bytes. Both model ONNX checksums
+are verified during download. Models download once per fresh candidate cache;
+WebGPU subsequently uses the same model cache. There were six comparison invocations using only these candidates: four
+prepared both models, and two cancellation-observer attempts stopped after tiny
+WASM (as recorded below). No model bytes/profiles are committed.
+
+WebGPU uses the locally packaged asyncify runtime: WASM 26,861,777 bytes and
+factory 53,057 bytes. WASM execution retains B1's jsep runtime (28,352,885 bytes).
+The chosen runtime bytes are cached separately from model download progress.
+[The pinned base conversion card](https://huggingface.co/onnx-community/whisper-base/blob/1846881b6b3a3024392c1eea3ad983695bc23925/README.md)
+identifies the base checkpoint and ONNX format but has no separate license field.
+[Base Whisper uses MIT](https://github.com/openai/whisper/blob/main/LICENSE);
+conversion/distribution license confirmation remains unfinished before a default
+or distribution decision. [Transformers.js WebGPU documentation](https://huggingface.co/docs/transformers.js/guides/webgpu)
+was consulted; actual runtime support is established by the runs below, not by
+that documentation alone.
+
+### Final actual recognition measurements
+
+Evidence: ignored final `chrome-b2-asr-final-invocation.log`. Inference duration is measured
+inside one worker clock; host round trip is measured separately inside one document
+clock, after PCM resampling. Preparation duration includes download/load when
+needed and is **not** transcription latency. Each table entry is one measured
+utterance, not a latency percentile or sustained throughput qualification.
+
+| Candidate / backend | Preparation ms | Japanese inference / host round trip ms | English inference / host round trip ms | Japanese CER | English WER | Browser-tree peak RSS KiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| tiny / WASM | 8826.730167 | 1114.100 / 1116.500 | 949.800 / 951.200 | 9/40 = 22.5% **FAIL** | 1/22 = 4.54545% | 2,506,656 |
+| tiny / WebGPU | 724.548792 | 1527.300 / 1528.800 | 1013.900 / 1015.100 | 8/40 = 20% | 1/22 = 4.54545% | 2,959,952 |
+| base / WASM | 12111.494292 | 2298.700 / 2300.200 | 2070.400 / 2071.800 | 7/40 = 17.5% | 1/22 = 4.54545% | 3,375,680 |
+| base / WebGPU | 872.480333 | 2430.500 / 2432.000 | 2032.700 / 2033.900 | 7/40 = 17.5% | 1/22 = 4.54545% | 3,444,816 |
+
+Real-time factors (Japanese/English) were tiny WASM 0.159791/0.142474;
+tiny WebGPU 0.219054/0.152089;
+base WASM 0.329693/0.310568;
+base WebGPU 0.348596/0.304913. These complete-utterance factors do not include
+waiting for segmentation, live queue backlog, translation or presentation.
+
+RSS is the sum for only the owned Chromium process tree, sampled every 250 ms
+with `ps`, including browser/renderers/GPU process. Baseline was 1,280,640 KiB.
+Modes execute sequentially; allocator residency and shared pages affect later
+peaks. Shared pages can be counted twice. This is process-footprint evidence,
+**not isolated model allocation, GPU memory, JS heap, a leak test or phone memory**.
+
+The comparison gate was set before running: NFKC/lowercase, punctuation/symbol
+removal and collapsed whitespace; Japanese character edit distance excluding
+spaces and English word edit distance, each <= 0.2. It remains unchanged and
+fails the harness on tiny WASM Japanese. Numeric spellings are not normalized;
+the English `three` → `3` accounts for its one word edit in every mode.
+Japanese semantic problems also remain: tiny WASM changes `午後` to `5号` and
+`予約` to `4月`; tiny WebGPU changes `駅` to `液`; both base modes change `会議`
+to `海里` and `予約` to `ようやく`. A lower CER alone does not establish correct
+negation/time/cancellation meaning. These failures are preserved; no default is
+chosen on this evidence. Korean translation accuracy is unverified.
+
+### Lifecycle, failures and command evidence
+
+All four final modes completed real Japanese/English inference, transferred PCM
+ownership, preserved session/target/epoch/range/language/source revision, rejected
+a second job as `overloaded`, retained its PCM, and rejected the active operation
+on Stop. Fresh cached WASM workers recognized speech again after Stop. Both GPU
+modes were prepared again, then the **actual runtime-created GPUDevice** was
+destroyed in the owned worker; recognition subsequently returned `gpu-lost` and
+the host terminated its worker without fallback. The test instruments
+`GPUAdapter.requestDevice` only in its owned worker to obtain that actual device;
+GPU loss is not a mock notification. The final Stop check additionally observes
+the production pipeline invocation while its host promise is still pending, via a
+separate test-owned MessagePort and an owned worker handler wrapper. It asserts
+`ASR stopped` rather than accepting an already completed result; kernel-level
+interruption/cooperative backend cancellation is not claimed. Native GPU probes reported `apple` /
+`metal-3` adapters in both document and worker. Final page errors and per-mode
+preparation console errors were empty.
+
+| Command / local evidence | Actual outcome |
+| --- | --- |
+| `npm run test:framework:chrome:asr`, attempts 1 and 2 | **FAIL**, exit 1. Both WASM candidates transcribed, cancelled, rejected overload and restarted. Both GPU loads failed; tiny WASM CER also failed. Attempt 2 captured `no available backend found ... [webgpu] TypeError: O(...).webgpuInit is not a function`. |
+| Same command, first complete attempt 3 after the runtime fix | **FAIL**, exit 1. Typecheck, 7 port/transport tests (0 failed/skipped/cancelled, 58.288875 ms), build, all four actual inference/lifecycle modes, GPU loss and network/identity assertions completed. Sole final failure: tiny WASM Japanese CER 0.225 > 0.2. |
+| `node --import tsx --test tests/framework-browser-asr.test.ts` | Initial GPU-reason regression failed: expected `gpu-lost`, got `ASR stopped`. Fixed error rejection to preserve its reason. Additional regressions in `chrome-b2-boundary-regression.log` failed for an oversized backing-buffer view and old-worker loss invalidating a replacement; both same assertions pass after the fixes (2 passed/0 failed, 67.256166 ms). Fake worker/transport only, not recognition evidence. |
+| First ad hoc `node --input-type=module` GPU probe, `chrome-b2-gpu-capability.log` | **FAIL**, exit 1. Worker response did not finish; ending only this owned diagnostic browser produced `page.evaluate: Target page, context or browser has been closed`. This was not evidence of GPU absence. |
+| `node .ralph/media-framework/gpu-probe.mjs`, corrected capability log | **PASS**, exit 0. Plain adapter fields instead of a native GPUAdapterInfo object, bounded 10-second wait; actual document/worker adapters both present, vendor `apple`, architecture `metal-3`, including shader-f16. No inference performed by this diagnostic. |
+| `npm run test:framework:chrome:preparation`, final `chrome-b2-final-preparation.log` | **PASS**, exit 0. Typecheck, 5 port tests/build, all 11 actual B1 checks including native visibility, Stop, corruption, offline restart, eviction/disposal/UI. First preparation 8795.821042 ms; offline restart 561.781833 ms; page errors `[]`. Earlier regression run also passed (27708.398834 / 573.786417 ms). |
+| `npm run verify`, initial `chrome-b2-verify.log` | **PASS**, exit 0. Biome 100 files/no findings, Ruff/typecheck/build, JS 84 passed/0 failed, 14816.921750 ms; Python 222 passed/66.86 s. Precedes final boundary/runtime changes. |
+| `npm run verify`, final `chrome-b2-final-verify.log` | **PASS**, exit 0. Biome 100 files/no findings, Ruff/typecheck/build, JS 84 passed/0 failed/0 skipped/cancelled, 14501.676542 ms; Python 222 passed/66.93 s. Final targeted lint also validates the subsequently tightened browser harness. |
+| `npm run test:framework:chrome`, `chrome-b2-stage-acceptance.log` | **FAIL**, exit 1, `Missing script: "test:framework:chrome"`. B5's required full selected-video ASR → translation → DOM acceptance remains unimplemented; the B2 command does not replace it. |
+| Tightened `npm run test:framework:chrome:asr` observer runs, `chrome-b2-asr-final.log` and `chrome-b2-asr-final-port.log` | **FAIL**, exit 1. Tiny WASM transcribed both languages, but the observer reached Stop after a completed result (`unexpected result` instead of `ASR stopped`). The later modes were not reached in these two attempts. Observer scheduling was then diagnosed independently and corrected without changing this assertion. |
+| `node .ralph/media-framework/worker-probe.mjs`, `chrome-b2-worker-observer.log` | **PASS**, exit 0; synthetic scheduling diagnosis only, not ASR evidence. A second message listener observed `called → completed → observer`; wrapping the original handler observed `called → observer → completed`. |
+| Final invocation-observed ASR command, `chrome-b2-asr-final-invocation.log` | **FAIL**, exit 1. Typecheck, 7 port/transport tests (0 failed/skipped/cancelled, 57.821667 ms), build, all four real inference modes, invocation-observed pending Stop/overload, cached WASM restart, actual GPU loss, identity/network assertions completed; page errors `[]`. Sole final failure remains tiny WASM Japanese CER 0.225 > 0.2. |
+| Targeted Biome, typecheck and whitespace | **PASS**, exit 0; no findings. Final staged/commit cleanliness is checked before delivery. |
+
+The GPU failure was an implementation error, not missing browser permission or
+hardware. New capability evidence and the captured error justified investigation
+rather than repeating blind attempts. Installed ORT `dist/ort.webgpu.mjs` selects
+`ort-wasm-simd-threaded.asyncify.mjs` and calls `webgpuInit`. The jsep factory had
+only `jsepInit`. The loader now selects the matching local asyncify WASM/factory
+for explicit WebGPU, retaining jsep for WASM; the exact same models/fixtures/gates
+then complete real GPU inference. No browser flag, profile setting or access
+restriction was changed to manufacture success.
+
+The two stricter observer failures were test timing faults. Browser callback
+cleanup drains microtasks before a subsequent event listener can run, as described
+by the [HTML script cleanup algorithm](https://html.spec.whatwg.org/multipage/webappapis.html#clean-up-after-running-script).
+The independent owned-worker scheduling probe above confirmed that order. New
+evidence justified replacing the later listener with a wrapper that calls the
+original production handler, then signals through its separate test port before
+returning to the browser. This changes only observation timing; it preserves real
+PCM/model execution, the pending-operation Stop assertion and the accuracy gate.
+No production state was exported solely for tests.
+
+### Next unfinished B2 work
+
+Improve the preserved Japanese failures and compare an accurately qualified
+candidate/profile before selecting a default. Keep the existing numerical gate
+and failing fixtures. Record distribution licensing, repeatable memory/latency
+and broader recognition evidence as needed; no whole-framework/iPhone claim is
+made. Long boundary-spanning utterances, silence/VAD, live capture/resampling,
+stream queues/gaps, sustained GPU recovery/memory, Korean translation, offline
+interpretation, ten-minute playback/backlog/loss and B3–B6 remain unverified.
+**No required environment/device/permission blocker remains in this iteration.**
+
+No root/nested AGENTS.md or requested independent runner file
+`2026-10-06T20-26-37-190Z-chrome-verification.txt` exists. Supplied instructions,
+plan, architecture and prior Chrome report were read. No agents, runner changes,
+stage advancement, push/publish/app installation or changes to unrelated files,
+user apps/recordings/mounted images/browser settings occurred. Only owned test
+browsers/profiles were closed; credentials, weights, user audio/transcripts and
+`.ralph` state are excluded from the commit. No additional checkbox is checked.

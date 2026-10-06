@@ -1025,3 +1025,86 @@ eviction 검사에서 status가 삭제한 빈 캐시를 재생성하는 오류�
 ASR 정확도/번역/실제 영상부터 자막까지의 B2–B6, Safari/iPhone은 미완료다.
 전체 `test:framework:chrome` script는 B5에서 구현할 항목으로 아직 없다. B1만 체크하고
 다음 항목은 B2 후보 ASR 실제 비교이다. 자동 loop 재시작/push/publish/앱 설치 없음.
+
+### 2026-10-07 / chrome / iteration 1/5 — B2 ASR 후보 비교 진척
+
+관련 commit: 이 기록을 포함한 `feat: evaluate browser ASR candidates`.
+
+수행한 변경: 다음 미완료 항목 B2만 진행했다. B1 repository/loader를 그대로
+재사용하는 bounded utterance ASR document host/worker와 별도 실제 비교 harness
+`test:framework:chrome:asr`를 추가했다. 기존 tiny와 multilingual base를 pinned
+revision/q8로 등록하고 candidate별 cache, 16 kHz mono float PCM 0.1–30초,
+matching duration/identity/epoch, 전체 backing buffer 제한·transfer, 한 active job,
+명시적 overload, synchronous Stop/owned worker termination, GPU loss/no fallback을
+구현했다. 기존 companion v0.1.0/설치/manifest/native messaging/core/server/settings와
+runner를 보존했다. Streaming SpeechRecognizer/VAD/live resampling/번역/화면 연결은
+이 utterance executor의 구현 범위가 아니며 B3 이후로 진행하지 않았다.
+
+실행한 명령과 결과:
+
+- PASS: 최종 `npm run verify`, exit 0; Biome 100 files/no findings, Ruff/typecheck/
+  build, JS 84 passed/0 failed/0 skipped/cancelled/14501.676542 ms,
+  Python 222 passed/66.93 s (`chrome-b2-final-verify.log`). 초기 verify도 통과했다.
+- PASS: 최종 `npm run test:framework:chrome:preparation`, exit 0; typecheck/
+  5 port tests/build 및 11개 real B1 browser checks. Native visibility/Stop/offline/
+  corruption/eviction/disposal/UI 모두 통과, model 43,613,734 bytes, first preparation
+  8795.821042 ms, offline restart 561.781833 ms, page errors `[]`
+  (`chrome-b2-final-preparation.log`). Loader 공유 후에도 B1을 유지했다.
+- FAIL: `npm run test:framework:chrome:asr`, 최종 exit 1
+  (`chrome-b2-asr-final-invocation.log`). Typecheck/7 port tests(0 failed/skipped/
+  cancelled, 57.821667 ms)/build, 두 model × WASM/WebGPU × 일본어/영어 actual
+  recognition, metadata/transfer, real pipeline invocation을 관측한 pending Stop,
+  overload/PCM 보존, cached WASM 재시작, actual GPUDevice.destroy → gpu-lost,
+  network assertion과 page errors `[]` 모두 관측했다. 단 하나의 최종 실패는
+  tiny WASM 일본어 CER 9/40=22.5%가 실행 전 정한 20% gate를 초과한 것이다.
+  실패 fixture/gate를 삭제·완화하지 않았고 **B2는 미체크/default 미선택**이다.
+- FAIL → FIXED: 초기 두 비교에서 WASM은 실제 전사했지만 GPU는 model-load-failed.
+  owned document/worker가 실제 apple/metal-3 adapter를 제공하는 새 근거를 확인한
+  뒤 library error `webgpuInit is not a function`을 확보했다. Installed ORT WebGPU가
+  asyncify를 요구하는데 jsep factory를 넘긴 오류였다. Matching packaged runtime
+  선택으로 동일 models/fixtures/gates의 실제 GPU inference가 통과했다.
+- FAIL → FIXED: GPU loss를 일반 Stop으로 잘못 반환한 port 회귀 및 oversized
+  backing-buffer view/old-worker loss가 replacement를 무효화하는 회귀를 먼저
+  실패시켜 수정했다. 같은 assertion들이 통과한다. Fake transport는 정확도 증거가 아니다.
+- FAIL → FIXED: tightened cancellation observer 두 시도는 completed result 뒤에
+  Stop을 관측해 실패했다. Independent owned-worker scheduling probe가 separate
+  listener의 `called → completed → observer`와 handler wrapper의
+  `called → observer → completed`를 확인했다. Observation transport를 test-owned
+  MessagePort/wrapper로 수정하고 기존 `ASR stopped` assertion을 그대로 통과했다.
+  실제 pipeline call/pending 작업의 종료 증거이며 kernel-level cooperative cancel
+  주장은 아니다. 첫 ad hoc GPU probe 실패/정리와 corrected probe도 보고서에 기록했다.
+- FAIL: `npm run test:framework:chrome`, exit 1, Missing script
+  (`chrome-b2-stage-acceptance.log`). B5의 실제 selected video → ASR → 번역 → DOM
+  harness는 아직 미구현이며 B1/B2 command로 stage acceptance를 대체하지 않았다.
+- PASS: 최종 targeted Biome 10 files/no findings, typecheck 및 whitespace.
+  Staged diff/commit 후 worktree 상태를 확인한다.
+
+실제 검증 범위: owned headed Chromium 153.0.8010.12/Darwin arm64, 기존 합성
+VP8/Opus fixture의 decoded PCM 한 speech period를 16 kHz로 resample하여 모델에
+입력했다. 일본어 6.97225초/영어 6.6665초이며 selected-video production input은
+아니다. Tiny pinned 43,613,734 bytes, base revision
+`1846881b6b3a3024392c1eea3ad983695bc23925` 79,664,191 bytes, ONNX hash 검증,
+GPU asyncify WASM 26,861,777 bytes/factory 53,057 bytes를 사용했다. 실제 최종
+일본어 CER: tiny WASM 22.5%, tiny GPU 20%, base WASM/GPU 17.5%; 영어 WER 모두
+1/22=4.54545% (`three` → `3`). 일본어 inference는 약 1.11–2.43초, 영어는
+0.95–2.07초였다. Browser-owned process-tree RSS baseline 1,280,640 KiB,
+각 mode peak 2,506,656/2,959,952/3,375,680/3,444,816 KiB를 250 ms마다 측정했다.
+Shared page/allocator/browser/GPU process를 포함하는 합계이며 isolated model/GPU
+allocation, leak, phone memory, 장시간 성능을 의미하지 않는다.
+
+실패·미검증과 증거 위치: [chrome 보고서](docs/verification/media-framework/chrome.md)에
+exact final latency/round trip/real-time factor/RSS, semantic errors, model sizes/
+checksums/licensing, 각 실패와 수정 및 ignored `chrome-b2-*.log` 위치를 기록했다.
+Tiny의 오후/역/예약, base의 회의/예약 오인식을 보존했다. Base의 더 낮은 CER만으로
+의미 정확도나 default를 승인하지 않는다. Korean translation/DOM, live stream VAD/
+resampling/gap/queue, 10분 playback/backlog/loss, distribution licensing/newer
+candidates, Safari/iPhone은 미검증이다. Model load/PCM 획득을 전사 정확도로 대체하지 않았다.
+
+다음 미완료 항목: **B2 유지.** 보존한 일본어 실패를 개선하고 qualified candidate/
+profile 및 license evidence를 비교한 뒤 default를 선택해야 한다. 현재 required
+환경/device/permission 차단은 없으며 stage complete/blocked marker를 사용하지 않는다.
+AGENTS.md와 요청된 independent runner file은 없었고 supplied instructions/plan/
+architecture/prior chrome report를 읽었다. 새 checkbox 완료/다른 stage/agents/
+runner 수정/push/publish/app 설치나 user apps/recordings/mounts/settings 변경 없음.
+Credentials/model weights/user audio·transcripts/temporary `.ralph` state를 제외하고
+진척만 commit한다.

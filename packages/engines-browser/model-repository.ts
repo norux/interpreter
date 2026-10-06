@@ -1,15 +1,16 @@
 import type { ModelIdentity, ModelRepository, ModelStatus, ReasonCode } from "../contracts";
-import { isPreparationModel, modelCacheName, modelFiles, modelUrl, preparationModel, requiredBytes } from "./model";
+import { preparationModel, registeredCandidate } from "./model";
 
-export function createModelRepository(load: (cache: Cache) => Promise<{ dispose(): Promise<void> }>): ModelRepository {
+export function createModelRepository(load: (cache: Cache) => Promise<{ dispose(): Promise<void> }>, selected: ModelIdentity = preparationModel): ModelRepository {
+  const { model: registeredModel, cacheName: modelCacheName, files: modelFiles, url: modelUrl, requiredBytes } = registeredCandidate(selected);
   let controller: AbortController | undefined;
   let resident: { dispose(): Promise<void> } | undefined;
   let observedCache = false;
   const state = (value: ModelStatus["state"], downloadedBytes?: number, reason?: ReasonCode): ModelStatus => ({
-    model: preparationModel, state: value, requiredBytes, downloadedBytes, reason,
+    model: registeredModel, state: value, requiredBytes, downloadedBytes, reason,
   });
   function check(model: ModelIdentity) {
-    if (!isPreparationModel(model)) throw new Error("Unregistered model/version");
+    if (model.id !== registeredModel.id || model.version !== registeredModel.version) throw new Error("Unregistered model/version");
   }
   async function cachedBytes(cache: Cache) {
     let bytes = 0;

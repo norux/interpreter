@@ -24,3 +24,32 @@ export function modelUrl(path: string) {
 export function isPreparationModel(model: ModelIdentity) {
   return model.id === preparationModel.id && model.version === preparationModel.version;
 }
+
+export const asrCandidates = {
+  tiny: { model: preparationModel, files: modelFiles },
+  base: {
+    model: { id: "onnx-community/whisper-base", version: "1846881b6b3a3024392c1eea3ad983695bc23925" },
+    files: [
+      { path: "config.json", bytes: 2243 },
+      { path: "generation_config.json", bytes: 3832 },
+      { path: "tokenizer.json", bytes: 2480466 },
+      { path: "tokenizer_config.json", bytes: 282682 },
+      { path: "preprocessor_config.json", bytes: 339 },
+      { path: "onnx/encoder_model_quantized.onnx", bytes: 23201314,
+        sha256: "5862993336bf33acd23736071aae2b32261d3b1b2f37780194460d4ef974dd46" },
+      { path: "onnx/decoder_model_merged_quantized.onnx", bytes: 53693315,
+        sha256: "fa3ef9902734ce5ae6f9ef2bdb2ba9a6c4b5785b09f4f420ce036573dc9d090b" },
+    ],
+  },
+} as const;
+
+export function registeredCandidate(model: ModelIdentity) {
+  const candidate = Object.values(asrCandidates).find(value => value.model.id === model.id && value.model.version === model.version);
+  if (!candidate) throw new Error("Unregistered model/version");
+  return {
+    ...candidate,
+    requiredBytes: candidate.files.reduce((sum, file) => sum + file.bytes, 0),
+    cacheName: `interpreter-asr-${candidate.model.version}-q8`,
+    url: (path: string) => `https://huggingface.co/${candidate.model.id}/resolve/${candidate.model.version}/${path}`,
+  };
+}
