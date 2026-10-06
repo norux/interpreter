@@ -2233,3 +2233,82 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   feature-local cadence측정 seam/harness/regressions/failednumeric5개/README/docs/plan을
   Conventional Commit으로 보존하며 key/weights/audio·transcript/.ralph/build는
   커밋하지 않는다. 제품cadence/checkbox/전체completion은 바꾸지 않았다.
+
+
+### Ralph iteration 7/30 (resumed run) — 2026-10-06 — 7d snapshot 후보 기각/직접 stage 계측
+
+- 다음 미완료 **7d만 진행했고 checkbox는 미체크 유지**다. 시작 checkout은 clean,
+  AGENTS.md는 없고 `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. agent/다른worktree/
+  credential/cloud/모델교체/runner/criteria/dependency/lock/push/publish 변경은 없다.
+  **최종 제품 코드는 변경하지 않았다**. capture/model/output 계약과500ms cadence,
+  단일 MLX worker/final우선/queue limits/읽지 않은 final 보관을 유지한다.
+- final이 대기하는 동안 in-flight snapshot도 반환하는 gatedcheck를 더 엄격한 후보
+  기대값으로 실행해 **2fail/9deselected/exit1**이었다. 그 결과를 버리는 guard는
+  focusedchecks를 통과했지만 native지연이 악화했다. 첫 결과를 보존하고 이후의
+  correction만 버리는 작은 후보도 **1fail/1pass/13deselected/exit1** 뒤 fixture를
+  통과했으나 native지연이 개선되지 않았다. **두 guard 모두 제거/기각**했다.
+  최종 회귀는 first/intermediate 결과를 final inference까지 숨기지 않고 같은ID/
+  증가revision/final/queue/coalescing/drop0을 유지하며 boundary없는 control도 확인한다.
+  후보 기대값을 제품 acceptance로 채택하거나 의미/Paint조건을 약화하지 않았다.
+- 기존 nativeharness로 **제품control→fullguard→correctionguard→복원제품+직접stage**
+  4회 실행했다. 각 새 Chrome153.0.8010.12에서 실제 native Extensions→Interpreter→
+  Start/Preparing/listening 뒤 popup을 닫고 `continuous`로 3round/9clip을 처리했다.
+  실제 advancing audio/tabCapture/MLX0.6B8bit/Ollama qwen3:4b-instruct Q4_K_M,
+  같은WAVhash/English→Korean/context4096/temp0/VAD300ms/qualitypause/6초cap/
+  added400ms pause/HFoffline/Ollamaclouddisabled다. inference/expiry를 기다리지 않는다.
+  각 engine은 fresh/선택Ollama unload지만 weights/OScache는 유지한다. coldcache아니다.
+- **4명령 모두 exit1/acceptancefalse/firstPaintImprovedfalse**다. 정확한배정/증가revision/
+  **12final과 모든 coveringmainframePaint**, queuebounds/drain/frame·ASR·textdrop0은
+  통과했다. 각3개construction은 crane→animal 의미실패, warmweather/construction
+  각2개는 duringSpeechPaint실패다. passing파일은 없다. keyword검사만으로 long의
+  전체절 의미가 성공했다고 주장하지 않는다. 이전 failedreport는 원래byte로 복원했다.
+  `docs/verification/interim/continuous-browser-iteration7-{control,guard,correction,stages}-failed.json`
+  4개에 숫자/ID/geometry/hash/flag만 보존한다. report개선flag는 iteration6의 saved
+  final-only control과 비교하며 이번 제품control→후보 직접비교와 다르다.
+- warm**n2/clip** firstPaint p50/p95(ms), control→correctionguard:
+  weather**2366.139/2380.680→2348.604/3258.410**,
+  construction**4737.290/5002.460→4915.862/5816.368**,
+  long**1675.640/1771.852→2252.890/2450.796**다. final도 모두 악화했다.
+  요청수52→48만으로 후보를 채택하지 않았다. fullguard의45요청도 firstPaint가
+  모든clip에서 악화했다. 복원제품+계측도 sequential변동이 있으며 속도fix가 아니다.
+  first-round/prepare/정확한warmfinal/partialPaint의 n·p50·p95는 docs에 전부 기록했다.
+  Paint는 physicaldisplay/청취가 아니며 PCMorigin/clock/transport추정 한계를 유지한다.
+- 실제control의 weather는 ASRstart가 speech시작 **1839.614/1559.653ms** 뒤이며
+  firstevent→Paint는 **1.745/3.971ms**다. construction firstevent는 **1403.299/
+  1298.521ms**이지만 firstPaint는 **5002.460/4737.290ms**다. 먼저표시된revision의
+  event→Paint도 **3531.147/3307.241ms**다. inference와 읽기/표시대기는 별개다.
+- **test-local interim_browser_metrics.py**에 직접 adapter `startedAtMs`와 번역
+  `firstOutputAtMs`(출력전취소는null)를 추가했다. 원문/번역값/정책/수명은 바꾸지 않는다.
+  새metric회귀는 **KeyError4fail** 뒤 focusedinterim/metric **19pass/0.39초/exit0**다.
+  복원제품으로 전체 native실행해 실제field도 확인했다. warmweather ASRend→번역start는
+  **823.507/665.919ms**, firstevent→Paint는 **2.918/2.101ms**다. construction의
+  firstevent→firstPaint는 **3611.415/3240.822ms**로 여전히 늦다. 뒤revision의 own
+  event대기와 구분했다. first-output없는request1개도 실제null이다. 처음 ad hocsummary가
+  null에 TypeError로 실패한 뒤 caption의 contributingrequest를 null-aware로 골라
+  재검사했다. report/audit는 그null에서 실패하지 않았고 evidence를 꾸미지 않았다.
+- control/full/correction/stages ASR **67/68/67/67**, workerbusy(ms)
+  **32711.280/33670.489/33562.598/34123.944**, 요청 **52/45/48/52**,
+  완료각14/미완료·취소 **38/31/34/38**다. queues/coalescing/RSS/MLX/call·source변경/
+  partial source-position→Paint percentile은 docs/numeric에 있다. 약39초clipspan에서
+  workerbusy약84–88%며10분/일반처리량보장이 아니다. ASR/textqueuepeak최대6500/2960ms
+  audio, finaldrop0/끝queue0이다. RSS·MLX는 합산하지 않고 전체browser/OllamaRSS 미측정이다.
+- independentnumeric audit는 4개samehash/settings/9clip정확배정/12final/증가revision/
+  Paintbounds·시각산술/exactpercentiles/끝까지sample/queue/drop/falseflag 및 새direct
+  stage순서를 확인해 **exit0**다. 실제7d acceptancepass가 아니다. normal native화면에서
+  읽히는누적자막/controls분리를 검토했지만 새narrow/fullscreen/모든문자·readingtime/
+  physicaldisplay/청취/inflightStop/provider·session/공개10분검증은 아니다.
+- 최초nonPTY는 READY뒤stdinEOF로 **exit1/cleanup**, capture근거가 없다. 4회native
+  **Stop→stopped:idle/activecapture없음/offscreen0/host0**은 통과했고 harness는exit1을
+  유지했다. ownedbrowser/companion/fixture종료, OllamaSIGINTexit0, owned5profile의
+  생성audio30개삭제, base uv sync --locked복원,8765/8766/11434 listener없음이다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python180**,
+  failures/skips/warnings0,Python**66.41초**다. Ruff/uv lock --check/git diff --check
+  통과다. 새source는 test-only timing과provisional availability회귀뿐이다. README/docs/
+  failednumeric/plan과 Conventional Commit으로 보존하고 key/weights/audio·transcript/
+  .ralph/build는 커밋하지 않는다. checkbox/전체completion은 바꾸지 않았다.
+- **다음도7d**: 새directstagefield로 warmshort의 ASR/번역 이전 대기를 줄이고,
+  unreadfinal/readingtime을 보존하며 표시대기도 검증한다. 가용snapshot을 숨기는 두후보는
+  지연개선으로 재채택하지 않는다. 원래construction·long 의미와 실제appearance/청취/
+  inflight수명/지속queue·memory acceptance도 남았다. 새외부접근/credentialblocker는 없다.
+  이후7b→8→9이며 미완료 checkbox를 그대로 유지한다.

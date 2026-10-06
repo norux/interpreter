@@ -161,12 +161,18 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
     assert all(m["sessionId"] == "measured" for m in metrics)
     assert "Private" not in json.dumps(metrics)
     asr = next(m for m in metrics if m["metric"] == "asr")
+    assert asr["startedAtMs"] <= asr["atMs"]
     assert (asr["audioMs"], asr["mlxActiveBytes"], asr["mlxPeakBytes"]) == (
         20,
         123,
         456,
     )
     translation = next(m for m in metrics if m["metric"] == "translation")
+    assert (
+        translation["startedAtMs"]
+        <= translation["firstOutputAtMs"]
+        <= translation["atMs"]
+    )
     assert translation["sourceRevision"] == 2 and translation["responseComplete"]
     assert not translation["sourceFinal"]
     receipt = next(m for m in metrics if m["metric"] == "receipt")

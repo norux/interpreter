@@ -103,8 +103,9 @@ def test_local_snapshots_arrive_during_speech_and_finalize_the_same_utterance(
 @pytest.mark.parametrize(
     "snapshot_frames,first_call,coalesced", [(25, 50, 9), (50, 25, 4)]
 )
-def test_slow_snapshot_coalesces_pending_work_and_keeps_final(
-    monkeypatch, snapshot_frames, first_call, coalesced
+@pytest.mark.parametrize("final_queued", [False, True])
+def test_slow_first_snapshot_is_emitted_even_when_its_final_queues(
+    monkeypatch, snapshot_frames, first_call, coalesced, final_queued
 ):
     class Segments(local.SpeechSegments):
         def __init__(self):
@@ -152,23 +153,116 @@ def test_slow_snapshot_coalesces_pending_work_and_keeps_final(
             assert started.is_set()
             for i in range(50, 250):
                 audio.put_nowait(frame(i, True))
-            for i in range(250, 265):
-                audio.put_nowait(frame(i))
+            if final_queued:
+                for i in range(250, 265):
+                    audio.put_nowait(frame(i))
             audio.put_nowait(None)
             await asyncio.sleep(0.02)
             assert len(calls) == 1
             assert transcriber.pending_audio_ms <= 8000
             release.set()
             await asyncio.wait_for(task, 1)
-            assert [len(u.frames) for u in calls] == [first_call, 255]
-            assert [t.final for t in results] == [False, True]
+            last_call = 255 if final_queued else (250 if snapshot_frames == 25 else 225)
+            assert [len(u.frames) for u in calls] == [first_call, last_call]
+            # Preserve the first available text even when ASR is already behind.
+            assert [t.final for t in results] == (
+                [False, True] if final_queued else [False]
+            )
+            assert results[0].revision == 1
+            assert results[0].audio_end_ms == first_call * 20
+            if final_queued:
+                assert results[-1].audio_end_ms == 5000
             assert len({t.utterance_id for t in results}) == 1
-            assert transcriber.coalesced_snapshots == coalesced
+            assert transcriber.coalesced_snapshots == (
+                coalesced if final_queued else coalesced - 1
+            )
             assert transcriber.dropped_utterances == 0
         finally:
             release.set()
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+            engine.executor.shutdown()
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize("final_queued", [False, True])
+def test_inflight_correction_remains_available_before_a_waiting_final(
+    monkeypatch, final_queued
+):
+    class Segments(local.SpeechSegments):
+        def __init__(self):
+            super().__init__()
+            self.vad = SpeechDetector()
+
+    monkeypatch.setattr(local, "SpeechSegments", Segments)
+
+    async def check():
+        started = threading.Event()
+        release = threading.Event()
+        audio = asyncio.Queue()
+        results = []
+        calls = []
+
+        class Engine:
+            executor = ThreadPoolExecutor(max_workers=1)
+
+            def transcribe(self, utterance, *_):
+                calls.append(utterance)
+                if len(calls) == 2:
+                    started.set()
+                    release.wait(3)
+                return f"Speech through {utterance.end_ms}"
+
+        async def frames():
+            while (value := await audio.get()) is not None:
+                yield value
+
+        engine = Engine()
+        transcriber = local.MlxTranscriber(engine, "fixture", "English", interim=True)
+        iterator = transcriber.transcribe(frames())
+        task = None
+        try:
+            for i in range(25):
+                audio.put_nowait(frame(i, True))
+            results.append(await asyncio.wait_for(anext(iterator), 1))
+
+            async def collect():
+                async for value in iterator:
+                    results.append(value)
+
+            task = asyncio.create_task(collect())
+            for i in range(25, 50):
+                audio.put_nowait(frame(i, True))
+            for _ in range(100):
+                if started.is_set():
+                    break
+                await asyncio.sleep(0.001)
+            assert started.is_set()
+            for i in range(50, 75):
+                audio.put_nowait(frame(i, True))
+            if final_queued:
+                for i in range(75, 90):
+                    audio.put_nowait(frame(i))
+            audio.put_nowait(None)
+            await asyncio.sleep(0.02)
+            release.set()
+            await asyncio.wait_for(task, 1)
+            assert [t.audio_end_ms for t in results] == [500, 1000, 1500]
+            assert [t.final for t in results] == (
+                [False, False, True] if final_queued else [False, False, False]
+            )
+            assert [t.revision for t in results] == list(range(1, len(results) + 1))
+            assert len({t.utterance_id for t in results}) == 1
+            assert len(calls) == 3
+            assert transcriber.coalesced_snapshots == (1 if final_queued else 0)
+            assert transcriber.dropped_utterances == transcriber.pending_audio_ms == 0
+        finally:
+            release.set()
+            if task:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            await iterator.aclose()
             engine.executor.shutdown()
 
     asyncio.run(check())

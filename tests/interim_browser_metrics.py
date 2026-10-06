@@ -72,6 +72,7 @@ async def prepare(self):
 
 def transcribe(self, utterance, *args):
     session_id = current_session
+    started_at_ms = time.time() * 1000
     started = time.monotonic()
     text = original_transcribe(self, utterance, *args)
     import mlx.core as mx
@@ -79,6 +80,7 @@ def transcribe(self, utterance, *args):
     emit(
         "asr",
         session_id,
+        startedAtMs=started_at_ms,
         audioStartMs=utterance.start_ms,
         audioEndMs=utterance.end_ms,
         audioMs=len(utterance.frames) * 20,
@@ -91,11 +93,15 @@ def transcribe(self, utterance, *args):
 
 async def translate(self, transcript, context):
     session_id = current_session
+    started_at_ms = time.time() * 1000
+    first_output_at_ms = None
     started = time.monotonic()
     complete = False
     stream = original_translate(self, transcript, context)
     try:
         async for value in stream:
+            if first_output_at_ms is None:
+                first_output_at_ms = time.time() * 1000
             complete = value.final
             yield value
     finally:
@@ -103,6 +109,8 @@ async def translate(self, transcript, context):
         emit(
             "translation",
             session_id,
+            startedAtMs=started_at_ms,
+            firstOutputAtMs=first_output_at_ms,
             utteranceId=transcript.utterance_id,
             sourceRevision=transcript.revision,
             sourceFinal=transcript.final,

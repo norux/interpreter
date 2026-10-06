@@ -358,6 +358,9 @@ the paired failed reports and measurements.
 
 The harness records covering Chromium Paint, same-ID source changes, ASR and
 translation calls, bounded queue/drop samples, companion RSS and MLX allocations.
+ASR and translation records include adapter start timestamps. Translation also
+records its first provider output time (null if cancelled before output), so
+model/session waiting can be distinguished from subtitle display waiting.
 Media start/end timing uses generated PCM bounds and observed media playback;
 audio-position timing estimates capture origin from the first PCM reception and
 includes local transport delay. Neither measures acoustic output or physical

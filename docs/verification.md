@@ -3731,3 +3731,202 @@ the full final suite was rerun. `node --check`, `uv lock --check` and
 regressions, five failed numeric reports and README/docs/plan are committed;
 no keys, weights, audio/transcripts, build or temporary `.ralph` state are included.
 7d and overall completion remain pending.
+
+
+## Ralph iteration 7/30 (resumed run) — 2026-10-06 — snapshot candidates rejected; stage timing
+
+Continued unfinished **7d** only in the specified checkout. AGENTS.md is absent;
+`.ralph/verification.txt` says `No completion verification attempted in this run.`
+No agents, credentials, cloud calls, alternate models, dependency/lock changes,
+runner/acceptance changes, push or publication. **Product code is unchanged**:
+500 ms snapshots, single MLX worker, final priority, existing queue budgets and
+subtitle reading times remain. The 7d checkbox stays unchecked.
+
+The initial slow-worker check showed an in-flight snapshot emitted after its own
+final had queued (**2 failed / 9 deselected**, exit 1). An experimental guard
+suppressed that snapshot and counted it as coalesced; the focused suite passed.
+A native comparison found reduced requests but worse Paint timing. A narrower
+candidate preserved the first emitted result and suppressed only later
+corrections. Its new gated check first failed with an extra intermediate result
+(**1 failed / 1 passed / 13 deselected**, exit 1), then passed with the guard.
+The narrower native result also failed to improve latency. **Both guards were
+removed, not adopted as performance fixes.** Final regression expectations retain
+available first/intermediate text, same-ID increasing revisions, final delivery,
+coalescing, bounded audio and drop0, with no-boundary controls. These regressions
+protect provisional availability; they do not weaken the semantic/Paint criteria.
+
+Four native runs use the existing command (serially, with the current checkout
+or temporary candidate as described below):
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked --extra local
+PATH="$PWD/.tools/uv/bin:$PATH" npm run build
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs after interval500
+# Native Extensions → Interpreter → Start; wait for listening; close popup.
+# stdin: continuous; after checks, native Stop; stdin: stopped, exit.
+```
+
+The first is the unmodified provisional product control, then the full guard,
+then the correction-only guard, then the restored product with passive stage
+instrumentation. All use real advancing generated Chrome audio, real tabCapture,
+MLX Qwen3-ASR 0.6B 8bit and Ollama qwen3:4b-instruct Q4_K_M/context4096/temp0,
+English→Korean, identical WAV hashes, 300 ms VAD/current quality pause/6 s cap,
+three rounds/nine clips and only 400 ms added pauses. Playback never waits for
+inference or expiry. HF offline/Ollama cloud disabled. Chrome153.0.8010.12,
+Playwright1.63.0, Apple M5/16GiB, Python3.12.15/mlx-audio0.5.8/MLX0.32.3,
+Ollama0.35.1. Each companion/engine is fresh and selected Ollama model unloaded,
+but weights/OS caches remain. Preparation is excluded; first-round samples are
+separate from warm **n2 per clip**. This is not a cold-cache comparison.
+
+Numeric reports (no source/translation/audio content):
+
+- [Unmodified control](verification/interim/continuous-browser-iteration7-control-failed.json)
+- [Rejected full guard](verification/interim/continuous-browser-iteration7-guard-failed.json)
+- [Rejected correction guard](verification/interim/continuous-browser-iteration7-correction-failed.json)
+- [Restored product with stage timings](verification/interim/continuous-browser-iteration7-stages-failed.json)
+
+The stored `sameAudio` and `firstPaintImproved` flags compare each `after` run to
+iteration6's saved **final-only** control; they are not the candidate-versus-product
+comparison. That earlier baseline and every previous failed report are preserved.
+
+Warm p50/p95 in milliseconds, **n2** for each cell:
+
+| Clip | Product first Paint | Full guard first Paint | Correction guard first Paint | Product final Paint | Full guard final Paint | Correction guard final Paint |
+| --- | --- | --- | --- | --- | --- | --- |
+| Weather | 2366.139/2380.680 | 2557.822/3352.058 | 2348.604/3258.410 | 1526.942/1549.813 | 1699.027/2561.471 | 1533.718/2509.855 |
+| Construction | 4737.290/5002.460 | 5149.612/5810.825 | 4915.862/5816.368 | 1937.827/2043.683 | 2509.708/2659.151 | 2520.423/2713.408 |
+| Long | 1675.640/1771.852 | 2248.329/2358.098 | 2252.890/2450.796 | 2355.378/2660.723 | 2341.639/3664.389 | 2668.849/2987.875 |
+
+First timing is voice-start→first covering main-frame Chromium Paint; final is
+voice-end→last final covering Paint. Paint is rendering, not physical presentation
+or acoustic timing. Input origin is estimated from PCM reception; clocks/transport
+and sequential-run variation remain. Small n2 cannot establish a general p95.
+The first-round first/final Paint per weather/construction/long (ms) is:
+control **1125.489/678.477, 862.263/1967.239, 1690.072/2537.993**;
+full guard **1162.507/712.349, 895.761/2518.495, 2221.743/2713.053**;
+correction guard **1162.893/727.801, 852.600/1842.885, 1689.610/3398.728**.
+Preparation **19862.938/3494.402/3496.804 ms** is excluded from these samples.
+The longer initial preparation was observed, not diagnosed as a cache/compile fix.
+Clip spans from first media origin to last expected media end are
+**38982.150/39028.820/38981.750 ms**, including the added pauses.
+
+For control/full/correction: ASR calls **67/68/67**, worker busy
+**32711.280/33670.489/33562.598 ms**; translation requests **52/45/48**,
+completed **14/14/14**, incomplete/cancelled **38/31/34**. Source changes
+**7/7/7** include word extensions, not guaranteed semantic improvements.
+Sampled ASR/text queue peaks **6000/2460,6500/2960,6500/2940 ms audio**,
+coalesced **9/16/14** (candidate counts include suppressed in-flight results), queues drained and transport/ASR/text drops0.
+Queue audio duration is not wall-clock waiting. Busy time is **83.9/86.3/86.1%**
+of these finite clip spans, not a ten-minute throughput guarantee.
+RSS samples **443/441/449**, companion peaks **118784000/157728768/178257920 bytes**;
+MLX active **1034293042/1034194738/1034293042**, global phase peaks
+**1680164320/1680197088/1680164320 bytes**. RSS and MLX overlap and are not summed;
+whole browser/Ollama memory is unmeasured. The sample period covers processing
+through final/drain, not only media playback.
+
+All three runs retain **12 final events and covering Paints**, exact caption
+assignment, increasing revisions, bounded/drained queues and drop0. Each has
+**three crane→animal meaning failures**, and both warm weather/construction
+clips fail during-speech Paint. Each command exits **1**, `acceptancePassed:false`,
+`firstPaintImproved:false`; no passing report was created. Long source/time/negation
+keyword checks pass, but earlier future-tense station wording in the control/full
+guard is weaker than the requested instruction. Keyword checks alone do not imply
+all-clause meaning success. Normal native screenshots were inspected for readable
+rolling text/controls; no new narrow/fullscreen/all-character/reading-time,
+speaker listening, inflight Stop/provider/session replacement or public ten-minute
+acceptance was passed here. Those remain outstanding.
+
+The control stage diagnosis separates problems: warm weather's first contributing
+ASR starts **1839.614/1559.653 ms after speech start**, ends at **2256.175/1946.199**,
+and first events arrive at **2378.935/2362.168**. First Paint follows those events
+by **1.745/3.971 ms**. Construction's first events arrive at **1403.299/1298.521 ms**,
+yet first Paint is **5002.460/4737.290 ms**. The revisions actually first painted
+wait **3531.147/3307.241 ms after their own events**. Thus inference waiting and
+subtitle reading/display waiting must be treated separately; these measurements
+do not prove a particular GPU scheduling cause.
+
+Added only passive, test-local `startedAtMs` to ASR/translation records and
+`firstOutputAtMs` to translation records (null before any provider output).
+These distinguish adapter waiting/output from session correction suppression and
+Paint/display waiting without recording text or changing provider behavior.
+The metric fixture first failed **4 cases with KeyError startedAtMs**, then the
+focused interim/metric suite passed **19/19 in0.39 s**. It still checks exact value
+forwarding, generator close, baseline cadence/VAD and no private text in metrics.
+One RuffE501 during candidate test editing was fixed; final focused Ruff/diff checks
+passed. An initial non-PTY browser invocation reached READY then stdin EOF,
+cleaned up and exited1 without capture; it is not an acceptance run.
+
+The restored product stage run also exits1 with the same three crane meaning and
+four warm short-clip during-speech failures; assignment/finals/Paint/bounds/drain/
+drop0 all pass. It is **not a speed fix**. Warm first/final p50/p95 (n2 per clip):
+weather **3099.782/3445.941,2362.664/2695.371 ms**; construction
+**5535.647/6177.079,2355.231/2996.663**; long
+**1879.663/2521.289,2973.463/3367.555**. First-round first/final per clip:
+**1232.261/752.236,875.597/1949.111,1614.328/3561.986 ms**.
+Preparation **3364.457 ms**, clip span **38978.850 ms**, ASR calls67/busy
+**34123.944 ms (87.5% of span)**, requests52/completed14/incomplete38,
+source changes7, coalesced8, peak ASR/text queues6500/2900ms audio, drained/drop0.
+RSS451 samples/peak175226880bytes; MLXactive1034293042/phasepeak1680166368bytes.
+The original product before/after instrumentation varies as well, so the small,
+sequential candidate samples cannot isolate every cause. Neither candidate met
+the required timing improvement; no product optimization is claimed.
+
+Partial recognized-audio-end→first covering Paint is grouped by
+`(utteranceId,audioEndMs)` to avoid inflating samples with translation tokens.
+For control/full guard/correction guard/stages, **n/p50/p95(ms)** is
+**13/839.108/4439.713,13/994.496/4547.811,13/888.964/4332.627,
+11/1437.504/3068.287**. This includes first-round and final-ASR translation
+partials and measures estimated source position, not speaker timing.
+
+Final stage trace: milliseconds from voice start. For each first caption, match
+the provider request whose non-null first output immediately preceded that
+caption (all four gaps<1ms; source revision3). A cancelled-before-output request
+is not substituted for the caption's contributing request.
+
+| Warm round/clip | ASR start/end | Translation start/first output | First event/Paint |
+| --- | --- | --- | --- |
+| 1/weather | 1887.732/2263.015 | 3086.522/3442.877 | 3443.022/3445.941 |
+| 2/weather | 1881.705/2222.802 | 2888.721/3097.600 | 3097.681/3099.782 |
+| 1/construction | 1626.969/2069.410 | 2228.355/2565.561 | 2565.664/6177.079 |
+| 2/construction | 1602.609/1976.713 | 1977.350/2294.685 | 2294.825/5535.647 |
+
+Weather's model→adapter-start gaps are **823.507/665.919ms**; its first Paint
+follows its first event by **2.918/2.101ms**. Construction first Paint follows
+its first event by **3611.415/3240.822ms**, but the *later revisions actually
+first painted* wait **958.238/299.545ms after their own events**. Reading/display
+waiting and evolving source must be accounted for together. One request was
+cancelled before any output and correctly records null. An initial ad hoc stage
+summarizer assumed that the first request always had output and failed with
+`TypeError: unsupported operand type(s) for -: NoneType and float`; a null-aware,
+caption-contributing-request diagnostic then passed. The harness/report and
+independent audit did not fail on null and no measurement was rerun/fabricated.
+
+Independent numeric audit **exit0** checks all four identical hashes/settings,
+9-clip assignment exactly once, 12 unique finals and their covering Paint,
+strictly increasing revisions, Paint geometry/timing arithmetic, exact warm
+percentiles, final sampled queue0/processing coverage/drop0 and correctly false
+acceptance/improvement flags. It additionally checks actual adapter-start/
+first-output ordering in the final stage report. This validates recorded failure
+evidence, not a successful 7d acceptance.
+
+All **four native Stop→stopped** checks passed idle/no active capture/offscreen0/
+host0; each harness still exits1 for its acceptance failure. Owned browsers,
+companions and fixtures exited; owned Ollama SIGINT exits0. The five owned
+profiles' **30 generated audio files** (including the early EOF invocation)
+were removed. Base `uv sync --locked` restored; no8765/8766/11434 listener.
+No keys, weights, audio/transcripts, generated build or `.ralph` state are committed.
+
+Next remains **7d**: use the new direct stage times to reduce waiting before
+warm short ASR/translation, and account for older final reading time without
+losing unread text. Keep the single worker, final priority, existing budgets and
+500ms cadence; suppressing available snapshots was measured and rejected.
+Original construction/long meaning and remaining real appearance/listening/
+inflight lifecycle/sustained processing acceptance still need passing evidence.
+There is no new external access/credential blocker. 7b/8/9 follow 7d.
+
+Final **npm run verify exit0**: lint/typecheck/build, **JS12 + Python180**,
+failures/skips/warnings0, Python **66.41s**. Ruff, `uv lock --check` and
+`git diff --check` pass. Product capture/model/output implementation remains at
+iteration6 behavior; only test-local timing/availability regressions and their
+failed native evidence/docs/plan are committed. **7d remains unchecked.**
