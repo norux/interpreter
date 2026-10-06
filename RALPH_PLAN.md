@@ -2070,3 +2070,83 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   8765/8766/11434 listener없음이다. harness/failednumeric2개/README/docs/plan만
   Conventional Commit으로 보존하고 key/weights/audio·transcripts/.ralph/build는
   커밋하지 않는다. 체크박스와 전체completion은 미완료다.
+
+### Ralph iteration 5/30 (resumed run) — 2026-10-06 — 7d 연속 실제 탭 캡처/Paint 검증
+
+- 다음 미완료 **7d만 진행했고 checkbox는 미체크 유지**다. 지정 checkout은 시작 시
+  clean이고 AGENTS.md는 없다. 사용자 지침과 `.ralph/verification.txt`의
+  `No completion verification attempted in this run.`을 확인했다. agent/다른worktree/
+  credential/유료API/모델교체/제품prompt/VAD/snapshot/queue/계약/runner/criteria/
+  dependency/lock/push/publish 변경은 없다. 제품 구현을 바꿀 근거 없는 prompt는
+  채택하지 않고 실제 acceptance 측정을 확장했다.
+- cached Ollama0.35.1/qwen3:4b-instruct Q4_K_M/context4096/temp0/num_predict256/
+  cloud disabled로 **11회 text-only**(기존제품2·generic후보3×control3)를 진단했다.
+  construction의 animal 오역은 계속되고 제품의 원래 전체long은 before-noon을
+  3pm으로 바꿨다. 후보는 오역/지시의 미래서술화 등으로 채택하지 않았다.
+  새 추론단계/fixture glossary/미리 만든 번역은 없고 실제ASR/Paint 증거가 아니다.
+- 기존 **tests/local-interim-browser.mjs**에 `continuous` 명령을 추가했다.
+  기존weather/construction과 원래long trip/rain/umbrella/station 생성음성을
+  **3round/9clip**으로 실제 Chrome에서 재생한다. native Extensions→Interpreter→
+  Start 뒤 popup을 닫고 실제 tabCapture→MLX0.6B8bit→Ollama→built sink를 처리한다.
+  실제playing/currentTime/ended를 확인하고 추가쉼400ms 외에 inference/자막expiry를
+  기다리지 않는다. 끝난 뒤 final/queue drain/자막expiry를 기다린다. before는
+  snapshots만 끄며 나머지 설정은 동일하다. 명령은 README/docs에 보존했다.
+- 최초before의 estimatedVADend+trailing silence로 clip 배정이 빠지는 **harness 회귀**를
+  발견해 실패 숫자를 `continuous-browser-before-assignment-failed.json`으로 보존했다.
+  이 보고서의 clip별 비교숫자는 무효다. 같은200ms origin오차 범위에서 audio구간
+  중심으로 배정하고 모든 caption이 정확히 한번 배정되는 것을 검사한다.
+- 다음before/after는 **final 이벤트 때 아직 hidden인 대기cue의 Paint를 측정하지
+  못하는 tracer 한계**를 드러냈다. `*-arrival-only-failed.json`2개를 보존했고
+  nullPaint를 평생누락이라고 단정하지 않았다. test-only feature-local ShadowDOM
+  observer로 최신대기revision이 실제 붙어 보일 때 mark를 추가한다. 교정/clear/start는
+  오래된revision을 잊고, 기존 **covering main-frame Chromium Paint** 조건을 그대로
+  요구한다. DOM/rAF/이벤트 시각을 Paint 성공으로 바꾸지 않았다.
+- **최종 tracer로 before→after를 둘 다 다시 실제 native 실행**했다. 동일WAVhash,
+  playback **39054.595/38954.386ms**, 각9clip/12final이다. 두명령 모두 **exit1/
+  acceptancePassedfalse**이며 `continuous-browser-{before,after}-failed.json`에
+  숫자를 보존한다. passing파일은 없다. 모든caption 배정/증가revision/모든final
+  coveringPaint/boundedqueue/drain/frame·ASR·번역drop0은 통과했다.
+  construction 각3개 모두 crane→animal 의미실패이며 after의 warmweather·construction
+  각2개도 duringSpeechPaint 실패, firstPaint 개선조건은 **false**다.
+- **warm n2/clip start→firstPaint p50/p95(ms)** weather
+  **2261.530/2367.091→2249.029/3389.273**, construction
+  **4287.604/4406.574→4855.582/5850.322**, long
+  **6803.912/6907.623→1672.227/2193.910**이다. end→lastfinal은 weather
+  **1333.969/1402.099→1433.495/2644.245**, construction
+  **2036.055/2086.430→1949.965/2669.906**, long
+  **1942.524/1989.718→2466.820/2536.725**다. 첫round를 warm에서 제외했고 별도
+  first-round수치/prepare **3519.878/3666.247ms**는 docs에 있다. 작은n2는 일반p95
+  보장이 아니다. cachedweights/OS/freshengine/선택Ollamaunload이며 coldcache가 아니다.
+  `(ID,audioEnd)`별 partial→firstPaint **n12,899.721/1526.515→n13,1076.482/4241.796ms**,
+  대기cue가 실제보인 뒤 coveringPaint까지 확인했다. after의 cue6/cue10 final은
+  이벤트 뒤 **504.019/3410.729ms**에 Paint된다. inference대기와 sink읽기대기는 다르다.
+- ASR **12→67**, worker시간 **4679.217→33292.506ms**(playback의 **12.0→85.5%**),
+  번역 **12→51**(완료14/미완료·취소37), 관측source변경 **0→7**이다. 단어연장도
+  포함하며 전부의미교정 성공이라고 하지 않는다. queuepeak ASR **1720→6500ms audio**,
+  text **0→2940ms audio**, coalesced **0→8**, 끝queue0이다. 짧은측정의10초bin에는
+  단조증가가 없지만 지속10분/backlog 일반보장은 아니다. 반복추론/취소비용은 실측이고
+  sharedGPU경쟁은 가능한 원인이지 독립적으로 확정한 원인이 아니다.
+- companionRSS **432/443sample**, peak **121110528/113754112bytes**;
+  MLXactive **1034000178/1034194738**, phasepeak **1680164320/1680166368bytes**다.
+  overlapping값을 합산하지 않고 browser/Ollama전체RSS 미측정이다. M5/16GiB/
+  Chrome153.0.8010.12/Playwright1.63.0/Python3.12.15/mlx-audio0.5.8/MLX0.32.3이다.
+  normal native/ignored screenshot에서 누적자막과 controls 위 배치를 검토했지만 crane
+  뜻은 틀리고 초기long의 negation/문법이 틀린 부분도 있다. 실제narrow/fullscreen/
+  모든글자·readingtime/physicaldisplay/원음청취/10분공개영상/inflightStop/
+  provider·session교체 acceptance는 이번에 새로 통과하지 않았다.
+- **5개 native시도 모두 nativeStop 뒤 idle/activecapture없음/offscreen0/host0**을
+  확인하고 각 harness의 **exit1**을 보존했다. ownedbrowser/companion/fixture종료,
+  OllamaSIGINTexit0, 생성audio삭제, base uv sync --locked복원이다. 독립숫자검사는
+  정확한배정/hash/n/12final/revision/Paintbounds/percentile/queue/false개선flag를
+  확인해 **exit0**다. 보고서의 정확성 검사이며 7d acceptance 성공은 아니다.
+- **다음도7d**: 이번 native하네스로 500ms snapshot의 반복추론/번역취소/표시대기를
+  줄일 작은 후보(갱신간격 등)를 같은fixture/두모델/기준으로 비교하고, 실제 continuous
+  short의 duringSpeech/firstPaint 악화를 해결한다. construction 및 long의 의미를
+  유지하는 개선도 필요하다. 나머지 실제appearance/원음청취/수명/장시간검증을
+  끝낸 뒤7b/8/9로 간다. 외부접근/credential blocker는 새로 확인되지 않았다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python172**,
+  failures/skips/warnings0, Python**66.24초**다. node --check/uv lock --check/
+  git diff --check 통과이고8765/8766/11434 listener없음이다. harness/failed숫자5개/
+  README/docs/plan만 Conventional Commit으로 보존하며 key/weights/audio·transcript/
+  .ralph/build는 커밋하지 않는다. 이번은 실제 acceptance 측정 진척이며 구현완료나
+  전체completion이 아니다. checkbox는 그대로 미완료다.

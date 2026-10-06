@@ -326,6 +326,22 @@ from ignored `.ralph/interim-browser-before.json`. Only snapshots are disabled
 in `before`; both phases retain the same VAD, preparation, prompt and streaming.
 The companion loads cached local dependencies with `uv run --locked --extra local`.
 
+To exercise continuous browser playback, run fresh `before` and `after` phases
+with the same commands and native Start/Stop workflow, but enter `continuous`
+instead of `measure`. Each phase plays three rounds of the existing short clips
+and the generated trip/rain/umbrella/station sentence, with only a 400 ms added
+pause between clips. Playback never waits for inference or subtitle expiry.
+After playback, it waits for caption finalization, queue drain and subtitle
+expiry. A test-only Shadow DOM observer traces a waiting caption when it becomes
+visible; the report still requires a covering Chromium Paint. The comparison
+records each clip's covering Paint/revisions, meaning checks, calls and queue/RSS
+samples in `continuous-browser-*.json`; failures use `-failed.json` and exit 1.
+The first round is reported separately from the two warm samples per clip.
+The `after` phase reads `.ralph/interim-continuous-browser-before.json`, so run
+these phases together. A long-speech screenshot stays in the ignored profile.
+This roughly 39-second generated-speech check is separate from the required
+ten-minute public-video run, acoustic playback and complete appearance checks.
+
 The harness records covering Chromium Paint, same-ID source changes, ASR and
 translation calls, bounded queue/drop samples, companion RSS and MLX allocations.
 Media start/end timing uses generated PCM bounds and observed media playback;
@@ -333,7 +349,7 @@ audio-position timing estimates capture origin from the first PCM reception and
 includes local transport delay. Neither measures acoustic output or physical
 screen presentation. Generated text is printed for review but numeric reports
 contain no transcript. Any failed check produces only a `browser-*-failed.json`
-report and a nonzero exit. A passing subprobe still does not establish continuous
+report and a nonzero exit. A passing isolated `measure` subprobe does not establish continuous
 load, all subtitle appearance checks, or the full 7d acceptance. Native window
 access worked in the resumed iteration after iteration 4's failure. Actual paired
 tabCapture/model/Paint runs produced failed reports: construction meaning remains

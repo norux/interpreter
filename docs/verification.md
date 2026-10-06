@@ -3413,3 +3413,150 @@ exit0; there are no8765/8766/11434 listeners. No browser or companion was
 started. Only the harness, two failed numeric reports, README, this verification
 record and plan are intended for the Conventional Commit. Keys, weights,
 audio/transcripts, build output and temporary `.ralph` state are excluded.
+
+## Ralph iteration 5/30 (resumed run) — 2026-10-06 — continuous native caption Paint
+
+Continued unfinished **7d** in the specified checkout. AGENTS.md was absent and
+`.ralph/verification.txt` contained `No completion verification attempted in this run.`
+The checkbox remains unchecked. No agents, other checkout, credentials, paid API,
+model replacement, prompt/product/VAD/snapshot/queue change, dependency/lock change,
+runner/criteria modification, push or publication was used.
+
+Eleven bounded text-only local requests (two current-product inputs and three
+generic prompt candidates across construction/bird/long-speech controls) again
+failed to provide an acceptable construction translation. The current full long
+sentence also changed before-noon timing to 3pm; candidates either retained errors
+or weakened the station instruction into a future statement. No candidate was
+adopted, and these are not ASR, playback or Paint evidence.
+
+Extended `tests/local-interim-browser.mjs` with the `continuous` command. Native
+Extensions → Interpreter → Start establishes actual tabCapture, with the popup
+closed. The same cached MLX0.6B8bit and Ollama qwen3:4b-instruct Q4_K_M, English→Korean,
+context4096, temperature0, num_predict256, VAD300ms/quality pause/six-second cap,
+preparation and streaming apply in both phases. Only snapshots are disabled in
+`before`. Three rounds of weather/construction and the existing long
+trip/rain/umbrella/station fixture advance to media `ended`, with 400ms added
+pauses. Playback does not wait for inference or subtitle expiry. Afterwards the
+harness waits for source finalization, inference drain and visible subtitle expiry.
+It reports all caption metrics, revisions/Paint, calls, queues and companion RSS/MLX;
+synthetic source/translation text is reviewed only in terminal output.
+
+Commands actually used (repository-local uv/Ollama binaries):
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked --extra local
+PATH="$PWD/.tools/uv/bin:$PATH" npm run build
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs before
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs after
+# Each phase: native Start, close popup, stdin continuous;
+# afterwards native Stop, stdin stopped, stdin exit, even on failure.
+```
+
+The first native baseline exposed a test-only assignment bug: estimated VAD end
+includes trailing silence and did not associate several clips within 200ms of
+the PCM voice boundary. Preserved `continuous-browser-before-assignment-failed.json`;
+its per-clip timing/checks are invalid comparison evidence. Assignment now uses
+the audio interval center with the same 200ms tolerance, while retaining actual
+start/end coordinates. Every caption must be assigned exactly once.
+
+The next pair exposed the event-arrival tracer's limit: waiting captions were
+not yet attached to the DOM when their final events arrived. Preserved
+`continuous-browser-{before,after}-arrival-only-failed.json`; null Paint there
+means no covering Paint at the event's visibility mark, not proven lifetime loss.
+A feature-local test-only Shadow DOM observer now marks a still-current waiting
+revision when its text is actually attached and visible. Superseded revisions
+are replaced in the observer; clear/start forget them. These marks still require
+an actual covering main-frame Chromium Paint, using the unchanged trace matcher.
+The final pair reruns both phases with this tracer; arrival/DOM/rAF alone is not
+promoted to successful Paint evidence.
+
+The final `continuous-browser-{before,after}-failed.json` pair has identical WAV
+hashes, nine clips/three rounds and twelve finalized cues per phase. Actual media
+playback spans **39054.595 / 38954.386ms**, including the fixed inter-clip pauses.
+Both commands exit **1**, `acceptancePassed:false`; no passing report exists.
+Every caption is assigned exactly once, revisions increase per ID, every final
+has covering Paint, and inference queues drain with zero reported frame/ASR/text
+drops. Construction crane→animal fails in **all three samples of both phases**.
+In `after`, both warm weather and construction samples also fail during-speech
+Paint; the first-Paint improvement check fails. Weather and long final keyword
+checks pass, but the final station instruction's strength can vary; keyword
+checks alone are not comprehensive semantic acceptance.
+
+Warm results below exclude the entire first round, **n=2 per clip per phase**.
+These very small samples describe this run and do not establish a general p95.
+Times are ms, p50 / p95, using the plan's nearest-rank convention:
+
+| Clip / measurement | Before | After |
+| --- | --- | --- |
+| Weather voice start → first Paint | 2261.530 / 2367.091 | 2249.029 / 3389.273 |
+| Construction voice start → first Paint | 4287.604 / 4406.574 | 4855.582 / 5850.322 |
+| Long voice start → first Paint | 6803.912 / 6907.623 | 1672.227 / 2193.910 |
+| Weather voice end → last final Paint | 1333.969 / 1402.099 | 1433.495 / 2644.245 |
+| Construction voice end → last final Paint | 2036.055 / 2086.430 | 1949.965 / 2669.906 |
+| Long voice end → last final Paint | 1942.524 / 1989.718 | 2466.820 / 2536.725 |
+
+First-round weather/construction/long start→first was respectively
+**2489.990/4315.375/6556.472 → 1195.473/916.383/1696.114ms**;
+end→last-final **1527.044/1983.328/1723.640 → 731.641/1997.858/3418.877ms**.
+Preparation **3519.878 / 3666.247ms** is excluded. Weights/OS caches were warm,
+engines were fresh and the selected Ollama model unloaded; this is not a cold-cache
+comparison. Partial audio-position→first covering Paint, grouped by `(ID,audioEnd)`
+instead of counting every token, was **n12,899.721/1526.515 → n13,1076.482/4241.796ms**.
+It includes token streaming of finalized ASR segments and actual sink waiting.
+Media bounds use PCM abs≥100 and observed playing/currentTime; capture position
+uses estimated first-receipt origin, including transport uncertainty, not acoustic
+output timing. Later visibility Paints were observed after event arrival by
+**504.019ms** (warm construction cue6 final), **188.574ms** (long cue7 provisional),
+and **3410.729ms** (warm construction cue10 final). No DOM timestamp was substituted
+for Paint. Reading/storage and inference waits are separate sources of delay.
+
+ASR calls **12→67**, worker inference time **4679.217→33292.506ms**, approximately
+**12.0→85.5%** of playback span; this ratio is not whole-system CPU/GPU utilization.
+Translation requests **12→51**, completed **12→14** (37 revised requests incomplete/
+cancelled), with observed source changes **0→7**. Counts include source extension,
+not necessarily word-sense improvements. During-speech Paints by round and clip
+were **[0,0,15;0,0,6;0,0,9] → [3,8,5;0,0,1;0,0,7]**. Repeated local inference and
+translation cancellation are measurable costs; shared-GPU contention is a possible
+contributor, not independently established as the cause here.
+
+Sampled waiting ASR/audio peaks **1720→6500ms**, text **0→2940ms**, coalesced
+snapshots **0→8**, final sampled queues zero. These audio-duration queue metrics
+are not wall-clock wait. After-phase first four 10-second bins had ASR peaks
+**4220/6500/5780/6000ms**, text **1100/2940/2460/1400ms**; no monotonic growth in
+this short run is not sustained-ten-minute acceptance. Companion RSS had **432/443**
+observations through subtitle drain, peaks **121110528/113754112 bytes**. MLX active
+peaks **1034000178/1034194738**, global phase peaks **1680164320/1680166368 bytes**
+are overlapping allocation metrics and are not added to RSS. Whole-browser/Ollama
+memory remains unmeasured. Environment: Apple M5/16GiB, Chrome153.0.8010.12,
+Playwright1.63.0, Python3.12.15, mlx-audio0.5.8/MLX0.32.3, Ollama0.35.1, offline HF
+and Ollama cloud disabled.
+
+Inspected native and ignored normal-viewport screenshots. Long/new text coexist
+within the subtitle region and controls stay above it. The crane text remains
+incorrect; an early long provisional fragment also has a wrong/incomplete
+negation before the corrected final. This is not complete all-character/reading-time,
+narrow/fullscreen, physical-display, acoustic playback, public-video or ten-minute
+acceptance. No new in-flight Stop or provider/session replacement run was performed.
+All **five** native attempts used native Stop and passed idle/no active captured
+tab/no offscreen context/no caption host checks, including failed semantic runs.
+Owned browser/companion/fixture processes exited; owned Ollama stopped with SIGINT,
+exit0. Generated temporary speech is deleted and not committed. Base dependencies
+were restored with `uv sync --locked`; the lock is unchanged.
+
+An independent numeric audit passed exact-once assignment, identical hashes,
+9 clips/12 finals per phase, increasing revisions, covering-Paint bounds, unchanged
+coordinates, all warm nearest-rank percentiles, queue/drop flags and the correctly
+false improvement flag. It is a report-correctness check, not a passing 7d test.
+Next: measure a modestly longer snapshot interval or reduced obsolete work with
+these same native fixtures to resolve continuous short-speech delay, and address
+construction/long semantic failures with the permitted model. Preserve the original
+meaning/during-speech checks. Finish remaining 7d appearance/lifecycle/acoustic
+acceptance before 7b/8/9. No new external-access blocker was found.
+
+Final `npm run verify` **exit0**: lint/typecheck/build, **12 JS + 172 Python**
+tests, failures/skips/warnings0, Python **66.24s**. `node --check`, `uv lock --check`
+and `git diff --check` passed. No listeners remained on8765/8766/11434. Harness,
+numeric failed evidence, README/docs and plan progress are committed together;
+no weights, credentials, audio/transcripts, build or temporary `.ralph` state are
+committed. 7d and overall completion remain pending.
