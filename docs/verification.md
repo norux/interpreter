@@ -4912,3 +4912,95 @@ source and dependency/lock files are unchanged. Commit contains only the local
 verification harness/instrumentation/regressions, source-free numeric evidence,
 README, verification documentation and plan. No weights, audio/transcripts,
 credentials, profiles, build outputs or `.ralph` state are included.
+
+### Ralph iteration 17 — native in-flight provider-change subset (2026-10-06)
+
+**7d remains unchecked.** Extended the existing local lifecycle harness with a
+small test-only `provider` mode. No product capture/model/output interface,
+snapshot timing, queue, model, prompt or paid partial policy changed. The mode
+requires a native popup provider change during actual ASR/translation, idle
+selected cloud settings, cleanup, restoration of local settings, native restart,
+a new visible Korean final, rejection of old captions and final native Stop.
+The original Stop mode retains its six checks and was also rerun. README contains
+both workflows; numeric records are in
+[iteration 17 evidence](verification/interim/provider-iteration17.json).
+
+Owned Ollama **0.35.1**, `OLLAMA_NO_CLOUD=1`, HF offline, cached MLX Audio
+**0.5.8** / Qwen3-ASR **0.6B 8bit**, Qwen3 **4B Instruct Q4_K_M**, Apple M5,
+English→Korean, temperature 0, context 4096, prediction limit 256, think false:
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-lifecycle.mjs provider
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-lifecycle.mjs
+```
+
+Both used Chrome for Testing **153.0.8010.12** and real native toolbar Start,
+actual tabCapture and non-silent captured PCM. Provider run: `play` → native
+**Luna selection** → `stopped` → native **Local · Ollama selection** → native
+Start → `restarted` → native Stop → `stopped` → `exit`. **Exit 0; eight checks
+pass.** Luna remained idle. Exactly two local sessions prepared; no cloud Start
+or live cloud verification occurred. This is a selection/cancellation check,
+not evidence of Luna access or translation quality.
+
+The provider change fell **152.208 ms** into ASR and **151.240 ms** into text
+translation. Text cancellation ended **14.582 ms** after the change with
+`responseComplete:false`. Native MLX finished **268.894 ms** after the change,
+**251.981 ms** after session cleanup. It finishes already-running native work
+without a new old-session model call or caption. Each cleanup reports pending
+ASR/text **0/0**, reader/inference await/translation task **false/false/false**,
+and active captured tabs/caption hosts/offscreen contexts **0/0/0**. Initial and
+restarted ASR calls **6/3**, text calls **5/2**, captions **5/7**; the new session
+has a final and visible Korean. Delivered old captions remain **5→5**. Duplicate
+idempotent close records are retained. Preparation **18146.243/6.992 ms** reflects
+a fresh ASR engine followed by session reuse, with warmed Ollama and existing
+weight/OS/compiler caches; it is not a cold-cache or latency improvement claim.
+
+Default Stop regression: `play` → native Stop → `stopped` → native Start →
+`restarted` → native Stop → `stopped` → `exit`. **Exit 0; six checks pass.** Stop
+fell **368.729/369.496 ms** into ASR/text; text ended **6.109 ms** after Stop,
+native ASR **185.404 ms** after Stop and **178.548 ms** after cleanup. Initial/
+restarted calls/captions and cleanup counts match the provider run. Independent
+numeric audits for both runs **exit 0**: native ordering, distinct session IDs,
+start/end pairing and time arithmetic, actual overlapping calls, cleanup, no
+post-cleanup old starts/captions, new final and payload-free lifecycle records.
+The provider audit also checks both exact local model/language/options records.
+These audits validate the lifecycle subset, not full 7d acceptance.
+
+Long generated speech loops until interruption; this is a cancellation probe,
+not sustained throughput, latency, listening or ten-minute evidence.
+`mediaAfterStop` is sampled during `stopped`, after cleanup, rather than at the
+native interruption. No artificial late provider output is injected. Appearance,
+full text/reading time, narrow/fullscreen, native continuous Paint, contextual
+correction and original-audio listening were not attempted. No browser-access or
+credential blocker arose. An initial non-PTY invocation ended stdin before any
+commands, exited 1 with acceptance false and no checks; both actual native runs
+used a PTY and completed the full workflows.
+
+A separate **24-request text-only diagnostic** used six non-sensitive generated
+sentences, production options and streamed responses. The production request,
+an added generic word/context/time-preservation instruction, and a more explicit
+task in the user message all still substituted animals in the construction
+sentence. Noon remained ambiguous or lost its exact time; unrelated bat/dusk
+meaning also failed. An empty-think assistant-message candidate produced repeated
+tool markers or an empty translation and was rejected. All candidates were rejected;
+product prompt/options are unchanged. Numeric indices/heuristics/timings exclude
+text. The diagnostic exited 0 for response collection, **quality acceptance
+false**. Its simple noon keyword heuristic incorrectly accepts an ambiguous
+expression; direct manual review rejects it. No acceptance check was relaxed,
+and this diagnostic establishes neither ASR quality nor browser performance.
+
+Next remains **7d**: construction/noon meaning and warm continuous during-speech
+Paint, visible same-sentence contextual correction, full text/reading time,
+narrow/fullscreen and original-audio listening. The actual in-flight provider
+selection subset now has evidence. Later priority is 7b→8→9.
+
+Final `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` **exit 0**: lint,
+typecheck, build, **12 JS + 216 Python tests**, zero failures/skips/warnings;
+Python **66.78 s**. Focused Biome and Node syntax checks pass. Base
+`uv sync --locked`, `uv lock --check` and `git diff --check` pass. Owned Ollama
+SIGINT exit 0; no listeners on 8765/8766/11434. The three owned profiles,
+generated speech and this iteration's temporary diagnostic/audit records are
+removed. Commit contains the existing harness extension, README, plan,
+verification documentation and payload-free numeric evidence. Earlier evidence,
+runner, product source and dependency/lock files are unchanged. No secrets,
+weights, audio/transcripts, profiles, build outputs or `.ralph` state are included.

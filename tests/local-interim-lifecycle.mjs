@@ -1,4 +1,4 @@
-// Real tabCapture/local-model in-flight Stop and native restart, separate from quality acceptance.
+// Real tabCapture/local-model interruption and native restart, separate from quality acceptance.
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
@@ -8,6 +8,8 @@ import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { chromium } from "playwright";
 
+const interruption = process.argv[2] ?? "stop";
+assert.ok(["stop", "provider"].includes(interruption));
 await mkdir(".ralph", { recursive: true });
 const profile = await mkdtemp(resolve(".ralph/interim-lifecycle-"));
 const clips = [];
@@ -31,7 +33,7 @@ let input;
 let buffer = "";
 let log = "";
 const metrics = [];
-const report = { measurement: "native Stop during real local inference, then native Start; not latency or translation-quality acceptance", checks: {} };
+const report = { interruption, measurement: `native ${interruption === "provider" ? "provider change" : "Stop"} during real local inference, then native Start; not latency or translation-quality acceptance`, checks: {} };
 let oldSession;
 let restartedSession;
 let initialCaptionCount;
@@ -73,9 +75,11 @@ try {
   await worker.evaluate(() => {
     globalThis.lifecycleStops = [];
     globalThis.lifecycleStarts = [];
+    globalThis.lifecycleConfigurations = [];
     chrome.runtime.onMessage.addListener((message, sender) => {
       if (sender.url === chrome.runtime.getURL("popup.html") && message.target === "worker" && message.type === "stop") globalThis.lifecycleStops.push(Date.now());
       if (sender.url === chrome.runtime.getURL("popup.html") && message.target === "worker" && message.type === "start") globalThis.lifecycleStarts.push(Date.now());
+      if (sender.url === chrome.runtime.getURL("popup.html") && message.target === "worker" && message.type === "configure") globalThis.lifecycleConfigurations.push({ atMs: Date.now(), provider: message.settings.provider });
     });
   });
   await worker.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, files: ["content.js"] }), tabId);
@@ -86,7 +90,9 @@ try {
     });
   } }), tabId);
   console.log(JSON.stringify({ ready: true, profile, browser: report.browser,
-    instructions: "Native toolbar Start. Open popup with Stop visible, then play → click native Stop promptly → stopped. Native Start again → restarted → native Stop → stopped → exit." }));
+    instructions: interruption === "provider"
+      ? "Native toolbar Start. Open popup, then play → promptly select OpenAI Luna → stopped. Select Local · Ollama while idle, native Start → restarted → native Stop → stopped → exit. Do not Start a cloud provider."
+      : "Native toolbar Start. Open popup with Stop visible, then play → click native Stop promptly → stopped. Native Start again → restarted → native Stop → stopped → exit." }));
   input = createInterface({ input: process.stdin });
   for await (const command of input) {
     try {
@@ -110,7 +116,7 @@ try {
           assert.ok(Date.now() < deadline, "No real translation started");
           await page.waitForTimeout(10);
         }
-        console.log(JSON.stringify({ nativeStopNow: true, sessionId: oldSession, atMs: Date.now() }));
+        console.log(JSON.stringify({ [interruption === "provider" ? "nativeProviderChangeNow" : "nativeStopNow"]: true, sessionId: oldSession, atMs: Date.now() }));
       }
       if (command === "stopped") {
         const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
@@ -134,15 +140,26 @@ try {
         assert.ok(cleanup.cancelled && !cleanup.readerActive && !cleanup.inferenceAwaited && !cleanup.translationActive);
         assert.equal(cleanup.pendingAudioMs, 0);
         assert.equal(cleanup.pendingTranslationMs, 0);
-        const stopAtMs = (await worker.evaluate(() => globalThis.lifecycleStops)).at(-1);
-        assert.ok(stopAtMs, "Stop must come from the actual popup button");
-        const overlap = metrics.filter((m) => m.sessionId === sessionId && ["asr", "translation"].includes(m.metric) && m.startedAtMs <= stopAtMs && stopAtMs <= m.atMs);
+        const configuration = interruption === "provider" && !restartedSession
+          ? (await worker.evaluate(() => globalThis.lifecycleConfigurations)).filter((change) => change.provider === "luna" && change.atMs > report.initialStartAtMs).at(-1)
+          : undefined;
+        const interruptedAtMs = configuration?.atMs ?? (await worker.evaluate(() => globalThis.lifecycleStops)).at(-1);
+        assert.ok(interruptedAtMs, "Interruption must come from the actual popup control");
+        if (interruption === "provider" && !restartedSession) {
+          assert.ok(configuration, "Use the native provider selector, without pressing Stop");
+          const settings = await worker.evaluate(() => chrome.storage.local.get("sessionSettings"));
+          assert.equal(settings.sessionSettings.provider, "luna");
+          assert.equal((await worker.evaluate(() => globalThis.lifecycleStarts)).length, 1, "Provider selection must not auto-start cloud capture");
+          assert.equal((await worker.evaluate(() => globalThis.lifecycleStops)).length, 0, "Provider change must independently stop capture");
+          report.checks.providerSelectedWhileIdle = true;
+        }
+        const overlap = metrics.filter((m) => m.sessionId === sessionId && ["asr", "translation"].includes(m.metric) && m.startedAtMs <= interruptedAtMs && interruptedAtMs <= m.atMs);
         const delivered = await worker.evaluate(async (id) => (await chrome.scripting.executeScript({ target: { tabId: id }, func: () => globalThis.lifecycleCaptions }))[0].result, tabId);
         const lateCaptions = metrics.filter((m) => m.sessionId === sessionId && m.metric === "caption" && m.atMs > cleanup.atMs).length;
         assert.equal(lateCaptions, 0);
         if (!restartedSession) {
-          report.initialStop = { stopAtMs, overlap, cleanup, captionHosts: 0, offscreenContexts: 0, activeCapturedTabs: 0, lateCaptions };
-          assert.ok(overlap.length, "Native Stop did not overlap inference; rerun instead of claiming in-flight evidence");
+          report[interruption === "provider" ? "initialProviderChange" : "initialStop"] = { interruptedAtMs, overlap, cleanup, captionHosts: 0, offscreenContexts: 0, activeCapturedTabs: 0, lateCaptions };
+          assert.ok(overlap.length, "Native interruption did not overlap inference; rerun instead of claiming in-flight evidence");
           const receipt = metrics.filter((m) => m.sessionId === oldSession && m.metric === "receipt" && m.peak > 0).at(-1);
           assert.ok(receipt, "No non-silent captured PCM receipt");
           report.nonSilentReceipt = receipt;
@@ -152,26 +169,35 @@ try {
           initialCaptionCount = delivered.filter((c) => c.sessionId === oldSession).length;
           report.initialDelivered = delivered;
           await page.locator("audio").evaluate((element) => { element.pause(); element.loop = false; });
-          report.checks.inflightStop = true;
+          report.checks[interruption === "provider" ? "inflightProviderChange" : "inflightStop"] = true;
           report.checks.cleanup = true;
           report.checks.realTabPcm = true;
         } else {
           assert.ok(report.checks.restarted);
-          assert.ok(stopAtMs > report.initialStop.stopAtMs);
-          report.finalCleanup = { stopAtMs, cleanup, captionHosts: 0, offscreenContexts: 0, activeCapturedTabs: 0, lateCaptions };
+          assert.ok(interruptedAtMs > (report.initialProviderChange ?? report.initialStop).interruptedAtMs);
+          report.finalCleanup = { stopAtMs: interruptedAtMs, cleanup, captionHosts: 0, offscreenContexts: 0, activeCapturedTabs: 0, lateCaptions };
           report.checks.finalStop = true;
         }
         console.log(JSON.stringify({ stopped: true, overlap: overlap.map((m) => m.metric), checks: report.checks }));
       }
       if (command === "restarted") {
-        assert.ok(report.checks.inflightStop && !restartedSession);
+        assert.ok(report.checks[interruption === "provider" ? "inflightProviderChange" : "inflightStop"] && !restartedSession);
         const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
         assert.equal(captureStatus.state, "capturing");
         restartedSession = captureStatus.sessionId;
         assert.notEqual(restartedSession, oldSession);
         const starts = await worker.evaluate(() => globalThis.lifecycleStarts);
         assert.equal(starts.length, 2, "Restart must use the actual popup Start button");
-        assert.ok(starts[1] > report.initialStop.stopAtMs);
+        assert.ok(starts[1] > (report.initialProviderChange ?? report.initialStop).interruptedAtMs);
+        if (interruption === "provider") {
+          const configurations = await worker.evaluate(() => globalThis.lifecycleConfigurations);
+          const restored = configurations.find((change) => change.provider === "local" && change.atMs > report.initialProviderChange.interruptedAtMs);
+          assert.ok(restored && restored.atMs <= starts[1], "Restore Local · Ollama through the native popup before Start");
+          const preparations = metrics.filter((m) => m.metric === "prepare");
+          assert.ok(preparations.every((m) => [oldSession, restartedSession].includes(m.sessionId) && m.textModel === "qwen3:4b-instruct"), "Provider selection must not prepare a cloud session");
+          report.localRestoredAtMs = restored.atMs;
+          report.checks.noCloudSession = true;
+        }
         report.restartStartAtMs = starts[1];
         await page.locator("audio").evaluate(async (element) => { element.src = "/0.wav"; element.loop = false; await element.play(); });
         const deadline = Date.now() + 60000;
@@ -205,8 +231,10 @@ try {
   }
   await new Promise((closed) => fixture.close(closed));
   report.metrics = metrics;
-  report.acceptancePassed = !failed && ["inflightStop", "cleanup", "realTabPcm", "restarted", "noLateOldCaptions", "finalStop"].every((key) => report.checks[key]);
-  await writeFile(`.ralph/interim-lifecycle${report.acceptancePassed ? "" : "-failed"}.json`, `${JSON.stringify(report, null, 2)}\n`);
+  const required = [interruption === "provider" ? "inflightProviderChange" : "inflightStop", "cleanup", "realTabPcm", "restarted", "noLateOldCaptions", "finalStop"];
+  if (interruption === "provider") required.push("providerSelectedWhileIdle", "noCloudSession");
+  report.acceptancePassed = !failed && required.every((key) => report.checks[key]);
+  await writeFile(`.ralph/interim-lifecycle${interruption === "provider" ? "-provider" : ""}${report.acceptancePassed ? "" : "-failed"}.json`, `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify({ acceptancePassed: report.acceptancePassed, checks: report.checks }));
   if (!report.acceptancePassed) process.exitCode = 1;
 }

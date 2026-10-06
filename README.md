@@ -431,6 +431,26 @@ only and does not replace the pending continuous meaning/Paint, provider-change,
 appearance, listening or ten-minute checks. Iteration 16's final native run
 passed this subset; 7d remains unfinished.
 
+For in-flight **provider selection**, use the same harness with its test-only mode:
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-lifecycle.mjs provider
+```
+
+Use native toolbar **Start**, open the popup, and enter `play`. When it prints
+`nativeProviderChangeNow`, promptly select **OpenAI Luna** in the popup, then
+enter `stopped`. This must independently stop active local inference and clear
+captured tracks, captions and the offscreen document. Keep Luna idle: selection
+does not authorize a cloud Start or require a key. Select **Local · Ollama** again,
+use native **Start**, enter `restarted`, then native **Stop**, `stopped`, and `exit`.
+Exit 0 requires the provider change to overlap real model work, the selected
+provider to remain idle, only local sessions to prepare, and a different local
+session to display actual Korean without delivering another old caption. A
+change outside inference fails. The source-free report is
+`.ralph/interim-lifecycle-provider.json` (or `-failed.json`); remove the printed
+owned profile after exit. This measures cancellation and restart, not live cloud
+translation, contextual accuracy, Paint latency, listening or ten-minute load.
+
 Iteration 6 rejected the one-second default: it reduced ASR cost but worsened
 final Paint latency and did not fix warm short-speech Paint or construction
 meaning. The product retains 500 ms updates. See `docs/verification.md` for
