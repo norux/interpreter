@@ -1,5 +1,5 @@
 body {
-  width: 300px;
+  width: 340px;
   margin: 0;
   padding: 16px;
   font: 14px/1.5 system-ui, sans-serif;
@@ -26,4 +26,27 @@ button {
   padding: 6px 16px;
   font: inherit;
   cursor: pointer;
+}
+
+label {
+  display: block;
+  margin-top: 8px;
+}
+
+select, input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 5px;
+  font: inherit;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+[hidden] {
+  display: none;
 }

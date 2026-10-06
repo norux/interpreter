@@ -20,7 +20,8 @@
     "test:captions-browser": "npm run build && node tests/captions-browser.mjs",
     "test:local-browser": "npm run build && node tests/local-browser.mjs",
     "test:local-model": "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. uv run --locked --extra local python tests/local-model-smoke.py",
-    "test:direct-live": "PYTHONPATH=. uv run --locked python tests/direct-live-smoke.py"
+    "test:direct-live": "PYTHONPATH=. uv run --locked python tests/direct-live-smoke.py",
+    "test:settings-browser": "npm run build && node tests/settings-browser.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

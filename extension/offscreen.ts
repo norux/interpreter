@@ -1,3 +1,4 @@
+import type { SessionSettings } from "./capture/settings";
 import type { CaptureCommand, CaptureStatus } from "./capture/contracts";
 import { createTabAudioSource } from "./capture/tab-audio";
 
@@ -34,19 +35,22 @@ async function stop(next: CaptureStatus = { state: "idle", message: "Capture sto
   report(next);
 }
 
-async function start(streamId: string, tabId: number) {
+async function start(streamId: string, tabId: number, settings?: SessionSettings) {
   await stop();
   const started = ++generation;
   report({ state: "starting", tabId, message: "Connecting to companion…" });
   try {
     const response = await fetch(`${companion}/sessions`, {
       method: "POST",
+      ...(settings ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) } : {}),
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) {
       throw new Error(response.status === 403
         ? "Set INTERPRETER_EXTENSION_ID on the companion to this extension's ID."
-        : "Companion is busy. Stop the other capture first.");
+        : response.status === 422
+          ? "Invalid language or model selection. Check the popup settings."
+          : "Companion is busy. Stop the other capture first.");
     }
     const { sessionId, token } = await response.json() as { sessionId: string; token: string };
     if (started !== generation) return status;
@@ -113,7 +117,7 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
   if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL("service-worker.js")) return;
   if (message.target !== "offscreen") return;
   if (message.type === "status") { respond(status); return; }
-  const task = message.type === "start" ? start(message.streamId, message.tabId) : stop().then(() => status);
+  const task = message.type === "start" ? start(message.streamId, message.tabId, message.settings) : stop().then(() => status);
   void task.then(respond);
   return true;
 });

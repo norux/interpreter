@@ -10,6 +10,24 @@
       <h1>Interpreter</h1>
       <p id="status" role="status"></p>
       <p id="metrics"></p>
+      <form id="settings">
+        <label>Translation
+          <select name="provider">
+            <option value="local">Local · Ollama</option>
+            <option value="openai-direct">OpenAI · direct audio translation</option>
+            <option value="luna">OpenAI · Luna text translation</option>
+            <option value="anthropic">Anthropic · text translation</option>
+          </select>
+        </label>
+        <label>Speech recognition
+          <select name="asr"><option value="local">Local · MLX</option><option value="openai">OpenAI · live transcription</option></select>
+        </label>
+        <label>Input language<select name="sourceLanguage"><option value="en">English</option><option value="ko">한국어</option><option value="ja">日本語</option><option value="zh">中文</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option></select></label>
+        <label>Subtitle language<select name="targetLanguage"><option value="en">English</option><option value="ko">한국어</option><option value="ja">日本語</option><option value="zh">中文</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option></select></label>
+        <label>ASR model<input name="asrModel" required maxlength="160" pattern="[\w./:\-]+" /></label>
+        <label>Translation model<input name="textModel" required maxlength="160" pattern="[\w./:\-]+" /></label>
+        <p class="hint">Changing settings stops capture. Press Start to use them. Local IDs need compatible models; Anthropic needs an accessible model ID. Cloud requires server keys and API billing.</p>
+      </form>
       <div class="actions">
         <button id="start" type="button">Start</button>
         <button id="stop" type="button">Stop</button>

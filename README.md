@@ -55,6 +55,30 @@ original tab audio to the audio destination to preserve playback; audible output
 was confirmed by the user in the capture checks. The local path displays Korean
 subtitles after each speech segment; model preparation is below.
 
+The popup selects translation provider, speech recognizer, input/subtitle languages,
+and compatible model IDs. Defaults are local MLX/Ollama with English → Korean.
+Languages offered are English, Korean, Japanese, Chinese, Spanish, French, and
+German; model support and account access still apply. Changing any setting stops
+the current capture and clears its subtitles. Press **Start** to start a new
+session with those settings. Selections persist locally across popup closure.
+
+OpenAI direct detects the input language and fixes its model to
+`gpt-realtime-translate`; OpenAI ASR fixes its model to `gpt-live-transcribe`.
+Luna defaults to `gpt-6-luna`. Anthropic requires an accessible model ID before
+Start. Local model compatibility and installation requirements are described
+below. The popup never requests or stores API keys: export keys only in the
+companion shell. No provider falls back automatically.
+
+Popup settings take precedence over `INTERPRETER_PROVIDER`, language, and model
+environment defaults for each new session. Environment selection remains available
+to clients that POST `/sessions` without a settings body, including protocol/model
+smokes. Stop capture before restarting the companion to change server keys.
+
+`npm run test:settings-browser` checks built popup persistence, selected-setting
+transport/validation cleanup, session replacement, literal HTML rendering, one
+DOM overlay, and DOM/test-memory output fan-out. It uses generated captions and
+local protocol fixtures; it does not record tab audio or call a model.
+
 `npm run dev` rebuilds on edits; reload the extension in Chrome after each build.
 Chrome internal pages cannot be captured. If the popup says the extension has not
 been invoked, use its toolbar icon on the target tab; opening `popup.html` directly
@@ -184,21 +208,19 @@ a Hangul assertion alone is not evidence of accurate translation.
 This optional paid path sends the selected tab's audio to OpenAI. It requires
 an API key with access to `gpt-realtime-translate`; a chat subscription does not
 provide API billing. Export the key in the companion's shell, then explicitly
-select the provider when restarting the companion:
+start the companion and select **OpenAI · direct audio translation** in the popup:
 
 ```sh
 # OPENAI_API_KEY must already be exported in this shell; never put it in the extension.
 INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
-  INTERPRETER_PROVIDER=openai-direct INTERPRETER_TARGET_LANGUAGE=ko \
   npm run dev:server
 ```
 
 For direct translation, the target is an API language code (`ko` by default),
 rather than the language name used by local prompts. Source language is detected
-by the translation model. Settings UI selection comes in plan item 7; until then,
-stop capture before restarting the companion with changed environment settings.
-Omit `INTERPRETER_PROVIDER` or set it to `local` to use the local models. Neither
-provider automatically falls back to the other.
+by the translation model. Choose the subtitle language in the popup. Select
+**Local · Ollama** to use the local models. Neither provider automatically falls
+back to the other.
 
 The companion connects to the fixed `/v1/realtime/translations` WebSocket and
 continuously sends mono 24 kHz PCM16, including silence. It configures the output
@@ -230,9 +252,9 @@ because the process has no exported key. Protocol references:
 
 ## Luna / Anthropic text translation and ASR selection
 
-`INTERPRETER_PROVIDER=luna` uses OpenAI Responses with `gpt-6-luna` by default;
-`anthropic` uses Messages and requires an explicit `INTERPRETER_TEXT_MODEL`
-accessible to your account. Each translates finalized ASR text with at most three
+**OpenAI · Luna text translation** uses Responses with `gpt-6-luna` by default;
+**Anthropic · text translation** uses Messages and requires a model ID accessible
+to your account in the popup. Each translates finalized ASR text with at most three
 recent translation pairs. Audio never enters either text API. Partial ASR results
 revise the same internal transcript; only final text creates a translation request.
 The caption keeps its ASR utterance ID and captured audio interval. Empty, refused,
@@ -247,7 +269,10 @@ Responses requests use `store=false` and a 256-token output limit. See the
 No claim is made about your account's model access or live translation quality.
 These optional API paths require separate provider API billing.
 
-With local ASR prepared, export the appropriate server key, then run one of:
+With local ASR prepared, export the appropriate server key, then run one of the
+commands below. Select the corresponding provider, **Local · MLX** recognizer,
+and model IDs in the popup. The environment model/provider values also serve
+clients without a settings body:
 
 ```sh
 # OPENAI_API_KEY must already be exported. Local ASR keeps audio on this Mac.
@@ -271,7 +296,8 @@ INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
 
 All three text translators (`local`, `luna`, `anthropic`) can instead use paid
 OpenAI ASR. This sends captured speech to OpenAI, needs `OPENAI_API_KEY`, and
-requires no MLX dependencies. Use `INTERPRETER_ASR=openai`,
+requires no MLX dependencies. Select **OpenAI · live transcription** and the
+input language in the popup. For clients without settings, use `INTERPRETER_ASR=openai`,
 `INTERPRETER_ASR_MODEL=gpt-live-transcribe`, and `INTERPRETER_ASR_LANGUAGE=en`
 (or a supported source-language code). Prompt languages remain names such as
 `INTERPRETER_SOURCE_LANGUAGE=English` and `INTERPRETER_TARGET_LANGUAGE=Korean`.
@@ -299,7 +325,8 @@ The direct translation path continues to use its separate close protocol.
 Stop capture before changing exported settings and restarting the companion.
 Defaults apply only when a variable is unset: if you exported the local model IDs
 from `.env.example`, explicitly change them for cloud paths. There is no automatic
-provider fallback. Popup selection remains plan item 7.
+provider fallback. Popup settings override these environment defaults for the
+extension; they do not change server keys.
 
 Keyless `npm run verify` covers local WebSocket/HTTP fixtures and companion
 integration. Live Luna, Anthropic, and OpenAI ASR have **not** been verified here:

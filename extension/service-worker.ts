@@ -1,5 +1,12 @@
 import type { CaptureCommand, CaptureStatus } from "./capture/contracts";
 
+import { defaultSettings, type SessionSettings } from "./capture/settings";
+
+async function readSettings(): Promise<SessionSettings> {
+  const saved = await chrome.storage.local.get("sessionSettings") as { sessionSettings?: SessionSettings };
+  return saved.sessionSettings ?? defaultSettings;
+}
+
 const idle: CaptureStatus = { state: "idle", message: "Ready to capture tab audio." };
 let operations = Promise.resolve();
 
@@ -45,7 +52,7 @@ async function startCapture(): Promise<CaptureStatus> {
       justification: "Capture user-selected tab audio and preserve its original playback.",
     });
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
-    const next: CaptureStatus = await chrome.runtime.sendMessage({ target: "offscreen", type: "start", streamId, tabId: tab.id });
+    const next: CaptureStatus = await chrome.runtime.sendMessage({ target: "offscreen", type: "start", streamId, tabId: tab.id, settings: await readSettings() });
     if (next.state === "capturing" && next.sessionId) {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
       await chrome.tabs.sendMessage(tab.id, { target: "captions", type: "start", sessionId: next.sessionId });
@@ -104,6 +111,18 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
   }
   // Only the extension popup can initiate recording; page/content messages cannot.
   if (sender.url !== chrome.runtime.getURL("popup.html")) return;
+  if (message.type === "settings") {
+    void readSettings().then(respond);
+    return true;
+  }
+  if (message.type === "configure") {
+    void enqueue(async () => {
+      const next = await stopCapture();
+      await chrome.storage.local.set({ sessionSettings: message.settings });
+      return next;
+    }).then(respond);
+    return true;
+  }
   const task = message.type === "status" ? readStatus() : enqueue(message.type === "start" ? startCapture : stopCapture);
   void task.then(respond, (error) => respond({ state: "error", message: String(error) }));
   return true;

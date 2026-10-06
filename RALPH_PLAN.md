@@ -218,7 +218,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
     전달되고 동일 cue를 만든다. Luna/Anthropic에는 audio를 전송하지 않는다.
     model ID 선택, 취소, rate limit/권한 오류, partial/final 구분을 검증한다.
 
-- [ ] 7. 설정 UI와 session/출력 교체 검증
+- [x] 7. 설정 UI와 session/출력 교체 검증
   - popup에 입력/목표 언어, local/direct/text provider와 호환 model ID, Start/Stop을 둔다.
   - OutputSink 분리와 test memory sink fan-out을 검증한다. 추가 제품 출력은 만들지 않는다.
   - Acceptance: provider 변경 시 이전 세션을 중단하고 새 세션만 표시한다. 중복 overlay,
@@ -698,3 +698,50 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
 - 상세 명령/실패/한계는 docs/verification.md에 기록했다. 키/가중치/사용자 음성·전사문/
   임시 .ralph state는 커밋하지 않는다. 다음 미완료 작업은 **항목 7 — popup 설정과
   session/OutputSink 교체 검증**이다. 실제 YouTube 번역/10분/성능/최종 완료는 남았다.
+
+### Ralph iteration 4/30 — 2026-10-06 — 항목 7 설정/session/output 검증 완료
+
+- 지정 checkout 안에서 다음 미완료 항목 7만 진행했다. AGENTS.md는 없으며 사용자
+  지침을 적용했다. `.ralph/verification.txt`는 `No completion verification attempted
+  in this run.`이다. 다른 agent/native browser/model/유료 API/credential 파일을 쓰지 않았다.
+- popup에 provider(local/direct/Luna/Anthropic), local/OpenAI ASR, 입력/자막 언어,
+  호환 model ID를 추가했다. 기본 local 영어→한국어. 설정 변경은 이전 캡처와 자막을
+  중단하며 새 캡처는 명시 Start에서만 시작한다. 비밀이 아닌 여섯 설정만 local storage에
+  보존한다. direct/live ASR model은 고정, Anthropic model ID는 필수다.
+- companion은 작은 feature-local SessionSettings로 /sessions body를 검증하고
+  single-use token에 선택을 묶는다. 키/base URL/unknown field는 거부하며 WS에서는
+  선택을 바꿀 수 없다. 서버 key만 adapter에 전달한다. 기존 body 없는 client의 환경
+  기본값은 유지하며 popup 선택은 언어/provider/model 기본값보다 우선한다.
+- 작은 caption output fan-out을 기존 content script의 DOM sink에 연결했다.
+  memory sink는 테스트만 쓰며 새 제품 output/framework는 만들지 않았다.
+  같은 caption/status/clear 전달, 다른 session/폐기 뒤 event 거부를 검증한다.
+- 최종 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 9 + Python 130 tests, failures/skips/warnings 0(Python 35.91초).
+  신규 JS 2 + Python 21 cases가 provider 변경 중 이전 stop/clear/새 설정 Start,
+  content 설정 요청 거부/늦은 caption, 모든 provider/ASR/model/language 선택,
+  키 미노출/선택 token 바인딩/invalid 설정/재시작을 검증했다. 실제 inference가 아니다.
+- `npm run test:settings-browser` 최종 exit 0: fresh ignored profile, headless
+  실제 built extension, Chrome for Testing 153.0.8010.12/Playwright 1.63.0.
+  popup reload 보존/고정 model field/Anthropic 필수 입력, built offscreen의 정확한
+  설정 POST/422 안내/녹음 전 cleanup, real DOM+test memory fan-out, HTML literal
+  표시와 injection 미실행, built content 중복 설치/단일 overlay/session 교체/늦은
+  덮어쓰기와 old clear 거부/Stop clear를 통과했다. 생성 cue이며 실제 번역이 아니다.
+- `docs/verification/settings/popup.png`를 실제 view_image로 검토했다. native popup이
+  아닌 372×600 standalone extension page이며, 모든 control과 Start/Stop이 읽히고
+  높이 안에 들어간다. 첫 layout의 높이 여유를 늘리고 action bottom assertion을 넣었다.
+- 기존 `npm run test:captions-browser` exit 0: normal/narrow/wrapper fullscreen,
+  revision/두 줄/긴 cue 무손실/컨트롤 클릭/만료/cleanup 통과. 기존 PNG 변경 없음.
+  실제 YouTube/audio 번역 증거로 쓰지 않았다. `uv lock --check`, `git diff --check` 통과.
+  browser/fixture를 종료했고 8765/8766 listeners 없음. dependency/lockfile 변경 없음.
+- 실패 수정: Python line-length/import lint; 첫 settings browser의 TS7 runtime compiler
+  API 부재(TypeError)를 기존 Vite transformWithOxc로 수정하고 재실행 통과했다.
+  테스트/acceptance/runner는 약화하지 않았다. README/.env.example에 popup 우선권과
+  명시 Start/서버 key/호환 model 사용 및 재현 명령을 보존했다.
+- 상세 증거는 docs/verification.md에 기록했다. 항목 7 acceptance 통과 후 체크했다.
+  blocker 없음. 실제 local capture 항목 4의 기존 evidence는 유지하며 이번에는 재실행하지
+  않았다. live cloud는 여전히 미검증이다. 키/가중치/사용자 음성·전사문/임시 .ralph는
+  커밋하지 않는다. 다음은 **항목 8 — 실제 YouTube 번역/10분 처리/성능과 복구 검증**.
+  기존 local-browser harness를 출발점으로 실제 toolbar Start와 YouTube 재생을 검증하고,
+  normal/theatre/fullscreen screenshot 시각 검토, 최소 10분 큐/drop/latency p50/p95/
+  모델·전체 메모리 및 Start/Stop/navigation/companion 복구를 기록해야 한다.
+  항목 8–9와 최종 완료 검증은 아직 남아 있다.

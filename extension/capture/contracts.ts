@@ -1,3 +1,4 @@
+import type { SessionSettings } from "./settings";
 import type { Caption } from "../captions/contracts";
 
 export interface AudioSource {
@@ -18,7 +19,9 @@ export interface CaptureStatus {
 
 export type CaptureCommand =
   | { target: "worker"; type: "start" | "stop" | "status" }
-  | { target: "offscreen"; type: "start"; streamId: string; tabId: number }
+  | { target: "worker"; type: "configure"; settings: SessionSettings }
+  | { target: "worker"; type: "settings" }
+  | { target: "offscreen"; type: "start"; streamId: string; tabId: number; settings?: SessionSettings }
   | { target: "offscreen"; type: "stop" | "status" }
   | { target: "worker"; type: "caption"; caption: Caption }
   | { target: "worker"; type: "capture-status"; status: CaptureStatus };

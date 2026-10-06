@@ -975,3 +975,79 @@ temporary `.ralph` state are included in the commit.
 Item 6 acceptance passed; item 7 (popup settings and session/output replacement)
 is next. Actual YouTube translation, ten-minute processing/performance, and final
 completion checks remain in items 8–9.
+
+## Ralph iteration 4/30 — 2026-10-06 — settings and session/output replacement
+
+Scope: checklist item 7 only, in `/Users/norux/orca/workspaces/interpreter/aspidochelone`.
+No checkout `AGENTS.md` exists; user instructions applied. `.ralph/verification.txt`
+reads `No completion verification attempted in this run.` No other agents, native
+browser automation, model downloads/inference, credential files, or paid APIs used.
+
+The popup now selects provider, ASR, input/subtitle language and compatible model
+IDs. English → Korean local MLX/Ollama remains the default. Changing a setting
+stops capture and disposes its old captions; an explicit Start creates the next
+session. Non-secret selections persist in extension local storage. Direct/live
+ASR model IDs are fixed; Anthropic requires an accessible model ID. Existing
+clients without a settings body retain environment defaults. Popup selections
+otherwise override model/language/provider defaults; API keys remain server-side.
+
+The companion validates an optional `/sessions` body, forbids unknown fields
+(including keys/base URLs), and binds the immutable selection to the single-use
+auth token. The WebSocket cannot override that selection. It maps language codes
+to local/text prompt names, while direct/live ASR use codes. Provider endpoints
+remain fixed, and no automatic paid fallback was added.
+
+`extension/captions/output.ts` is a small feature-local fan-out around the existing
+OutputSink contract. The content script uses it with the DOM sink; the memory
+sink exists only in tests. It rejects other sessions and events after disposal.
+No additional product output or provider framework was introduced.
+
+Actual commands/results:
+
+- `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify`: exit 0, lint/typecheck/build,
+  **9 JS + 130 Python tests passed**, no failures/skips/warnings; Python 35.91 s.
+  Added two JS and 21 Python cases. Worker lifecycle fixtures verify old capture
+  stop/clear, persistence, new selection at Start, rejection of content-script
+  configuration and late captions. ASGI fixtures verify all four providers,
+  both ASR choices for text paths, selected models/languages, server-only keys,
+  token-bound settings, repeated sessions and invalid selections. These tests
+  do not call real MLX or cloud models.
+- `npm run test:settings-browser`: final exit 0, **Chrome for Testing
+  153.0.8010.12**, Playwright 1.63.0, fresh ignored profile, headless built extension.
+  Actual popup extension page persisted Luna/OpenAI ASR/Japanese/French after
+  reload, fixed direct/live model fields, required an Anthropic model ID, and
+  stored exactly the six non-secret fields. Built offscreen code sent those
+  fields to a local HTTP fixture, surfaced its 422 validation error, and released
+  its document before recording. The fixture did not perform inference.
+- The same browser test exercised the real DOM sink and test memory sink together:
+  identical caption, status and clear fan-out; literal `<img ... onerror=...>`
+  text with no image node/execution; old-session and disposed-output rejection.
+  Separately, the built content script was installed twice and replaced sessions:
+  one overlay, no old caption overwrite, old clear ignored, current Stop clear,
+  and no revival from a late caption. **Generated output, not audio translation.**
+- `docs/verification/settings/popup.png`: visually reviewed with `view_image`.
+  Standalone popup extension page at **372×600 CSS px**, rather than a native
+  toolbar popup. Labels, model fields, hint and Start/Stop are legible and fit;
+  an assertion keeps the action bottom within 600 px. The first layout was close
+  to the height limit; increased width/reduced spacing/hint now leave clear margin.
+- `npm run test:captions-browser`: exit 0, same Chrome version, built content sink;
+  normal/390×700/wrapper fullscreen, revisions, duplicate installation, controls,
+  lossless long-cue display, expiry, fullscreen containment/return, Stop/late
+  caption rejection passed. Existing screenshot files are unchanged. No YouTube
+  or real audio was exercised by this command.
+- `PATH="$PWD/.tools/uv/bin:$PATH" uv lock --check`: exit 0; unchanged dependencies.
+  `git diff --check`: passed. Browser/fixture processes closed; no listeners remain
+  on 8765/8766.
+
+Failures fixed, without weakening acceptance: Python line-length/import lint;
+the first settings browser run failed because TypeScript 7's installed package
+has no `ScriptTarget.ES2022` runtime compiler API. The test now uses the installed
+Vite `transformWithOxc` to compile the real sink source for its in-page fan-out
+check; built content-script acceptance remains separate and also passes.
+
+Item 7 acceptance passed. Native capture/provider live smoke was not repeated;
+previous item 4 real local capture evidence remains intact. Live cloud access,
+quality and latency remain unverified. Next is item 8: real YouTube translation
+and normal/theatre/fullscreen appearance, at least ten minutes of bounded
+processing, lifecycle/recovery and measured p50/p95/drop/memory metrics. No blocker
+was encountered in this iteration; final completion checks have not been attempted.

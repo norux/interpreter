@@ -12,9 +12,10 @@ from anyio import CancelScope
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from server.capture.pcm import FRAME_SAMPLES, decode_frame
-from server.sessions.direct import direct_session
+from server.sessions.direct import DirectSession, direct_session
 from server.sessions.local import MlxEngine, local_session
 from server.sessions.selection import text_session
+from server.sessions.settings import SessionSettings
 
 
 def capture_router() -> APIRouter:
@@ -32,7 +33,7 @@ def capture_router() -> APIRouter:
             "INTERPRETER_EXTENSION_ID must be Chrome's 32-letter extension ID."
         )
     origin = f"chrome-extension://{extension_id}" if extension_id else None
-    pending: tuple[str, str, float] | None = None
+    pending: tuple[str, str, float, SessionSettings | None] | None = None
     active = False
 
     def authorized(headers) -> bool:
@@ -43,7 +44,9 @@ def capture_router() -> APIRouter:
         )
 
     @router.post("/sessions")
-    async def create_session(request: Request) -> dict[str, str]:
+    async def create_session(
+        request: Request, settings: SessionSettings | None = None
+    ) -> dict[str, str]:
         nonlocal pending
         if not authorized(request.headers):
             raise HTTPException(
@@ -52,7 +55,7 @@ def capture_router() -> APIRouter:
         if active:
             raise HTTPException(409, "Another capture session is active.")
         session_id, token = str(uuid4()), secrets.token_urlsafe(32)
-        pending = (session_id, token, time.monotonic() + 10)
+        pending = (session_id, token, time.monotonic() + 10, settings)
         return {"sessionId": session_id, "token": token}
 
     @router.websocket("/audio")
@@ -131,20 +134,38 @@ def capture_router() -> APIRouter:
                 )
                 return
             session_id = pending[0]
+            settings = pending[3]
             pending = None
             active = owns_session = True
             await websocket.send_json({"type": "ready", "sessionId": session_id})
-            provider = os.environ.get("INTERPRETER_PROVIDER", "local")
+            provider = (
+                settings.provider
+                if settings
+                else os.environ.get("INTERPRETER_PROVIDER", "local")
+            )
             if provider == "openai-direct":
-                session = direct_session(session_id)
+                session = (
+                    DirectSession(
+                        session_id,
+                        os.environ.get("OPENAI_API_KEY", ""),
+                        settings.targetLanguage,
+                    )
+                    if settings
+                    else direct_session(session_id)
+                )
             elif (
-                provider == "local"
+                settings is None
+                and provider == "local"
                 and os.environ.get("INTERPRETER_ASR", "local") == "local"
             ):
                 session = local_session(session_id, engine)
             elif provider in ("local", "luna", "anthropic"):
                 try:
-                    session = text_session(session_id, engine, provider)
+                    session = (
+                        text_session(session_id, engine, provider, settings)
+                        if settings
+                        else text_session(session_id, engine, provider)
+                    )
                 except RuntimeError as error:
                     await send(
                         {
