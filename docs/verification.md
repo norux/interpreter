@@ -1,5 +1,42 @@
 # Verification evidence
 
+## Current status — Ralph loop closed (2026-10-06)
+
+The user requested termination of the automatic Ralph workflow. The plan and
+loop runner are removed, and ignored `.ralph` state is cleared. No Ralph/Codex
+iteration process or owned verification listener remains. Tests may recreate
+`.ralph` for temporary profiles/results; its ignore rule remains necessary.
+Installed dependencies and cached models are retained for normal application use.
+Prior plan revisions remain in Git history, and the evidence below is preserved.
+
+Closure verification: `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exited 0
+after removing the plan/runner/state: lint, typecheck, build, 12 JS tests and
+218 Python tests (66.99s). `git diff --check` passed. The previous browser checks
+for caption replay/fade and native Start/Stop remain the UI evidence for these
+changes. Cleanup did not rerun public-video or full project acceptance.
+
+Completed recent changes: native Chrome Start/Stop access recovered; growing
+speech continuations coalesce without repeatedly cancelling translation; final
+captions replay from the beginning and fade out over 250ms after reading time.
+The small-model comparison rejected TranslateGemma 4B for missing time details;
+the current translation-model default is unchanged.
+
+Remaining product work is tracked here:
+
+- Local interim translation: improve meaning accuracy and first-caption latency;
+  verify same-sentence semantic correction and continuous warm display on real
+  tab audio, with paired p50/p95 and queue/drop/memory measurements. Complete
+  real-caption appearance/reading coverage and original-audio listening checks.
+- Automatic source-language detection: preserve explicit manual selections,
+  connect supported local/cloud ASR behavior, and verify real English/Korean,
+  silence/music/mixed-language cases without silently forcing English.
+- Public-media acceptance: at least ten minutes of advancing public-video audio,
+  accurate Korean captions, normal/fullscreen appearance, bounded queues, tab
+  changes, Start/Stop and companion recovery. Record YouTube-specific limitations
+  and use another public video where necessary. Live cloud calls remain unverified.
+- Final project acceptance: finish the remaining checks above before recording
+  project completion. This workflow closure records the user's stop request.
+
 ## Iteration 1 — project scaffold (2026-10-05)
 
 Checkout: `/Users/norux/orca/workspaces/interpreter/aspidochelone`.
@@ -5083,3 +5120,106 @@ only the unfinished harness, README, plan and failure evidence/documentation.
 No secrets, weights, user audio/transcripts, temporary `.ralph` state or build
 outputs are committed. Native access must be restored before the next required
 appearance run can proceed.
+
+## Growing speech — cancellation starvation fix and Ralph audit (2026-10-06)
+
+ASR previously cancelled every changed source while correction output was withheld
+until the translation completed. Frequent continuations could therefore prevent
+any correction from completing during a long utterance. The new regression failed
+before the fix (`calls == [1,2,3]`, expected one unfinished request). Append-only
+provisional speech now finishes its current prefix and coalesces waiting source
+updates. The next translation uses the newest continuation, preserving caption
+revision ordering within the same utterance. A changed earlier word or final
+source still cancels obsolete work, including its queued continuation. Existing
+queue bounds, local models, prompt and cloud behavior are unchanged.
+
+Two fresh owned Chrome for Testing 153.0.8010.12 contexts recovered the native
+window access that blocked iteration 18. CUA/Orca could read the window; actual
+native toolbar Start/Stop and tabCapture worked without a permission change.
+One unresponsive toolbar AX click required a fresh screenshot-coordinate click.
+Both `stopped` checks passed with zero caption hosts/offscreen contexts. This does
+not identify the previous OS/helper failure or verify full subtitle appearance.
+
+Paired `PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs after`
+runs used `continuous`, identical WAV hashes/settings, three repetitions of each
+of three clips, 400ms inter-clip pauses and no inference/expiry waits. Local
+Ollama 0.35.1 had cloud disabled; MLX/Qwen3-ASR 0.6B 8bit and Qwen3 4B Instruct
+were unchanged. Source-free compact numeric records are in
+[growing-speech comparison](verification/interim/growing-speech-comparison.json).
+
+| Observed result | Before | After |
+| --- | --- | --- |
+| Translation requests | 54 | 43 |
+| Incomplete translation requests | 40 | 10 |
+| Long-clip during-speech covering Paints, three runs | 5 / 3 / 7 | 13 / 13 / 13 |
+| Long-clip displayed source updates, three runs | 1 / 1 / 1 | 4 / 4 / 4 |
+| Peak waiting translation audio | 2460ms | 5780ms |
+| Dropped audio frames / ASR / translations | 0 / 0 / 0 | 0 / 0 / 0 |
+
+All displayed cues finalized, queues drained and stayed within 8000ms. The backlog
+increase reflects retained continuations; this is not a claim of lower latency.
+First Paint did not improve and warm short clips still lacked during-speech Paints.
+Construction/noon meaning still fails. Both complete harnesses therefore **exit 1**;
+they do not establish full 7d acceptance. The increased long-clip revisions prove
+more frequent growth/context updates, not a successful ambiguous-word correction.
+One paired run has two warm observations per clip; no statistical significance,
+cold-cache, ten-minute, original-audio listening or full appearance claim is made.
+Earlier numeric evidence was restored unchanged after retaining new raw records
+in ignored `.ralph`; the compact comparison excludes audio and caption text.
+
+The 18-iteration audit found concrete fixes for provisional caption expiry,
+reading-position preservation, missing-ASR-final stalls, stale source/translation
+revisions and case/punctuation corrections. Eight iterations (4,5,7,10,14,16,17,18)
+changed only tests/documentation. The first300 experiment in iteration 13 was
+rejected and reverted to first500 in iteration 15. Acceptance for core meaning
+and continuous display remained false while auxiliary verification accumulated.
+The next work should address those remaining product failures directly.
+
+## Final-caption replay and fade-out (2026-10-06)
+
+At the user's request, interim corrections keep their reading position, while
+partial→final resets that sentence's offset and starts its entire translation
+from the beginning. The existing two-line parts and four-line surface remain;
+each part receives its existing 2.5–6-second reading time. On the last part's
+expiry, the sentence stays attached while opacity transitions to zero over 250ms,
+then is retired. The fading row continues to occupy its layout space and ignores
+late revisions. Clear/Stop/provider replacement still removes content immediately.
+
+The added browser regression first failed for missing fading opacity, then passed
+after implementation. The final-replay regression subsequently failed against the
+fade-only build and passed after the offset reset. `node
+tests/captions-overlap-browser.mjs` **exit 0**, Chrome 153.0.8010.12: a still-attached
+expired row had computed opacity strictly between 0 and 1 before removal; final
+replay displayed every character in order after a read-prefix correction. Same-node
+updates, fresh final reading time, stale/expired revision rejection, clear/session
+replacement, normal/narrow/fullscreen geometry and controls pass. This is generated
+DOM evidence, not an additional real-audio/model run. The previously reported
+continuous local-model comparison preceded this display change.
+
+## Small local translation-model comparison (2026-10-06)
+
+The user prioritized real-time speed and small local models. Downloaded the
+official `translategemma:4b` (3.3GB) into the ordinary Ollama cache and compared it
+with the installed `qwen3:4b-instruct`. ASR/product defaults were not changed.
+Eight generated English texts, two streamed requests per model/text, explicit
+preload excluded: median first token **65.11→89.54ms**, median completion
+**535.76→557.23ms**. Exact values are retained in the
+[small-model comparison](verification/interim/small-model-comparison.json).
+These are text API timings, not concurrent-ASR or browser latency measurements.
+
+TranslateGemma used its official single-user language-code prompt. It translated
+the construction crane and river-bank/bat meaning correctly, where Qwen substituted
+animals or actions. However, it omitted the before-noon condition in the combined
+two-sentence input and rendered noon as an unspecified twelve o'clock in the
+short input. Manual exact-time review rejects both. The larger input also failed
+with Qwen, which confused noon with the later afternoon meeting time.
+
+Nine further TranslateGemma text-only requests compared the official prompt with
+generic clause/exact-time preservation and no-omissions hints. Neither resolved
+the problem; the exact-time hint sometimes changed the condition instead.
+`think:false` was accepted, but this is not product adapter/native integration
+acceptance. Both diagnostic scripts exited 0 for collection, not full meaning
+success. The candidate remains installed for evaluation; the default stays Qwen.
+No special adapter, automatic model migration, larger weights or paid API was
+introduced. Numeric committed evidence excludes raw text/audio. This small sample
+supports the specific observed errors and does not estimate general model quality.

@@ -1,0 +1,358 @@
+{
+  "date": "2026-10-06",
+  "engine": "Ollama 0.35.1 on Apple M5",
+  "method": "8 generated English texts, 2 streamed English-to-Korean requests per text/model, explicit preload excluded; API timings only",
+  "models": [
+    {
+      "model": "qwen3:4b-instruct",
+      "n": 16,
+      "medianFirstTokenMs": 65.10500001604669,
+      "medianCompleteMs": 535.757728968747,
+      "samples": [
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 0,
+          "repetition": 0,
+          "firstTokenMs": 114.90316700655967,
+          "completeMs": 358.0851670121774
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 0,
+          "repetition": 1,
+          "firstTokenMs": 32.044958032201976,
+          "completeMs": 266.7794579756446
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 1,
+          "repetition": 0,
+          "firstTokenMs": 99.26408302271739,
+          "completeMs": 610.6485830387101
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 1,
+          "repetition": 1,
+          "firstTokenMs": 31.535624992102385,
+          "completeMs": 544.2382079781964
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 2,
+          "repetition": 0,
+          "firstTokenMs": 102.14641701895744,
+          "completeMs": 695.2595420298167
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 2,
+          "repetition": 1,
+          "firstTokenMs": 35.36849998636171,
+          "completeMs": 616.6792080039158
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 3,
+          "repetition": 0,
+          "firstTokenMs": 94.75262503838167,
+          "completeMs": 561.6385000175796
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 3,
+          "repetition": 1,
+          "firstTokenMs": 35.45737499371171,
+          "completeMs": 510.9709589742124
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 4,
+          "repetition": 0,
+          "firstTokenMs": 98.32354198442772,
+          "completeMs": 1108.023582957685
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 4,
+          "repetition": 1,
+          "firstTokenMs": 33.25916698668152,
+          "completeMs": 1037.010249972809
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 5,
+          "repetition": 0,
+          "firstTokenMs": 101.67158400872722,
+          "completeMs": 358.82537497673184
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 5,
+          "repetition": 1,
+          "firstTokenMs": 33.54170802049339,
+          "completeMs": 289.4302080385387
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 6,
+          "repetition": 0,
+          "firstTokenMs": 99.47283298242837,
+          "completeMs": 591.6967500234023
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 6,
+          "repetition": 1,
+          "firstTokenMs": 35.39162495872006,
+          "completeMs": 527.2772499592975
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 7,
+          "repetition": 0,
+          "firstTokenMs": 96.2479580193758,
+          "completeMs": 526.3849580078386
+        },
+        {
+          "model": "qwen3:4b-instruct",
+          "clip": 7,
+          "repetition": 1,
+          "firstTokenMs": 31.89191600540653,
+          "completeMs": 452.383124968037
+        }
+      ],
+      "manualReview": [
+        {
+          "clip": 0,
+          "criterion": "weather",
+          "passed": true
+        },
+        {
+          "clip": 1,
+          "criterion": "construction crane and steel",
+          "passed": false
+        },
+        {
+          "clip": 2,
+          "criterion": "negation and exact noon",
+          "passed": true
+        },
+        {
+          "clip": 3,
+          "criterion": "umbrella and afternoon meeting",
+          "passed": true
+        },
+        {
+          "clip": 4,
+          "criterion": "long two-sentence details",
+          "passed": false
+        },
+        {
+          "clip": 5,
+          "criterion": "ambiguous bank prefix",
+          "passed": true
+        },
+        {
+          "clip": 6,
+          "criterion": "river bank and bat at dusk",
+          "passed": false
+        },
+        {
+          "clip": 7,
+          "criterion": "spoken instruction translated as text",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "model": "translategemma:4b",
+      "n": 16,
+      "medianFirstTokenMs": 89.54391648876481,
+      "medianCompleteMs": 557.2268960240763,
+      "samples": [
+        {
+          "model": "translategemma:4b",
+          "clip": 0,
+          "repetition": 0,
+          "firstTokenMs": 220.09299998171628,
+          "completeMs": 425.4493339685723
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 0,
+          "repetition": 1,
+          "firstTokenMs": 53.91037499066442,
+          "completeMs": 240.81829196074978
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 1,
+          "repetition": 0,
+          "firstTokenMs": 116.91962502663955,
+          "completeMs": 514.6075420198031
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 1,
+          "repetition": 1,
+          "firstTokenMs": 62.11812497349456,
+          "completeMs": 471.84587497031316
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 2,
+          "repetition": 0,
+          "firstTokenMs": 121.5809159912169,
+          "completeMs": 646.7297910130583
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 2,
+          "repetition": 1,
+          "firstTokenMs": 64.36579197179526,
+          "completeMs": 588.3064169902354
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 3,
+          "repetition": 0,
+          "firstTokenMs": 195.85929199820384,
+          "completeMs": 621.0306249558926
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 3,
+          "repetition": 1,
+          "firstTokenMs": 59.25712501630187,
+          "completeMs": 494.42066700430587
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 4,
+          "repetition": 0,
+          "firstTokenMs": 130.0627090386115,
+          "completeMs": 1003.122209047433
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 4,
+          "repetition": 1,
+          "firstTokenMs": 57.06170899793506,
+          "completeMs": 913.7379169696942
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 5,
+          "repetition": 0,
+          "firstTokenMs": 125.93787501100451,
+          "completeMs": 313.7289580190554
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 5,
+          "repetition": 1,
+          "firstTokenMs": 54.42037497414276,
+          "completeMs": 243.04512498201802
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 6,
+          "repetition": 0,
+          "firstTokenMs": 116.88454198883846,
+          "completeMs": 701.8851670436561
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 6,
+          "repetition": 1,
+          "firstTokenMs": 53.680374985560775,
+          "completeMs": 636.77841599565
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 7,
+          "repetition": 0,
+          "firstTokenMs": 114.72204100573435,
+          "completeMs": 582.6344580273144
+        },
+        {
+          "model": "translategemma:4b",
+          "clip": 7,
+          "repetition": 1,
+          "firstTokenMs": 52.73691698675975,
+          "completeMs": 531.8193340208381
+        }
+      ],
+      "manualReview": [
+        {
+          "clip": 0,
+          "criterion": "weather",
+          "passed": true
+        },
+        {
+          "clip": 1,
+          "criterion": "construction crane and steel",
+          "passed": true
+        },
+        {
+          "clip": 2,
+          "criterion": "negation and exact noon",
+          "passed": false
+        },
+        {
+          "clip": 3,
+          "criterion": "umbrella and afternoon meeting",
+          "passed": true
+        },
+        {
+          "clip": 4,
+          "criterion": "long two-sentence details",
+          "passed": false
+        },
+        {
+          "clip": 5,
+          "criterion": "ambiguous bank prefix",
+          "passed": true
+        },
+        {
+          "clip": 6,
+          "criterion": "river bank and bat at dusk",
+          "passed": true
+        },
+        {
+          "clip": 7,
+          "criterion": "spoken instruction translated as text",
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "options": {
+    "temperature": 0,
+    "num_predict": 256,
+    "num_ctx": 4096
+  },
+  "prompts": {
+    "qwen3:4b-instruct": "unchanged product prompt; empty finalized context",
+    "translategemma:4b": "official single-user English(en)/Korean(ko) format; no context"
+  },
+  "candidateInstalled": true,
+  "candidateSelectedAsDefault": false,
+  "decision": "Keep the current default. Candidate improves crane and bat meaning but loses before-noon information in the combined long input; exact noon remains ambiguous in the short input.",
+  "followupPromptDiagnostic": {
+    "requests": 9,
+    "thinkFalseAccepted": true,
+    "clausesAndTimesHintFixedMeaning": false,
+    "noOmissionsHintFixedMeaning": false
+  },
+  "limitations": [
+    "Small generated text sample and manual review, not a general translation benchmark.",
+    "No real-ASR audio, browser Paint, cold-cache or simultaneous-ASR speed comparison for the candidate.",
+    "Template/prompt differences are part of the tested model configurations.",
+    "Ambiguous time expressions fail the exact-time check; keyword presence alone is not acceptance."
+  ],
+  "sources": [
+    "https://ollama.com/library/translategemma"
+  ]
+}

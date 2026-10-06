@@ -3,8 +3,8 @@
 Chrome tab audio → Korean subtitles, with a local companion. This repository
 contains tab capture, a Shadow DOM subtitle sink, and the local MLX ASR → Ollama
 translation path. The user confirmed audible original playback during capture
-and after popup closure. See `RALPH_PLAN.md` for durable progress and the
-remaining implementation work. Real Chrome capture through both local models
+and after popup closure. See [verification status](docs/verification.md#current-status--ralph-loop-closed-2026-10-06)
+for current progress and remaining work. Real Chrome capture through both local models
 to visible Korean subtitles passes on generated speech; ten-minute public-video
 acceptance remains pending.
 
@@ -430,6 +430,21 @@ acceptance has passed yet: iteration 18
 could not access the native Chrome window and stopped before Start. Missing
 Start fails the command and exits 1; it does not substitute injected captions.
 
+The subsequent growing-speech fix recovered native access with fresh owned Chrome
+contexts, without changing macOS permissions. Native toolbar Start/Stop, actual
+tab capture and cleanup worked in both comparison runs. If a toolbar accessibility
+click has no visible effect, inspect a fresh screenshot and use its button position;
+do not keep retrying stale element IDs. This recovery did not run `appearance`.
+
+During local provisional translation, append-only ASR updates now coalesce into
+the latest waiting continuation while the current prefix finishes. Changes to
+already recognized words and final ASR results still supersede the current request.
+This prevents repeated cancellations from freezing a long sentence's corrections.
+The paired Chrome run increased long-clip during-speech Paint counts from 5/3/7
+to 13/13/13 and source updates from 1/1/1 to 4/4/4. It did not improve first Paint
+or fix the remaining construction/noon translation errors; 7d remains incomplete.
+See `docs/verification/interim/growing-speech-comparison.json`.
+
 The separate native in-flight Stop/restart check uses the same local adapters:
 
 ```sh
@@ -632,6 +647,13 @@ character offset; recent expired sentence IDs and older audio/revisions are
 discarded. The sink keeps at most 128 retired IDs to handle direct-translation
 cues that share an audio timestamp; older audio is rejected by a timestamp
 watermark. These guards accompany the existing bounded, ordered session transport.
+
+When a provisional sentence becomes final, its complete corrected translation
+restarts from the beginning and advances through every part again. Each part gets
+2.5–6 seconds of reading time based on length. After the last part, the sentence
+fades out over 250ms before removal. Interim corrections and resize/fullscreen
+continue to preserve the current reading position. Clear/Stop still removes the
+overlay immediately.
 
 Hidden output waits at most four captions and twelve seconds of source audio,
 separately from the inference queue. Overload skips the oldest waiting sentence
