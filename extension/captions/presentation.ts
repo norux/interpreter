@@ -1,11 +1,13 @@
-import type { CaptionRevision, MediaTargetId, PresentationEvent } from "../../packages/contracts";
+import { FRAMEWORK_VERSION, type CaptionRevision, type MediaTargetId, type PresentationEvent } from "../../packages/contracts";
 import { createPresentationPolicy } from "../../packages/core/presentation-policy";
+import { createCompanionCaptionBridge } from "../../packages/engines-companion/captions";
 import type { Caption } from "./contracts";
 
-// Presentation compatibility only. C4 owns engine normalization and capabilities.
+// Compatibility for legacy messages; live companion messages already carry normalized pairs.
 // This sentinel is a legacy tab output, never a selected-video media handle.
 export function createLegacyPresentation(sessionId: string, present: (event: PresentationEvent) => void) {
   const identity = { sessionId, targetId: "legacy-tab-output" as MediaTargetId, epoch: 0 };
+  const bridge = createCompanionCaptionBridge(identity, { source: "und", target: "ko" });
   const policy = createPresentationPolicy(identity, {
     now: () => performance.now(),
     schedule(callback, delayMs) {
@@ -16,14 +18,9 @@ export function createLegacyPresentation(sessionId: string, present: (event: Pre
   return {
     caption(caption: Caption) {
       if (caption.sessionId !== sessionId) return;
-      policy.accept({ type: "paired-caption", caption: {
-        source: { identity, utteranceId: caption.utteranceId, sourceRevision: caption.revision,
-          text: caption.source, final: caption.final, language: "und",
-          audioRange: { startMs: caption.audioStartMs, endMs: caption.audioEndMs } },
-        translation: { state: "paired", revision: { identity, utteranceId: caption.utteranceId,
-          sourceRevision: caption.revision, translationRevision: caption.revision,
-          languages: { source: "und", target: "ko" }, text: caption.translation, final: caption.final } },
-      } });
+      if (caption.framework && (caption.framework.version !== FRAMEWORK_VERSION || caption.framework.message?.type !== "paired-caption")) return;
+      const normalized = caption.framework?.message.type === "paired-caption" ? caption.framework.message.caption : bridge.accept(caption);
+      if (normalized) policy.accept({ type: "paired-caption", caption: normalized });
     },
     progress: policy.progress,
     retire: policy.retire,

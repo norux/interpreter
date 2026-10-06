@@ -328,3 +328,123 @@ updates, preserve settings and avoid duplicate VAD/ASR. C5's full adapter/policy
 acceptance remains unfinished even though current core and browser checks pass.
 No selected-video PCM, real inference/model loading, ASR/translation accuracy,
 Safari or physical iPhone acceptance was performed. This is C3 progress only.
+
+## 2026-10-06 — core iteration 3/5 (C4)
+
+Result: C4 implemented and verified; all four required acceptance commands pass
+for the final code. C5 remains unchecked; Stage core is incomplete. Commit: the
+`feat: connect companion combined interpretation adapter` commit containing this
+report. No repository AGENTS.md or requested independent runner failure file
+`.ralph/media-framework/2026-10-06T11-28-49-587Z-core-verification.txt` exists.
+The supplied standing instructions apply.
+
+### Implemented scope and compatibility
+
+`packages/engines-companion/engine.ts` implements the combined InterpretationEngine
+port. The offscreen host retains the existing authenticated `/sessions` request,
+then delegates WebSocket authentication, ready ordering, PCM transmission and
+caption normalization to the adapter. Tab acquisition remains in the existing
+Chrome host. The adapter performs no local VAD, ASR, translation or model loading.
+Its capability explicitly declares `combined-interpretation`, `asrOnlyUpdates:
+false` and the session's selected language pair. The protocol supplies no model
+version/load probe, so the adapter leaves model identities empty instead of
+manufacturing versions or model readiness. Preparation waits for the existing
+server ready response; this is not accuracy evidence.
+
+`captions.ts` validates unknown captions before accepting them, rejects foreign
+sessions, stale/duplicate revisions and final-to-provisional regressions, and
+emits only atomic source/translation pairs. Source revisions count observed text,
+finality or audio-range changes; translation-only corrections retain the source
+revision. The original server emission counter becomes translationRevision and
+is paired with the exact locally observed sourceRevision. These are bridge
+revisions, not server ASR counters. Both bridge history and core presentation
+remain bounded to recent 300 utterances; retired audio cannot reappear through a
+new late caption ID.
+
+The host sends normalized pairs in a version 1 framework envelope alongside the
+existing extension Caption fields; renderers reject unsupported versions/event kinds;
+source, translation, finality, wire revision, ranges and diagnostic emittedAtMs
+are preserved. Both existing renderers consume the shared policy through the
+normalized pair, with a compatibility bridge for legacy/generated messages.
+There is no server protocol change. Selected provider, ASR choice, both languages
+and both model names are snapshotted and sent unchanged. The existing settings
+storage key, UI choices and defaults are unchanged. Omitting settings still sends
+no request body and defers to server environment settings; unavailable language
+metadata is `und`, not an invented language selection.
+
+PCM1 remains exactly 28 header bytes plus 480 mono PCM16 samples at 24 kHz per
+20 ms frame. The legacy host decodes those frames into explicitly `tab-mix`
+chunks and the engine re-encodes byte-identical wire packets. Sequence, identity,
+epoch, format, duration and payload bounds are checked before sending. The
+existing 50-frame/one-second WebSocket buffer budget is retained; the core audio
+queue is also bounded to one second. Server audio/segmentation/translation limits
+and implementations are unchanged. Receipt loss counts retain their existing
+user-visible report. Pending normalized output is bounded; overflow and transport
+errors fail visibly rather than silently accumulating captions.
+
+The `legacy-tab-output` sentinel identifies existing presentation only, never a
+selected-video handle. There is no videoRange; session elapsed audio is not
+claimed as video time. The PCM clock is epoch-relative, and the original server
+emittedAtMs is carried only as diagnostic data, without cross-process subtraction.
+This legacy adapter is single-use: cancel closes its owned socket, fences queued
+and late events, wakes a blocked audio consumer and is idempotent. A closed probe
+reports `unavailable/context-destroyed` and requires a fresh authenticated Start.
+The existing tab product does not route selected-video playback/seek into this
+adapter; selected-input lifecycle integration remains later-stage work.
+
+Stop invalidates the host generation and closes its audio queue before cleanup.
+Late socket callbacks cannot send new output. Session socket closure is attempted
+even if owned tab-source cleanup fails. No published companion v0.1.0 artifact,
+launcher, server file, installation path, manifest permission or user settings
+were modified. No apps, models or dependencies were installed/downloaded.
+
+### Environment and exact acceptance evidence
+
+Executed only in the requested worktree on Darwin arm64; Node v24.15.0,
+npm 11.12.1, uv 0.12.23, Python 3.12.15, TypeScript 7.0.2, Biome 2.5.15,
+Vite 8.3.2 and existing Playwright Chromium 153.0.8010.12.
+
+| Command | Actual result | Evidence |
+| --- | --- | --- |
+| `npm run test:framework:core` | PASS, final exit 0: ES2022/no-DOM compilation and dependency graph, 29 passed/0 failed/0 skipped; 93.465959 ms | `.ralph/media-framework/core-3-c4-framework-envelope-final.log`; eight new adapter tests |
+| `npm run verify` (before versioned-envelope refinement) | PASS, exit 0: Biome 67 files/37 ms/no findings, Ruff/typecheck/build passed; JS 62 passed/0 failures/skips/14923.986167 ms, Python 222 passed/66.91 s | `.ralph/media-framework/core-3-c4-verify-final.log` |
+| `npm run verify` (final code with versioned envelope) | PASS, exit 0: Biome 67 files/22 ms/no findings, Ruff passed, extension typecheck, Vite main 28 modules/32 ms and content IIFE 10 modules/6 ms; JS 63 passed/0 failures/skips/14300.178583 ms, Python 222 passed/66.87 s | `.ralph/media-framework/core-3-c4-verify-envelope-final.log` |
+| `npm run verify` (before closed-probe refinement) | PASS, exit 0: 62 JS passed/0 failures/skips/15177.497292 ms, 222 Python passed/66.99 s, Biome 67 files/21 ms/no findings, Ruff/typecheck/build passed | `.ralph/media-framework/core-3-c4-verify.log` |
+| `npm run test:captions-correction-browser` | PASS, final exit 0: 1000 ms cadence, immediate first/final, burst coalescing, latest revision, in-place update, clear/replacement; `realAudioOrModels: false` | `.ralph/media-framework/core-3-c4-correction-browser-envelope-final.log`; JSON `passed: true` |
+| `npm run test:transcript-browser` | PASS, final exit 0: comparison/runtime scripts, generated source/translation/time/cadence, safe text, same-row corrections, history/eviction/reopen, stale rejection/Stop retention, actual extension messaging/window; UI page errors `[]` | `.ralph/media-framework/core-3-c4-transcript-browser-envelope-final.log`; freshly regenerated UI/runtime artifacts inspected |
+| `node --import tsx --test tests/offscreen-companion.test.ts` | PASS, exit 0: 1 passed/0 failed/0 skipped, 83.315959 ms; also included in full verify | `.ralph/media-framework/core-3-c4-envelope-regression-fixed.log`; committed host integration fixture |
+| `node --import tsx --test --test-name-pattern='preserves PCM1 bytes' tests/framework-companion.test.ts` (before closed-probe fix) | FAIL: 0 passed/1 failed/94.029708 ms; closed engine advertised `available` instead of `unavailable` | `.ralph/media-framework/core-3-c4-closed-regression.log` |
+| Same closed-probe regression after fix | PASS, exit 0: 1 passed/0 failed/0 skipped, 67.121084 ms; unchanged assertion also in final core/JS acceptance | `.ralph/media-framework/core-3-c4-closed-regression-fixed.log` |
+| `node --import tsx --test tests/offscreen-companion.test.ts` (before envelope fix) | FAIL, exit 1: 0 passed/1 failed/82.728917 ms; normalized record lacked the required version 1 cross-context envelope | `.ralph/media-framework/core-3-c4-envelope-regression.log`; unchanged version assertion passes after fix |
+| `git diff --check` | PASS, exit 0, no whitespace errors | CLI output after implementation; rerun after report updates |
+
+Adapter fixtures check independent observed revisions, atomic core-store acceptance,
+foreign/malformed input, 300-record eviction, exact PCM1 bytes, valid loss receipts,
+no fabricated ASR-only events, old-epoch cancellation, late-event fencing,
+idempotent close, sequence/format rejection, pending-output overflow, envelope
+version/event rejection, socket auth,
+ready/abort ordering, malformed JSON and the exact existing transport budget.
+The host fixture uses fake media/AudioContext/worklet/WebSocket APIs: it exercises
+the actual offscreen module, queues, engine and runtime messages with generated
+PCM and captions, and asserts unchanged request settings and wire caption fields.
+It does not establish real tab capture, actual model execution or audio quality.
+
+Required browser checks also ran before the probe and versioned-envelope
+refinements; those earlier runs passed. Final results above verify the completed
+boundary change. Screenshots and transcript UI JSON matched committed artifacts.
+Runtime JSON changed only nondeterministic closedWindowId: successive runs were
+2092352814 → 20860004, → 1064539833, and final → 2142014611. The new evidence was
+inspected and the unrelated generated file restored. Local `.ralph` logs remain
+ignored and are excluded from the commit. No credentials, model weights, user
+audio/transcripts or temporary runner state are committed. User apps, recordings
+and mounted images were preserved.
+
+### Remaining scope
+
+C5 is next: audit the completed core/policy/adapter acceptance coverage and
+browser-free type/dependency boundaries, rerun all required core-stage commands,
+and finalize the stage report. C5 and every later-stage checkbox remain unfinished.
+No current C4 environment/device/permission blocker was observed. Actual companion
+inference/ASR or translation accuracy, real selected-video samples, browser model
+loading, Safari and physical iPhone acceptance were not tested in this iteration.
+Stage core and whole-framework/iPhone completion are not claimed.

@@ -1,3 +1,5 @@
+import type { FrameworkEnvelope } from "../../packages/contracts";
+
 export interface Caption {
   sessionId: string;
   utteranceId: string;
@@ -8,6 +10,7 @@ export interface Caption {
   audioStartMs: number;
   audioEndMs: number;
   emittedAtMs: number;
+  framework?: FrameworkEnvelope;
 }
 
 export type SessionEvent =

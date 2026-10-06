@@ -151,7 +151,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 - [x] C1. 버전 1 계약을 정의한다: opaque 영상 handle, session/epoch, audio chunk, playback event, 원문/번역 별 revision, capability, status/reason, output. 기존 서버 프로토콜은 companion bridge에서 매핑하며 변경하지 않는다.
 - [x] C2. 코어의 session controller·bounded queue·timeline·revision store를 분리한다. DOM/Chrome ambient type 없이 컴파일하고, 늦은 이벤트·준비 중 Stop·연속 Start·탐색 시 취소를 검증한다.
 - [x] C3. 교정 1초 간격, 첫 결과/최종 결과 즉시 반영, 긴 최종 번역 처음부터 순차 재표시, 250ms fade, 최근 300 발화 정책을 코어/renderer 경계로 분리한다. 화면 크기에 따른 line fitting은 renderer가 맡는다.
-- [ ] C4. 기존 companion을 combined interpretation adapter로 연결한다. 중복 VAD/ASR을 실행하지 않는다. 서버가 제공하지 않는 ASR-only 이벤트는 capability로 명시하고 원문/번역 짝과 기존 사용자 설정을 보존한다.
+- [x] C4. 기존 companion을 combined interpretation adapter로 연결한다. 중복 VAD/ASR을 실행하지 않는다. 서버가 제공하지 않는 ASR-only 이벤트는 capability로 명시하고 원문/번역 짝과 기존 사용자 설정을 보존한다.
 - [ ] C5. `test:framework:core`와 코어용 타입/의존성 검증을 추가한다. `npm run verify`, 기존 correction browser 검사와 transcript browser 검사를 실제 실행하고 단계 보고서를 작성한다.
 
 완료 검증: `npm run verify`, `npm run test:framework:core`,
@@ -388,3 +388,74 @@ window ID(2092352814 → 308564494)만 바뀌어 새 증거를 읽고 원래 파
 translation normalization과 ASR-only 미지원 capability, 기존 설정 및 단일 VAD/ASR
 보존. C4–C5 및 이후 stage 체크박스는 보존한다. C3 환경 차단은 없으며 stage 또는
 전체 framework/iPhone 완료를 주장하지 않는다.
+
+### 2026-10-06 / core / iteration 3/5 — C4
+
+관련 commit: 이 기록을 포함한 `feat: connect companion combined interpretation adapter`.
+
+수행한 변경: 다음 미완료 항목 C4의 combined InterpretationEngine과 companion
+WebSocket/Caption bridge를 연결했다. `/sessions`, auth token, ready, PCM1와 서버
+Caption wire 필드는 유지했다. 관측한 원문 text/final/audio range 변화만 source
+revision을 증가시키고 번역-only 수정은 같은 원문 revision과 atomic pair로 보낸다.
+capability는 `combined-interpretation`, `asrOnlyUpdates: false`, 선택한 언어 쌍을
+명시하며 제공되지 않는 모델 version/load 정보는 만들지 않는다. 기존 offscreen은
+실제 tab capture를 계속 소유하고 명시적 `tab-mix` PCM을 bounded core queue에서
+adapter로 보낸다. 서버 VAD/ASR/번역은 그대로이며 중복 pipeline을 추가하지 않았다.
+기존 source/translation/final/revision/range/emittedAtMs와 provider/ASR/languages/
+model 설정, storage key/defaults, 설정 없는 요청의 server 환경 선택을 보존했다.
+renderer에는 version 1 framework envelope로 normalized pair를 전달하고
+지원하지 않는 version/event는 거부하며 기존 generated Caption도 호환한다.
+Stop은 generation/queue를 먼저 무효화하고 session-owned source/socket만 정리한다.
+closed adapter는 새로운 authenticated Start가 필요하며 selected-video handle이나
+video time을 만들지 않는다. companion v0.1.0/launcher/설치 경로/서버는 변경하지 않았다.
+
+실행한 명령과 결과:
+
+- PASS: `npm run test:framework:core` (최종 exit 0, ES2022/no-DOM 타입/의존성,
+  core/policy 및 새 adapter 검사 29 passed/0 failed/0 skipped, 93.465959 ms).
+- PASS: envelope refinement 전 `npm run verify` (exit 0, Biome 67 files/37 ms/
+  no findings, Ruff/typecheck/build, JS 62 passed/0 failed/0 skipped/14923.986167 ms,
+  Python 222 passed/66.91 s).
+- PASS: 최종 versioned-envelope 코드의 `npm run verify` (exit 0, Biome 67 files/
+  22 ms/no findings, Ruff/extension typecheck, Vite main 28 modules/32 ms +
+  content IIFE 10 modules/6 ms, JS 63 passed/0 failed/0 skipped/14300.178583 ms,
+  Python 222 passed/66.87 s).
+- PASS: 첫 `npm run verify` (closed-probe refinement 이전 exit 0, JS 62 passed/
+  0 failed/0 skipped/15177.497292 ms, Python 222 passed/66.99 s, Biome 67 files/
+  21 ms/no findings, Ruff/typecheck/build 통과). 최종 전체 결과는 위에 기록했다.
+- PASS: `npm run test:captions-correction-browser` (최종 exit 0, Chromium
+  153.0.8010.12, 1000 ms cadence, 즉시 첫/최종, burst/latest/in-place/clear/replacement).
+- PASS: `npm run test:transcript-browser` (최종 exit 0, comparison/runtime 두 script,
+  generated 원문/번역/time/cadence/safe text/history/eviction/reopen/stale rejection/
+  Stop retention 및 실제 extension messaging/window, UI page errors `[]`).
+- PASS: `node --import tsx --test tests/offscreen-companion.test.ts` (exit 0,
+  1 passed/0 failed/0 skipped/83.315959 ms, 실제 offscreen module의 mock API
+  integration, 설정/PCM1 byte/Caption field/Stop ownership 확인; full verify 포함).
+- FAIL → FIXED: closed-probe 회귀 (수정 전 0 passed/1 failed/94.029708 ms,
+  closed engine이 `available`을 반환). 동일 assertion을 유지하고 capability를
+  `unavailable/context-destroyed`로 수정; 수정 후 exit 0, 1 passed/0 failed/
+  67.121084 ms; 최종 core/JS acceptance 포함.
+- FAIL → FIXED: versioned-envelope 회귀 (수정 전 exit 1, 0 passed/1 failed/
+  82.728917 ms, normalized record에 version 1 envelope 없음). 동일 assertion을
+  유지하고 versioned message/renderer validation 추가 후 exit 0, 1 passed/0 failed/
+  83.315959 ms; 최종 core/JS acceptance 포함.
+- PASS: `git diff --check` (exit 0, whitespace 오류 없음; 문서 변경 후 다시 확인).
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, existing Chromium 153.0.8010.12. Adapter/host는 generated
+PCM와 caption/mock transport/media APIs로 pairing/settings/cancel/bounds/wire를
+검증했다. 브라우저는 기존 DOM rendering과 실제 extension messaging/window를
+검증했다. 실제 companion ASR 정확도/번역 품질, selected-video PCM, 모델 로드,
+Safari/iPhone은 미검증이다. 의존성/모델 다운로드·앱 설치·push·게시·위임 없음.
+
+실패·미검증과 증거 위치: [core 보고서](docs/verification/media-framework/core.md).
+`.ralph/media-framework/core-3-c4-*.log`는 local diagnostic만으로 커밋하지 않는다.
+요청된 independent runner failure 파일과 AGENTS.md는 없었다. 브라우저 두 차례
+검증의 runtime window ID만 변경(2092352814 → 20860004, → 1064539833, 최종 → 2142014611)되어
+새 증거를 읽고 해당 unrelated artifact를 복원했다. screenshots/UI JSON은 동일했다.
+credentials/model weights/user audio/transcripts/temporary runner state는 커밋하지 않는다.
+
+다음 미완료 항목: C5 전체 core/policy/adapter acceptance coverage와 ES-only
+타입/의존성 경계를 audit하고 필수 네 명령을 다시 실행하여 stage report를 마무리한다.
+C5와 이후 stage checkbox는 보존한다. 현재 C4 환경 차단은 없으며 stage 또는 전체
+framework/iPhone 완료를 주장하지 않는다.

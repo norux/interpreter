@@ -1,11 +1,6 @@
-export interface SessionSettings {
-  provider: "local" | "openai-direct" | "luna" | "anthropic";
-  asr: "local" | "openai";
-  sourceLanguage: string;
-  targetLanguage: string;
-  asrModel: string;
-  textModel: string;
-}
+import type { CompanionSettings } from "../../packages/engines-companion/engine";
+
+export type SessionSettings = CompanionSettings;
 
 export const defaultSettings: SessionSettings = {
   provider: "local", asr: "local", sourceLanguage: "en", targetLanguage: "ko",
