@@ -231,6 +231,9 @@ time while awaiting correction. Finalization starts the corrected cue's reading
 time; a newer utterance retires a fully read provisional cue, and late corrections
 cannot revive it. Stop/session replacement clears it immediately.
 Only confirmed source/translation pairs enter the three-pair recent context.
+If ASR yields no final text for a provisional utterance, a newer finalized
+utterance cancels its unfinished translation so finalized speech can proceed.
+The abandoned provisional text stays outside recent context.
 Local ASR with Luna/Anthropic and OpenAI ASR with text translators retain final-only
 translation requests. Waiting work in each local stage is limited to two segments
 and eight seconds of audio; incoming PCM waits at most two seconds. Waiting

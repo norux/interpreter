@@ -294,6 +294,92 @@ def test_new_source_cancels_obsolete_translation_even_if_it_returns_late_bytes()
     asyncio.run(check())
 
 
+@pytest.mark.parametrize("response_complete", [False, True])
+def test_missing_asr_final_does_not_stall_the_next_finalized_utterance(
+    response_complete,
+):
+    async def check():
+        incoming = asyncio.Queue()
+        output = asyncio.Queue()
+        waiting = asyncio.Event()
+        old_closed = asyncio.Event()
+        calls = []
+
+        class ASR:
+            interim = True
+
+            async def transcribe(self, _frames):
+                while (value := await incoming.get()) is not None:
+                    yield value
+
+            async def close(self):
+                pass
+
+        class Translator:
+            async def translate(self, transcript, context):
+                calls.append((transcript.utterance_id, list(context)))
+                if transcript.utterance_id == "1":
+                    try:
+                        yield Translation("1", 1, "임시 문장", response_complete)
+                        waiting.set()
+                        try:
+                            await asyncio.Event().wait()
+                        except asyncio.CancelledError:
+                            yield Translation("1", 2, "뒤늦은 문장", True)
+                    finally:
+                        old_closed.set()
+                else:
+                    yield Translation(transcript.utterance_id, 1, "확정 문장", True)
+
+            async def close(self):
+                pass
+
+        session = local.LocalSession("missing-final", ASR(), Translator())
+
+        async def collect():
+            async for event in session.run(None):
+                if event.caption:
+                    output.put_nowait(event.caption)
+                assert event.type != "error"
+
+        task = asyncio.create_task(collect())
+        try:
+            incoming.put_nowait(Transcript("1", 1, "Unfinished", False, 0, 1000))
+            first = await asyncio.wait_for(output.get(), 1)
+            assert not first.final
+            if not response_complete:
+                await asyncio.wait_for(waiting.wait(), 1)
+            # MLX can return an empty final, which emits no Transcript for cue 1.
+            incoming.put_nowait(Transcript("2", 1, "Next", False, 1500, 2500))
+            if not response_complete:
+                for _ in range(100):
+                    if session.pending_translation_ms == 1000:
+                        break
+                    await asyncio.sleep(0.001)
+                assert session.pending_translation_ms == 1000
+                assert calls == [("1", [])] and not old_closed.is_set()
+            incoming.put_nowait(Transcript("2", 2, "Next sentence", True, 1500, 3000))
+            final = await asyncio.wait_for(output.get(), 1)
+            while not final.final:
+                assert final.utterance_id == "2"
+                final = await asyncio.wait_for(output.get(), 1)
+            assert final.utterance_id == "2" and final.final
+            assert final.translation == "확정 문장"
+            assert old_closed.is_set()
+            assert calls[-1] == ("2", [])
+            # Neither late ASR nor cancellation-resistant translation may revive 1.
+            incoming.put_nowait(Transcript("1", 2, "Late unfinished", False, 0, 1000))
+            incoming.put_nowait(None)
+            await asyncio.wait_for(task, 1)
+            assert output.empty()
+            assert session.dropped_translations == session.pending_translation_ms == 0
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(check())
+
+
 def test_slow_translation_bounds_finals_and_snapshots_cannot_evict_them():
     async def check():
         incoming = asyncio.Queue()

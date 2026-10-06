@@ -3203,3 +3203,71 @@ passing run; no listeners remain on8765/8766/11434. `uv sync --locked` restored 
 base environment; `uv lock --check` and `git diff --check` passed. No audio/
 transcripts, credentials, weights, temporary `.ralph` state, dependency/lock
 changes or build output are intended for commit.
+
+## Ralph iteration 3/30 (resumed run) — 2026-10-06 — missing-final translation stall
+
+Continued **7d**, the next unfinished checklist item, only in the specified
+checkout. There is no repository AGENTS.md; the supplied instructions apply.
+The checkout started clean and `.ralph/verification.txt` contained
+`No completion verification attempted in this run.` No agents, other worktrees,
+credentials, model changes, cloud calls, runner/acceptance changes, push or
+publication were used. Capture/model/output contracts remain unchanged.
+
+Found a session-level stall when an utterance has a provisional caption but ASR
+does not emit its final text (an empty final result or a dropped waiting ASR
+segment). A translation response still in progress blocked the next finalized
+utterance, potentially until the response's 30-second deadline. The existing
+handling advanced past a completed provisional response, but did not cancel an
+unfinished one. Established the regression before editing the product:
+
+```sh
+uv run --locked pytest -q tests/test_local_interim.py -k missing_asr_final
+```
+
+It **exited 1: 1 failed, 1 passed, 7 deselected**, in 1.12 seconds. The unfinished
+response case timed out waiting for cue2's final; the completed-response control
+passed. The fixture withholds cue1's ASR final, queues cue2's partial and final,
+and makes the old translator return late text even when cancelled.
+
+The revising session now closes the unfinished provisional translation when a
+different, later utterance has finalized source. It retires the obsolete cue and
+uses the existing bounded queue to process the finalized speech. A newer partial
+alone does not interrupt it, and a translation of already-finalized source keeps
+its existing priority. Abandoned provisional source/translation does not enter
+recent context. No final text is fabricated for the missing ASR result, and the
+stream closure suppresses cancellation-resistant output and late ASR revisions.
+The change adds 12 lines to the existing feature-local session. No new abstraction,
+timeout, inference stage, prompt, snapshot/VAD timing or queue limit was added.
+
+The focused compatibility command **exited 0: 100 passed in 30.78 seconds**:
+
+```sh
+uv run --locked pytest -q tests/test_local_interim.py tests/test_local.py tests/test_local_prepare.py tests/test_text.py tests/test_live.py
+uv run --locked ruff check server tests
+git diff --check
+```
+
+Both new cases passed, including subsequent finalized output, exclusion of
+provisional context, closed obsolete stream, rejection of late output, zero final
+translation drops and drained waiting work. Existing tests preserved bounded
+final queues under overload, correction/final distinction, source supersession,
+Stop cleanup and cloud final-only contracts. Ruff and the whitespace check passed.
+
+**No new real-model, native browser, Paint or listening attempt was made.** These
+are deterministic adapter fixtures, not acoustic, translation-quality or
+sustained-load evidence. Previous failed construction/model/native reports and
+their assertions remain unchanged. There is no new external-access blocker.
+**7d remains unchecked.** Next work still needs the original construction meaning
+failure resolved using the permitted models, and native paired long/continuous/
+context/pause/silence, all-character/expiry/appearance, speaker listening,
+in-flight Stop/provider/session replacement and sustained queue/memory checks.
+7b,8,9 remain subsequent items.
+
+Final-source **`npm run verify` exited 0**: lint, typecheck, extension build,
+**12 JavaScript + 172 Python tests**, zero failures/skips/warnings. Python took
+**66.15 seconds**. `uv lock --check` passed; no dependency or lock changes were
+needed. The listener check found no processes on 8765/8766/11434. No model,
+companion or browser process was started for this iteration. `git diff --check`
+passed. Only the session fix, regression tests, README, this evidence and plan
+progress are intended for the Conventional Commit; no credentials, weights,
+audio/transcripts, build output or temporary `.ralph` state are included.

@@ -1969,3 +1969,40 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   종료,8765/8766/11434 listener없음이다. source/test/README/docs/numericfixture/plan만
   Conventional Commit으로 보존하며 key/weights/audio·transcripts/.ralph/build는
   커밋하지 않는다. checkbox와 completion은 그대로 미완료다.
+
+### Ralph iteration 3/30 (resumed run) — 2026-10-06 — 7d ASR final 누락 뒤 번역 stall 수정
+
+- 다음 미완료 **7d만 진행했고 checkbox는 미체크 유지**다. 지정 checkout은 시작 시
+  clean이며 AGENTS.md는 없다. 사용자 지침을 적용했고 `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. agent/다른worktree/credential/
+  cloud/모델/runner/criteria/push/publish 변경은 없다. 입력/모델/출력 계약도 유지했다.
+- ASR final이 빈문장이거나 대기 중 버려져 provisional만 남고, 그 번역응답이 아직
+  진행 중이면 **다음 확정 문장도 이전 응답의 종료/30초 deadline까지 막히는 회귀**를
+  재현했다. 기존 코드는 완료된 provisional 응답만 다음 문장으로 넘겼다.
+  `uv run --locked pytest -q tests/test_local_interim.py -k missing_asr_final`은 제품fix 전
+  **exit1/1fail·1pass·7deselected/1.12초**다. 진행중 응답은 cue2 final 대기 timeout,
+  완료된 응답 control은 통과했다. fixture의 늦은 번역은 cancellation 뒤에도 반환한다.
+- 더 뒤 오디오 구간의 다른 utterance가 final이면 이전 미확정 번역 stream을 닫고
+  이전 cue를 retire하며 기존 bounded queue로 다음 확정문장을 처리한다. 다음 partial
+  만으로 중단하지 않고, 이미 확정된 source의 번역은 기존 우선순위를 지킨다.
+  누락 final을 만들어내거나 임시문장을 context에 확정하지 않는다. cancellation 뒤
+  늦은 번역/ASR도 거부한다. feature-local session **12줄**과 회귀만 추가했고 새
+  abstraction/timeout/prompt/VAD/snapshot/queue limit/유료partial 정책은 없다.
+- local interim/local/prepare/text/live focused suite **100pass/30.78초/exit0**, Ruff와
+  git diff --check 통과다. 새 진행중/완료control 2case는 이후 final 진행/임시context
+  제외/stream 정리/late 응답 거부/drop0/대기0을 확인한다. 기존 final 우선·bounded
+  overload·partial/final·Stop·cloud 계약도 통과했다. README와 docs/verification.md에
+  동작/명령/실패와 한계를 보존한다.
+- **새 실제 모델/native browser/Paint/청취 시도는 없다**. deterministic fixture를
+  실제음성/정확도/지속처리 성공으로 기록하지 않는다. 이전 construction 의미실패
+  JSON/원래assertion은 유지했다. 새 외부 blocker도 확인되지 않았다.
+- **다음도7d**: permitted모델/원래fixture의 construction 의미 실패를 해결하고 native
+  paired long/continuous/문맥/쉼/무음, 모든문자·expiry·appearance/원음청취,
+  inflightStop/provider/session교체, sustainedqueue·memory acceptance를 완료한다.
+  7b/8/9는 그 다음이다. 이번 fixture만으로 checkbox/전체completion을 표시하지 않는다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python172**,
+  failures/skips/warnings0, Python**66.15초**다. uv lock --check/git diff --check 통과이며
+  dependency/lock 변경은 없다. 이번 iteration은 모델/companion/browser를 시작하지
+  않았고 8765/8766/11434 listener없음을 확인했다. source/tests/README/docs/plan만
+  Conventional Commit으로 보존하고 key/weights/audio·transcripts/.ralph/build는
+  커밋하지 않는다. 체크박스/전체completion은 미완료다.

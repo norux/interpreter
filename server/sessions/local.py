@@ -632,6 +632,18 @@ class LocalSession:
                                     if current.final and completed:
                                         value = completed
                             else:
+                                if (
+                                    current
+                                    and not current.final
+                                    and transcript.final
+                                    and transcript.audio_start_ms
+                                    > current.audio_start_ms
+                                ):
+                                    # A later final must not wait on provisional
+                                    # translation whose ASR final was empty/dropped.
+                                    await stop_stream()
+                                    retired.append(current.utterance_id)
+                                    current = completed = None
                                 enqueue(transcript)
                     count = (
                         getattr(self.transcriber, "dropped_utterances", 0),
