@@ -1,4 +1,4 @@
-// V1 real DOM/catalog acceptance, followed by V2 real audio acceptance. V3–V5 remain unfinished.
+// V1 real DOM/catalog acceptance, followed by V2 audio and V3 timeline acceptance. V4/V5 remain unfinished.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";

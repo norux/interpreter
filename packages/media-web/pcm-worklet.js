@@ -9,7 +9,12 @@ class SelectedVideoPCM extends AudioWorkletProcessor {
 
   process(inputs) {
     const channels = inputs[0];
-    if (!channels?.length) return true;
+    if (!channels?.length) {
+      // Do not stitch a partial batch across absent capture input.
+      this.offset = 0;
+      return true;
+    }
+    if (this.offset > 0 && currentFrame !== this.frame + this.offset) this.offset = 0;
     for (let i = 0; i < channels[0].length; i++) {
       if (this.offset === 0) this.frame = currentFrame + i;
       let sample = 0;

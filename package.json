@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:framework": "tsc -p tsconfig.contracts.json && tsc -p tsconfig.framework.json",
     "test:framework:core": "npm run typecheck:framework && node --import tsx --test tests/framework-contracts.test.ts tests/framework-core.test.ts tests/framework-presentation.test.ts tests/framework-companion.test.ts tests/offscreen-companion.test.ts",
-    "test:framework:video": "tsc -p tsconfig.media-web.json && node tests/framework-video.mjs",
+    "test:framework:video": "tsc -p tsconfig.media-web.json && node --import tsx --test tests/framework-video-input.test.ts tests/framework-video-worklet.test.ts && node tests/framework-video.mjs",
     "test:js": "node --import tsx --test tests/*.test.ts tests/ralph-loop.test.mjs",
     "test:python": "uv run --locked pytest",
     "test:capture-browser": "npm run build && node tests/capture-browser.mjs",

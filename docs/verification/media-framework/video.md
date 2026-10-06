@@ -392,3 +392,140 @@ Final real-audio acceptance is **UNVERIFIED/BLOCKED**; it is not rerun against
 the same stalled renderer. V3–V5 remain unchecked. All intended changes, including
 this report and the plan progress log, are included in the named commit; ignored
 `.ralph` diagnostic state is excluded.
+
+## 2026-10-06 — video iteration 1/5 (resumed run, V3)
+
+Result: **V3 passes** real video/PCM mapping and input-driven core epoch
+acceptance. V4/V5 remain unchecked; Stage video is incomplete. Commit: the
+`fix: preserve selected video PCM timeline` commit containing this report.
+The earlier blocked record remains historical evidence, not a current blocker.
+
+### Resume evidence and implemented scope
+
+Before retrying audio acceptance, the unchanged local, test-owned Chromium
+generator diagnostic observed AudioContext time advancing to 0.976,
+1.9786666666666666 and 2.981333333333333 seconds. Recorder parts were
+14372/17058/18085 bytes, with no recorder errors. This is new evidence compared
+with the prior frozen 5.333 ms clock; it justified resuming the actual acceptance.
+No user browser, profile, device setting, app, recording or mounted image changed.
+The underlying cause of the prior environment stall remains unknown.
+
+The existing production input anchors and core timeline/controller are now
+composed in a real-media harness. Its first run exposed a production batching
+bug: a partially filled worklet batch could span a capture-clock jump. The next
+batch then started at audio time 48 ms after a reported first batch ending at
+42.666666666666664 ms. The worklet now discards an incomplete batch when input
+channels disappear or `currentFrame` skips its expected position. It never fills
+the missing interval with fabricated samples or rewrites the capture clock.
+A gap after a delivered batch remains visible to the core's unchanged strict
+gap check. Two processor regressions prove both partial-batch discard and that
+later missing input/clock jumps still return `gap`, not `accepted`.
+
+The real fixture server now serves byte ranges, Content-Length and Content-Range
+for the encoded media. Without range support, the attempted seek to 3 seconds
+returned to zero; correcting the server establishes an actual seek rather than
+relaxing the timestamp assertion. Production resource loading is unchanged.
+The harness bundles and serves actual core modules and their shared chunks.
+`test:framework:video` also includes the nine existing input-port checks and two
+new processor checks; it still runs every V1/V2 real-browser assertion.
+
+### Actual mapping, epochs and original output
+
+`tests/framework-video-timeline.mjs` and `tests/fixtures/video-timeline.html`
+consume the same real 8-second, 132920-byte VP8/Opus 440 Hz video used by V2.
+The production input provides actual mono float32/48 kHz decoded PCM to the
+production core. Only inference is a generated delayed test-engine port; it
+consumes real input ranges and deliberately completes after cancellation.
+Neither PCM injection nor a model substitutes for the real input in this test.
+
+Each owned page checks these transitions: Start at a nonzero video position,
+seek to 3000 ms, rate 1 → 1.25, pause, explicit user resume, source replacement,
+explicit new Start on the replacement, and Stop. The old source handle is
+unavailable with `target-invalidated` and cannot silently adopt the replacement.
+The source requires a new target and session. Pause retains comparison history
+and stops real PCM/output; resume reprobes and opens a fresh input epoch.
+
+| Final acceptance observation | Ordinary playback | Site-owned source graph |
+| --- | --- | --- |
+| Real PCM chunks observed | 55 | 55 |
+| Maximum absolute mapped end time vs contemporaneous video currentTime | 64.513 ms | 20.367333333333136 ms |
+| Mapping acceptance bound (set before measurement) | Every chunk <150 ms | Every chunk <150 ms |
+| Fresh input epochs/clocks | Session 1 epochs 0/1/2/4, session 2 epoch 0; 5 distinct clocks | Same |
+| Seek anchor video time | 3000 ms | 3000 ms |
+| Rate and resumed anchors | Rate 1.25 for epochs 2/4 | Same |
+| Baseline independent tab-output RMS | 0.042402341022025156 | 0.04244749534354694 |
+| Output RMS through capture/transitions/Stop | 0.04137963980017511–0.042425620696573074 | 0.04230716424593729–0.04246032014759532 |
+| Paused output RMS | 0 | 0 |
+| Accepted generated result IDs | initial, seek, rate, resume | Same; no late-seek/rate/pause/source result |
+| Page errors | `[]` | `[]` |
+
+Every reopened epoch starts at sequence/audio origin zero, has at least five
+real chunks and includes nonzero decoded tone samples (peak 0.12–0.18).
+Capture frames and anchors share that epoch's AudioContext clock ID; no raw
+`performance.now()` values from different contexts are subtracted. Mapped
+duration equals PCM duration × observed playback rate within 0.001 ms. Actual
+controller caption video ranges equal the independently observed input timeline
+ranges exactly. The <150 ms observation bound covers this fixture's batch/message
+timing; it is not an ASR latency, acoustic-content alignment or long-run drift claim.
+
+Cancellation observes the incremented epoch before cancel for seek/rate/pause/
+source; pause advances to epoch 3 and explicit resume to epoch 4. Overlay-clear
+callbacks carry the retired identity, history survives pause, queued/late input
+is covered by the preserved input-port tests, and delayed engine completions
+never reappear as accepted captions. Original browser-output RMS stays within
+the unchanged 12% bound at volume 0.4/muted=false through the transitions and
+Stop, measured by the independent test-owned tab loopback with audio processing
+disabled. There are no samples after pause or Stop.
+
+### Exact commands and failures
+
+Environment: requested worktree, Darwin arm64; Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, Chromium 153.0.8010.12. Root/nested AGENTS.md and
+the requested `2026-10-06T12-54-43-105Z-video-verification.txt` were absent.
+Existing dependencies/caches were used. No installation, delegation, browser
+access bypass, push, publish, later-stage work or companion/settings changes.
+
+| Command/run | Exact outcome | Ignored local evidence |
+| --- | --- | --- |
+| Unchanged `node .ralph/media-framework/video-3-generator-diagnostic.mjs` | Diagnostic exit 0, advancing real clock/nonempty recorder parts above; not acceptance | `video-1-resume-clock-diagnostic.log` |
+| Baseline `npm run test:framework:video` | PASS, exit 0; V1/V2 restored, real encoded video 132920 bytes; no V3 transition harness yet | `video-1-v3-baseline.log` |
+| First expanded video acceptance | FAIL, exit 1; V1/V2 pass, timeline fixture ready timeout 30000 ms because shared bundle chunks were not served | `video-1-v3-transitions-first.log` |
+| Expanded acceptance after shared-chunk fix | FAIL, exit 1; initial-epoch timeout 10000 ms; only one real chunk before core failure | `video-1-v3-transitions-bundle-fix.log` |
+| Acceptance with lifecycle diagnostic | FAIL, exit 1; real input terminates at startup; statuses running → failed/engine-failed → stopping → idle, one chunk | `video-1-v3-transitions-diagnostic.log` |
+| Acceptance with PCM-order diagnostic | FAIL, exit 1; second real batch starts at 48 ms vs previous end 42.666666666666664 ms, strict timeline returns gap | `video-1-v3-pcm-order-diagnostic.log` |
+| Processor regression before fix | EXPECTED FAIL; 0 passed/1 failed/87.854375 ms, first batch frame 0 vs required 640; wrapper's following cat exited 0 | `video-1-v3-worklet-regression.log` |
+| Missing-input-only worklet fix | Processor PASS, 1/0/44.094958 ms; real acceptance FAIL, exit 1, same timestamp gap; no threshold changed | `video-1-v3-worklet-fix.log` |
+| Added clock-jump processor regression before clock fix | EXPECTED FAIL, exit 1; 1 passed/1 failed/91.526958 ms, first frame 0 vs 640 | CLI output |
+| Final processor regressions | PASS, exit 0; 2 passed/0 failed/0 skipped/0 cancelled/44.146875 ms | `video-1-v3-worklet-tests.log` |
+| Real acceptance after clock-jump fix | FAIL, exit 1; startup/core now advance, actual seek returns to zero and caption range fails >=2900 ms assertion | `video-1-v3-clock-gap-fix.log` |
+| Final `npm run test:framework:video` after fixture byte-range fix | PASS, exit 0; adapter compile, 11 port/processor tests passed/0 failed/0 skipped/0 cancelled/49.676625 ms, V1/V2 and both V3 real-media cases above | `video-1-v3-seek-range-fix.log` |
+| Initial targeted Biome | FAIL, 2 noAssignInExpressions errors; corrected both fixture assignments | CLI output |
+| Final targeted Biome | PASS, exit 0; 9 files/5 ms/no findings | CLI output |
+| First `npm run verify` (before production gap fixes) | PASS, exit 0; Biome 78 files/48 ms, Ruff/typecheck/build 28+10 modules, JS 73/0/0 skipped/0 cancelled/14581.829375 ms, Python 222 passed/66.89 s | `video-1-v3-verify.log` |
+| `npm run verify` after final production gap fix, before final fixture server fix | PASS, exit 0; Biome 79 files/48 ms/no findings, Ruff/typecheck/build (28 modules/59 ms, 10 modules/7 ms); JS 75/0/0 skipped/0 cancelled/15032.733666 ms; Python 222 passed/66.96 s | `video-1-v3-final-verify.log` |
+| Final `npm run verify`, all final code/fixtures | PASS, exit 0; Biome 79 files/28 ms/no findings, Ruff/typecheck/build (28 modules/33 ms, 10 modules/6 ms); JS 75 passed/0 failed/0 skipped/0 cancelled/14342.633083 ms; Python 222 passed/66.91 s | `video-1-v3-committed-tree-verify.log` |
+| Final `git diff --check` and `git diff --cached --check` | PASS, exit 0, no whitespace errors; includes final report/plan | CLI output |
+
+All logs referenced above are under `.ralph/media-framework/` and remain ignored.
+The standalone `python` formatting helper exited 127 without changing files;
+the existing project `uv run --locked python` performed the edit successfully.
+This is not a required-environment blocker. Final whole-tree verify and
+whitespace results are recorded in the table above. All intended changes are
+included in the named commit; temporary diagnostic state is excluded.
+
+### Unverified scope and next item
+
+V3 is checked only after real mapping/epoch/input/output acceptance passed.
+There is no current environment/device/permission blocker for this tested
+Chromium scope. Physical speaker/listener audibility, speech/ASR/translation
+accuracy, acoustic-content timestamp accuracy, long-run drift, Safari/iPhone and
+standalone host integration remain unverified. The current result does not
+complete the full media-access matrix or simultaneous two-audible-video isolation.
+
+Next unfinished item: **V4** CORS allowed/denied, genuine silence, muted video,
+cross-origin iframe, blob/MSE and protected-media route classification, preserving
+original playback and explicitly rejecting unproven access. V4/V5 and every
+later stage remain unchecked. No later item was implemented in this iteration.
+Published companion v0.1.0, installation/server/protocol paths and existing user
+settings remain untouched. Credentials, weights, user media/transcripts and
+temporary `.ralph` state are excluded from the commit.

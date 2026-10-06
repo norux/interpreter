@@ -5,20 +5,30 @@ import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { build } from "vite";
+import { verifyVideoTimeline } from "./framework-video-timeline.mjs";
 
 const output = resolve(".ralph/media-framework/video-audio-build");
 await build({ configFile: false, logLevel: "warn", build: {
   outDir: output, emptyOutDir: true, minify: false,
-  rollupOptions: { input: { input: resolve("packages/media-web/audio-input.ts"), catalog: resolve("packages/media-web/catalog.ts") },
-    preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } },
+  rollupOptions: { input: { input: resolve("packages/media-web/audio-input.ts"), catalog: resolve("packages/media-web/catalog.ts"),
+    controller: resolve("packages/core/session-controller.ts"), timeline: resolve("packages/core/timeline.ts") },
+    preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js", chunkFileNames: "[name]-[hash].js" } },
 } });
 let media;
 const server = createServer(async (request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
-  if (path === "/tone.webm") { response.setHeader("Content-Type", "video/webm"); response.end(media); }
-  else if (path === "/input.js") { response.setHeader("Content-Type", "text/javascript"); response.end(await readFile(resolve(output, "input.js"))); }
-  else if (path === "/catalog.js") { response.setHeader("Content-Type", "text/javascript"); response.end(await readFile(resolve(output, "catalog.js"))); }
+  if (path === "/tone.webm" || path === "/replacement.webm") {
+    response.setHeader("Content-Type", "video/webm"); response.setHeader("Accept-Ranges", "bytes");
+    const range = request.headers.range?.match(/^bytes=(\d+)-(\d*)$/);
+    const start = range ? Number(range[1]) : 0;
+    const end = range?.[2] ? Math.min(Number(range[2]), media.length - 1) : media.length - 1;
+    if (start > end) { response.writeHead(416, { "Content-Range": `bytes */${media.length}` }); response.end(); return; }
+    if (range) { response.statusCode = 206; response.setHeader("Content-Range", `bytes ${start}-${end}/${media.length}`); }
+    response.setHeader("Content-Length", end - start + 1); response.end(media.subarray(start, end + 1));
+  }
   else if (path === "/pcm-worklet.js") { response.setHeader("Content-Type", "text/javascript"); response.end(await readFile("packages/media-web/pcm-worklet.js")); }
+  else if (/^\/[\w-]+\.js$/.test(path)) { response.setHeader("Content-Type", "text/javascript"); response.end(await readFile(resolve(output, path.slice(1)))); }
+  else if (path === "/timeline") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-timeline.html")); }
   else if (path === "/") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-audio.html")); }
   else { response.setHeader("Content-Type", "text/html"); response.end("<button>Generate</button>"); }
 });
@@ -116,6 +126,7 @@ try {
     encodedVideoBytes: media.length, realSelectedVideoPCM: true, originalBrowserOutput: "measured via independent tab loopback",
     physicalSpeakerAudibility: "unverified", observations, timelineMapping: "unverified", asrAccuracy: "unverified",
     remainingAcceptance: ["V3 PCM timeline/epoch", "V4 media access matrix", "V5 speech/two-audible-video fixtures"] }));
+  await verifyVideoTimeline(browser, `http://127.0.0.1:${server.address().port}`);
 } finally {
   await browser?.close();
   await new Promise((done) => server.close(done));

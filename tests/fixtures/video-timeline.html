@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Video audio acceptance</title>
+<video id="video" src="/tone.webm" controls preload="auto">
+  <track kind="captions" srclang="en" label="Synthetic tone" src="data:text/vtt,WEBVTT%0A%0A">
+</video>
+<button type="button" id="play">Play and observe output</button>
+<button type="button" id="start">Start timeline session</button>
+<button type="button" id="resume">Resume timeline session</button>
+<script type="module">
+  import { createMediaCatalog } from '/catalog.js';
+  import { createVideoInput } from '/input.js';
+  import { createSessionController } from '/controller.js';
+  import { createTimeline } from '/timeline.js';
+  const video = document.querySelector('video');
+  const catalog = createMediaCatalog(document, 'timeline-fixture');
+  const limits = { maxChunkBytes: 8192, maxAudioQueueMs: 1000, maxPendingUtterances: 4, maxTranslationJobs: 1, maxStoredCaptions: 300 };
+  const input = createVideoInput(catalog, '/pcm-worklet.js', limits);
+  const data = { anchors: [], chunks: [], statuses: [], cancels: [], clears: [], captions: [], engines: [], consumed: [] };
+  globalThis.data = data;
+  let session = 0, prepared, outputStream, outputContext, observer, siteContext;
+  // The production input/core consume real PCM. Only inference is a controllable
+  // test port, deliberately allowing a result to finish after cancellation.
+  const controller = createSessionController({
+    input: {
+      probe: (target) => input.probe(target),
+      async open(target, identity) {
+        const handle = await input.open(target, identity);
+        const timeline = createTimeline(identity);
+        return { close: () => handle.close(), events: {
+          async *[Symbol.asyncIterator]() {
+            for await (const event of handle.events) {
+              if ('type' in event) {
+                timeline.playback(event); data.anchors.push(event);
+              } else {
+                const order = timeline.audio(event);
+                if (order !== 'accepted') {
+                  globalThis.error = `Real PCM order: ${order}, ${JSON.stringify({ sequence: event.sequence, audioRange: event.audioRange, capture: event.capture, previousEndMs: timeline.audioEndMs })}`;
+                  throw new Error(globalThis.error);
+                }
+                const mapped = timeline.map(event.audioRange);
+                data.chunks.push({ identity: event.identity, sequence: event.sequence, audioRange: event.audioRange,
+                  capture: event.capture, sampleRate: event.sampleRate, mapped, observedMediaMs: video.currentTime * 1000,
+                  rate: video.playbackRate, peak: Math.max(...new Float32Array(event.pcm).map(Math.abs)) });
+              }
+              yield event;
+            }
+          },
+        } };
+      },
+    },
+    createEngine() {
+      return {
+        async probe(languages) { return { availability: { state: 'available' }, pipeline: 'separate-asr-translation', asrOnlyUpdates: true, languages, models: [], limits }; },
+        async prepare(identity) { prepared = identity; },
+        async *run(audio) {
+          const identity = prepared;
+          const port = { identity, pending: [], waiting: undefined, closed: false };
+          data.engines.push(port);
+          void (async () => { for await (const chunk of audio) data.consumed.push({ identity: chunk.identity, audioRange: chunk.audioRange }); })();
+          while (!port.closed) {
+            const event = port.pending.length ? port.pending.shift() : await new Promise((done) => { port.waiting = done; });
+            if (event) yield event;
+          }
+        },
+        async cancel(identity) { data.cancels.push({ cancelled: identity, current: controller.identity }); },
+        async close() { for (const port of data.engines) { port.closed = true; port.waiting?.(); } },
+      };
+    },
+    createSessionId: () => `timeline-${++session}`,
+    onCaption: (caption) => data.captions.push(caption),
+    onClear: (identity) => data.clears.push(identity),
+    onStatus: (status) => data.statuses.push(status),
+  });
+  globalThis.controller = controller;
+  globalThis.emitResult = (identity, utteranceId) => {
+    const port = data.engines.find((port) => port.identity.sessionId === identity.sessionId && port.identity.epoch === identity.epoch);
+    const chunk = data.consumed.findLast((chunk) => chunk.identity.sessionId === identity.sessionId && chunk.identity.epoch === identity.epoch);
+    const event = { type: 'transcript', revision: { identity, utteranceId, sourceRevision: 1, text: 'Synthetic engine result', final: true, audioRange: chunk.audioRange, language: 'en' } };
+    if (port.waiting) { const done = port.waiting; port.waiting = undefined; done(event); }
+    else port.pending.push(event);
+  };
+  document.querySelector('#play').onclick = async () => {
+    try {
+      if (new URLSearchParams(location.search).get('owned') === 'true') {
+        siteContext = new AudioContext(); siteContext.createMediaElementSource(video).connect(siteContext.destination); await siteContext.resume();
+      }
+      video.volume = 0.4; await video.play();
+      outputStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { suppressLocalAudioPlayback: false, echoCancellation: false, noiseSuppression: false, autoGainControl: false }, preferCurrentTab: true });
+      if (outputStream.getAudioTracks().length !== 1) throw new Error('Tab output audio track missing');
+      globalThis.outputSettings = outputStream.getAudioTracks()[0].getSettings();
+      outputContext = new AudioContext(); observer = outputContext.createAnalyser(); observer.fftSize = 4096;
+      outputContext.createMediaStreamSource(outputStream).connect(observer); await outputContext.resume();
+      globalThis.outputReady = true;
+    } catch (error) { globalThis.outputError = error.message; }
+  };
+  globalThis.measureOutput = async () => {
+    await new Promise((done) => setTimeout(done, 250));
+    const samples = new Float32Array(observer.fftSize); observer.getFloatTimeDomainData(samples);
+    return Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length);
+  };
+  document.querySelector('#start').onclick = async () => {
+    try { await controller.start((await catalog.discover())[0].target, { source: 'en', target: 'ko' }); }
+    catch (error) { globalThis.error = error.message; }
+  };
+  document.querySelector('#resume').onclick = async () => {
+    try {
+      await video.play();
+      const pause = data.anchors.findLast((event) => event.type === 'pause');
+      await controller.playback({ ...pause, identity: controller.identity, type: 'play', sequence: pause.sequence + 1,
+        anchor: { ...pause.anchor, mediaTimeMs: video.currentTime * 1000 } });
+    } catch (error) { globalThis.error = error.message; }
+  };
+  window.addEventListener('pagehide', () => {
+    void controller.stop(); catalog.dispose();
+    for (const track of outputStream?.getTracks() ?? []) track.stop();
+    void outputContext?.close(); void siteContext?.close();
+  });
+  await new Promise((done) => { if (video.readyState >= 2) done(); else video.addEventListener('loadeddata', done, { once: true }); });
+  globalThis.ready = true;
+</script>
+</html>

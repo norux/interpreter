@@ -164,7 +164,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 
 - [x] V1. 선택 UI와 MediaCatalog를 구현한다. 영상/문서/frame identity를 갖고, 여러 영상·광고·SPA/iframe에서 자동으로 다른 영상으로 바뀌지 않는다.
 - [x] V2. 같은 출처 일반 영상의 Web Audio 입력을 구현한다. 영상이 이미 소유한 graph와 충돌을 처리하고, Stop·repeat Start 후 원래 재생/볼륨이 유지되는지 실제 소리를 확인한다.
-- [ ] V3. playback anchor로 영상 시간과 PCM 시간을 연결한다. seek·pause/resume·rate/source 변경 시 epoch를 바꾸고 이전 작업 결과를 버린다. 서로 다른 context의 performance.now를 직접 빼지 않는다.
+- [x] V3. playback anchor로 영상 시간과 PCM 시간을 연결한다. seek·pause/resume·rate/source 변경 시 epoch를 바꾸고 이전 작업 결과를 버린다. 서로 다른 context의 performance.now를 직접 빼지 않는다.
 - [ ] V4. CORS 허용/미허용, 실제 무음, muted video, 교차 출처 iframe, blob/MSE·보호 영상 경로를 구분한다. 접근을 입증하지 못하면 원래 재생을 건드리지 않고 명시적으로 미지원 처리한다. crossOrigin 재설정/reload로 우회하지 않는다.
 - [ ] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
 
@@ -718,3 +718,66 @@ seek/pause-resume/rate/source 시간 mapping 수치, 원래 재생 유지 및 de
 results의 input→core epoch 거부를 검증한다. V3가 실제 통과하기 전 체크하지 않는다.
 동일 real-audio 차단을 두 독립 시도로 확인했으므로 이번 iteration은 BLOCKED로
 종료하며 Stage video/전체 framework/iPhone 완료를 주장하지 않는다.
+
+### 2026-10-06 / video / iteration 1/5 — resumed V3
+
+관련 commit: 이 기록을 포함한 `fix: preserve selected video PCM timeline`.
+
+수행한 변경: 다음 미완료 V3만 완료했다. 기존 input/core anchor와 epoch 제어를
+실제 encoded 영상의 PCM으로 연결해 seek/pause-resume/rate/source 변경과 늦은
+test-engine 결과 거부를 검증했다. 실제 입력에서 발견한 worklet partial-batch의
+capture-clock gap 연결을 수정했다. input channel 부재나 예상 currentFrame 불연속은
+미완성 batch를 버리고 새 실제 frame에서 시작한다. 이미 전달한 batch 이후 gap은
+기존 strict core 검사가 계속 거부한다. 누락 PCM을 만들거나 시간/acceptance 기준을
+완화하지 않았다. 로컬 fixture HTTP byte-range 지원을 추가하여 3초 seek가 실제로
+이동하게 했다. stage command에 기존 9개 input-port와 새 2개 worklet 회귀를 포함했다.
+production controller/contracts/companion/설정과 later-stage 코드는 변경하지 않았다.
+
+실행한 명령과 결과:
+
+- DIAGNOSTIC: 기존 test-owned Chromium generator, exit 0; AudioContext
+  0.976/1.9786666666666666/2.981333333333333초 및 recorder
+  14372/17058/18085 bytes. 이전 frozen clock과 다른 새 근거로 acceptance를 재개했다.
+- PASS: baseline `npm run test:framework:video`, exit 0; 기존 V1/V2, 실제
+  132920-byte video/PCM/original output. V3 검증을 대체하지 않는다.
+- FAIL → FIXED: 확장 harness의 shared chunk 미제공 ready timeout; 실제 초기 PCM
+  48 ms start vs 42.666666666666664 ms 이전 end의 gap; missing-input-only fix로는
+  해결 안 됨; clock-jump discard 후 실제 seek가 0초로 돌아가 mapping assertion 실패.
+  byte-range fixture 지원 후 동일 assertion과 모든 기존 기준 통과.
+- EXPECTED FAIL → PASS: worklet incomplete-batch 회귀; 첫 frame 0 vs 640으로
+  missing-input/clock-jump 각각 실패. 최종 processor 검사 2 passed/0 failed/
+  0 skipped/0 cancelled/44.146875 ms. mock processor scope이며 real PCM 대체 아님.
+- PASS: 최종 `npm run test:framework:video`, exit 0; DOM adapter compile,
+  port/processor 11 passed/0 failed/0 skipped/0 cancelled/49.676625 ms,
+  V1/V2 및 ordinary/site-owned graph 양쪽 V3 실제 mapping/epoch/output acceptance.
+- PASS: production gap fix 후 `npm run verify` (최종 fixture server 변경 전), exit 0;
+  Biome 79 files/48 ms, Ruff/typecheck/build 28+10 modules, JS 75 passed/0 failed/
+  0 skipped/0 cancelled/15032.733666 ms, Python 222 passed/66.96 s.
+- PASS: final targeted Biome, exit 0, 9 files/5 ms/no findings.
+- PASS: 최종 code/fixture의 `npm run verify`, exit 0; Biome 79 files/28 ms/
+  no findings, Ruff/typecheck/build (28 modules/33 ms, 10 modules/6 ms),
+  JS 75 passed/0 failed/0 skipped/0 cancelled/14342.633083 ms,
+  Python 222 passed/66.91 s (`video-1-v3-committed-tree-verify.log`).
+- PASS: 최종 `git diff --check` 및 staged whitespace, exit 0/no errors.
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1, uv 0.12.23/
+Python 3.12.15, Chromium 153.0.8010.12. ordinary/site-owned graph 각각 실제 PCM
+55 chunks, 최대 video currentTime 대비 mapping error 64.513/20.367333333333136 ms
+(사전 설정 every-chunk <150 ms), 3초 seek, 1→1.25 rate, pause epoch 3/resume epoch 4,
+source epoch 5 무효화와 explicit 새 target/session, 서로 다른 5개 context clock,
+epoch advance-before-cancel 및 late-seek/rate/pause/source 결과 거부를 확인했다.
+generated engine은 real PCM range만 소비하며 ASR/번역 품질을 주장하지 않는다.
+독립 tab-output RMS는 unchanged 12% 기준 내 유지되고 pause는 RMS 0이며
+pause/Stop 후 PCM이 없다. 실제 controller caption range도 input timeline과 일치한다.
+
+실패·미검증과 증거 위치: [video 보고서](docs/verification/media-framework/video.md)의
+전체 실패/수정/명령/수치 표와 ignored `.ralph/media-framework/video-1-v3-*.log`.
+root/nested AGENTS.md와 요청된 independent runner file은 없었다. 현재 Chromium
+V3 환경 차단은 없고 과거 clock stall의 원인은 미확인이다. physical speaker 청취,
+speech/ASR/translation/acoustic-content alignment/장시간 drift/Safari/iPhone은 미검증.
+user browser/profile/settings/apps/recordings/mounts/companion v0.1.0 및 설치 경로를
+보존했다. 설치/위임/push/publish/blocked access 우회/임시 state 커밋 없음.
+
+다음 미완료 항목: V4 CORS/실제 무음/muted/교차 출처 iframe/blob/MSE/protected route
+구분과 원래 재생 보존. V3만 체크했고 V4/V5와 later-stage checkbox는 보존한다.
+Stage video/전체 framework/iPhone 완료가 아니므로 완료 marker를 출력하지 않는다.
