@@ -21,3 +21,19 @@ test("caption paint evidence requires the same frame, visible bounds and unsuper
   assert.equal(rows[2].paintAtMs, null, "Hidden caption cannot count as painted");
   assert.equal(rows[3].paintAtMs, 1000.06);
 });
+
+test("coexisting sentences can share a covering paint without borrowing a newer own revision", () => {
+  const mark = (ts: number, utteranceId: string, revision: number) => ({
+    name: `interpreter-caption:${JSON.stringify({ sessionId: "rolling", utteranceId, revision,
+      visible: true, atMs: 1000 + ts / 1000, left: 100, right: 300, top: 500, bottom: 550 })}`, ts,
+  });
+  const paint = (ts: number) => ({ name: "Paint", ts,
+    args: { data: { frame: "main", clip: [0, 0, 800, 0, 800, 600, 0, 600] } } });
+  const rows = captionPaints([mark(0, "one", 1), mark(5, "two", 1), paint(10),
+    mark(20, "one", 2), mark(25, "two", 2), mark(30, "one", 3), paint(35)], "main");
+  assert.equal(rows[0].paintAtMs, 1000.01);
+  assert.equal(rows[1].paintAtMs, 1000.01);
+  assert.equal(rows[2].paintAtMs, null);
+  assert.equal(rows[3].paintAtMs, 1000.035);
+  assert.equal(rows[4].paintAtMs, 1000.035);
+});

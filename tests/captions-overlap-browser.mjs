@@ -1,22 +1,20 @@
-// Generated captions test overlap against the built sink; no audio/model claim.
+// Built DOM sink regression; generated captions are not audio/model evidence.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 await mkdir(".ralph", { recursive: true });
-const profile = await mkdtemp(resolve(".ralph/captions-overlap-"));
-const server = createServer((_request, response) => {
-  response.setHeader("Content-Type", "text/html");
-  response.end('<!doctype html><title>Caption overlap</title><button>Control</button>');
-});
+const profile = await mkdtemp(resolve(".ralph/captions-rolling-"));
+const fixture = await readFile("tests/fixtures/captions.html");
+const server = createServer((_request, response) => { response.setHeader("Content-Type", "text/html"); response.end(fixture); });
 let context;
 try {
   await new Promise((ready) => server.listen(8766, "127.0.0.1", ready));
   const extension = resolve("extension/dist");
   context = await chromium.launchPersistentContext(profile, {
-    channel: "chromium", headless: true, viewport: { width: 270, height: 700 },
+    channel: "chromium", headless: true, viewport: { width: 1280, height: 800 },
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
   });
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
@@ -28,99 +26,150 @@ try {
   async function send(message) {
     await worker.evaluate(({ id, message }) => chrome.tabs.sendMessage(id, { target: "captions", ...message }), { id: tabId, message });
   }
+  const base = { sessionId: "rolling", utteranceId: "one", revision: 1, source: "Generated",
+    translation: "오늘은 맑습니다.", final: true, audioStartMs: 0, audioEndMs: 1000, emittedAtMs: Date.now() };
+  const cue = page.locator("#interpreter-captions .cue");
+  await send({ type: "start", sessionId: base.sessionId });
+  await send({ type: "caption", caption: base });
+  await page.waitForTimeout(700);
+  await send({ type: "caption", caption: { ...base, utteranceId: "two", translation: "공원으로 걸어갑니다.", audioStartMs: 1000, audioEndMs: 2000 } });
+  assert.match(await cue.textContent(), /오늘은 맑습니다\..*공원으로 걸어갑니다\./su, "New text must coexist with the previous final");
+  const firstNode = await page.locator(".sentence").first().evaluate((node) => { globalThis.firstSentence = node; return true; });
+  assert.ok(firstNode);
+  await send({ type: "caption", caption: { ...base, utteranceId: "two", revision: 2,
+    translation: "점심 뒤 공원으로 갑니다.", final: false, audioStartMs: 1000, audioEndMs: 2000 } });
+  // A final cannot regress to a partial even when its revision increases.
+  assert.match(await cue.textContent(), /공원으로 걸어갑니다/);
+  await send({ type: "caption", caption: { ...base, utteranceId: "two", revision: 3,
+    translation: "점심 뒤 공원으로 갑니다.", audioStartMs: 1000, audioEndMs: 2000 } });
+  assert.equal(await page.locator(".sentence").first().evaluate((node) => node === globalThis.firstSentence), true);
+  await page.waitForFunction(() => !document.querySelector("#interpreter-captions")?.shadowRoot?.textContent.includes("오늘은 맑습니다."), null, { timeout: 2400 });
+  assert.match(await cue.textContent(), /점심 뒤 공원/);
+  await send({ type: "caption", caption: { ...base, revision: 99, translation: "만료 문장 부활" } });
+  assert.doesNotMatch(await cue.textContent(), /부활/);
+  await send({ type: "clear", sessionId: base.sessionId });
+
+  await send({ type: "start", sessionId: base.sessionId });
+  const partials = ["파란 우산을 챙깁니다.", "역에서 만납니다."];
+  for (let i = 0; i < 2; i++) await send({ type: "caption", caption: { ...base,
+    utteranceId: `partial-${i}`, translation: partials[i], final: false, audioStartMs: i * 1000 } });
+  await page.locator(".sentence").evaluateAll((nodes) => { globalThis.originalNodes = nodes; });
+  for (let i = 0; i < 2; i++) await send({ type: "caption", caption: { ...base,
+    utteranceId: `partial-${i}`, revision: 2, translation: `${partials[i]} 오후 세 시입니다.`, final: false, audioStartMs: i * 1000 } });
+  assert.equal(await page.locator(".sentence").evaluateAll((nodes) => nodes.every((node, i) => node === globalThis.originalNodes[i])), true);
+  assert.equal(await page.locator(".sentence").count(), 2);
+  await send({ type: "caption", caption: { ...base, utteranceId: "partial-0", translation: "오래된 응답" } });
+  assert.doesNotMatch(await cue.textContent(), /오래된/);
+  await send({ type: "clear", sessionId: base.sessionId });
+
   const texts = ["파란 우산과 따뜻한 코트를 챙겨 여행을 위해 오후 세 시에 역에서 만나세요.",
     "내일은 비가 옵니다. 빨간 가방을 챙겨 집에서 여덟 시에 출발하세요."];
-  await page.evaluate((texts) => {
-    globalThis.overlapViews = [];
-    const observer = new MutationObserver(() => {
-      const cue = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue");
-      if (!cue?.textContent) return;
-      const text = cue.textContent;
-      const index = texts.findIndex((full) => full.includes(text));
-      globalThis.overlapViews.push({ text, index,
-        offset: index < 0 ? -1 : texts[index].indexOf(text),
-        twoLines: cue.clientHeight <= Number.parseFloat(getComputedStyle(cue).lineHeight) * 2 + 9 });
-    });
-    globalThis.watchOverlap = () => {
-      observer.observe(document.querySelector("#interpreter-captions").shadowRoot, { childList: true, characterData: true, subtree: true });
-    };
-  }, texts);
-  const caption = { sessionId: "overlap", utteranceId: "one", revision: 1, source: "Generated",
-    translation: texts[0], final: true, audioStartMs: 0, audioEndMs: 5100, emittedAtMs: Date.now() };
-  await send({ type: "start", sessionId: caption.sessionId });
-  await send({ type: "caption", caption });
-  await page.evaluate(() => globalThis.watchOverlap());
-  // Include the already-painted first part before the observer was attached.
-  const initial = await page.locator("#interpreter-captions .cue").evaluate((cue) => ({ text: cue.textContent, index: 0, offset: 0,
-    twoLines: cue.clientHeight <= Number.parseFloat(getComputedStyle(cue).lineHeight) * 2 + 9 }));
-  await page.waitForTimeout(100);
-  await send({ type: "caption", caption: { ...caption, utteranceId: "two", translation: texts[1].slice(0, 10), final: false } });
-  await send({ type: "caption", caption: { ...caption, utteranceId: "two", revision: 2, translation: texts[1] } });
-  await send({ type: "caption", caption: { ...caption, utteranceId: "two", translation: "오래된 응답" } });
-  const deadline = Date.now() + 20000;
-  while (await page.locator("#interpreter-captions").count()) {
-    assert.ok(Date.now() < deadline, "Overlapping captions did not expire");
-    await page.waitForTimeout(50);
-  }
-  const views = await page.evaluate(() => globalThis.overlapViews);
-  views.unshift(initial);
   const samples = [];
-  for (const [index, text] of texts.entries()) {
-    const seen = new Set();
-    for (const view of views.filter((v) => v.index === index)) {
-      assert.ok(view.twoLines);
-      for (let i = view.offset; i < view.offset + view.text.length; i++) seen.add(i);
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 270, height: 700 }]) {
+    await page.setViewportSize(viewport);
+    await send({ type: "start", sessionId: base.sessionId });
+    await page.evaluate(() => {
+      globalThis.views = [];
+      globalThis.recordView = () => {
+        const cue = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue");
+        if (!cue) return;
+        const now = performance.now();
+        const line = Number.parseFloat(getComputedStyle(cue).lineHeight);
+        globalThis.views.push({ at: now, height: cue.clientHeight, line,
+          sentences: [...cue.querySelectorAll(".sentence")].map((node) => ({ id: node.dataset.utteranceId,
+            text: node.textContent, height: node.clientHeight, line })) });
+      };
+      globalThis.watcher = new MutationObserver(globalThis.recordView);
+    });
+    for (let i = 0; i < 2; i++) {
+      await send({ type: "caption", caption: { ...base, utteranceId: `long-${i}`, translation: texts[i], audioStartMs: i * 2000, audioEndMs: (i + 1) * 2000 } });
+      if (i === 0) await page.evaluate(() => globalThis.watcher.observe(document.querySelector("#interpreter-captions").shadowRoot, { childList: true, subtree: true, characterData: true }));
+      await page.evaluate(() => globalThis.recordView());
     }
-    assert.equal(seen.size, text.length, `Utterance ${index + 1}: unread final characters were lost`);
-    samples.push({ utterance: index + 1, characterCount: text.length, displayedCharacterCount: seen.size,
-      parts: views.filter((v) => v.index === index).map(({ text, ...view }) => ({ ...view, length: text.length })) });
+    assert.equal(await page.locator(".sentence").count(), 2);
+    const name = viewport.width === 270 ? "rolling-narrow" : "rolling-normal";
+    await page.screenshot({ path: `docs/verification/captions/${name}.png` });
+    await page.locator("#play").click();
+    assert.equal(await page.locator("#play").textContent(), "Clicked");
+    const before = await page.locator(".sentence").allTextContents();
+    await page.locator("#fullscreen").click();
+    await page.waitForFunction(() => document.fullscreenElement?.contains(document.querySelector("#interpreter-captions")));
+    assert.deepEqual(await page.locator(".sentence").allTextContents(), before, "Fullscreen must retain the current reading position");
+    if (viewport.width === 1280) await page.screenshot({ path: "docs/verification/captions/rolling-fullscreen.png" });
+    await page.evaluate(() => document.exitFullscreen());
+    await page.waitForFunction(() => document.fullscreenElement === null);
+    await page.waitForFunction(() => !document.querySelector("#interpreter-captions"), null, { timeout: 20000 });
+    const views = await page.evaluate(() => { globalThis.watcher.disconnect(); globalThis.views.push({ at: performance.now(), height: 0, line: 1, sentences: [] }); return globalThis.views; });
+    assert.ok(views.every((v) => v.height <= v.line * 4 + 9), "Rolling surface must fit four lines without clipping");
+    const parts = texts.map((full, i) => {
+      const changes = [];
+      for (const view of views) {
+        const sentence = view.sentences.find((s) => s.id === `long-${i}`);
+        if (sentence && sentence.text !== changes.at(-1)?.text) changes.push({ ...sentence, at: view.at });
+      }
+      assert.equal(changes.map((c) => c.text).join(""), full, "Every final character appears once, in order");
+      assert.ok(changes.every((c) => c.height <= c.line * 2 + 1));
+      for (let part = 0; part < changes.length; part++) {
+        const change = changes[part];
+        const end = changes[part + 1]?.at ?? views.find((v) => v.at > change.at && !v.sentences.some((s) => s.id === `long-${i}`))?.at;
+        change.hiddenAtMs = end;
+        assert.ok(end - change.at >= Math.min(6000, Math.max(2500, change.text.length * 90)) - 100, "Each part needs its reading time");
+      }
+      return { utterance: i, characterCount: full.length, displayedCharacterCount: changes.reduce((n, c) => n + c.text.length, 0),
+        parts: changes.map(({ text, ...c }) => ({ ...c, length: text.length })) };
+    });
+    const firstMissing = [0, 1].map((i) => views.findIndex((v) => !v.sentences.some((s) => s.id === `long-${i}`) && v.at > views.find((v) => v.sentences.some((s) => s.id === `long-${i}`)).at));
+    assert.ok(firstMissing[0] <= firstMissing[1], "Remove the front sentence first");
+    samples.push({ viewport, parts, maxSurfaceHeight: Math.max(...views.map((v) => v.height)), coexistence: true, frontExpiry: true });
   }
-  assert.ok(views.every((v) => v.index >= 0), "An old queued revision overwrote its final");
-  await send({ type: "caption", caption });
-  await send({ type: "caption", caption: { ...caption, utteranceId: "two", translation: texts[1] } });
-  await send({ type: "clear", sessionId: caption.sessionId });
-  await page.waitForTimeout(2800);
-  assert.equal(await page.locator("#interpreter-captions").count(), 0, "Clear must discard queued captions and timers");
+
+  // A resize after the first part expires must keep the suffix, without replaying the prefix.
+  await page.setViewportSize({ width: 270, height: 700 });
+  await send({ type: "start", sessionId: base.sessionId });
+  await send({ type: "caption", caption: { ...base, translation: texts[0] } });
+  const prefix = await page.locator(".sentence").textContent();
+  await page.waitForFunction((prefix) => document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".sentence")?.textContent !== prefix, prefix, { timeout: 7000 });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  assert.equal(await page.locator(".sentence").textContent(), texts[0].slice(prefix.length));
+  await send({ type: "clear", sessionId: base.sessionId });
+
+  // Overload is visible, counted, and bounded separately from the active sentences.
   const warnings = [];
   page.on("console", (message) => { if (message.type() === "warning") warnings.push(message.text()); });
-  await send({ type: "start", sessionId: caption.sessionId });
-  await send({ type: "caption", caption });
-  await page.evaluate(() => {
-    globalThis.burstViews = [];
-    const shadow = document.querySelector("#interpreter-captions").shadowRoot;
-    const observer = new MutationObserver(() => globalThis.burstViews.push(shadow.querySelector(".cue").textContent));
-    observer.observe(shadow, { childList: true, subtree: true, characterData: true });
-  });
-  for (let i = 0; i < 10; i++) {
-    await send({ type: "caption", caption: { ...caption, utteranceId: `burst-${i}`,
-      translation: `대기 ${i}`, audioEndMs: 1000 } });
-  }
-  assert.equal(warnings.length, 8, "A burst must explicitly report discarded waiting captions");
-  await page.waitForFunction(() => globalThis.burstViews.includes("8"), null, { timeout: 9000 }).catch(async (error) => {
-    console.log(JSON.stringify({ burstFailure: await page.evaluate(() => globalThis.burstViews) }));
-    throw error;
-  });
-  assert.deepEqual(await page.evaluate(() => globalThis.burstViews.slice(-2)), ["대기 ", "8"], "Keep the two newest waiting captions, including every part");
-  // A session replacement must dispose both the current cue and its pending timer.
+  await send({ type: "start", sessionId: base.sessionId });
+  for (let i = 0; i < 12; i++) await send({ type: "caption", caption: { ...base,
+    utteranceId: `burst-${i}`, translation: `문장${i}`, audioStartMs: 0, audioEndMs: 1000 } });
+  assert.equal(warnings.length, 4);
+  assert.equal(await page.locator(".sentence").count(), 4);
+  assert.match(await page.locator(".notice").textContent(), /4개 생략/);
+  await send({ type: "caption", caption: { ...base, utteranceId: "burst-4", revision: 99, translation: "부활 응답" } });
+  assert.doesNotMatch(await cue.textContent(), /부활/);
+  assert.equal(warnings.length, 4, "A discarded cue cannot re-enter the waiting list");
+  await page.waitForFunction(() => document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue")?.textContent.includes("문장11"), null, { timeout: 7000 });
+  assert.equal(await cue.textContent(), "문장8문장9문장10문장11");
   await send({ type: "start", sessionId: "replacement" });
-  await send({ type: "caption", caption: { ...caption, sessionId: "replacement", translation: "교체." } });
-  await send({ type: "caption", caption: { ...caption, revision: 99, translation: "이전 세션" } });
-  assert.equal(await page.locator("#interpreter-captions .cue").textContent(), "교체.");
-  await page.waitForTimeout(2800);
+  await send({ type: "caption", caption: { ...base, sessionId: "replacement", translation: "교체." } });
+  await send({ type: "caption", caption: { ...base, revision: 99, translation: "이전 세션" } });
+  assert.equal(await cue.textContent(), "교체.");
+  assert.equal(await page.locator(".notice").textContent(), "");
+  await send({ type: "clear", sessionId: "replacement" });
+  await page.waitForTimeout(2700);
   assert.equal(await page.locator("#interpreter-captions").count(), 0);
-  // Two 5.1-second waiting phrases exceed the separate eight-second audio budget.
-  await send({ type: "start", sessionId: caption.sessionId });
-  await send({ type: "caption", caption });
-  await send({ type: "caption", caption: { ...caption, utteranceId: "budget-one", translation: "대기 하나" } });
-  await send({ type: "caption", caption: { ...caption, utteranceId: "budget-two", translation: "대기 둘" } });
-  assert.equal(warnings.length, 9);
-  await page.waitForFunction(() => document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue")?.textContent === "둘", null, { timeout: 9000 });
-  assert.equal(await page.locator("#interpreter-captions .cue").textContent(), "둘");
-  await send({ type: "clear", sessionId: caption.sessionId });
-  const report = { passed: true, browser: context.browser().version(), generatedCaptions: true, samples,
-    audioTranslation: "not exercised", allCharactersDisplayed: true, queuedRevisionRejected: true, clear: true,
-    boundedWaitingCount: 2, boundedWaitingAudioMs: 8000, overloadWarnings: warnings.length, replacement: true };
-  await writeFile("docs/verification/latency/overlap-fixture.json", `${JSON.stringify(report, null, 2)}\n`);
+  await send({ type: "caption", caption: { ...base, sessionId: "replacement", revision: 100 } });
+  assert.equal(await page.locator("#interpreter-captions").count(), 0);
+  await send({ type: "start", sessionId: base.sessionId });
+  for (let i = 0; i < 8; i++) await send({ type: "caption", caption: { ...base,
+    utteranceId: `budget-${i}`, translation: `구절${i}`, audioStartMs: i * 5100, audioEndMs: (i + 1) * 5100 } });
+  assert.equal(warnings.length, 6, "Four waiting 5.1-second phrases must discard two to fit 12 seconds");
+  assert.match(await page.locator(".notice").textContent(), /2개 생략/);
+  await send({ type: "clear", sessionId: base.sessionId });
+  await page.waitForTimeout(2700);
+  assert.equal(await page.locator("#interpreter-captions").count(), 0, "Clear discards waiting work and its timer");
+  const report = { passed: true, browser: context.browser().version(), generatedCaptions: true,
+    audioTranslation: "not exercised", samples, readingTime: true, inPlaceCorrections: true, oldRevisionsRejected: true,
+    expiredRevisionRejected: true, tiedAudioTimestamps: true, resizeReadingPosition: true, fullscreen: true, controls: true,
+    maxLines: 4, maxWaitingCaptions: 4, maxWaitingAudioMs: 12000, overloadDropped: 4, audioBudgetDropped: 2, clear: true, replacement: true };
+  await writeFile("docs/verification/captions/rolling-fixture.json", `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report));
 } finally {
   await context?.close();

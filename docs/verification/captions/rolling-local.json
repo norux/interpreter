@@ -1,0 +1,291 @@
+{
+  "browser": "153.0.8010.12",
+  "nativeCapture": true,
+  "realLocalModels": true,
+  "speech": "macOS Samantha 165 wpm; umbrella/coat/station/trip, followed by sunny weather",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "wavSha256": [
+    "936452426614f2e343042acd563e74b5cb6e30ea37b9e0edd84f6921274f9ba8",
+    "c54a064bc9435df7335033e997fa6b4cd122463125ad83d2fb777e628fc26003"
+  ],
+  "samples": [
+    {
+      "repetition": 0,
+      "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+      "firstInference": true,
+      "scene": "narrow",
+      "viewport": {
+        "width": 270,
+        "height": 700
+      },
+      "coexistence": true,
+      "frontExpiry": true,
+      "displayWaitMs": 0,
+      "nextCaptionAtMs": 1791255536933.9,
+      "unreadPartAtMs": 1791255537938.3,
+      "finals": [
+        {
+          "utteranceId": "1",
+          "revision": 28,
+          "characterCount": 41,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+              "utteranceId": "1",
+              "revision": 28,
+              "final": true,
+              "type": "part",
+              "atMs": 1791255535235.1,
+              "offset": 0,
+              "length": 30,
+              "twoLines": true,
+              "rollingLines": true,
+              "withUtterances": [
+                "1"
+              ],
+              "visible": true,
+              "left": 39,
+              "right": 231,
+              "top": 565.609375,
+              "bottom": 616,
+              "paintAtMs": 1791255535235.227,
+              "markToPaintMs": 0.127,
+              "hiddenAtMs": 1791255537938.2
+            },
+            {
+              "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+              "utteranceId": "1",
+              "revision": 28,
+              "final": true,
+              "type": "part",
+              "atMs": 1791255537938.3,
+              "offset": 30,
+              "length": 11,
+              "twoLines": true,
+              "rollingLines": true,
+              "withUtterances": [
+                "1",
+                "2"
+              ],
+              "visible": true,
+              "left": 39,
+              "right": 231,
+              "top": 565.609375,
+              "bottom": 590.8046875,
+              "paintAtMs": 1791255537938.559,
+              "markToPaintMs": 0.259,
+              "hiddenAtMs": 1791255540437.7
+            }
+          ]
+        },
+        {
+          "utteranceId": "2",
+          "revision": 10,
+          "characterCount": 11,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+              "utteranceId": "2",
+              "revision": 10,
+              "final": true,
+              "type": "part",
+              "atMs": 1791255537329.8,
+              "offset": 0,
+              "length": 11,
+              "twoLines": true,
+              "rollingLines": true,
+              "withUtterances": [
+                "1",
+                "2"
+              ],
+              "visible": true,
+              "left": 39,
+              "right": 231,
+              "top": 590.8046875,
+              "bottom": 616,
+              "paintAtMs": 1791255537329.883,
+              "markToPaintMs": 0.083,
+              "hiddenAtMs": 1791255540437.7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+      "firstInference": false,
+      "scene": "normal",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "coexistence": true,
+      "frontExpiry": true,
+      "displayWaitMs": 0.099853515625,
+      "nextCaptionAtMs": 1791255548538.4,
+      "unreadPartAtMs": null,
+      "finals": [
+        {
+          "utteranceId": "3",
+          "revision": 28,
+          "characterCount": 41,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+              "utteranceId": "3",
+              "revision": 28,
+              "final": true,
+              "type": "part",
+              "atMs": 1791255547099.5,
+              "offset": 0,
+              "length": 41,
+              "twoLines": true,
+              "rollingLines": true,
+              "withUtterances": [
+                "3"
+              ],
+              "visible": true,
+              "left": 172,
+              "right": 1108,
+              "top": 673,
+              "bottom": 716,
+              "paintAtMs": 1791255547099.703,
+              "markToPaintMs": 0.203,
+              "hiddenAtMs": 1791255550791.2
+            }
+          ]
+        },
+        {
+          "utteranceId": "4",
+          "revision": 10,
+          "characterCount": 11,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+              "utteranceId": "4",
+              "revision": 10,
+              "final": true,
+              "type": "part",
+              "atMs": 1791255548813.7,
+              "offset": 0,
+              "length": 11,
+              "twoLines": true,
+              "rollingLines": true,
+              "withUtterances": [
+                "3",
+                "4"
+              ],
+              "visible": true,
+              "left": 172,
+              "right": 1108,
+              "top": 673,
+              "bottom": 716,
+              "paintAtMs": 1791255548815.063,
+              "markToPaintMs": 1.363,
+              "hiddenAtMs": 1791255551314.3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+      "firstInference": false,
+      "scene": "fullscreen",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "coexistence": true,
+      "frontExpiry": true,
+      "displayWaitMs": 0,
+      "nextCaptionAtMs": 1791255559692.2,
+      "unreadPartAtMs": null,
+      "finals": [
+        {
+          "utteranceId": "5",
+          "revision": 30,
+          "characterCount": 43,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+              "utteranceId": "5",
+              "revision": 30,
+              "final": true,
+              "type": "part",
+              "atMs": 1791255558115,
+              "offset": 0,
+              "length": 43,
+              "twoLines": true,
+              "rollingLines": true,
+              "withUtterances": [
+                "5"
+              ],
+              "visible": true,
+              "left": 172,
+              "right": 1108,
+              "top": 673,
+              "bottom": 716,
+              "paintAtMs": 1791255558115.131,
+              "markToPaintMs": 0.131,
+              "hiddenAtMs": 1791255561985.9
+            }
+          ]
+        },
+        {
+          "utteranceId": "6",
+          "revision": 10,
+          "characterCount": 11,
+          "qualityChecks": true,
+          "allCharactersDisplayed": true,
+          "parts": [
+            {
+              "sessionId": "43d1d142-dd8f-4dc0-8062-ea383aa708d7",
+              "utteranceId": "6",
+              "revision": 10,
+              "final": true,
+              "type": "part",
+              "atMs": 1791255559981.6,
+              "offset": 0,
+              "length": 11,
+              "twoLines": true,
+              "rollingLines": true,
+              "withUtterances": [
+                "5",
+                "6"
+              ],
+              "visible": true,
+              "left": 172,
+              "right": 1108,
+              "top": 673,
+              "bottom": 716,
+              "paintAtMs": 1791255559990.363,
+              "markToPaintMs": 8.763,
+              "hiddenAtMs": 1791255562482.4
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "maxPendingAudioMs": 0,
+  "droppedFrames": 0,
+  "droppedUtterances": 0,
+  "listening": "No new physical listening check; prior 7a user confirmation remains historical",
+  "subtitleDrops": 0
+}

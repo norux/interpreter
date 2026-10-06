@@ -2458,3 +2458,124 @@ is checked; the next unfinished item is 7b (Source Auto), followed by items 8/9.
 No implementation, acceptance criteria, runner, dependencies or numeric evidence
 changed. The earlier 171-test full verification remains historical; this update
 reran the targeted native browser acceptance and cleanup, not the full suite.
+
+## Ralph iteration 1/30 — 2026-10-06 — rolling subtitles (7c)
+
+The initial built-sink regression failed with exit 1: after the second short
+final, only `공원으로 걸어갑니다.` remained, rather than both sentences. Replaced
+the single cue/two-waiting-caption display with a feature-local rolling surface.
+Capture, model adapters, caption contracts and output fan-out are unchanged.
+The surface uses at most four lines (less on a short viewport), up to two per
+sentence, with the oldest part advancing/expiring after 2.5–6 seconds based on
+length. New sentences fill available space; revisions replace only their own
+sentence text and deadline. Consumed character offsets survive resize and
+fullscreen. No clipping, ellipsis, transcript storage or transcript-list UI is
+introduced. DOM nodes survive other sentences' corrections.
+
+Hidden output is bounded independently at four sentences/twelve seconds of
+source audio. Actual overload drops the oldest waiting sentence, with a
+cumulative count/reason in a small separate status notice and a text-free console
+warning. Retired IDs are bounded at 128; an audio-position watermark rejects
+older audio. Distinct direct-provider cues can share an audio timestamp, so
+strictly earlier audio and remembered retired IDs are rejected rather than all
+cues at the same timestamp. This fits the existing bounded/ordered producer
+transport; it is not a general unlimited tombstone archive. Stop/dispose clears
+all display, waiting work, timers, status and retirement guards.
+
+`npm run test:captions-overlap-browser` exercises the current built sink on
+Chrome for Testing 153.0.8010.12 / Playwright 1.63.0. Generated fixture finals
+retain **42/42 and 38/38 characters**, once and in order, at 1280×800 and 270×700.
+The narrow surface uses four lines (109 client pixels including padding and
+rounding); wide uses two lines. All parts receive their length-based reading
+time (100 ms observation tolerance), expire from the front, and coexist with
+later text. Tests check unchanged nodes during multiple in-place corrections,
+old revisions/final-to-partial rejection, expired/discarded revisions, preserved
+suffix after resize, wrapper fullscreen/exit, controls, clear/late messages,
+session replacement, and both hidden-work limits. A twelve-cue burst with tied
+audio timestamps keeps four visible plus four waiting and reports four drops;
+four waiting 5.1-second cues report two audio-budget drops. Numeric evidence is
+`docs/verification/captions/rolling-fixture.json`. Visually reviewed
+`rolling-normal.png`, `rolling-narrow.png`, `rolling-fullscreen.png`: white
+outlined Korean text, chronological sentence rows, safe margins, readable
+wrapping and accessible controls. These are generated DOM fixtures, not audio
+translation evidence.
+
+`npm run test:captions-browser` also passed normal/narrow/wrapper fullscreen,
+style isolation, pointer-events, control clicks, revision rejection, an isolated
+long final's complete characters/two-line parts, expiry, clear and late caption
+checks. Its general screenshots go to ignored `.ralph/` to preserve the older
+historical images. The rolling screenshots above are the new durable visual
+evidence. The paint matcher now allows distinct sentences to share a covering
+paint but still rejects borrowing a newer revision's paint; the new JS regression
+checks this behavior.
+
+Real validation uses `OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve`,
+`PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked --extra local`, and
+`npm run test:local-browser -- overlap`. Native Extensions → Interpreter → Start,
+observed Preparing then listening, Escape to close popup, `overlap`, native Stop,
+`stopped`, `exit`: no programmatic Start, substituted stream or injected caption.
+A first narrow-only run passed three long/short pairs with all nine final parts
+painted. Added per-sentence disappearance observation and narrow/normal/fullscreen
+scenes to check actual reading durations, front expiry and save real screenshots.
+The scene run passed the two meanings (blue umbrella, warm coat, station, 3 pm,
+trip and sunny weather), all final characters and simultaneous sentences. The
+numbers, identities, geometry, Paint/disappearance times and WAV hashes are in
+`docs/verification/captions/rolling-local.json`; audio/transcripts remain temporary
+browser/terminal data. The WAV hashes match the earlier 7a overlap report.
+
+Real scene screenshots `rolling-local-narrow.png`, `rolling-local-normal.png`,
+`rolling-local-fullscreen.png` were visually reviewed. Both Korean sentences are
+readable together; narrow text wraps above the fixture buttons/audio controls.
+Normal/fullscreen retain the same two sentence rows. The harness checks that the
+host is inside the actual fullscreen element. Native Stop/`stopped` verifies
+idle, no active captured tab, zero offscreen contexts and zero caption hosts;
+both runs exited 0.
+
+The setup is cached MLX Qwen3-ASR-0.6B-8bit / mlx-audio 0.5.8, Ollama 0.35.1
+qwen3:4b-instruct, Apple M5/16 GiB, Python 3.12.15, English → Korean, current
+300 ms silence/quality boundary/6-second cap. Hugging Face offline and Ollama
+cloud disabled. These isolated generated-speech runs are **not** advancing
+600-second public-video stability, a new latency improvement benchmark,
+utterance-in-progress ASR/translation (7d), Source Auto (7b), cold-cache evidence
+or a new physical speaker-listening check. The 7a user listening confirmation
+remains historical. An initial `cua.getApp` before the dedicated harness window
+returned `timeoutReached` (-10005); selecting the same cached app after READY
+worked and native capture/Stop proceeded. No remaining interactive-access blocker.
+
+Failure records: the expanded fixture initially missed the detached host's last
+absence snapshot and failed its reading-time assertion (exit 1). Explicitly
+recording the observed absence after expiry fixed the observer; the duration
+assertion remains. The tied-timestamp burst check then waited only for sentence 8
+and asserted all four waiting sentences too soon, seeing `문장2문장3문장8문장9`
+(exit 1). Waiting for sentence 11 instead preserves the exact same final group,
+drop count, reading time and timeout checks; earlier sentences retain their
+individual deadlines. No failed run supplies successful evidence. No provider
+credentials, live cloud calls, runner changes, agents, push or publishing.
+
+After the tied-timestamp guard change, reran the complete native scene harness
+against the final build: narrow/normal/fullscreen, **41/41/43 long characters +
+11/11/11 short characters**, **7/7 final-part covering Paints**, ordered offsets,
+no duplicates, front expiry and both meanings passed. This final run replaces
+only the new rolling-local report/screenshots, which were visually reviewed
+again. Native Stop/`stopped`/`exit` passed, exit 0. Caption receipt → short
+sentence's first DOM mark was **0 / 0.09985 / 0 ms** at browser clock resolution;
+these are display-wait observations, not zero audio-to-caption/physical-display
+latency. Final part DOM visibility was **2703.1 / 2499.4 / 3107.9 / 3691.7 /
+2500.6 / 3870.9 / 2500.8 ms**; rounding/timer observation tolerance is 100 ms.
+The same sentence text was not removed/reinserted by another sentence's revision.
+Sampled inference pending peak **0 ms**, dropped frames/utterances **0/0**, and
+subtitle drops **0**. Peak visible sentences **2**, no hidden output in these
+isolated scenes; burst retention/drop is the separate fixture above. Independent
+numeric checks passed offsets/counts, identity/revision, Paint arithmetic,
+durations, geometry, front expiry, queue/drop and WAV hash agreement.
+
+Final-source `npm run verify` passed exit 0: lint/typecheck/build,
+**12 JS + 160 Python tests**, failures/skips/warnings 0, Python **66.02 seconds**.
+Earlier full runs also passed (Python 66.33/66.14 seconds). The final suite ran
+with the base locked environment before the last native model rerun; restored
+`uv sync --locked` after native verification. `uv lock --check` and
+`git diff --check` passed; no dependency/lock changes. Dedicated browser,
+companion, fixture and owned Ollama were closed after each actual run. The final-source basic browser regression also passed exit 0. No
+listeners remain on 8765/8766/11434 after all browser/model/fixture cleanup. Only source/tests, numeric evidence, generated-speech
+screenshots, README/docs and plan are intended for commit; `.ralph`, build copies,
+models, credentials and user audio/transcripts are excluded.

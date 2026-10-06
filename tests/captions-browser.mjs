@@ -37,7 +37,7 @@ try {
   }
   const caption = {
     sessionId: "generated-test", utteranceId: "one", revision: 1, source: "Generated test caption.",
-    translation: "이 자막은 화면 아래에 두 줄까지 표시됩니다. 영상 컨트롤은 그대로 누를 수 있습니다.",
+    translation: "최근 번역은 화면 아래에 함께 표시됩니다. 영상 컨트롤은 그대로 누를 수 있습니다.",
     final: false, audioStartMs: 0, audioEndMs: 1000, emittedAtMs: Date.now(),
   };
   const cue = page.locator("#interpreter-captions .cue");
@@ -56,13 +56,13 @@ try {
         fullscreen: document.fullscreenElement !== null, insideFullscreen: document.fullscreenElement?.contains(host) ?? false,
         controlTop: document.querySelector(".ytp-chrome-bottom")?.getBoundingClientRect().top };
     });
-    assert.ok(result.height <= result.lineHeight * 2 + 9, `${name}: more than two lines`);
+    assert.ok(result.height <= result.lineHeight * 4 + 9, `${name}: more than four lines`);
     assert.equal(result.color, "rgb(255, 255, 255)");
     assert.equal(result.pointerEvents, "none");
     assert.ok(result.left >= result.width * 0.09 && result.right <= result.width * 0.91);
     assert.ok(result.bottom < result.viewportHeight - 60);
     if (name.startsWith("youtube-")) assert.ok(result.bottom < result.controlTop - 10, "YouTube captions must sit above video controls");
-    await page.screenshot({ path: `docs/verification/captions/${name}.png`, animations: "disabled" });
+    await page.screenshot({ path: youtube ? `docs/verification/captions/${name}.png` : `.ralph/captions-${name}.png`, animations: "disabled" });
     console.log(JSON.stringify({ name, ...result }));
   }
   await inspect(youtube ? "youtube-normal" : "normal");
@@ -85,7 +85,7 @@ try {
     while (true) {
       // Read presence, text and layout together so expiry cannot detach the cue between checks.
       const layout = await page.evaluate(() => {
-        const element = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue");
+        const element = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".sentence");
         return element ? { text: element.textContent,
           height: element.clientHeight, lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight) } : null;
       });
@@ -96,7 +96,7 @@ try {
     }
     assert.equal(displayed, long.trim(), "Every character of a long cue must appear");
     await page.setViewportSize({ width: 1280, height: 800 });
-    await send({ type: "caption", caption: { ...caption, revision: 5 } });
+    await send({ type: "caption", caption: { ...caption, revision: 5, utteranceId: "fullscreen", audioStartMs: 2000, audioEndMs: 3000 } });
     await page.locator("#fullscreen").click();
   } else {
     await page.locator(".ytp-size-button").click();

@@ -8,7 +8,11 @@ export function captionPaints(events, frameId) {
   const paints = events.filter((event) => event.name === "Paint" && event.args?.data?.frame === frameId).sort((a, b) => a.ts - b.ts);
   return marks.map((mark, index) => {
     const data = JSON.parse(mark.name.slice(prefix.length));
-    const next = marks[index + 1]?.ts ?? Infinity;
+    const next = marks.slice(index + 1).find((candidate) => {
+      const later = JSON.parse(candidate.name.slice(prefix.length));
+      return later.sessionId === data.sessionId && (later.utteranceId === data.utteranceId
+        || later.type === "clear" || later.type === "start");
+    })?.ts ?? Infinity;
     const paint = paints.find((event) => {
       if (event.ts < mark.ts || event.ts >= next || !data.visible) return false;
       const clip = event.args.data.clip;
@@ -37,8 +41,9 @@ export async function traceCaptionPaints(context, page, worker, tabId) {
     // Registered after the built content sink, so synchronous rendering has finished.
     chrome.runtime.onMessage.addListener((message, sender) => {
       if (sender.id !== chrome.runtime.id || message.target !== "captions") return;
-      const element = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue");
       const caption = message.caption;
+      const shadow = document.querySelector("#interpreter-captions")?.shadowRoot;
+      const element = [...(shadow?.querySelectorAll(".sentence") ?? [])].find((node) => node.dataset.utteranceId === caption?.utteranceId);
       const box = element?.getBoundingClientRect();
       const text = element?.textContent ?? "";
       const visible = !!box && !!text && caption?.translation.startsWith(text);

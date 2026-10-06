@@ -1,0 +1,121 @@
+{
+  "passed": true,
+  "browser": "153.0.8010.12",
+  "generatedCaptions": true,
+  "audioTranslation": "not exercised",
+  "samples": [
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "parts": [
+        {
+          "utterance": 0,
+          "characterCount": 42,
+          "displayedCharacterCount": 42,
+          "parts": [
+            {
+              "id": "long-0",
+              "height": 43,
+              "line": 43.008,
+              "at": 2590.300000011921,
+              "hiddenAtMs": 6380.700000047684,
+              "length": 42
+            }
+          ]
+        },
+        {
+          "utterance": 1,
+          "characterCount": 38,
+          "displayedCharacterCount": 38,
+          "parts": [
+            {
+              "id": "long-1",
+              "height": 43,
+              "line": 43.008,
+              "at": 2592.5,
+              "hiddenAtMs": 6380.700000047684,
+              "length": 38
+            }
+          ]
+        }
+      ],
+      "maxSurfaceHeight": 94,
+      "coexistence": true,
+      "frontExpiry": true
+    },
+    {
+      "viewport": {
+        "width": 270,
+        "height": 700
+      },
+      "parts": [
+        {
+          "utterance": 0,
+          "characterCount": 42,
+          "displayedCharacterCount": 42,
+          "parts": [
+            {
+              "id": "long-0",
+              "height": 50,
+              "line": 25.2,
+              "at": 6412.900000035763,
+              "hiddenAtMs": 9112.300000011921,
+              "length": 30
+            },
+            {
+              "id": "long-0",
+              "height": 25,
+              "line": 25.2,
+              "at": 9112.300000011921,
+              "hiddenAtMs": 11612,
+              "length": 12
+            }
+          ]
+        },
+        {
+          "utterance": 1,
+          "characterCount": 38,
+          "displayedCharacterCount": 38,
+          "parts": [
+            {
+              "id": "long-1",
+              "height": 50,
+              "line": 25.2,
+              "at": 6414.600000023842,
+              "hiddenAtMs": 11612,
+              "length": 30
+            },
+            {
+              "id": "long-1",
+              "height": 25,
+              "line": 25.2,
+              "at": 11612,
+              "hiddenAtMs": 14130.600000023842,
+              "length": 8
+            }
+          ]
+        }
+      ],
+      "maxSurfaceHeight": 109,
+      "coexistence": true,
+      "frontExpiry": true
+    }
+  ],
+  "readingTime": true,
+  "inPlaceCorrections": true,
+  "oldRevisionsRejected": true,
+  "expiredRevisionRejected": true,
+  "tiedAudioTimestamps": true,
+  "resizeReadingPosition": true,
+  "fullscreen": true,
+  "controls": true,
+  "maxLines": 4,
+  "maxWaitingCaptions": 4,
+  "maxWaitingAudioMs": 12000,
+  "overloadDropped": 4,
+  "audioBudgetDropped": 2,
+  "clear": true,
+  "replacement": true
+}

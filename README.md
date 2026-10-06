@@ -4,8 +4,9 @@ Chrome tab audio → Korean subtitles, with a local companion. This repository
 contains tab capture, a Shadow DOM subtitle sink, and the local MLX ASR → Ollama
 translation path. The user confirmed audible original playback during capture
 and after popup closure. See `RALPH_PLAN.md` for durable progress and the
-remaining implementation work. Real-model generated-speech smoke passes; the
-combined Chrome capture → visible translated caption acceptance is still pending.
+remaining implementation work. Real Chrome capture through both local models
+to visible Korean subtitles passes on generated speech; ten-minute public-video
+acceptance remains pending.
 
 The planned input is one Chrome tab started by the user, not macOS system audio.
 The default local path will run without API keys. Cloud paths will be explicitly
@@ -352,30 +353,47 @@ Use native Stop, enter `stopped`, then `exit`. Numeric evidence is saved in
 This isolated-phrase check does not establish continuous-media cue retention,
 in-flight inference cancellation, speaker listening or cold-start latency.
 
-The subtitle sink finishes a final cue's timed parts before showing a later
-utterance. Waiting partials are replaced by their newer revisions. Waiting output
-is limited to two captions and eight seconds of source audio; overload discards
-the oldest waiting caption and logs its count without caption text. This bounds
-memory, but it does not guarantee an eight-second display delay: reading a long
-cue can take longer, and an overloaded output can skip waiting cues.
+The subtitle sink stacks recent sentences in a four-line area (fewer lines on
+very short viewports), above the controls. Each sentence uses at most two lines
+at a time. Long sentences advance through their remaining characters; the front
+sentence/part expires first after 2.5–6 seconds of reading time, based on length.
+New sentences appear below earlier text as space permits. Corrections update
+only their sentence and reading deadline. Resize/fullscreen retains the consumed
+character offset; recent expired sentence IDs and older audio/revisions are
+discarded. The sink keeps at most 128 retired IDs to handle direct-translation
+cues that share an audio timestamp; older audio is rejected by a timestamp
+watermark. These guards accompany the existing bounded, ordered session transport.
+
+Hidden output waits at most four captions and twelve seconds of source audio,
+separately from the inference queue. Overload skips the oldest waiting sentence
+and shows a cumulative count/reason in a small status notice, also logging a
+count without transcript text. These are retention bounds, not a twelve-second
+maximum display delay or a guarantee against loss under overload. Stop clears
+sentences, waiting work, the status notice and timers.
 
 ```sh
 npm run test:captions-overlap-browser
 npm run test:local-browser -- overlap
 ```
 
-The first command uses generated captions to verify adjacent final characters,
-queued revision replacement, both output limits, clear and session replacement.
-It writes numeric evidence to `docs/verification/latency/overlap-fixture.json`.
+The first command uses generated captions to verify coexistence, complete final
+characters and reading time, front expiry, in-place corrections, both output
+limits, late revisions, resize/fullscreen, controls, clear and session replacement.
+It writes numeric evidence to `docs/verification/captions/rolling-fixture.json`
+and `rolling-{normal,narrow,fullscreen}.png`. These are DOM fixtures.
+
 For the second command, start Ollama, use native toolbar Start, close the popup,
-then enter `overlap`. It plays the generated long phrase followed by short sunny
-weather speech three times. The test requires the next real caption to arrive
-before the previous final's unread part, both Korean meanings, every final
-character and a covering Paint for each part. Use native Stop, `stopped`, `exit`.
-Only a passing run writes `docs/verification/latency/stream-overlap.json`.
-The resumed native run passed three real long/short pairs with covering Paints
-for every final part; its numeric report is saved separately from fixture evidence.
-It does not establish 600-second stability or physical speaker listening.
+then enter `overlap`. It plays generated long speech followed by sunny weather
+in narrow, normal and wrapper-fullscreen scenes. It requires both Korean
+meanings, simultaneous sentences, complete final characters, reading time,
+front expiry and a covering Chromium Paint for each final part. The narrow
+scene also requires the next caption before the earlier unread part. Use native
+Stop, `stopped`, `exit`. Only a passing run writes
+`docs/verification/captions/rolling-local.json`; real screenshots are named
+`rolling-local-{narrow,normal,fullscreen}.png`. The earlier
+`docs/verification/latency/stream-overlap.json` preserves the prior single-cue
+implementation's acceptance, not the new rolling display. Neither short test
+establishes 600-second stability or a new physical speaker-listening result.
 
 To measure native Start, model preparation and the first actual subtitle:
 

@@ -269,7 +269,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
     의미/긴 cue 무손실, partial/final 교체, Stop/세션 교체 뒤 늦은 결과 거부,
     bounded queue와 원음 재생을 확인한다. 0ms나 미측정 지연 수치를 보장하지 않는다.
 
-- [ ] 7c. 누적 자막과 앞부분부터 순차 만료
+- [x] 7c. 누적 자막과 앞부분부터 순차 만료
   - 현재 한 cue의 timed parts/대기2개 정책에서 발생하는 잦은 교체/잘림을 회귀로
     재현한다. 새 번역을 기존 자막 아래에 이어 붙이고 오래된 줄/구절부터 제거하는
     작은 rolling 자막 영역으로 바꾼다. 표시 높이와 보관량은 제한하고 unread 내용을
@@ -1579,3 +1579,77 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   일치시켰다. 우선순위는 **7c → 7d → 7b → 8 → 9**다. 기존 7a 완료/청취/계측은
   초기 개선 단계의 사실로 보존한다. 유지 시간 연장/VAD 숫자 변경만으로 새 요구를
   완료 처리하지 않는다. 이번 변경은 계획 추가이며 제품 구현/성능/시각 검증은 아직이다.
+
+
+### Ralph iteration 1/30 — 2026-10-06 — 항목 7c 누적 자막 완료
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 제공 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  우선순위의 다음 미완료 **7c만 구현/검증**했다. runner/acceptance/provider 계약/
+  dependency/lock 변경, 다른 agent/worktree/push/publish/credential 파일 접근은 없다.
+- 기존 built sink의 짧은 final 연속 도착 회귀는 두 번째 문장만 남기며 **exit1**했다.
+  feature-local overlay를 **최대4줄**, 문장당 최대2줄의 누적 영역으로 바꿨다.
+  새 문장은 아래에 보이고 앞 문장/part부터 길이 기반 **2.5–6초** 읽기 뒤 제거된다.
+  교정은 자기 node/읽기 시각만 갱신하고 다른 final 시계를 초기화하지 않는다.
+  긴 문장은 소비한 문자 offset부터 이어 보이며 resize/fullscreen에서도 앞을 재생하지
+  않는다. 원래 capture/model/output fan-out 계약은 유지하고 새 framework/설정은 없다.
+- hidden output은 **4문장/원음12초**, visible은 최대4줄이다. 과부하는 oldest waiting을
+  버리고 별도 작은 status notice에 누적 개수/이유, console에 원문 없는 숫자를 남긴다.
+  실제 overload 무손실/12초 이내 표시를 보장하지 않는다. 퇴장 ID 최대128개와 오래된
+  audio watermark로 늦은 cue를 거부한다. direct가 같은 audio 시각을 가진 서로 다른
+  cue를 만들 수 있음을 기존 adapter에서 확인해 동시각 새 cue는 허용하고 퇴장 ID는
+  거부한다. session/Stop은 pending/timer/notice/퇴장 guard까지 모두 정리한다.
+- 최종 `npm run test:captions-overlap-browser` **exit0**: generated final **42/42,
+  38/38** 모든 문자/순서/읽기 시간, 동시 표시/앞부터 만료, 제자리 다중 partial교정/
+  node 보존/old revision/final→partial 거부, 만료/discard revision/resize suffix/
+  wrapper fullscreen/controls/clear/late/session 교체를 확인했다. 12개 동시각 burst는
+  visible4+waiting4/oldest drop4, waiting5.1초×4는 audio budget drop2/상태 개수가
+  통과했다. docs/verification/captions/rolling-fixture.json은 숫자/boolean만 보존한다.
+  normal/narrow/fullscreen PNG를 시각 검토했고 narrow **4줄/109px(client+padding)**,
+  wide2줄이며 white/outline/줄 순서/controls 접근을 확인했다. **DOM fixture 증거다.**
+- expanded fixture의 첫 읽기-time assertion은 detached host 마지막 absence 관측이
+  없어 **exit1**했다. 관측한 expiry 뒤 empty snapshot을 기록해 assertion을 유지했다.
+  동시각 burst의 기다림 조건도 문장8 등장만 보고 전체4개를 즉시 요구해
+  `문장2문장3문장8문장9`로 **exit1**했다. 문장11까지 기다린 뒤 같은 전체문자/순서/
+  drop/시간 assertion을 확인하도록 수정했다. timeout/acceptance는 약화하지 않았다.
+- 실제 local harness는 native toolbar Start → Preparing/listening 확인 → popup닫기 →
+  overlap → native Stop/stopped/exit로 진행했다. 첫 narrow3쌍은 **9/9 final-part Paint**,
+  읽기/시각 scene 추가 뒤 normal/narrow/fullscreen3쌍도 통과했다. 동시각 guard 수정
+  뒤 **최종 built extension으로 전체 scene을 다시 실행해 exit0**다. 실제 tabCapture/
+  PCM/MLX0.6B8bit/Ollama qwen3:4b-instruct, HF offline/Ollama cloud disabled다.
+  ASR/한국어를 terminal 검토해 blue umbrella/warm coat/station/오후3시/trip/sunny
+  의미를 확인했다. final **41/41/43 + 11/11/11문자**, **7/7 covering Paint**,
+  모든 offset/문자/읽기 시간/동시 문장/앞부터 expiry가 통과했다.
+- docs/verification/captions/rolling-local.json과 rolling-local-{narrow,normal,fullscreen}.png
+  는 **실제 capture evidence**다. 모두 시각 검토했다. 실제 fullscreen element 안의
+  host/읽히는 두 문장/controls를 확인했다. firstInference1/warm2지만 서로 다른 viewport
+  이므로 속도 비교/p50·p95가 아니다. caption receipt→short first DOM mark는
+  **0/0.09985/0ms(시각 분해능)**, audio-to-caption/physical display0ms 보장이 아니다.
+  실제 final-part 표시 **2703.1/2499.4/3107.9/3691.7/2500.6/3870.9/2500.8ms**이며
+  DOM/timer 관측 허용 오차100ms다. visible peak2/waiting0/subtitle drop0, receipt50frame
+  간격 sampled pending peak0ms/frame·utterance drop0이다. burst bounds는 별도 fixture다.
+  숫자/identity/revision/Paint 산술/offset/읽기 시간/geometry/front expiry/queue/WAVhash를
+  독립 검사했다. 해시는 기존 7a overlap과 같고 과거 evidence는 덮어쓰지 않았다.
+- Chrome153.0.8010.12/Playwright1.63.0/AppleM5·16GiB/Python3.12.15/
+  mlx-audio0.5.8/Ollama0.35.1/English→Korean/current300ms/quality boundary/6초 cap이다.
+  generated speech의 isolated pairs이고 600초 공개 영상 안정성/새 지연 개선/발화 중
+  ASR번역/SourceAuto/새 원음 청취 성공은 아니다. 7a 사용자 청취 응답은 이전 근거다.
+  처음 window 실행 전 cua.getApp은 timeoutReached(-10005)였지만 harness READY 이후
+  같은 cached app path로 native 창/Start/Stop 접근했다. 현재 접근 blocker는 없다.
+- `npm run test:captions-browser`도 **최종 source에서 exit0**: normal/narrow/wrapper
+  fullscreen/스타일/controls/revision/isolated 긴 final 모든 문자와2줄parts/expiry/clear/
+  늦은 caption이 통과했다. basic PNG는 ignored .ralph로 보내 기존 과거 PNG를 보존한다.
+  paint matcher는 별개 문장의 동시 Paint를 인정하되 자기 더 최신 revision의 Paint는
+  빌리지 않으며 JS회귀로 확인했다. 모델/유료 경로 코드는 변경하지 않았다.
+- 최종 source **npm run verify exit0**: lint/typecheck/build, **JS12+Python160**,
+  failures/skips/warnings0,Python**66.02초**다. 이전 전체 실행66.33/66.14초도 exit0다.
+  최종 suite는 base locked env에서 마지막 native 재검증 전 실행했고 이후 base
+  uv sync --locked를 복원했다. uv lock --check/git diff --check/독립검사 통과다.
+  native stopped는 idle/active capture없음/offscreen0/host0이며 모든 owned browser/
+  harness/companion/fixture/Ollama를 종료했다. 키/weights/user audio·transcript/.ralph/
+  buildcopy는 커밋하지 않는다. source/tests/숫자/생성 음성 PNG/README/docs/plan만 보존한다.
+- 위 acceptance가 실제 통과한 뒤 **7c checkbox를 완료 체크**했다. 남은 외부 blocker는
+  없다. **다음 iteration은7d**: server/sessions/local.py의 final-only ASR에서 발화 중
+  작은 누적/겹치는 PCM snapshot과 최신 중간 revision 우선 처리부터 구현/실측한다.
+  현재 text token streaming을 발화 중 ASR/번역으로 주장하지 않는다. 7b/8(TED600초)/9도
+  미완료이며 전체 completion promise는 출력하지 않는다.
