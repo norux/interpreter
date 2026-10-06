@@ -352,6 +352,30 @@ Use native Stop, enter `stopped`, then `exit`. Numeric evidence is saved in
 This isolated-phrase check does not establish continuous-media cue retention,
 in-flight inference cancellation, speaker listening or cold-start latency.
 
+The subtitle sink finishes a final cue's timed parts before showing a later
+utterance. Waiting partials are replaced by their newer revisions. Waiting output
+is limited to two captions and eight seconds of source audio; overload discards
+the oldest waiting caption and logs its count without caption text. This bounds
+memory, but it does not guarantee an eight-second display delay: reading a long
+cue can take longer, and an overloaded output can skip waiting cues.
+
+```sh
+npm run test:captions-overlap-browser
+npm run test:local-browser -- overlap
+```
+
+The first command uses generated captions to verify adjacent final characters,
+queued revision replacement, both output limits, clear and session replacement.
+It writes numeric evidence to `docs/verification/latency/overlap-fixture.json`.
+For the second command, start Ollama, use native toolbar Start, close the popup,
+then enter `overlap`. It plays the generated long phrase followed by short sunny
+weather speech three times. The test requires the next real caption to arrive
+before the previous final's unread part, both Korean meanings, every final
+character and a covering Paint for each part. Use native Stop, `stopped`, `exit`.
+Only a passing run writes `docs/verification/latency/stream-overlap.json`.
+Iteration 8 could not reach the acceptance window with native UI control, so this
+real overlap mode remains unverified; generated-caption success is separate.
+
 To verify Stop during actual local ASR and a provider change during translation:
 
 ```sh

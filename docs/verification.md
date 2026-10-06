@@ -2184,3 +2184,109 @@ were stopped; no listeners remain on 8765/8766/11434 (`lsof` exits 1 for no
 listeners). No dependency/lockfile, production contract or runner changes;
 no secrets, weights, generated audio, user transcript or temporary `.ralph` state
 are committed. README and the durable plan retain the remaining acceptance work.
+
+## Ralph iteration 8/30 — retain overlapping final subtitle parts (2026-10-06)
+
+Worked only in the specified checkout on the next unfinished item, **7a**.
+No AGENTS.md is present; supplied instructions apply. `.ralph/verification.txt`
+still says `No completion verification attempted in this run.` The checkbox stays
+open. No agents, worktrees, cloud inference, publication, push, credential files,
+runner modifications, dependencies or model changes were used.
+
+The built overlay regression first failed with **30 / 42** first-final characters
+displayed: the following utterance replaced its unread final part. The small local
+sink now finishes a segmented final, retaining later captions until its reading
+timer finishes. A queued utterance's newer revision replaces its pending partial;
+older revisions are rejected. Clear/dispose discard all pending captions and timers.
+Waiting output is bounded by **two captions / eight seconds of source audio**,
+discarding the oldest waiting caption with a console warning containing its count,
+without transcript text. This limits retained output, not wall-clock reading delay.
+It deliberately discards waiting cues under overload; lossless adjacent-cue evidence
+does not claim lossless overloaded output. Short current cues still allow immediate
+replacement. Capture/model/output contracts and other providers are unchanged.
+
+Commands:
+
+```sh
+node tests/captions-overlap-browser.mjs # failing regression before the sink change
+npm run test:captions-overlap-browser
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-browser.mjs overlap
+npm run test:captions-browser
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked
+PATH="$PWD/.tools/uv/bin:$PATH" npm run verify
+PATH="$PWD/.tools/uv/bin:$PATH" uv lock --check
+git diff --check
+```
+
+The initial adjacent-cue check passed after the change. The extended overload
+check then failed waiting for the whole string `대기 8` (9 seconds, then two
+20-second attempts). Diagnostic observation showed the existing splitter displays
+`대기 ` and `8` as separate timed parts, followed by `대기 ` and `9`. Increasing
+the timeout did not fix the incorrect assertion. The regression now asserts the
+actual complete part sequence, with the original 9-second wait. The existing
+splitter also prefers a word boundary even when the full text would fit; that
+pre-existing behavior is left in place. A single-word replacement fixture avoids
+conflating that behavior with session disposal. Acceptance thresholds were unchanged.
+
+Final `npm run test:captions-overlap-browser`: **exit 0**, Chrome for Testing
+**153.0.8010.12**, Playwright **1.63.0**, headless **270 × 700** viewport.
+[Numeric fixture evidence](verification/latency/overlap-fixture.json) records all
+**42 / 42** and **38 / 38** adjacent final characters in ordered ranges
+**0–29 / 30–41** and **0–28 / 29–37**, all within two lines. Queued partial → final,
+old queued revision rejection, immediate clear, session disposal and old-session
+rejection pass. Ten rapid waiting captions emit **eight** discard warnings and
+retain the two newest; two 5.1-second waiting spans emit one further warning and
+retain the newest within the eight-second budget. An independent numeric/range
+check passed. These are generated-caption DOM observations, not real audio/model,
+Chromium Paint, screenshot review or physical speaker evidence.
+
+The existing `npm run test:captions-browser` also exited **0**: normal/narrow,
+wrapper fullscreen containment/return, controls, revisions, all isolated long-final
+characters, expiry/clear and late-caption rejection. PNG bytes are unchanged; no
+new visual review is claimed.
+
+The real harness has a small `overlap` mode ready for resumption. It requests three
+actual long-phrase → short sunny-phrase pairs via native capture and both local
+models, requiring the second caption's **browser receipt** before the unread first
+final part, both meanings, all final characters, two-line layout and covering
+Chromium Paint for every part. Its observer attributes visible text to the matching
+revision rather than assuming the latest received caption is already displayed.
+It stores only numeric/identity/geometry/WAV-hash data on success. The isolated
+`stream` observer shares this corrected matching; its real-model rerun is pending.
+
+**Blocker: native acceptance-window access.** The headed harness reached READY at
+`http://127.0.0.1:8766/` with a dedicated ignored profile, built extension and
+offline local companion. `cua.getApp` by display name, bundle ID and exact cached
+app path, including a REPL reset, selected only an empty **“새 탭” / New Tab**
+window. Its native Window menu listed only New Tab. Cancel/close actions did not
+make the dedicated **“Local speech acceptance”** window available. `getScreenshot`
+returned **`Screenshot unavailable for /Users/norux/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app.`**
+No reason such as lock, permission or network failure is inferred. No native Start
+was possible. Harness `check` returned **`status:{}, captured:[], text:""`**.
+After `exit` and normal browser/companion/fixture cleanup it exited **1**, retaining
+its acceptance gates. No PCM/model/caption/real overlap success is claimed and
+`stream-overlap.json` does not exist. No fake stream or programmatic popup was used
+to manufacture an activeTab grant. A request to make the test window accessible
+received no reply during this iteration. Speaker listening is also unverified;
+these UI tools expose no speaker audio, and no active playback was available for
+a new listening confirmation.
+
+Resume after the dedicated native test window can be made visible/accessibly
+controllable: start Ollama, run the headed overlap command, native toolbar Start,
+close popup, `overlap`, native Stop, `stopped`, `exit`. Review both printed actual
+meanings and confirm original sound during capture/popup closure. Only a passing
+run may create real-overlap evidence. Full native Start/loading versus prepared
+timing remains required for 7a. Source Auto (7b), TED advancing 600 seconds (8)
+and final checks (9) remain. No checkbox or completion promise is emitted.
+
+The first full base-environment `npm run verify` passed **11 JS + 160 Python tests**
+(Python **66.25 seconds**), lint/typecheck/build, failures/skips/warnings **0**.
+Final `npm run verify` after the final regression corrections: **exit 0**, the same
+**11 JS + 160 Python tests**, Python **66.28 seconds**, failures/skips/warnings **0**,
+lint/typecheck/build passed. `uv lock --check`, `git diff --check` and the independent
+fixture numeric checks passed. Dedicated harness/browser/companion/fixture processes
+and the owned Ollama server are stopped; no listeners remain on 8765/8766/11434.
+No new visual or real-model overlap success is claimed. All intended source,
+verification and plan changes are committed together; no secrets, model weights,
+audio/transcripts from the user or temporary `.ralph` state are included.

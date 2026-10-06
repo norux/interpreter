@@ -1,0 +1,53 @@
+{
+  "passed": true,
+  "browser": "153.0.8010.12",
+  "generatedCaptions": true,
+  "samples": [
+    {
+      "utterance": 1,
+      "characterCount": 42,
+      "displayedCharacterCount": 42,
+      "parts": [
+        {
+          "index": 0,
+          "offset": 0,
+          "twoLines": true,
+          "length": 30
+        },
+        {
+          "index": 0,
+          "offset": 30,
+          "twoLines": true,
+          "length": 12
+        }
+      ]
+    },
+    {
+      "utterance": 2,
+      "characterCount": 38,
+      "displayedCharacterCount": 38,
+      "parts": [
+        {
+          "index": 1,
+          "offset": 0,
+          "twoLines": true,
+          "length": 29
+        },
+        {
+          "index": 1,
+          "offset": 29,
+          "twoLines": true,
+          "length": 9
+        }
+      ]
+    }
+  ],
+  "audioTranslation": "not exercised",
+  "allCharactersDisplayed": true,
+  "queuedRevisionRejected": true,
+  "clear": true,
+  "boundedWaitingCount": 2,
+  "boundedWaitingAudioMs": 8000,
+  "overloadWarnings": 9,
+  "replacement": true
+}

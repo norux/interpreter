@@ -23,6 +23,7 @@ export function createCaptionOverlay(): OutputSink {
   cue.className = "cue";
   shadow.append(style, cue);
   let current: Caption | undefined;
+  const pending: Caption[] = [];
   let parts: string[] = [];
   let index = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -38,6 +39,7 @@ export function createCaptionOverlay(): OutputSink {
     clearTimeout(timer);
     timer = undefined;
     current = undefined;
+    pending.length = 0;
     parts = [];
     index = 0;
     cue.textContent = "";
@@ -50,6 +52,7 @@ export function createCaptionOverlay(): OutputSink {
     const duration = Math.min(6000, Math.max(2500, (parts[index]?.length ?? 0) * 90));
     timer = setTimeout(() => {
       if (index + 1 < parts.length) { index++; show(); }
+      else if (pending.length) { current = pending.shift(); layout(); }
       else clear();
     }, duration);
   }
@@ -98,6 +101,22 @@ export function createCaptionOverlay(): OutputSink {
     caption(caption) {
       if (disposed) return;
       if (current?.utteranceId === caption.utteranceId && current.revision >= caption.revision) return;
+      const waiting = pending.findIndex((item) => item.utteranceId === caption.utteranceId);
+      if (waiting >= 0) {
+        if (pending[waiting].revision < caption.revision) pending[waiting] = caption;
+        return;
+      }
+      // Finish unread final parts before a later utterance can replace them.
+      if (current?.final && current.utteranceId !== caption.utteranceId && (parts.length > 1 || pending.length)) {
+        pending.push(caption);
+        let dropped = 0;
+        while (pending.length > 2 || pending.reduce((ms, item) => ms + item.audioEndMs - item.audioStartMs, 0) > 8000) {
+          pending.shift();
+          dropped++;
+        }
+        if (dropped) console.warn(`Interpreter skipped ${dropped} waiting captions to limit subtitle delay.`);
+        return;
+      }
       current = caption;
       layout();
     },

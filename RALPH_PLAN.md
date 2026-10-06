@@ -1349,3 +1349,60 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   PNG byte변경/새 시각검토 없음. `uv lock --check`, `git diff --check`, 독립 numeric/
   hash/paint 검사가 통과했고 browser/companion/fixture/probe/Ollama 종료 뒤
   8765/8766/11434 listener는 없다. README 재현 명령/docs 실패·성공·한계를 보존했다.
+
+### Ralph iteration 8/30 — 2026-10-06 — 항목 7a 연속 final 보존 수정, native 접근 차단
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7a만 진행**, **checkbox는 미체크 유지**다. 다른 agent/worktree/
+  push/publish/runner/acceptance 변경/credential 파일/cloud inference는 없다.
+- 실제 built overlay의 연속 final regression은 처음 **30/42문자**만 표시하고 실패했다.
+  기존 final의 미표시 part가 다음 utterance로 덮였다. overlay 안의 작은 pending
+  배열로 segmented final의 읽기 timer를 마친 뒤 다음 cue를 표시하도록 수정했다.
+  queued partial은 같은 utterance의 최신 revision으로 교체하고 역행 revision을 거부한다.
+  clear/dispose는 pending/timer도 제거한다. capture/model/output 계약은 바꾸지 않았다.
+- pending은 **2 captions/원음8초**로 제한하고 초과 시 oldest waiting cue를 버리며
+  원문 없는 console warning으로 count를 알린다. 현재 cue의 읽기 시간은 별도이며
+  8초 display 지연/과부하 무손실을 보장하지 않는다. README에 정책/한계를 적었다.
+  일반 짧은 cue는 즉시 교체된다. provider/framework/새 제품 설정은 추가하지 않았다.
+- `npm run test:captions-overlap-browser` 최종 exit0, Chrome153.0.8010.12/
+  Playwright1.63.0/headless270×700에서 **42/42,38/38** 모든 final 문자를 두 줄 part로
+  순서대로 확인했다. queued partial→final/old revision/clear/새 session/old session 거부,
+  10개 burst의 oldest8개 discard/최신2개 유지와 5.1초×2의 audio budget discard1개가
+  통과했다. 숫자/range/boolean만 docs/verification/latency/overlap-fixture.json에 남겼고
+  독립 consistency 검사도 통과했다. **생성 cue DOM 증거이며 실제 모델/Paint/청취가 아니다.**
+- 추가 overload assertion은 whole `대기 8`을 기다려 9초→20초→diagnostic20초 모두 실패했다.
+  diagnostic은 실제 `대기 `,`8`,`대기 `,`9` part를 확인했다. 기존 splitter가 전체가
+  들어가도 word boundary를 선택하는 동작이므로 timeout 증가는 해결이 아니었다.
+  원래9초에서 실제 part 전체 순서를 검사하도록 고쳤다. 기존 splitter는 범위 밖이라
+  그대로 두고 별도 session 교체 fixture는 단일 단어를 쓴다. criteria는 약화하지 않았다.
+- local-browser에 `overlap` 모드를 추가했다. 실제 long→sunny 두 구절×3회, browser
+  receipt가 이전 unread part보다 빠른지/의미/모든문자/두 줄/실제 covering Paint를
+  요구한다. observer는 latest received 대신 실제 visible text와 맞는 revision을 찾는다.
+  `stream` 모드도 이 관측을 공유하며 그 실제 rerun은 아직이다. 성공 때만 숫자/identity/
+  geometry/WAV hash JSON을 쓰며 browser memory/terminal 외에 음성·전사문은 저장하지 않는다.
+- **Blocker: native acceptance window 접근**. headed harness는 dedicated ignored
+  profile/확장/offline companion으로 READY까지 갔으나 cua.getApp display name/
+  bundle ID/정확한 cached app path 및 REPL reset 모두 **새 탭/New Tab**만 선택했다.
+  native Window 메뉴에도 New Tab만 있었다. menu cancel/close로 fixture 창을 찾지 못했다.
+  screenshot은 정확히 `Screenshot unavailable for /Users/norux/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app.`였다.
+  원인을 잠금/권한/network로 단정하지 않는다. native Start를 못 했고 harness `check`는
+  `status:{},captured:[],text:""`이다. `exit`/cleanup 뒤 **exit1**이며 실제 PCM/모델/
+  자막/overlap 성공 근거는 없다. stream-overlap.json은 존재하지 않는다. 가짜 stream/
+  programmatic popup으로 activeTab을 우회하지 않았다. 창 접근/청취 요청의 답변도 없었다.
+- **재개에 필요한 외부 동작**: dedicated Chrome for Testing의 **Local speech acceptance**
+  창을 visible/accessibly controllable 상태로 만든다. Ollama를 시작하고
+  `npm run test:local-browser -- overlap` → native toolbar Start/popup 닫기 → `overlap`
+  → native Stop/`stopped`/`exit`를 실행해 실제 모든 part/의미/Paint를 확인한다.
+  capture 중/popup 닫기 뒤 원음의 사용자 청취 확인도 필요하다. full native Start loading/
+  first inference 대비 prepared timing은 미측정이다. 7b/8(TED600초)/9는 남아 있다.
+  다음 작업은 **여전히7a**이며 외부 창 접근 및 필수 청취 없이는 완료할 수 없다.
+- 기존 `npm run test:captions-browser` exit0: normal/narrow/wrapper fullscreen/controls/
+  revision/isolated 긴 final 모든 문자/expiry/clear/늦은 caption이 통과했다.
+  PNG byte변경/새 시각 검토 없음. 첫 full base verify는 **JS11+Python160/66.25초**,
+  lint/typecheck/build/failures0/skips0/warnings0/exit0였다. dependency/lock 변경 없음.
+- 최종 regression 수정 뒤 full `npm run verify`도 **exit0/JS11+Python160/66.28초**,
+  lint/typecheck/build/failures0/skips0/warnings0이다. uv lock --check/git diff --check/
+  독립 numeric 검사 통과. dedicated harness/browser/companion/fixture와 owned Ollama는
+  종료했고 8765/8766/11434 listener는 없다. intended source/문서/숫자 evidence/plan을
+  한 Conventional Commit으로 보존한다. 키/weights/사용자 음성·전사문/임시 .ralph는 없다.

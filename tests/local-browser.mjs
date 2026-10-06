@@ -11,9 +11,10 @@ import { chromium } from "playwright";
 import { traceCaptionPaints } from "./caption-paint.mjs";
 
 const mode = process.argv[2];
-assert.ok(mode === undefined || ["before", "after", "stream", "lifecycle"].includes(mode));
+assert.ok(mode === undefined || ["before", "after", "stream", "overlap", "lifecycle"].includes(mode));
 const lifecycle = mode === "lifecycle";
-const streaming = mode === "stream";
+const overlap = mode === "overlap";
+const streaming = mode === "stream" || overlap;
 const paintPhase = streaming || lifecycle ? undefined : mode;
 const instrumented = !!paintPhase || streaming || lifecycle;
 const metrics = [];
@@ -31,7 +32,8 @@ const audio = await readFile(`${profile}/speech.wav`);
 const clips = [];
 if (instrumented) {
   const sentences = streaming
-    ? ["Bring a blue umbrella and a warm coat, and meet at the station at three in the afternoon for our trip."]
+    ? ["Bring a blue umbrella and a warm coat, and meet at the station at three in the afternoon for our trip.",
+      ...(overlap ? ["It is sunny."] : [])]
     : ["The weather is sunny today.", "We will walk to the park after lunch."];
   for (const [index, text] of sentences.entries()) {
     execFileSync("say", ["-v", "Samantha", "-r", "165", "-o", `${profile}/${index}.aiff`, text]);
@@ -108,36 +110,39 @@ try {
       // Ephemeral generated text stays in the browser; the report contains no transcript.
       globalThis.streamViews = [];
       let observer;
+      function record() {
+        const cue = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue");
+        const text = cue?.textContent;
+        if (!text) return;
+        // A queued caption's arrival does not mean its text is already visible.
+        const view = globalThis.streamViews.findLast((v) => v.translation.includes(text));
+        if (!view || text === view.parts.at(-1)?.text) return;
+        const box = cue.getBoundingClientRect();
+        const atMs = performance.timeOrigin + performance.now();
+        const part = { text, atMs, offset: view.translation.indexOf(text), length: text.length,
+          twoLines: cue.clientHeight <= Number.parseFloat(getComputedStyle(cue).lineHeight) * 2 + 9 };
+        view.parts.push(part);
+        performance.mark(`interpreter-caption:${JSON.stringify({
+          sessionId: view.sessionId, utteranceId: view.utteranceId, revision: view.revision,
+          final: view.final, type: "part", atMs, offset: part.offset, length: part.length,
+          twoLines: part.twoLines, visible: true, left: box.left, right: box.right, top: box.top, bottom: box.bottom,
+        })}`);
+      }
       chrome.runtime.onMessage.addListener((message, sender) => {
         if (sender.id !== chrome.runtime.id || message.target !== "captions" || message.type !== "caption") return;
-        observer?.disconnect();
-        const caption = message.caption;
+        globalThis.streamViews.push({ ...message.caption, receivedAtMs: performance.timeOrigin + performance.now(), parts: [] });
         const cue = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue");
         if (!cue) return;
-        const view = { ...caption, parts: [] };
-        globalThis.streamViews.push(view);
-        function record() {
-          const text = cue.textContent;
-          if (!text || text === view.parts.at(-1)?.text) return;
-          const box = cue.getBoundingClientRect();
-          const atMs = performance.timeOrigin + performance.now();
-          const part = { text, atMs, offset: caption.translation.indexOf(text), length: text.length,
-            twoLines: cue.clientHeight <= Number.parseFloat(getComputedStyle(cue).lineHeight) * 2 + 9 };
-          view.parts.push(part);
-          performance.mark(`interpreter-caption:${JSON.stringify({
-            sessionId: caption.sessionId, utteranceId: caption.utteranceId, revision: caption.revision,
-            final: caption.final, type: "part", atMs, offset: part.offset, length: part.length,
-            twoLines: part.twoLines, visible: true, left: box.left, right: box.right, top: box.top, bottom: box.bottom,
-          })}`);
+        if (!observer) {
+          observer = new MutationObserver(record);
+          observer.observe(cue, { childList: true, characterData: true, subtree: true });
         }
         record();
-        observer = new MutationObserver(record);
-        observer.observe(cue, { childList: true, characterData: true, subtree: true });
       });
     } }), tabId);
   }
   console.log(JSON.stringify({ ready: true, browser: context.browser().version(), extensionId,
-    mode, profile, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Lifecycle: interrupt → native Start → recover → replace → native Start → recover → lifecycle-report → native Stop → stopped → exit. Other modes: long, measure, play, check, accept, stopped, exit." }));
+    mode, profile, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Lifecycle: interrupt → native Start → recover → replace → native Start → recover → lifecycle-report → native Stop → stopped → exit. Other modes: overlap, long, measure, play, check, accept, stopped, exit." }));
   input = createInterface({ input: process.stdin });
   for await (const command of input) {
     try {
@@ -270,6 +275,74 @@ try {
         await writeFile("docs/verification/latency/lifecycle.json", `${JSON.stringify(report, null, 2)}\n`);
         console.log(JSON.stringify(report));
         measured = true; passed = true;
+      }
+      if (command === "overlap") {
+        assert.ok(overlap && finishTrace && tabId);
+        const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
+        assert.equal(captureStatus.state, "capturing");
+        const samples = [];
+        for (let repetition = 0; repetition < 3; repetition++) {
+          const start = metrics.length;
+          await page.locator("audio").evaluate(async (element) => { element.src = "/0.wav"; await element.play(); });
+          const deadline = Date.now() + 90000;
+          while (!metrics.slice(start).some((m) => m.metric === "caption" && m.final)) {
+            assert.ok(Date.now() < deadline, "No actual long final");
+            await page.waitForTimeout(10);
+          }
+          // The second real phrase starts while the first final still has unread parts.
+          await page.locator("audio").evaluate(async (element) => { element.src = "/1.wav"; await element.play(); });
+          while (metrics.slice(start).filter((m) => m.metric === "caption" && m.final).length < 2
+            || await page.locator("#interpreter-captions").count()) {
+            assert.ok(Date.now() < deadline, "Overlapping actual captions did not complete/expire");
+            await page.waitForTimeout(20);
+          }
+          const [{ result: views }] = await worker.evaluate((id) => chrome.scripting.executeScript({
+            target: { tabId: id }, func: () => globalThis.streamViews,
+          }), tabId);
+          const finals = metrics.slice(start).filter((m) => m.metric === "caption" && m.final);
+          assert.equal(finals.length, 2);
+          const finalViews = finals.map((m) => views.find((v) => v.utteranceId === m.utteranceId && v.final));
+          const [long, short] = finalViews;
+          console.log(JSON.stringify({ review: repetition, finals: finalViews.map((v) => ({
+            source: v.source, translation: v.translation, parts: v.parts.map((p) => p.text) })) }));
+          assert.match(long.source.toLowerCase(), /blue umbrella/); assert.match(long.source.toLowerCase(), /warm coat/);
+          assert.match(long.source.toLowerCase(), /station/); assert.match(long.source.toLowerCase(), /three.*afternoon/);
+          assert.match(long.source.toLowerCase(), /trip/);
+          assert.match(long.translation, /(?:파란|파랑|푸른).*우산/); assert.match(long.translation, /따뜻한.*(?:코트|외투)/);
+          assert.match(long.translation, /역/); assert.match(long.translation, /오후.*(?:3시|세 시)/); assert.match(long.translation, /여행/);
+          assert.match(short.source.toLowerCase(), /sunny/); assert.match(short.translation, /(?:맑|화창)/);
+          assert.ok(long.parts.length > 1);
+          const secondArrival = views.find((v) => v.utteranceId === short.utteranceId).receivedAtMs;
+          assert.ok(secondArrival < long.parts[1].atMs, "The next real caption must precede the unread long part");
+          for (const final of finalViews) {
+            assert.equal(final.parts.map((p) => p.text).join(""), final.translation.trim());
+            assert.ok(final.parts.every((p) => p.twoLines));
+            assert.doesNotMatch(final.translation, /[\u3040-\u30ff]/u);
+          }
+          samples.push({ repetition, sessionId: captureStatus.sessionId, firstInference: repetition === 0,
+            nextCaptionAtMs: secondArrival, unreadPartAtMs: long.parts[1].atMs,
+            finals: finalViews.map((v) => ({ utteranceId: v.utteranceId, revision: v.revision,
+              characterCount: v.translation.trim().length, qualityChecks: true, allCharactersDisplayed: true,
+              parts: v.parts.map(({ text, ...part }) => part) })) });
+        }
+        const rows = await finishTrace(); finishTrace = undefined;
+        for (const sample of samples) for (const final of sample.finals) {
+          const parts = rows.filter((r) => r.type === "part" && r.utteranceId === final.utteranceId && r.revision === final.revision);
+          assert.equal(parts.length, final.parts.length);
+          assert.ok(parts.every((p) => p.paintAtMs !== null), "Every final part needs a covering Chromium Paint");
+          final.parts = parts;
+        }
+        const receipts = metrics.filter((m) => m.metric === "receipt" && m.sessionId === captureStatus.sessionId);
+        const report = { browser: context.browser().version(), nativeCapture: true, realLocalModels: true,
+          speech: "macOS Samantha 165 wpm; umbrella/coat/station/trip, followed by sunny weather", viewport: page.viewportSize(),
+          wavSha256: clips.map((c) => createHash("sha256").update(c).digest("hex")), samples,
+          maxPendingAudioMs: Math.max(0, ...receipts.map((r) => r.pendingAudioMs)),
+          droppedFrames: receipts.at(-1)?.droppedFrames, droppedUtterances: receipts.at(-1)?.droppedUtterances,
+          listening: "not verified; UI tools expose no speaker audio" };
+        assert.ok(report.maxPendingAudioMs <= 8000);
+        assert.equal(report.droppedFrames, 0); assert.equal(report.droppedUtterances, 0);
+        await writeFile("docs/verification/latency/stream-overlap.json", `${JSON.stringify(report, null, 2)}\n`);
+        console.log(JSON.stringify(report)); measured = true; passed = true;
       }
       if (command === "long") {
         assert.ok(streaming && finishTrace && tabId);
