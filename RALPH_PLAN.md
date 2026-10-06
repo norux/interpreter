@@ -651,3 +651,70 @@ track/sound 경로가 정상 검증됐다. credentials/weights/user audio/transc
 rate/source 변경의 epoch/cancel/late-result 거부를 검증한다. V2만 이번에 체크했고
 V3–V5 및 이후 stage는 시작하지 않았다. V2 browser scope의 환경 차단은 없다.
 Stage video/전체 framework/iPhone 완료 marker를 내지 않는다.
+
+### 2026-10-06 / video / iteration 3/5 — V3 partial, blocked
+
+관련 commit: 이 기록을 포함한 `feat: add video playback anchors and record audio blocker`.
+
+수행한 변경: 다음 미완료 V3의 playback-anchor/discontinuity plumbing만 진행했다.
+input의 최초 `play` anchor와 worklet capture frame은 동일 AudioContext clock ID를
+사용하고 영상 currentTime/playbackRate를 관측한다. seek/pause/rate/source/end는
+queued/late PCM을 차단하고 old-epoch playback event를 전달한다. 기존 core가 epoch를
+먼저 증가시키고 cancel/late-result 거부를 수행한다. adapter가 epoch를 독립적으로
+증가시키지 않는다. 같은 session/target의 epoch 재개에만 최초 Start authorization을
+유지하고 seeked 이후 새 stream/clock/sample origin을 만든다. source replacement는
+새 handle/사용자 재확인이 필요하며 pause는 host의 explicit resume/reprobe 흐름이다.
+standalone host/엔진/다음 stage를 추가하지 않았다. companion v0.1.0/설치 경로/기존
+사용자 설정은 보존했다. 실제 video/PCM mapping과 input→core epoch acceptance가
+차단되어 V3를 체크하지 않았다. V4/V5 및 이후 stage도 미완료 그대로 남긴다.
+
+실행한 명령과 결과:
+
+- FAIL/BLOCKED: `npm run test:framework:video` 두 독립 시도, 각각 exit 1.
+  두 번 모두 adapter typecheck/V1 실제 DOM 검사 PASS, Chromium 153.0.8010.12.
+  첫 시도는 기존 `A real encoded video/audio fixture must exist` assertion에서
+  실패했다. 두 번째는 byte diagnostic을 추가했고 8초 recorder 결과가 **110 bytes**로
+  동일 >10000-byte 기준에서 실패했다. V2 실제 decoded PCM/output 및 V3 anchor
+  assertion에 도달하지 못했다. acceptance threshold를 바꾸지 않았다.
+- DIAGNOSTIC ONLY: test-owned 새 Chromium의 로컬 generator 진단 (exit 0,
+  acceptance 아님). 실제 AudioContext state=running이지만 1/2/3초 관측의
+  currentTime이 모두 0.005333333333333333초로 고정됐고 drawing count=11/21/31,
+  visibility=visible, recorder data chunks 없음, Stop 결과 0-byte chunk.
+  real-time audio renderer가 진행하지 않는 환경 차단이며 근본 OS/device 원인은
+  미확인이다. 새 환경 근거 없이 세 번째 actual-audio acceptance를 반복하지 않았다.
+- EXPECTED FAIL → PASS (mock scope): pre-change adapter로 initial-anchor port
+  회귀를 실행하면 child exit 1, 0 passed/1 failed/74.684292 ms,
+  `assert.ok("type" in value)` 실패. wrapper가 finally에서 edited adapter를 복구했다.
+  최종 `node --import tsx --test tests/framework-video-input.test.ts` exit 0,
+  9 passed/0 failed/0 skipped/0 cancelled/48.566958 ms. injected PCM/fake DOM/audio
+  nodes로 anchor/rate mapping/discontinuity/cleanup/seek/activation만 검증했다.
+- PASS: `./node_modules/.bin/tsc -p tsconfig.media-web.json` (exit 0),
+  DOM/no-extension-ambient adapter compile.
+- PASS: `npm run test:framework:core` (exit 0), ES2022/no-DOM compiles,
+  31 passed/0 failed/0 skipped/0 cancelled/126.609042 ms; 기존 mock input/engine
+  epoch advance-before-cancel과 stale-result 거부 검증.
+- PASS: targeted Biome (7 files/5 ms/no findings, exit 0).
+
+- PASS: 최종 `npm run verify` (exit 0), Biome 76 files/31 ms/no findings,
+  Ruff/typecheck/build (main 28 modules/42 ms, content 10 modules/6 ms),
+  JS 73 passed/0 failed/0 skipped/0 cancelled/14752.749583 ms,
+  Python 222 passed/66.93 s. 새 9개 mock-port 검사도 full verify에 포함됐다.
+- PASS: `git diff --check` (exit 0, whitespace 오류 없음).
+
+실제 검증 범위와 미검증: V1 실제 DOM은 재검증됐지만 이번 환경에서 encoded audio가
+생성되지 않아 실제 PCM/원래 browser-output 유지/영상 mapping/error 수치/실제
+discontinuity→core cancellation은 미검증이다. mocks/model load/PCM acquisition을
+ASR 정확도로 표시하지 않았다. Safari/iPhone/음성 인식·번역 품질/물리 speaker 청취는
+미검증이다. root AGENTS.md 및 요청된 independent runner failure 파일은 없었다.
+기존 사용자 browser/profile/settings/apps/recordings/mounts를 건드리지 않았고
+blocked access 우회/dummy audio fallback/dependency·model·app 설치/위임/push/게시 없음.
+임시 `.ralph` scripts/logs/bundles와 credentials/weights/user audio/transcripts는
+커밋하지 않는다. 상세 수치/명령/evidence는 [video 보고서](docs/verification/media-framework/video.md).
+
+차단 해제 및 다음 미완료 항목: test-owned Chromium의 실제 AudioContext clock과
+기존 encoded fixture/independent output oracle가 작동하는 환경에서
+`npm run test:framework:video`를 모든 기존 기준으로 재실행한다. 이어 V3의 실제
+seek/pause-resume/rate/source 시간 mapping 수치, 원래 재생 유지 및 delayed test-engine
+results의 input→core epoch 거부를 검증한다. V3가 실제 통과하기 전 체크하지 않는다.
+동일 real-audio 차단을 두 독립 시도로 확인했으므로 이번 iteration은 BLOCKED로
+종료하며 Stage video/전체 framework/iPhone 완료를 주장하지 않는다.

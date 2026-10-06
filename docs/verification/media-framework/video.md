@@ -279,3 +279,116 @@ Next unfinished item: V3 playback anchors, video/PCM time mapping and epoch
 invalidation/cancellation for seek, pause/resume, rate and source changes. The
 current conservative input termination at a discontinuity is not completion of
 that item. No next item or stage was implemented during this iteration.
+
+## 2026-10-06 — video iteration 3/5 (V3 partial, blocked)
+
+Result: V3 remains **unchecked**. Playback-anchor and discontinuity plumbing is
+implemented and its mock-port checks pass; real video/PCM mapping and
+input-driven epoch cancellation acceptance is blocked. Commit: the
+`feat: add video playback anchors and record audio blocker` commit containing
+this report. No stage/framework/iPhone completion claim is made.
+
+### Implemented scope and remaining verification
+
+`audio-input.ts` now emits a `play` anchor before PCM. Both the anchor's
+`monotonicMs` (`AudioContext.currentTime`) and capture frames (`currentFrame` in
+that context's worklet) use the same fresh clock identity. The anchor observes
+video `currentTime` and `playbackRate`; the existing core timeline can map ranges
+without subtracting clocks from different execution contexts. No contracts,
+core logic, models or interpretation providers changed.
+
+Seek, pause, rate, source and end events synchronously stop PCM delivery, discard
+queued batches, emit a terminal playback event with the **old** identity and
+release only session-owned resources. The existing session controller consumes
+that event, advances the epoch before cancel and rejects old-epoch results. The
+adapter does not independently increment the epoch. Catalog retirement produces
+`source`; a replacement element/source still requires reconfirmation and a new
+handle, rather than automatically capturing an advertisement.
+
+Same-session epoch reopening retains the original Start authorization only for
+that session and target. A new session still needs user activation. Reopening
+while seeking waits for `seeked` before acquiring the stream, then emits a fresh
+context-clock anchor and resets audio sequence/range origin. Pagehide cancels
+pending seek preparation. Pause remains the architecture's explicit resume flow:
+the host must observe the user's resume and call the controller, which revalidates
+and opens the input with its current identity. There is no standalone browser
+host added or automatic resume claimed by this iteration.
+
+The existing audio fixture now distinguishes playback events from PCM and
+requires the initial `play` anchor. Every V1 and V2 assertion/threshold is
+preserved. `tests/framework-video-input.test.ts` adds nine **mock-port** checks
+for anchor ordering/clock equality/rate mapping, queued and late PCM rejection
+for five discontinuities, source retirement, fresh clock/zero audio origin after
+seek, activation scope, and pagehide preparation cleanup. These checks inject
+PCM and simulate DOM/audio nodes; they establish contract/lifecycle behavior,
+not decoded audio or speech recognition. The pre-change implementation fails
+the unchanged initial-anchor assertion; the new implementation passes it.
+
+### Real-audio blocker and independent attempts
+
+Two isolated `npm run test:framework:video` attempts, before the production input
+edit, passed V1/typechecking but failed the existing encoded-fixture assertion
+at `tests/framework-video-audio.mjs:54`: `A real encoded video/audio fixture must
+exist`. The second attempt added byte-count diagnostics and measured **110 bytes**
+after the eight-second recorder run, below the unchanged >10000-byte requirement.
+Neither attempt reached decoded video, original-output sampling or the new
+anchor assertion. They are FAIL/BLOCKED, not V3 regressions or successful PCM
+acceptance. No video-stage acceptance retry was made after those two attempts.
+
+An explicit local diagnostic in a separate, newly owned Chromium instance
+observed the real AudioContext and recorder; no user browser/profile or apps
+were touched. Over three one-second observations:
+
+| Elapsed wall time | Context state | AudioContext time | Drawing callback count | Page visibility | Recorder data chunks |
+| --- | --- | --- | --- | --- | --- |
+| ~1 s | running | 0.005333333333333333 s | 11 | visible | none |
+| ~2 s | running | 0.005333333333333333 s | 21 | visible | none |
+| ~3 s | running | 0.005333333333333333 s | 31 | visible | none |
+
+The diagnostic recorder emitted a zero-byte chunk when stopped and no recorder
+error event. The page timer advanced while the real audio rendering clock stayed
+at 5.333 ms. Required real-time Chromium audio rendering is unavailable in this
+run; the underlying OS/device/browser cause is **unverified**. Mock samples,
+offline rendering, a dummy output device, muted-browser flags or another browser
+would not establish the required real playback-output acceptance. None was used
+to substitute success or bypass this blocker. No permissions/settings/user
+apps/recordings/mounted images were changed. Diagnostic script/logs remain in
+ignored `.ralph/media-framework/` and are not committed.
+
+Resume condition: provide an environment where the test-owned Chromium's real
+AudioContext clock advances and its existing eight-second encoded fixture and
+independent tab-output oracle work. Rerun `npm run test:framework:video` with all
+existing thresholds; then finish real seek/pause-resume/rate/source mapping
+checks and delayed-result cancellation through the actual input/core composition.
+Measure mapping error and confirm original playback through those transitions
+before checking V3. Preserve V4/V5 and all later stages until their own evidence
+passes. Human speaker/listener audibility and ASR/translation quality remain
+unverified independently of this environment blocker.
+
+### Commands and evidence
+
+Requested worktree, Darwin arm64, Node v24.15.0/npm 11.12.1, uv 0.12.23,
+Python 3.12.15, Chromium 153.0.8010.12 from both V1 runs. Root `AGENTS.md` and
+`.ralph/media-framework/2026-10-06T12-10-53-313Z-video-verification.txt` were absent.
+No dependency/model/app installation, delegation, push, publish or later stage.
+Published companion v0.1.0, server/protocol/install paths, existing user settings,
+active apps and unrelated files are preserved.
+
+| Command/run | Actual result | Evidence |
+| --- | --- | --- |
+| First `npm run test:framework:video` | FAIL/BLOCKED, exit 1; adapter typecheck/V1 PASS, existing >10000-byte encoded-media assertion FAIL; V2/V3 not reached | `.ralph/media-framework/video-3-v3-regression.log` |
+| Second independent `npm run test:framework:video`, byte diagnostic | FAIL/BLOCKED, exit 1; adapter typecheck/V1 PASS; same assertion FAIL, encoded media 110 bytes; V2/V3 not reached | `.ralph/media-framework/video-3-v3-regression-second.log` |
+| `node .ralph/media-framework/video-3-generator-diagnostic.mjs` | Diagnostic exit 0, **not acceptance**; real context clock frozen at 5.333 ms, no encoded samples | CLI observations/table above; local script |
+| Pre-change `node --import tsx --test --test-name-pattern='AudioContext anchor' tests/framework-video-input.test.ts` | EXPECTED FAIL, child exit 1, 0 passed/1 failed/74.684292 ms; `assert.ok("type" in value)` rejects PCM in place of initial anchor; wrapper restores edited input in `finally`, exit 0 | `.ralph/media-framework/video-3-v3-mock-regression.log` |
+| Final `node --import tsx --test tests/framework-video-input.test.ts` | PASS, exit 0, 9 passed/0 failed/0 skipped/0 cancelled, 48.566958 ms; **mock-port scope only** | `.ralph/media-framework/video-3-v3-port-tests-final.log` |
+| `./node_modules/.bin/tsc -p tsconfig.media-web.json` | PASS, exit 0, DOM/no-extension-ambient adapter compile | CLI output |
+| `npm run test:framework:core` | PASS, exit 0, ES2022/no-DOM compiles and 31 passed/0 failed/0 skipped/0 cancelled, 126.609042 ms; existing mock engine/input cancellation and stale-result checks | `.ralph/media-framework/video-3-v3-core.log` |
+| Targeted Biome on adapter/fixtures/new port tests | PASS, exit 0, 7 files/5 ms, no findings | CLI output |
+
+| Final `npm run verify` | PASS, exit 0; Biome 76 files/31 ms/no findings, Ruff/typecheck/build (28 main modules/42 ms, 10 content modules/6 ms); JS 73 passed/0 failed/0 skipped/0 cancelled/14752.749583 ms; Python 222 passed/66.93 s | `.ralph/media-framework/video-3-v3-verify.log` |
+| `git diff --check` | PASS, exit 0, no whitespace errors | CLI output |
+
+Final real-audio acceptance is **UNVERIFIED/BLOCKED**; it is not rerun against
+the same stalled renderer. V3–V5 remain unchecked. All intended changes, including
+this report and the plan progress log, are included in the named commit; ignored
+`.ralph` diagnostic state is excluded.

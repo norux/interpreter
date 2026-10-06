@@ -51,7 +51,7 @@ try {
     return btoa(text);
   });
   media = Buffer.from(encoded, "base64");
-  assert.ok(media.length > 10000, "A real encoded video/audio fixture must exist");
+  assert.ok(media.length > 10000, `A real encoded video/audio fixture must exist (${media.length} bytes)`);
   await generator.close();
   const observations = [];
   for (const owned of [false, true]) {
@@ -77,6 +77,8 @@ try {
       await page.waitForFunction(() => globalThis.captured.length >= 5 || globalThis.captureError);
       assert.equal(await page.evaluate(() => globalThis.captureError), undefined);
       const result = await page.evaluate(() => globalThis.captureSummary());
+      const anchors = await page.evaluate(() => globalThis.playbackEvents);
+      assert.equal(anchors[0]?.type, "play", "Real PCM must be preceded by a playback anchor");
       assert.match(result.doubleStart, /already has an active session/);
       assert.equal(result.scope, "selected-video"); assert.equal(result.channels, 1); assert.equal(result.format, "pcm-f32le");
       assert.ok(result.peak > 0.12 && result.peak < 0.18, `Real decoded tone PCM: ${JSON.stringify(result)}`);

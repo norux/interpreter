@@ -43,12 +43,15 @@
     return { rms: Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length) };
   };
   document.querySelector('#start').onclick = async () => {
-    globalThis.captured = []; globalThis.captureError = undefined; globalThis.captureClosed = false;
+    globalThis.captured = []; globalThis.playbackEvents = []; globalThis.captureError = undefined; globalThis.captureClosed = false;
     try {
       handle = await input.open(target, { sessionId: `round-${++round}`, targetId: target.id, epoch: 0 });
       try { await input.open(target, { sessionId: 'duplicate', targetId: target.id, epoch: 0 }); }
       catch (error) { globalThis.doubleStart = error.message; }
-      for await (const chunk of handle.events) globalThis.captured.push(chunk);
+      for await (const event of handle.events) {
+        if ("type" in event) globalThis.playbackEvents.push(event);
+        else globalThis.captured.push(event);
+      }
       globalThis.captureClosed = true;
     } catch (error) { globalThis.captureError = error.message; }
   };
