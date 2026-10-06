@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Browser model preparation</title></head>
+  <body>
+    <h1>Browser model preparation</h1>
+    <p>Preparation candidate: multilingual Whisper tiny, q8, WASM. Recognition quality has not been evaluated. Keep this document open and visible.</p>
+    <p id="identity"></p>
+    <button id="prepare" type="button">Prepare model</button>
+    <button id="stop" type="button">Stop</button>
+    <button id="evict" type="button">Remove model cache</button>
+    <p id="status" role="status" aria-live="polite"></p>
+    <progress id="progress"></progress>
+    <script type="module" src="./preparation.ts"></script>
+  </body>
+</html>

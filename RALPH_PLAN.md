@@ -925,3 +925,68 @@ credentials/weights/user audio·transcripts/임시 `.ralph` state는 commit에�
 다음 미완료 항목: **Stage video에는 없음**. 두 required final commands가 실제로
 통과한 뒤 V5만 새로 체크했고 V1–V5/Stage video acceptance가 완료됐다. plan/runner를
 보존하며 이후 stage로 진행하지 않는다. 전체 framework나 iPhone 완료가 아니다.
+
+
+### 2026-10-06 / chrome / iteration 1/5 — B1 preparation progress, blocked
+
+관련 commit: 이 기록을 포함한 `feat: add browser model preparation host`.
+
+수행한 변경: 다음 미완료 B1만 진행했다. foreground secure document와 dedicated
+worker, version 1 request/status 검증, 실제 user activation, synchronous Stop 및
+owned worker termination, pinned model repository/download/cache/load/eviction 상태를
+구현했다. 별도 `apps/chrome/preparation.html` bundle에 model ID/version/43,613,734-byte
+model storage/download/실제 load 상태와 Stop을 표시한다. candidate는 multilingual
+`onnx-community/whisper-tiny` revision `ff4177021cc41f7db950912b73ea4fdf7d01d8e7`,
+q8/WASM이며 default 선택/ASR 정확도 주장이 아니다. Transformers.js 4.3.0과 local
+ONNX runtime assets를 exact dependency/lock으로 사용한다. 큰 WASM은 candidate가
+소유한 Cache API에 보존해 worker 재시작 offline load를 검증했다. 기존 companion
+v0.1.0/설치/manifest/native messaging/server protocol/user settings/core는 보존했다.
+
+실행한 명령과 결과:
+
+- PASS: 최종 `npm run verify`, exit 0; Biome 94 files/72 ms/no findings,
+  Ruff/typecheck, 기존 main 28 modules/43 ms/content 10 modules/6 ms,
+  JS 82 passed/0 failed/0 skipped/0 cancelled/17,060.406333 ms,
+  Python 222 passed/66.90 s (`chrome-1-final-verify.log`).
+- PASS: repository port 검사 5 passed/0 failed/0 skipped/0 cancelled,
+  standalone 100.058417 ms. fake cache/loader로 late cancel disposal, parallel job 및
+  active eviction 거부, owned eviction, offline/quota/미등록 model 실패만 검증했다.
+- FAIL/BLOCKED: `npm run test:framework:chrome:preparation`, 최종 exit 1.
+  typecheck/5 port tests/separate build 및 실제 download/WASM load/Stop/offline/
+  corrupt-cache 거부는 통과했으나 real document hidden assertion이 10,000 ms timeout.
+  headless attempt 8과 headed attempt 10에서 같은 차단을 독립 확인했다.
+- FAIL: `npm run test:framework:chrome`, exit 1, Missing script. B5 full real-video
+  ASR/translation/DOM acceptance는 아직 미구현이다. B1 loading 검사로 대체하지 않았다.
+- PASS: 최종 targeted Biome 9 files/14 ms, typecheck/whitespace, `npm audit --json`
+  exit 0/zero vulnerabilities. initial 3.8.1의 audited 6 vulnerabilities는 새 dependency를
+  exact 4.3.0으로 변경하여 해결했다.
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1, uv 0.12.23/
+Python 3.12.15, owned Chromium 153.0.8010.12. final headed run은 7개 pinned model
+files 43,613,734 bytes와 q8 encoder/decoder download SHA-256, absent/downloading/
+cached/loading/ready 분리를 확인했다. 실제 준비 완료 9,756.306834 ms, cached
+model 및 packaged runtime의 fresh worker offline 준비 534.1752089999991 ms이며
+전사 latency가 아니다. user-gesture 없는 module call 거부, offline first-run 실패,
+injected transport error, held download Stop/double Start, 실제 loading 중 Stop과
+late ready 거부, same-size corrupt tokenizer의 실제 model-load-failed 및 복원 후
+ready를 검증했다. browser PCM/전사/번역/자막 정확도/메모리/장시간은 미검증이다.
+
+실패·미검증과 증거 위치: [chrome 보고서](docs/verification/media-framework/chrome.md)에
+모든 build/type/lint/library/fixture 실패와 수정, commands, model/runtime sizes,
+10개 preparation attempt의 구분 및 ignored `.ralph/media-framework/chrome-1-*.log`
+위치를 기록했다. 두 actual suspension 실패 후 local owned browser 진단에서 같은
+window의 두 tab 및 button-open tab이 모두 visible임을 확인했고, background 관련
+Playwright default flag를 뺀 독립 headed 진단에서도 모두 visible이었다. 원인은
+미확인이다. 실제 hidden/visible lifecycle을 입증할 환경/host behavior가 필요하다.
+같은 차단을 새 근거 없이 반복하지 않는다. 이후 browser eviction/disposal/production
+preparation UI assertion은 도달하지 않아 미검증이다. fake port 성공으로 대체하지 않는다.
+root/nested AGENTS.md, 이전 chrome report, 요청된 independent runner file은 없었다.
+사용자 browser/profile 설정/앱/녹화/mounts를 보존했고 blocked access 우회/다른 agents/
+app 설치/push/publish/runner 수정/later stage 진입/credentials/weights/user audio·
+transcripts/임시 state commit은 없다.
+
+다음 미완료 항목 또는 차단 해제 조건: **B1 유지, 새 체크 없음.** 실제 foreground tab
+전환으로 native document hidden/visible 이벤트를 관측하는 permitted Chromium
+환경 또는 누락된 host 동작의 새 근거를 제공한 뒤 unchanged visibility assertion과
+나머지 B1 checks를 재실행해야 한다. B2–B6 및 Safari/iPhone은 모두 미완료다.
+이 iteration은 progress commit 후 RALPH_BLOCKED로 종료한다.

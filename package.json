@@ -10,7 +10,9 @@
     "dev": "vite build --watch",
     "dev:server": "uv run --locked uvicorn server.app:app --host 127.0.0.1 --port 8765 --ws-max-size 4096 --ws-max-queue 8 --reload",
     "build": "vite build",
-    "lint": "biome lint extension packages/contracts packages/core packages/engines-companion packages/media-web tests scripts/ralph-loop.mjs vite.config.ts vite.content.config.ts && uv run --locked ruff check server tests companion",
+    "build:chrome:preparation": "vite build --config vite.chrome.config.ts",
+    "test:framework:chrome:preparation": "npm run typecheck && node --import tsx --test tests/framework-browser-model.test.ts && npm run build:chrome:preparation && node tests/framework-chrome-preparation.mjs",
+    "lint": "biome lint extension packages/contracts packages/core packages/engines-companion packages/media-web packages/engines-browser apps/chrome tests scripts/ralph-loop.mjs vite.config.ts vite.content.config.ts vite.chrome.config.ts && uv run --locked ruff check server tests companion",
     "typecheck": "tsc --noEmit",
     "typecheck:framework": "tsc -p tsconfig.contracts.json && tsc -p tsconfig.framework.json",
     "test:framework:core": "npm run typecheck:framework && node --import tsx --test tests/framework-contracts.test.ts tests/framework-core.test.ts tests/framework-presentation.test.ts tests/framework-companion.test.ts tests/offscreen-companion.test.ts",
@@ -40,5 +42,8 @@
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vite": "8.3.2"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.0"
   }
 }
