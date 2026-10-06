@@ -185,6 +185,7 @@ def test_ollama_final_only_context_text_request_and_caption_contract():
                 200,
                 json={
                     "message": {"content": "생성한 테스트 번역"},
+                    "done": True,
                     "done_reason": "stop",
                 },
             )
@@ -219,7 +220,7 @@ def test_ollama_final_only_context_text_request_and_caption_contract():
         assert captions[-1].emitted_at_ms > 0
         assert requests[0]["model"] == "qwen3:4b-instruct"
         assert requests[0]["think"] is False
-        assert requests[0]["stream"] is False
+        assert requests[0]["stream"] is True
         assert "Korean" in requests[0]["messages"][0]["content"]
         assert len(requests[-1]["messages"]) == 8
         assert all("audio" not in request for request in requests)
@@ -252,6 +253,7 @@ def test_ollama_errors_are_actionable_and_never_fallback(failure, expected):
                     200,
                     json={
                         "message": {"content": "incomplete"},
+                        "done": True,
                         "done_reason": "length",
                     },
                 )

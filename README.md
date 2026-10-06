@@ -215,6 +215,30 @@ pending work and discards late results; native MLX inference already running
 finishes on its worker before another inference can start. Audio/transcripts
 are never written by the companion.
 
+Ollama streams one response for each finalized source segment. Its accumulated
+translation replaces the same caption with increasing partial revisions, then a
+final revision; partial output does not add translation requests or context entries.
+Stop closes the stream and rejects late output. A missing completion marker or
+truncated response is an error, and the entire response has a 30-second deadline.
+Streaming improves the time to the first token; it does not remove model loading,
+VAD waiting, or the time needed for a complete translation.
+
+To measure the real models on paced, generated English PCM with fixed language
+settings, start Ollama and run:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-latency.py after \
+  docs/verification/latency/after-events.json
+```
+
+This unloads the selected Ollama model before its first sample, prints generated
+fixture results for meaning review, and saves only numeric measurements. The
+`before`/`after` argument labels the currently checked-out implementation; it does
+not switch implementations. These are audio-end → session-event timings, not
+Chrome capture or subtitle paint measurements. See `docs/verification.md` for
+the baseline, sample counts, cold/warm distinction, and remaining item 7a checks.
+
 If ASR dependencies or cached weights are missing, the popup gives the setup
 command. Missing text weights ask for `ollama pull`; connection failure asks for
 `ollama serve`. No paid provider is called as a fallback. Ollama requests go only

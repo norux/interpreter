@@ -1,0 +1,131 @@
+{
+  "label": "before",
+  "asrModel": "mlx-community/Qwen3-ASR-0.6B-8bit",
+  "textModel": "qwen3:4b-instruct",
+  "source": "English",
+  "target": "Korean",
+  "speech": "macOS Samantha 165 wpm",
+  "measurement": "paced PCM audio-end to session event; browser not exercised",
+  "cold": {
+    "firstEventMs": {
+      "n": 1,
+      "p50Ms": 20429.637,
+      "p95Ms": 20429.637
+    },
+    "finalEventMs": {
+      "n": 1,
+      "p50Ms": 20429.637,
+      "p95Ms": 20429.637
+    }
+  },
+  "warm": {
+    "firstEventMs": {
+      "n": 7,
+      "p50Ms": 1047.491,
+      "p95Ms": 1233.221
+    },
+    "finalEventMs": {
+      "n": 7,
+      "p50Ms": 1047.491,
+      "p95Ms": 1233.221
+    }
+  },
+  "samples": [
+    {
+      "temperature": "cold",
+      "sentence": 0,
+      "firstEventMs": 20429.637,
+      "finalEventMs": 20429.637,
+      "vadAndSchedulingMs": 501.462,
+      "asrMs": 17775.097,
+      "translationToFirstMs": 2153.078,
+      "revisions": 1,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0
+    },
+    {
+      "temperature": "warm",
+      "sentence": 1,
+      "firstEventMs": 1233.221,
+      "finalEventMs": 1233.221,
+      "vadAndSchedulingMs": 501.644,
+      "asrMs": 318.534,
+      "translationToFirstMs": 413.043,
+      "revisions": 1,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0
+    },
+    {
+      "temperature": "warm",
+      "sentence": 0,
+      "firstEventMs": 975.362,
+      "finalEventMs": 975.362,
+      "vadAndSchedulingMs": 501.029,
+      "asrMs": 137.916,
+      "translationToFirstMs": 336.417,
+      "revisions": 1,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0
+    },
+    {
+      "temperature": "warm",
+      "sentence": 1,
+      "firstEventMs": 1081.828,
+      "finalEventMs": 1081.828,
+      "vadAndSchedulingMs": 501.363,
+      "asrMs": 163.936,
+      "translationToFirstMs": 416.529,
+      "revisions": 1,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0
+    },
+    {
+      "temperature": "warm",
+      "sentence": 0,
+      "firstEventMs": 981.847,
+      "finalEventMs": 981.847,
+      "vadAndSchedulingMs": 501.462,
+      "asrMs": 139.578,
+      "translationToFirstMs": 340.807,
+      "revisions": 1,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0
+    },
+    {
+      "temperature": "warm",
+      "sentence": 1,
+      "firstEventMs": 1078.283,
+      "finalEventMs": 1078.283,
+      "vadAndSchedulingMs": 501.4,
+      "asrMs": 162.146,
+      "translationToFirstMs": 414.737,
+      "revisions": 1,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0
+    },
+    {
+      "temperature": "warm",
+      "sentence": 0,
+      "firstEventMs": 978.979,
+      "finalEventMs": 978.979,
+      "vadAndSchedulingMs": 501.224,
+      "asrMs": 136.779,
+      "translationToFirstMs": 340.977,
+      "revisions": 1,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0
+    },
+    {
+      "temperature": "warm",
+      "sentence": 1,
+      "firstEventMs": 1047.491,
+      "finalEventMs": 1047.491,
+      "vadAndSchedulingMs": 501.182,
+      "asrMs": 140.158,
+      "translationToFirstMs": 406.151,
+      "revisions": 1,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0
+    }
+  ]
+}

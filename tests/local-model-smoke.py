@@ -63,7 +63,8 @@ async def main():
             async for event in local_session("generated-smoke", engine).run(frames()):
                 assert event.type != "error", event.message
                 if event.caption:
-                    captions.append(event.caption)
+                    if event.caption.final:
+                        captions.append(event.caption)
                     print(
                         json.dumps(
                             {

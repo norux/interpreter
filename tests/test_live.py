@@ -184,7 +184,11 @@ def test_live_asr_to_actual_text_adapter_final_only(monkeypatch, provider):
             body = (
                 reply(provider)
                 if provider != "local"
-                else {"message": {"content": "생성한 시험 번역"}, "done_reason": "stop"}
+                else {
+                    "message": {"content": "생성한 시험 번역"},
+                    "done": True,
+                    "done_reason": "stop",
+                }
             )
             return httpx.Response(200, json=body)
 

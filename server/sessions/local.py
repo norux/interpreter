@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import struct
 import time
@@ -213,9 +214,10 @@ class OllamaTranslator:
             base_url="http://127.0.0.1:11434", trust_env=False, timeout=30
         )
         self.request: asyncio.Task | None = None
+        self.cancelled = False
 
     async def translate(self, transcript: Transcript, context: list[tuple[str, str]]):
-        if not transcript.final:
+        if not transcript.final or self.cancelled:
             return
         messages = [
             {
@@ -237,43 +239,69 @@ class OllamaTranslator:
                 ]
             )
         messages.append({"role": "user", "content": transcript.text[:2000]})
+        self.request = asyncio.current_task()
+        text = ""
+        revision = 0
         try:
-            self.request = asyncio.create_task(
-                self.client.post(
-                    "/api/chat",
-                    json={
-                        "model": self.model_id,
-                        "messages": messages,
-                        "stream": False,
-                        "think": False,
-                        "options": {
-                            "temperature": 0,
-                            "num_predict": 256,
-                            "num_ctx": 4096,
-                        },
+            # Bound the whole response, including a server that keeps trickling bytes.
+            async with asyncio.timeout(30), self.client.stream(
+                "POST",
+                "/api/chat",
+                json={
+                    "model": self.model_id,
+                    "messages": messages,
+                    "stream": True,
+                    "think": False,
+                    "options": {
+                        "temperature": 0,
+                        "num_predict": 256,
+                        "num_ctx": 4096,
                     },
-                )
-            )
-            response = await self.request
-            if response.status_code == 404:
-                raise RuntimeError(
-                    f"Ollama model is not installed. Run ollama pull {self.model_id}."
-                )
-            response.raise_for_status()
-            reply = response.json()
-            text = reply["message"]["content"].strip()
-            if not text or reply.get("done_reason") == "length":
-                raise RuntimeError("Ollama returned an empty or truncated translation.")
-            yield Translation(transcript.utterance_id, 1, text, True)
+                },
+            ) as response:
+                if response.status_code == 404:
+                    raise RuntimeError(
+                        "Ollama model is not installed. "
+                        f"Run ollama pull {self.model_id}."
+                    )
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if self.cancelled:
+                        return
+                    if not line.strip():
+                        continue
+                    reply = json.loads(line)
+                    if not isinstance(reply, dict) or "error" in reply:
+                        raise ValueError("Invalid Ollama stream record")
+                    done = reply["done"]
+                    delta = reply["message"]["content"]
+                    if not isinstance(done, bool) or not isinstance(delta, str):
+                        raise ValueError("Invalid Ollama stream content")
+                    text += delta
+                    if done:
+                        if not text.strip() or reply.get("done_reason") == "length":
+                            raise RuntimeError(
+                                "Ollama returned an empty or truncated translation."
+                            )
+                        yield Translation(
+                            transcript.utterance_id, revision + 1, text.strip(), True
+                        )
+                        return
+                    if delta and text.strip():
+                        revision += 1
+                        yield Translation(
+                            transcript.utterance_id, revision, text.strip(), False
+                        )
+                raise RuntimeError("Ollama translation stream ended before completion.")
         except httpx.ConnectError as error:
             raise RuntimeError(
                 "Ollama is not running. Start ollama serve, then Start again."
             ) from error
-        except httpx.TimeoutException as error:
+        except (httpx.TimeoutException, TimeoutError) as error:
             raise RuntimeError(
                 "Ollama translation timed out. Check the local model."
             ) from error
-        except (httpx.HTTPStatusError, ValueError, KeyError, TypeError) as error:
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
             raise RuntimeError(
                 "Ollama translation failed. Check its model and server."
             ) from error
@@ -281,7 +309,8 @@ class OllamaTranslator:
             self.request = None
 
     async def cancel(self):
-        if self.request:
+        self.cancelled = True
+        if self.request and self.request is not asyncio.current_task():
             self.request.cancel()
             await asyncio.gather(self.request, return_exceptions=True)
 

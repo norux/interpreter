@@ -898,3 +898,55 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
 - 제품 코드/runner/tests/기존 실패 증거는 변경하지 않았고 새 항목을 체크하지 않았다.
   문서/증거 변경이므로 npm run verify는 재실행하지 않는다. 문서 diff, JSON과 링크를
   검증한다. **다음 미완료 작업은 7a**이며 7b/8/9/최종 완료가 남아 있다.
+
+### Ralph iteration 1/30 — 2026-10-06 — 항목 7a 번역 streaming 진척
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  **다음 미완료 7a만 진행했으며 아직 체크하지 않았다.** 플랜의 큰 항목 분할 규칙에
+  따라 이번 iteration은 기존 TextTranslator의 Ollama 출력 streaming부터 구현했다.
+  다른 agent/worktree/push/cloud API/credential 파일/사용자 음성은 사용하지 않았다.
+- 기존 feature-local adapter가 final 원문당 단일 요청의 NDJSON content를 누적해
+  같은 utterance ID/증가 revision의 partial과 final을 전달한다. final만 문맥에 넣는다.
+  새 모델/framework/capture/output 계약은 없다. Stop의 HTTP 정리/늦은 byte 거부,
+  EOF/잘못된 record/빈 응답/token 제한 오류 및 전체 30초 deadline을 구현했다.
+- 변경 전 gated partial regression은 실제 exit 1(6 failed/4 passed)로 재현했다.
+  신규 13 cases는 조기 partial/단일 요청/같은 cue/문맥 final-only, UTF-8 분할/
+  긴 번역 무손실/Stop/취소를 무시하는 늦은 byte/불완전 응답/실제 30초 trickle 제한을
+  검증한다. 기존 ASR queue/native 취소와 session/output 교체 테스트는 유지했다.
+- 실제 cached MLX Qwen3-ASR 0.6B 8bit + Ollama qwen3:4b-instruct Q4_K_M으로
+  같은 macOS Samantha 165 wpm 영어 2문장을 각 4회, 실제 20ms paced PCM으로 비교했다.
+  Apple M5/16 GiB, Python 3.12.15/mlx-audio 0.5.8/Ollama 0.35.1이다.
+  cold 1 + warm 7 sample씩, source English/target Korean, silence 500ms/최대6초는 동일.
+  ASR와 한국어 final의 날씨/점심 뒤 공원 산책 의미를 terminal에서 검토했고 양쪽 final은
+  동일했다. docs/verification/latency의 JSON은 숫자만 보존한다. 생성 음성은 ignored
+  TemporaryDirectory 안에서만 사용하고 제거했다. 실제 사용자 음성/전사문은 없다.
+- **session-event 실측이며 browser 표시 실측이 아니다**: warm first p50/p95
+  1047.491/1233.221 → 758.851/886.182 ms(n=7), first p50 27.6% 개선이다.
+  warm final 1047.491/1233.221 → 1066.540/1194.256 ms라 완료 속도 개선 보장은 없다.
+  첫 partial은 한국어 한 token일 수 있다. VAD/worker 대기는 여전히 501–502ms이다.
+  drop 0/pending-at-end 0이나 sparse single-phrase run의 queue peak/장시간 증거는 아니다.
+- cold first/final은 before 20429.637/20429.637, after 2889.352/3135.662 ms(n=1).
+  ASR load/import/compile 17775.097→1512.083 ms가 큰 차이이고 OS/MLX cache를
+  지우지 않았으므로 이 차이를 streaming/cold-start 개선으로 주장하지 않는다.
+  after 마지막 sample의 browser fixture 시작과 겹침 등 한계도 docs/verification.md에
+  명시했다. event 측정을 실제 DOM paint/audio-end→보이는 자막 p50/p95로 대체하지 않는다.
+- `npm run test:captions-browser` exit 0: Chrome for Testing 153.0.8010.12의 built
+  DOM sink normal/narrow/wrapper fullscreen, revision 교체/오래된 revision 거부,
+  긴 final cue 모든 문자/컨트롤 클릭/만료/Stop/늦은 caption 거부 통과. 생성 cue이며
+  실제 capture/번역/원음 청취 증거가 아니다. 기존 PNG 변경/새 시각 검토 주장은 없다.
+- 첫 lint의 8개 line-length 실패를 수정했다. 첫 full verify는 OpenAI-ASR→local
+  text fixture에 Ollama done marker가 없어 1 failed/142 passed/exit 1이었다.
+  실제 terminal protocol marker를 넣고 원문/ID/final/단일 요청/오디오 미전송 assertion은
+  유지했다. focused provider 3 cases 통과 후 전체를 재실행했다.
+- 최종 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 9 + Python 143 tests, failures/skips/warnings 0(Python 65.99초).
+  `uv lock --check`, `git diff --check`, numeric JSON sample/percentile consistency,
+  최종 Ruff 통과. dependency/lockfile 변경 없음. browser/Ollama를 종료했고
+  8765/8766/11434 listener 없음. `.ralph`/audio/model/key는 커밋하지 않는다.
+- **다음 iteration도 7a**: 명시 Start 준비 중 작은 local 모델 준비/취소/오류 처리,
+  같은 음성으로 silence 250–300ms 후보 비교(6초 최대 구절은 의미 확인 없이 줄이지 않음),
+  native Chrome tabCapture에서 revision-aware first/final **실제 paint** 변경 전후
+  p50/p95/cold/warm/sample/queue/drop 및 audible 원음/의미/streaming 긴 cue/Stop/
+  session 교체를 검증해야 한다. 현재 7a acceptance 전체는 미통과이며 외부 blocker는 없다.
+  README 재현 명령과 docs/verification.md 상세 근거를 보존했다. 7b/8/9/최종 완료는 남았다.
