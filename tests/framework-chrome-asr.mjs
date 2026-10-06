@@ -128,12 +128,12 @@ try {
     }).catch(error => error.message);
   });
   const failures = [];
-  for (const candidate of ["tiny", "base"]) {
+  for (const candidate of ["tiny", "base", "small"]) {
     for (const device of ["wasm", "webgpu"]) {
       await page.evaluate(([candidate, device]) => { globalThis.host?.dispose(); makeHost(candidate, device); }, [candidate, device]);
       const errorStart = consoleErrors.length;
       const run = { candidate, device, results: [] }; observations.runs.push(run);
-      peakRssKiB = await sampleRss();
+      run.baselineRssKiB = await sampleRss(); peakRssKiB = run.baselineRssKiB;
       const begin = performance.now();
       await page.locator("#prepare").click();
       await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 240000 });
@@ -142,7 +142,9 @@ try {
       run.workerInstrumentation = await instrumentation;
       run.consoleErrors = consoleErrors.slice(errorStart);
       if (run.status.failure) { run.peakRssKiB = peakRssKiB; failures.push(`${candidate}/${device}: ${run.status.failure}`); console.log(JSON.stringify({ run })); continue; }
-      for (const clip of manifest.clips) {
+      // Repeat the same preserved utterances to expose timing/output variability.
+      // Three trials are repeatability evidence, not sustained-stream percentiles.
+      for (const { clip, trial } of manifest.clips.flatMap(clip => [1, 2, 3].map(trial => ({ clip, trial })))) {
         const result = await page.evaluate(async clip => {
           const input = await job(clip); const length = input.pcm.length;
           const started = performance.now(); const output = await host.recognize(input);
@@ -150,13 +152,13 @@ try {
         }, clip);
         const accuracy = errors(clip.text, result.revision.text, clip.language);
         const seconds = result.inputSamples / 16000;
-        run.results.push({ language: clip.language, ...result, audioSeconds: seconds, realTimeFactor: result.inferenceMs / (seconds * 1000), accuracy });
+        run.results.push({ language: clip.language, trial, ...result, audioSeconds: seconds, realTimeFactor: result.inferenceMs / (seconds * 1000), accuracy });
         assert.equal(result.transferredBytesAfter, 0);
         assert.deepEqual(result.revision.identity, { sessionId: "fixture-asr", targetId: `fixture-${clip.language}`, epoch: 3 });
         assert.equal(result.revision.sourceRevision, 1); assert.equal(result.revision.final, true); assert.equal(result.revision.language, clip.language);
         assert.equal(result.revision.utteranceId, `${clip.language}-one`); assert.equal(result.revision.audioRange.startMs, 0);
         assert.ok(Math.abs(result.revision.audioRange.endMs - seconds * 1000) < 0.001);
-        if (accuracy.rate > 0.2) failures.push(`${candidate}/${device}/${clip.language}: ${accuracy.metric} ${accuracy.rate} exceeds preliminary 0.2 comparison gate`);
+        if (accuracy.rate > 0.2) failures.push(`${candidate}/${device}/${clip.language}/trial-${trial}: ${accuracy.metric} ${accuracy.rate} exceeds preliminary 0.2 comparison gate`);
       }
       run.peakRssKiB = peakRssKiB;
       // A separate listener runs after the browser's microtask checkpoint and
@@ -214,11 +216,11 @@ try {
     }
   }
   observations.remotePaths = [...remotePaths]; observations.pageErrors = pageErrors; observations.failures = failures;
-  assert.ok([...remotePaths].every(path => /^https:\/\/huggingface.co\/(onnx-community\/whisper-(tiny|base)\/resolve\/[a-f0-9]{40}\/|api\/resolve-cache\/models\/onnx-community\/whisper-(tiny|base)\/[a-f0-9]{40}\/)/.test(path)
+  assert.ok([...remotePaths].every(path => /^https:\/\/huggingface.co\/(onnx-community\/whisper-(tiny|base|small)\/resolve\/[a-f0-9]{40}\/|api\/resolve-cache\/models\/onnx-community\/whisper-(tiny|base|small)\/[a-f0-9]{40}\/)/.test(path)
     || ["us.aws.cdn.hf.co", "cas-bridge.xethub.hf.co", "cas-server.xethub.hf.co"].includes(new URL(path).hostname)), "Only pinned model artifacts and Hub storage redirects may be fetched");
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(failures, [], "Comparison gates must pass; no failed candidate is silently removed");
-  observations.checks.push("Both languages on both candidates/backends, preliminary CER/WER <= 0.2", "Transferred bounded PCM and original identity", "Real in-flight Stop, overload admission and fresh-worker restart", "Actual WebGPU device loss stays explicit");
+  observations.checks.push("Three trials per language on all three candidates/both backends, preliminary CER/WER <= 0.2", "Transferred bounded PCM and original identity", "Real in-flight Stop, overload admission and fresh-worker restart", "Actual WebGPU device loss stays explicit");
   console.log(JSON.stringify({ passed: true, ...observations }));
 } catch (error) { console.error(JSON.stringify({ passed: false, ...observations, error: error.message })); throw error; }
 finally {

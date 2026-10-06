@@ -1108,3 +1108,85 @@ architecture/prior chrome report를 읽었다. 새 checkbox 완료/다른 stage/
 runner 수정/push/publish/app 설치나 user apps/recordings/mounts/settings 변경 없음.
 Credentials/model weights/user audio·transcripts/temporary `.ralph` state를 제외하고
 진척만 commit한다.
+
+### 2026-10-07 / chrome / iteration 2/5 — B2 larger ASR candidate and repeatability
+
+관련 commit: 이 기록을 포함한 `feat: compare larger browser ASR candidate`.
+
+수행한 변경: 다음 미완료 B2만 진행했다. 기존 repository/loader/host에
+multilingual `onnx-community/whisper-small` q8 후보를 revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`로 등록했다. Seven-file inventory
+251,846,613 bytes와 두 ONNX SHA-256을 고정하고 실제 download에서 검증한다.
+기존 tiny/base, failing fixture/hash/6500·9000 Hz tags, 20% CER/WER gate,
+Stop/overload/restart/actual GPU loss assertions를 모두 보존했다. 최종 browser
+harness는 language/model/backend마다 같은 utterance 3 trials와 mode별 RSS
+baseline을 기록하고 모든 trial에 기존 acceptance를 적용한다. B1 준비 후보,
+companion v0.1.0/설치/native messaging/server/core/사용자 설정/runner는 변경하지 않았다.
+새 설정·자동 fallback·streaming/VAD·번역·화면 연결·다른 stage는 추가하지 않았다.
+
+실행한 명령과 결과:
+
+- PASS: `npm run verify`, exit 0; Biome 100 files/47 ms/no findings,
+  Ruff/typecheck/기존 build, JS 84 passed/0 failed/skipped/cancelled,
+  15385.631042 ms; Python 222 passed/66.98 s (`chrome-2-verify.log`).
+- PASS: `npm run test:framework:chrome:preparation`, exit 0;
+  typecheck/5 port tests/build 및 11개 real B1 browser checks 통과.
+  Native hidden/visible/explicit restart, Stop/offline/corruption/eviction/disposal/
+  production UI 포함, 43,613,734 bytes 유지, first preparation 8831.710167 ms,
+  offline preparation 577.712625 ms, page errors `[]` (`chrome-2-preparation.log`).
+  Injected fault errors/favicon 404는 보고서에 구분했으며 empty console 주장은 없다.
+- FAIL: 첫 `npm run test:framework:chrome:asr`, exit 1
+  (`chrome-2-small-asr.log`); typecheck/7 port tests(7 passed/0 failed/skipped/
+  cancelled, 99.278041 ms)/build, 세 후보 × 두 backend × 두 언어의 12 scored
+  actual utterances와 모든 lifecycle/identity/transfer/network assertion 완료.
+  Sole final failure: tiny/WASM Japanese CER 9/40=22.5% > unchanged 20%.
+- FAIL: 최종 repeat harness의 같은 ASR command, exit 1
+  (`chrome-2-small-asr-repeat.log`); typecheck/7 port tests(7 passed/0 failed/
+  skipped/cancelled, 60.067125 ms)/build 및 36 scored actual utterances 완료.
+  각 language/mode의 3 trials는 같은 text/error rate를 반환했다. Final failure는
+  tiny/WASM Japanese trials 1–3의 CER 22.5%뿐이다. 모든 실제 pending Stop,
+  overload/111,556 rejected samples 보존, fresh cached WASM restart,
+  actual runtime GPUDevice.destroy → gpu-lost/no fallback, metadata/transfer/
+  pinned network checks는 완료됐고 page errors/preparation console errors `[]`.
+  실패 baseline/trial/gate를 삭제·완화하지 않았으며 추가 ASR 재시도 없음.
+- FAIL: `npm run test:framework:chrome`, exit 1, Missing script
+  (`chrome-2-stage-acceptance.log`). B5 full selected-video PCM → ASR → Korean
+  translation → DOM harness는 미구현이며 preparation/ASR tests로 대체하지 않는다.
+- PASS: targeted Biome, exit 0, 3 changed source/test files/no findings
+  (`chrome-2-targeted-lint.log`); 문서 포함 unstaged/staged whitespace 및
+  commit 후 clean-worktree를 확인한다.
+
+실제 검증 범위: owned headed Chromium 153.0.8010.12/Darwin arm64,
+Node v24.15.0/npm 11.12.1/uv 0.12.23/Python 3.12.15. 기존 합성 VP8/Opus 영상의
+decoded PCM을 16 kHz로 resample한 일본어 6.97225초/영어 6.6665초이며 live
+selected-video capture나 Korean captions는 아니다. Final Japanese CER는
+모든 trial에서 tiny/WASM 22.5%, tiny/WebGPU 20%, base 양쪽 17.5%, small 양쪽
+1/40=2.5%; English WER는 모두 1/22=4.54545%이다. Small은 테스트된 부정/시간/
+역/예약 취소 금지 의미를 보존하지만 첫 run 및 모든 repeat가 speech duration보다
+느렸다. Final inference ranges: small/WASM Japanese 7869.900–8040.800 ms,
+English 7698.900–7702.400 ms; small/WebGPU Japanese 7446.000–7665.100 ms,
+English 7055.900–7067.400 ms. Repeat real-time factors는 약 1.058–1.155이다.
+Tiny/base semantic errors와 숫자 三/three → 3 edit는 그대로 유지한다.
+
+실패·미검증과 증거 위치: [chrome 보고서](docs/verification/media-framework/chrome.md)에
+exact model sizes/hashes, first-run timings, 6 modes의 final min/max inference/
+host round trip, mode baseline/peak RSS, semantic errors, commands 및 ignored
+`chrome-2-*.log`를 기록했다. RSS는 250 ms마다 owned browser process tree를 합산하며
+shared pages/allocator/prior residency를 포함한다. Model/GPU allocation, leak test,
+phone memory나 sustained profile을 입증하지 않는다. 2026 Qwen3-ASR official
+release/license 및 두 upstream inventory(no ONNX)/installed JS model support
+(no qwen3_asr matches)를 확인했으며 실제 browser accuracy 비교나 weights download는
+하지 않았다. Whisper upstream MIT와 conversion card는 확인했지만 distribution
+license confirmation은 미완료다. Long speech/VAD/gap/live streaming/resampling,
+sustained queue/GPU recovery/memory, broader recognition quality, B3–B6 Korean
+translation/revisions/DOM/offline end-to-end/10분 검증 및 Safari/iPhone은 미검증이다.
+
+다음 미완료 항목: **B2 유지, 새 checkbox/default 없음.** 보존한 의미 정확도와
+지속 처리 속도를 함께 만족하는 profile 및 distribution license를 검증한 뒤
+default를 선택한다. 현재 required environment/device/permission 차단은 없다.
+새 근거 없이 동일 accuracy failure를 다시 실행하는 것은 다음 작업이 아니다.
+AGENTS.md 및 요청된 independent runner file은 없었고 supplied instructions/plan/
+architecture/prior report를 읽었다. Worktree 밖 작업, unrelated files/user settings/
+앱/녹화/mount 변경, agents/runner 수정/stage advance/push/publish/app installation
+없음. Credentials/model weights/user audio·transcripts/임시 `.ralph` state는 commit에서
+제외한다. Stage/whole-framework/iPhone 완료를 주장하지 않는다.

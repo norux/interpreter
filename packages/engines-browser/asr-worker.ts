@@ -17,7 +17,7 @@ globalThis.onmessage = async (event: MessageEvent<unknown>) => {
   if (lost) { send({ type: "error", reason: "gpu-lost" }); return; }
   busy = true;
   try {
-    if (value.type === "prepare" && "candidate" in value && (value.candidate === "tiny" || value.candidate === "base")
+    if (value.type === "prepare" && "candidate" in value && (value.candidate === "tiny" || value.candidate === "base" || value.candidate === "small")
       && "device" in value && (value.device === "wasm" || value.device === "webgpu") && !resident) {
       const model = asrCandidates[value.candidate].model;
       const device = value.device;

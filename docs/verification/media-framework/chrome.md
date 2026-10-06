@@ -410,3 +410,179 @@ stage advancement, push/publish/app installation or changes to unrelated files,
 user apps/recordings/mounted images/browser settings occurred. Only owned test
 browsers/profiles were closed; credentials, weights, user audio/transcripts and
 `.ralph` state are excluded from the commit. No additional checkbox is checked.
+
+## 2026-10-07 — B2 larger candidate and repeatability (iteration 2/5)
+
+Commit: the `feat: compare larger browser ASR candidate` commit containing this
+section. **B2 remains unchecked and no default is selected.** This iteration
+extends only B2's bounded utterance comparison. It preserves B1's preparation
+candidate, all earlier candidates/fixtures, the <= 0.2 CER/WER gate, and the
+existing pending Stop, overload, restart and actual GPU-loss assertions.
+
+### Candidate and compatibility evidence
+
+Registered `onnx-community/whisper-small` at immutable revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, with the same q8 loader/runtime,
+16 kHz input, explicit language/transcribe task and 256-token bound as tiny/base.
+Its seven-file inventory is **251,846,613 bytes** per fresh model cache:
+config 2,227; generation config 3,893; tokenizer 2,480,466; tokenizer config
+282,683; preprocessor config 339; encoder 92,326,160; merged decoder 156,750,845.
+Encoder SHA-256 is
+`a43a83f3c5361cd591cfa7c36f14b43cf7cb22f47a415cc14a8d557be800fa92`;
+decoder SHA-256 is
+`ec07c3cbb64172c39791e26ee870a65ac22b458c36722bfe2776b3dbf741e0c9`.
+The repository verifies these hashes during the actual download. The existing
+candidate-owned cache and transport are reused; no new model-selection setting,
+fallback or server route was added.
+
+The [conversion card](https://huggingface.co/onnx-community/whisper-small)
+identifies the OpenAI small checkpoint and Transformers.js-compatible ONNX.
+The [Hub metadata](https://huggingface.co/api/models/onnx-community/whisper-small?blobs=true)
+supplied the pinned identity, sizes and ONNX hashes above. Its card metadata has
+no separate license field. [Upstream Whisper's MIT license](https://github.com/openai/whisper/blob/main/LICENSE)
+is documented; conversion/distribution license confirmation remains unverified.
+A web-reader request for the pinned README returned an accessibility error; it
+was not treated as licensing evidence.
+
+The 2026 [Qwen3-ASR release](https://github.com/QwenLM/Qwen3-ASR) and
+[technical report](https://arxiv.org/abs/2601.21337) were considered. The official
+release supports Japanese/English and is Apache-2.0; the authors' throughput
+numbers do not describe this browser. Public Hub inventory inspection returned
+no `.onnx` files for `Qwen/Qwen3-ASR-0.6B` revision
+`5eb144179a02acc5e5ba31e748d22b0cf3e303b0` or its newer native-Transformers variant
+`Qwen/Qwen3-ASR-0.6B-hf` revision
+`7f1569a48a89f3e3f4dc3a5c9d28bddd903bc76c` (both HTTP 200, Apache-2.0 metadata).
+`rg -n 'qwen3_asr|Qwen3ASR' node_modules/@huggingface/transformers/src node_modules/@huggingface/transformers/types`
+returned no matches in installed 4.3.0. This is a compatibility gap for the
+current loader, not evidence that no third-party browser conversion can exist,
+or that Qwen is less accurate. No Qwen weights were downloaded or browser
+operator/accuracy claim made. Existing MLX/Ollama weights were not reused.
+
+### Actual browser evidence
+
+Environment: Darwin arm64; Node v24.15.0/npm 11.12.1;
+uv 0.12.23/Python 3.12.15; test-owned headed Chromium 153.0.8010.12.
+The unchanged VP8/Opus fixtures are hash-checked, decoded and resampled with
+OfflineAudioContext: Japanese 111,556 samples/6.97225 s, English 106,664
+samples/6.6665 s. Isolation tags and every failing sentence remain. This is
+actual transcription of decoded synthetic fixture audio, **not production
+selected-video capture, translation or caption DOM acceptance**.
+
+First single-trial comparison: `npm run test:framework:chrome:asr`, exit 1,
+ignored `chrome-2-small-asr.log`. Typecheck, seven port tests (7 passed,
+0 failed/skipped/cancelled, 99.278041 ms), build, all six real candidate/backend
+modes, lifecycle/identity/transfer/network assertions completed; page errors
+`[]`. Sole final failure: tiny/WASM Japanese CER 9/40 = 22.5% > 20%.
+Small's actual results were:
+
+| Backend | Preparation ms | Japanese inference / host round trip ms | English inference / host round trip ms | Japanese CER | English WER | Owned browser-tree peak RSS KiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| WASM | 28724.436416 | 7998.300 / 8000.600 | 7678.100 / 7679.700 | 1/40 = 2.5% | 1/22 = 4.54545% | 3,015,664 |
+| WebGPU | 1277.629667 | 7601.900 / 7603.300 | 7104.100 / 7105.600 | 1/40 = 2.5% | 1/22 = 4.54545% | 3,520,400 |
+
+Small preserved the tested meeting negation, tomorrow/afternoon/three/station,
+and reservation non-cancellation meaning. Its only normalized Japanese edit is
+`三` → `3`; English also retains `three` → `3`. Numeric normalization was not
+added. Small's first-run real-time factors were WASM 1.147162/1.151744 and WebGPU
+1.090308/1.065642 (Japanese/English). **Both were slower than the supplied speech
+periods**, before segmentation, translation or display overhead. This improved
+accuracy does not demonstrate a sustainable live default. Tiny's 午後/駅/予約
+and base's 会議/予約 semantic errors remain; the failed baseline is not discarded.
+
+The final harness repeats each preserved utterance three times per mode, records
+trial identity and a pre-preparation RSS baseline, and applies every original
+accuracy/metadata assertion to every trial. `npm run test:framework:chrome:asr`
+with this final code returned **exit 1**, ignored `chrome-2-small-asr-repeat.log`.
+Typecheck, seven port tests (7 passed/0 failed/skipped/cancelled, 60.067125 ms),
+build and all **36 scored real utterances** completed. Each language/mode returned
+the same text in its three trials. The only final failures were tiny/WASM
+Japanese trials 1, 2 and 3, each 9/40 = 22.5%. No failed candidate/trial was
+removed or accepted by changing the gate. No further ASR attempt was made.
+
+Ranges below are the observed minimum–maximum of three trials, rounded to
+0.001 ms; they are not population percentiles. Preparation includes fresh model
+download/load for WASM and cached model load for the later WebGPU mode.
+
+| Candidate / backend | Preparation ms | Japanese inference / host round trip range ms | English inference / host round trip range ms | Japanese CER (all trials) | English WER (all trials) | Mode baseline / peak RSS KiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| tiny / wasm | 8857.796 | 1013.200–1113.000 / 1014.300–1115.600 | 968.700–969.300 / 969.900–970.400 | 22.5% | 4.54545% | 1,305,648 / 2,593,296 |
+| tiny / webgpu | 689.740 | 1150.500–1530.700 / 1151.700–1532.100 | 1009.000–1050.500 / 1010.100–1051.600 | 20% | 4.54545% | 2,869,968 / 3,485,360 |
+| base / wasm | 11585.844 | 2211.400–2336.400 / 2212.700–2338.500 | 2102.900–2105.800 / 2103.900–2106.900 | 17.5% | 4.54545% | 2,934,896 / 3,323,664 |
+| base / webgpu | 924.871 | 2314.900–2465.700 / 2316.400–2467.100 | 2048.100–2066.200 / 2049.400–2067.300 | 17.5% | 4.54545% | 2,986,576 / 3,324,160 |
+| small / wasm | 28937.740 | 7869.900–8040.800 / 7871.100–8042.500 | 7698.900–7702.400 / 7700.200–7703.500 | 2.5% | 4.54545% | 2,924,080 / 3,408,480 |
+| small / webgpu | 1256.319 | 7446.000–7665.100 / 7447.400–7666.500 | 7055.900–7067.400 / 7057.300–7068.800 | 2.5% | 4.54545% | 3,333,472 / 3,518,976 |
+
+The overall browser-tree baseline was 1,303,792 KiB. RSS samples occur every
+250 ms and sum only the owned Chromium process tree (browser, renderers, GPU
+process). Each mode's baseline precedes preparation; its peak covers preparation
+and scored inference before the Stop/restart tests. Shared pages can be counted
+twice, allocator residency carries over, and sequential modes can release prior
+allocations. These are neither isolated model/GPU allocations nor a leak test,
+physical-memory limit or phone qualification. Inference and round trip use their
+respective worker/document clocks without subtracting different clock origins.
+
+Small remained slower than the speech in every repeat: WASM real-time factors
+Japanese 1.128746–1.153258 / English 1.154864–1.155389; WebGPU Japanese
+1.067948–1.099373 / English 1.058411–1.060137. Faster warm tiny/base trials did
+not improve their normalized accuracy or preserved semantic errors.
+
+All six final modes transferred bounded PCM, preserved identity/epoch/range/
+source revision, rejected overload while retaining its 111,556 samples, and
+returned `ASR stopped` after observing actual pipeline invocation with the host
+operation still pending. Post-Stop recognition stayed not ready. Each WASM mode
+prepared a fresh cached worker and recognized actual speech after Stop. Each
+WebGPU mode prepared again, destroyed the actual runtime-created GPUDevice, and
+returned `gpu-lost` without fallback. Final page errors and per-mode preparation
+console errors were `[]`; the pinned-model/network assertion passed. These are
+real model/worker checks, not mock GPU loss or kernel-level cooperative cancel.
+Two comparison invocations prepared all three candidates; each fresh context
+downloaded the small inventory once, then reused it for GPU. Models and owned
+profiles are not committed; only owned test browsers/profiles were cleaned up.
+
+### Acceptance, remaining work and boundaries
+
+PASS: `npm run verify`, exit 0, ignored `chrome-2-verify.log`: Biome
+100 files/47 ms/no findings, Ruff, typecheck, existing companion build,
+84 JavaScript tests passed/0 failed/skipped/cancelled (15,385.631042 ms),
+222 Python tests passed (66.98 s). This verifies repository regressions, not
+B2 recognition accuracy or later-stage interpretation.
+
+FAIL: `npm run test:framework:chrome`, exit 1, ignored
+`chrome-2-stage-acceptance.log`: `Missing script: "test:framework:chrome"`.
+B5's required full selected-video PCM → ASR → Korean translation → DOM
+acceptance is still unimplemented. The ASR/preparation commands do not replace it.
+PASS: targeted Biome for the three changed source/test files, exit 0,
+3 files/no findings (`chrome-2-targeted-lint.log`). Whitespace and committed-tree
+cleanliness are checked before delivery.
+
+PASS: `npm run test:framework:chrome:preparation`, exit 0, ignored
+`chrome-2-preparation.log`: typecheck, five repository port tests/build and all
+eleven actual B1 browser checks, including native visibility/explicit restart,
+Stop, offline reload, corrupt-cache rejection, eviction/disposal and production
+preparation UI. The original tiny candidate still prepares all 43,613,734 model
+bytes; first preparation was 8,831.710167 ms and fresh-worker offline preparation
+577.712625 ms. These are load times, not ASR latency. Page errors were `[]`.
+Console output includes the deliberately induced offline/download/corrupt-cache
+failures and a favicon 404; no empty-console claim is made for this fault suite.
+
+Next unfinished item is still **B2**: qualify a profile that preserves the tested
+Japanese meaning and sustains processing on this host, preserve the failed
+baseline and gates, resolve distribution licensing and select a default only
+with passing evidence. No required environment/device/permission blocker was
+observed. The slower small results are a measured performance limitation;
+repeating the unchanged accuracy failure again is not the next step.
+Unverified: long/boundary-spanning speech and VAD, silence/gap handling, streaming
+SpeechRecognizer composition/live selected-video resampling, sustained queue/GPU
+recovery/memory limits, broader recognition quality and model licensing, B3–B6
+translation/revision/display/offline end-to-end/ten-minute acceptance, external
+sites/extension installation and all Safari/iPhone behavior. Two synthetic
+utterances and three repeat trials cannot establish these outcomes.
+
+No AGENTS.md or requested independent runner failure file
+`2026-10-06T20-26-37-190Z-chrome-verification.txt` exists. Supplied instructions,
+plan, architecture and prior Chrome evidence were read. All changes are confined
+to this worktree. Published companion v0.1.0, install/native messaging/server
+paths, user settings, unrelated files and user apps/recordings/mounted images
+remain unchanged. No runner edits, agents, checkbox completion, stage advance,
+push/publish or app installation occurred. Credentials, model weights, user
+audio/transcripts and temporary `.ralph` state are excluded from the commit.

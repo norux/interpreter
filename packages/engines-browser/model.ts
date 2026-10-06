@@ -41,6 +41,20 @@ export const asrCandidates = {
         sha256: "fa3ef9902734ce5ae6f9ef2bdb2ba9a6c4b5785b09f4f420ce036573dc9d090b" },
     ],
   },
+  small: {
+    model: { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732" },
+    files: [
+      { path: "config.json", bytes: 2227 },
+      { path: "generation_config.json", bytes: 3893 },
+      { path: "tokenizer.json", bytes: 2480466 },
+      { path: "tokenizer_config.json", bytes: 282683 },
+      { path: "preprocessor_config.json", bytes: 339 },
+      { path: "onnx/encoder_model_quantized.onnx", bytes: 92326160,
+        sha256: "a43a83f3c5361cd591cfa7c36f14b43cf7cb22f47a415cc14a8d557be800fa92" },
+      { path: "onnx/decoder_model_merged_quantized.onnx", bytes: 156750845,
+        sha256: "ec07c3cbb64172c39791e26ee870a65ac22b458c36722bfe2776b3dbf741e0c9" },
+    ],
+  },
 } as const;
 
 export function registeredCandidate(model: ModelIdentity) {
