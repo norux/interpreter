@@ -115,3 +115,12 @@ test("cancel releases pending input immediately and ignores unrelated session ca
   await fixture.recognizer.close(); await fixture.recognizer.close();
   assert.equal(fixture.stops, 1); assert.equal(returned, 1);
 });
+
+test("upstream normalization gaps remain audio-gap status and discard ASR context", async () => {
+  const fixture = setup();
+  async function* interrupted() { yield chunk(0); throw new Error("audio-gap"); }
+  await assert.rejects(collect(fixture.recognizer.run(interrupted())), /audio-gap/);
+  assert.equal(fixture.jobs.length, 0); assert.equal(fixture.stops, 1);
+  assert.equal(fixture.statuses.at(-1)?.reason, "audio-gap");
+  assert.equal(fixture.statuses.at(-1)?.queue?.droppedAudioMs, 100);
+});

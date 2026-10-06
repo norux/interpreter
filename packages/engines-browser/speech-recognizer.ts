@@ -136,7 +136,9 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
             if (frameLength) consumeFrame();
             finishSegment(); ended = true; wake?.();
           }
-        } catch { if (!stopped) stop("engine-failed"); }
+        } catch (failure) {
+          if (!stopped) stop(failure instanceof Error && failure.message === "audio-gap" ? "audio-gap" : "engine-failed");
+        }
       }
       report("running"); void ingest();
       try {

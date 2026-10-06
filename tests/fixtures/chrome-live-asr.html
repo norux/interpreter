@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Selected video ASR acceptance</title>
+<video id="ja" src="/ja.webm" controls preload="auto" width="320" height="180">
+  <track kind="captions" srclang="ja" label="Synthetic fixture" src="data:text/vtt,WEBVTT%0A%0A">
+</video>
+<video id="en" src="/en.webm" controls preload="auto" width="320" height="180">
+  <track kind="captions" srclang="en" label="Synthetic fixture" src="data:text/vtt,WEBVTT%0A%0A">
+</video>
+<button type="button" id="prepare">Prepare model</button>
+<button type="button" id="start">Start both videos and selected ASR</button>
+<button type="button" id="stop">Stop selected ASR</button>
+<script type="module">
+  import { createAsrHost } from '/asr.js';
+  import { createSpeechRecognizer } from '/speech.js';
+  import { normalizeSelectedAudio } from '/normalize.js';
+  import { createMediaCatalog } from '/catalog.js';
+  import { createVideoInput } from '/input.js';
+  import { createTimeline } from '/timeline.js';
+  const videos = [...document.querySelectorAll('video')];
+  const catalog = createMediaCatalog(document, 'live-asr-fixture');
+  const input = createVideoInput(catalog, '/pcm-worklet.js', { maxChunkBytes: 8192, maxAudioQueueMs: 1000 });
+  let handle, recognizer, target, identity, timeline;
+  globalThis.visibilityEvents = [];
+  document.addEventListener('visibilitychange', () => visibilityEvents.push({state: document.visibilityState, atMs: performance.now()}));
+  globalThis.state = () => videos.map(video => ({src: video.src, volume: video.volume, muted: video.muted, rate: video.playbackRate, paused: video.paused}));
+  globalThis.configure = async (language, durationSeconds, round) => {
+    globalThis.host?.dispose(); globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
+    globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => statuses.push(status));
+    for (const video of videos) { video.pause(); video.currentTime = 0; }
+    // Wait for actual media seek before confirming the existing opaque handles.
+    await Promise.all(videos.map(video => video.seeking ? new Promise(done => video.addEventListener('seeked', done, {once: true})) : Promise.resolve()));
+    const candidates = await catalog.discover();
+    target = candidates[videos.findIndex(video => video.id === language)].target;
+    identity = {sessionId: `live-asr-${round}`, targetId: target.id, epoch: 0};
+    globalThis.identity = identity;
+    timeline = createTimeline(identity);
+    globalThis.selectedLanguage = language; globalThis.endAtSeconds = durationSeconds;
+    globalThis.transcripts = []; globalThis.queueStatuses = []; globalThis.liveError = undefined; globalThis.finished = false;
+    globalThis.raw = {chunks: 0, samples: 0, rates: [], selectedTagPower: 0, otherTagPower: 0, windows: 0, maxMapErrorMs: 0};
+    globalThis.normalized = {chunks: 0, samples: 0, first: undefined, last: undefined};
+    recognizer = createSpeechRecognizer(identity, language, host, status => queueStatuses.push({...status, atMs: performance.now()}));
+  };
+  document.querySelector('#prepare').onclick = () => host.prepare().then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
+  document.querySelector('#start').onclick = async () => {
+    try {
+      videos[0].volume = 0.4; videos[1].volume = 0.25;
+      const playback = videos.map(video => video.play());
+      handle = await input.open(target, identity); await Promise.all(playback);
+      globalThis.playbackBefore = state();
+      const selected = catalog.resolve(target);
+      const samples = async function* () {
+        try {
+          for await (const event of handle.events) {
+            if ('type' in event) {
+              if (event.type !== 'play') throw new Error('audio-gap');
+              timeline.playback(event); continue;
+            }
+            if (timeline.audio(event) !== 'accepted') throw new Error('audio-gap');
+            const mapped = timeline.map(event.audioRange);
+            raw.maxMapErrorMs = Math.max(raw.maxMapErrorMs, Math.abs(mapped.endMs - selected.currentTime*1000));
+            raw.chunks++; raw.samples += event.pcm.byteLength/4;
+            if (!raw.rates.includes(event.sampleRate)) raw.rates.push(event.sampleRate);
+            raw.first ??= {audioRange: event.audioRange, capture: event.capture};
+            raw.last = {audioRange: event.audioRange, capture: event.capture};
+            // Spectral isolation is checked on actual pre-normalization input;
+            // 9 kHz would be removed by the normalizer even if wrongly captured.
+            if (event.audioRange.startMs > 500) {
+              const pcm = new Float32Array(event.pcm);
+              const amplitudes = [6500,9000].map(frequency => {
+                let sine = 0, cosine = 0, weight = 0;
+                for (let i=0; i<pcm.length; i++) {
+                  const taper = 0.5 - 0.5*Math.cos(2*Math.PI*i/(pcm.length-1));
+                  sine += pcm[i]*taper*Math.sin(2*Math.PI*frequency*i/event.sampleRate);
+                  cosine += pcm[i]*taper*Math.cos(2*Math.PI*frequency*i/event.sampleRate); weight += taper;
+                }
+                return 4*(sine*sine+cosine*cosine)/(weight*weight);
+              });
+              raw.selectedTagPower += amplitudes[selectedLanguage === 'ja' ? 0 : 1];
+              raw.otherTagPower += amplitudes[selectedLanguage === 'ja' ? 1 : 0]; raw.windows++;
+            }
+            globalThis.lastDelivery = {atMs: performance.now(), audioEndMs: event.audioRange.endMs};
+            yield event;
+            // One complete labeled speech period of the unchanged looping fixture.
+            // No decoded samples or transcript oracle supplies production input.
+            if (selected.currentTime >= endAtSeconds) break;
+          }
+        } finally { await handle.close(); }
+      };
+      const normalizedStream = normalizeSelectedAudio(identity, samples());
+      const measured = async function* () {
+        for await (const event of normalizedStream) {
+          normalized.chunks++; normalized.samples += event.pcm.byteLength/4;
+          normalized.first ??= {audioRange: event.audioRange, capture: event.capture};
+          normalized.last = {audioRange: event.audioRange, capture: event.capture};
+          yield event;
+        }
+      };
+      for await (const revision of recognizer.run(measured())) transcripts.push({...revision, observedAtMs: performance.now(), mapped: timeline.map(revision.audioRange)});
+      globalThis.playbackAfter = state(); globalThis.timesAfter = videos.map(video => video.currentTime);
+      globalThis.finished = true;
+    } catch(error) { globalThis.liveError = error.message; }
+  };
+  document.querySelector('#stop').onclick = async () => { await recognizer.cancel(identity); await handle?.close(); };
+  window.addEventListener('pagehide', () => { void recognizer?.close(); void handle?.close(); host?.dispose(); catalog.dispose(); });
+  await Promise.all(videos.map(video => video.readyState >= 2 ? Promise.resolve() : new Promise(done => video.addEventListener('loadeddata', done, {once:true}))));
+  globalThis.ready = true;
+</script>
+</html>

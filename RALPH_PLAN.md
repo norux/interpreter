@@ -1364,3 +1364,95 @@ messaging/server/settings and unrelated files/apps/recordings/mounts preserved.
 No agents, runner edits, stage advance, push/publish/app installation or blocked
 browser-access bypass. Credentials, weights, user audio/transcripts and `.ralph`
 state are excluded from the commit.
+
+### 2026-10-07 / chrome / iteration 5/5 — B2 selected-video normalization, blocked
+
+Related commit: `feat: normalize selected-video audio for browser ASR`, containing
+this entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 stays unchecked; no default or subsequent stage was selected.**
+
+Changes: added bounded streaming normalization at the browser engine boundary
+for the existing mono Float32 selected-element worklet (8192-byte input maximum,
+16/44.1/48 kHz → 16 kHz). Continuous 64-tap windowed-sinc filtering rejects
+aliases without resetting at chunk boundaries; output clocks/ranges retain their
+anchors, EOF duration differs by less than 0.0625 ms, and output is at most
+200 ms/3200 samples. Identity/epoch/sequence/rate/clock gaps release the input
+without joining surviving samples. Added five signal/lifecycle tests and fixed
+the speech port's loss of upstream `audio-gap` status after first demonstrating
+a failing regression. No graph, companion PCM1 rate, setting, model identity,
+candidate comparison, numerical gate, failed baseline or fixture sample changed.
+
+Extended `test:framework:chrome:stream` with a distinct real selected-video
+catalog/input → normalizer → speech/FP16 worker fixture. Intended checks include
+two simultaneously playing videos, pre-filter isolation tones, video mapping,
+actual recognition/meaning, finite EOF, explicit Stop/repeat Start and preserved
+playback state. This is B2 input qualification, not B3–B6 Korean caption work.
+**The live path did not pass.**
+
+Commands and results:
+
+- FAIL then fixed: initial port tests 11 passed / 1 failed (140.735750 ms),
+  upstream gap mislabeled `engine-failed`; isolated same regression exit 1,
+  0 passed / 1 failed (43.337917 ms). After fix, typecheck/twelve tests exit 0
+  (94.612333 ms). Final rate-change test refinement: 12 passed / 0 failed/
+  skipped/cancelled (152.052208 ms). These are synthetic/fake-executor checks,
+  not transcription accuracy.
+- FAIL then fixed: initial `npm run verify`, exit 1, five Biome fixture
+  track/button errors plus one template style notice. Added empty tracks and
+  button types/literal, without feeding subtitle text to ASR. Corrected verify
+  exit 0 (`chrome-5-verify-final.log`): Biome 106 files/31 ms, Ruff/typecheck/
+  companion build, 97 JS passed/0 failed/skipped/cancelled (15320.720834 ms),
+  222 Python passed/66.80 s. Final source recheck is recorded in the report.
+- PASS: concluding `npm run verify`, exit 0,
+  `chrome-5-verify-completed-sources.log`, after all source/test changes:
+  Biome 106 files/45 ms/no findings, Ruff/typecheck/unchanged companion build,
+  97 JS passed/0 failed/skipped/cancelled (15082.746958 ms),
+  222 Python passed/66.93 s. Repository regressions, not live interpretation.
+- FAIL/BLOCKED: two `npm run test:framework:chrome:stream` invocations, both
+  exit 1 (`chrome-5-stream-first.log`, `chrome-5-stream-second.log`). Typecheck,
+  twelve port tests (112.928792 / 97.676916 ms), build, six real decoded ASR
+  trials and every existing fault assertion passed in each invocation. Both
+  stalled at the first live Japanese capture's unchanged 30,000 ms timeout.
+- FAIL: required `npm run test:framework:chrome`, exit 1,
+  `chrome-5-stage-acceptance.log`: Missing script. B5's selected-video → ASR →
+  Korean translation → DOM harness remains unimplemented. No placeholder,
+  preparation/ASR substitute or additional retry was added.
+- PASS: final targeted Biome, six edited source/test files/5 ms/no findings,
+  exit 0; final document-inclusive unstaged/staged whitespace checks, exit 0,
+  committed intended changes and worktree status checked before delivery.
+
+Real verified scope: owned headed Chromium 153.0.8010.12/Darwin arm64, Node
+v24.15.0/npm 11.12.1/uv 0.12.23/Python 3.12.15, unchanged libraries/pinned small
+FP16 WebGPU model (487,960,440 bytes). Each invocation downloaded one inventory
+in its owned context and reused it. The six decoded, paced synthetic utterances
+per invocation retained all samples/tags, passed Japanese CER 1/40=2.5% and
+English WER 1/22=4.54545% and meaning anchors, with 0 loss and drained backlog.
+44.7 s input per run is not ten-minute/live selected-video acceptance. Second
+endpoint-to-result ranges: Japanese 748.200–851.100 ms, English 648.500–709.400 ms;
+pending maxima 8180/7780 ms. Mode baseline/peak browser-tree RSS KiB:
+1,281,232/3,182,368 and 1,699,072/3,809,104. Same process/shared-page/allocator/
+GPU-process caveats as prior reports; not GPU allocations, leak/device limits or
+caption latency. Exact first/second timings, pure silence, overload/gap/cancel/
+actual GPU-loss evidence and limitations are in the report; logs/weights/profile
+bytes are not committed.
+
+Blocker and resume: **two independent live attempts** stalled. Second failure
+snapshot: both videos time 0, paused false, ended/seeking false, readyState 4,
+no media errors; raw input 0 chunks/0 samples, normalized input 0, transcripts 0;
+speech port running with 0 pending/loss; document visible/no visibility events,
+model ready. Required native playback/capture did not advance. Root cause,
+AudioContext clock and any device/host involvement are unverified; no specific
+permission denial/missing hardware is claimed. Stop further browser attempts
+without new evidence. Resume in a permitted Chromium environment where these
+videos advance and the selected worklet produces PCM, or after new evidence
+identifies/corrects this stall, then retain and rerun all live assertions.
+
+Next unfinished item is **B2**: actual live normalization/ASR/isolation/mapping/
+Stop and repeat Start remain unverified, as do broader natural silence/noise/
+boundary speech, sustained recovery/memory and licensing/default qualification.
+All B3–B6/Safari/iPhone checks remain unfinished. No stage/whole-framework/iPhone
+completion is claimed. No AGENTS.md/requested runner file exists; instructions,
+plan, architecture/report read. Published companion/install/native/server paths,
+settings, unrelated files/apps/recordings/mounts preserved. No agents, runner edit,
+stage advance, push/publish/app install or browser-access bypass. Credentials,
+weights, user audio/transcripts and temporary `.ralph` state excluded from commit.

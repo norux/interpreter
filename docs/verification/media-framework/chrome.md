@@ -948,3 +948,166 @@ remain unchanged. No agents, runner edits, checkbox completion, stage advance,
 push/publish, app installation or browser-access bypass occurred. Credentials,
 weights, user audio/transcripts and temporary `.ralph` state are not committed.
 No Chrome-stage, whole-framework or iPhone completion is claimed.
+
+## 2026-10-07 — B2 selected-video normalization (iteration 5/5, blocked)
+
+Commit: `feat: normalize selected-video audio for browser ASR`, containing this
+section. **B2 remains unchecked and no default is selected.** Only B2 was
+extended. The candidate comparison, failed tiny/WASM baseline, fixture hashes,
+isolation tones, three-trial gates, and existing lifecycle assertions remain.
+
+Added `normalizeSelectedAudio` at the browser engine boundary. It accepts the
+existing selected-element worklet's exclusively owned, finite mono Float32 PCM,
+at most 8192 bytes per input chunk, at 16/44.1/48 kHz. Unsupported formats/rates,
+tab mixes, shared buffers and invalid PCM fail explicitly. Sequence, identity,
+epoch, rate and capture-clock/range discontinuities reject `audio-gap` and close
+the input; samples across a gap are never joined. The speech port now preserves
+an upstream `audio-gap` reason instead of replacing it with `engine-failed`.
+
+16 kHz is a checked pass-through. Downsampling uses a centered 64-tap
+Hann-windowed sinc with a 7200 Hz cutoff and saturation to [-1, 1]. Phase and
+filter history continue across arbitrary packets. It retains 32 future input
+samples (0.667 ms at 48 kHz, 0.726 ms at 44.1 kHz), bounds coefficient phases
+and input buffers, and emits at most 3200 samples/200 ms per output. Both clocks
+retain their original anchors; EOF emits floor(input samples × 16000/input rate),
+ending within one output sample (0.0625 ms) of input duration. Filter boundary
+zero extension adds no duration or padded utterance. Return closes the upstream
+iterator, clears filter state and ignores a late outstanding read. No playback
+graph, model/default, settings or companion PCM1 rate was changed.
+
+Five normalizer tests check packet-invariant signal output at every accepted
+rate, clocks/identity/duration, speech-band gain and >Nyquist alias suppression,
+gaps, malformed input and outstanding-read cancellation. A speech-port regression
+first failed with `engine-failed` instead of `audio-gap`; its unchanged assertion
+passes after the fix. These synthetic signal/fake-executor checks are not ASR
+accuracy evidence. 44.1 kHz is unit-tested, not a real browser capture claim.
+
+### Browser acceptance and repeated live blocker
+
+Extended `npm run test:framework:chrome:stream` with a separate live fixture
+composing production catalog/input → normalizer → speech port → actual FP16
+worker. Both unchanged hash-checked Japanese/English videos must play at their
+existing fixture volumes (0.4/0.25). A selected run takes one labeled speech
+period and ends capture while playback continues. Intended assertions cover raw
+6500/9000 Hz source isolation **before filtering**, mapping <150 ms, normalized
+sample counts/clocks, the unchanged <=0.2 CER/WER and meaning gates, <2000 ms
+last-packet-to-result, zero reported ASR loss, explicit Stop and repeat Start.
+No decoded reference PCM, subtitle or expected text enters that input path.
+These live assertions **have not passed**.
+
+Environment: Darwin arm64, Node v24.15.0/npm 11.12.1, uv 0.12.23/Python 3.12.15,
+owned headed Chromium 153.0.8010.12 attached with `noDefaults: true`; unchanged
+Transformers.js 4.3.0/locked ORT. Same pinned small FP16 WebGPU model revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven files/487,960,440 bytes.
+Each of two invocations prepared one fresh inventory and reused its owned cache.
+Only the owned browsers/profiles were closed. No browser permission, focus
+emulation, user profile, device setting or other application was changed.
+
+Both invocations returned **exit 1** at the first live Japanese run's unchanged
+**30,000 ms timeout** (`chrome-5-stream-first.log`, `chrome-5-stream-second.log`).
+The first error snapshot showed a visible document, no visibility events and
+a genuinely ready model. The independent second attempt added failure-state
+observations without extending any timeout or weakening a gate. It observed:
+
+- Both videos: **currentTime 0**, `paused: false`, `ended: false`,
+  `seeking: false`, `readyState: 4`, no media error.
+- Raw input: **0 chunks / 0 samples**, no sample rate or range received.
+- Normalizer: **0 chunks / 0 samples**; transcripts: **0**.
+- Speech port: running, **0 ms pending / 0 ms reported discarded audio**.
+- Document visible, visibility events `[]`, model ready with all declared bytes.
+
+**BLOCKED:** the required live video playback/capture clock did not advance in
+these two permitted owned-browser attempts. Its root cause, AudioContext clock
+behavior and whether a device/host issue is involved are **unverified**; no
+permission denial or specific missing hardware is claimed. Zero PCM is not
+transcription success. Stop retrying the same live stall without new evidence.
+The explicit live Stop/restart, English capture, isolation/mapping/accuracy and
+post-Stop playback assertions were not reached. No alternate browser tool or
+profile was used to bypass access, and no replacement success was manufactured.
+
+Resume with a permitted real Chromium environment where these same ordinary
+videos advance and the selected-element worklet actually produces PCM, or new
+evidence identifying and correcting the native-clock stall. Then rerun the
+unchanged live gates. Preserve B2 until its remaining broader speech/boundary/
+noise quality, sustained recovery/memory and conversion/distribution licensing
+evidence also qualifies a default. B3–B6, ten-minute end-to-end/offline Korean
+captions, external-site installation, Safari and iPhone remain unfinished.
+
+### Passing scope before the live failure
+
+Each invocation completed the existing **six actual decoded-audio ASR trials**:
+Japanese CER **1/40 = 2.5%**, English WER **1/22 = 4.54545%**, all meaning
+anchors, identities/ranges and bounded-queue assertions passed. These are the
+same 22.8 s/21.9 s paced decoded fixtures with explicit zero silence, **44.7 s**
+total per invocation, not live capture or ten-minute recognition.
+
+| Run / language | Preparation ms | Endpoint-to-result min–max ms | Host run ms | Max pending audio ms | Baseline / peak browser-tree RSS KiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| First / Japanese | 52642.763959 | 771.100–805.300 | 23473.300 | 8180 | 1,292,736 / 3,181,712 |
+| First / English | 1243.748542 | 635.400–728.800 | 22436.800 | 7780 | 2,735,120 / 3,681,056 |
+| Second / Japanese | 53339.821250 | 748.200–851.100 | 23461.800 | 8180 | 1,281,232 / 3,182,368 |
+| Second / English | 1246.834208 | 648.500–709.400 | 22450.500 | 7780 | 1,699,072 / 3,809,104 |
+
+Overall RSS baselines: first **1,286,512 KiB**, second **1,252,928 KiB**. Same
+250 ms owned-process-tree RSS caveats as iteration 4: shared-page counting,
+allocator/browser/GPU-process inclusion; not isolated GPU allocations, leaks,
+physical limits or phone qualification. Latencies use one document clock after
+endpoint packet delivery, exclude speech accumulation/packet quantization and
+are observed ranges of three repeats, not percentiles or caption latency.
+
+Both runs also passed the earlier explicit faults: unpaced overload, **29,940 ms
+discarded / peak pending 29,840 ms**; deliberate gap, **100 ms discarded**;
+actual invocation-observed cancellation, **7480 ms discarded**; actual runtime
+GPUDevice destruction, `gpu-lost` / **7180 ms discarded**. Each emitted zero
+transcripts and cleared pending audio without fallback. Pure zero PCM (2 s)
+made **0 actual ASR calls / 0 transcripts / 0 loss**. Normal decoded runs drained
+to zero with no loss. Before entering live checks, page errors, visibility events
+and accuracy failures were `[]`, and pinned-artifact/network assertions passed.
+These fault checks do not prove live normalized-stream cancellation or recovery.
+
+### Command ledger and boundaries
+
+- FAIL then fixed: first combined port run, **11 passed / 1 failed**, 140.735750 ms;
+  isolated upstream-gap regression **exit 1**, 0 passed / 1 failed, 43.337917 ms.
+  Final typecheck + twelve port tests **exit 0**, 94.612333 ms. Subsequent final
+  rate-change test refinement: **12 passed / 0 failed/skipped/cancelled**,
+  152.052208 ms. No signal or accuracy gate was weakened.
+- FAIL then fixed: initial `npm run verify`, **exit 1**, Biome found five missing
+  caption-track/button-type errors in the new fixture, plus a template-literal
+  style notice. Added empty fixture tracks, explicit button types and literal;
+  these tracks contain no source text and are never used for recognition.
+- PASS: corrected `npm run verify`, **exit 0**, `chrome-5-verify-final.log`:
+  Biome 106 files/31 ms/no findings, Ruff/typecheck/existing companion build,
+  **97 JS passed / 0 failed/skipped/cancelled**, 15320.720834 ms;
+  **222 Python passed**, 66.80 s.
+- PASS: concluding `npm run verify`, **exit 0**,
+  `chrome-5-verify-completed-sources.log`, after all source/test changes:
+  Biome **106 files/45 ms/no findings**, Ruff/typecheck/unchanged companion build,
+  **97 JS passed / 0 failed/skipped/cancelled**, **15082.746958 ms**;
+  **222 Python passed**, **66.93 s**. This is repository regression evidence,
+  not live selected-video recognition or complete Chrome interpretation.
+- FAIL/BLOCKED: both streaming commands above, **exit 1**; their typecheck,
+  **12 port tests** (first 112.928792 ms, second 97.676916 ms), build and decoded
+  ASR/fault checks passed, but first live capture stalled. No third browser run.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**,
+  `chrome-5-stage-acceptance.log`: `Missing script: "test:framework:chrome"`.
+  B5's full selected-video → ASR → Korean translation → DOM harness is still
+  unimplemented. The streaming command is not substituted for it.
+- PASS: final targeted Biome on all six edited source/test files, **exit 0**,
+  6 files/5 ms/no findings.
+- PASS: final document-inclusive unstaged/staged `git diff --check`, **exit 0**;
+  intended changes committed and worktree status checked before delivery.
+
+Physical speaker output, independent tab-output amplitude, real clock progress,
+natural VAD, actual 30 s boundary speech and live normalized-stream loss/recovery
+are unverified in this iteration. The zero pending/loss status during the stall
+describes zero acquired input, not successfully preserved or recognized audio.
+
+No checkbox was changed. No AGENTS.md or requested independent runner failure
+file exists. Supplied instructions, plan, architecture and prior Chrome report
+were read. All work stays in this worktree. Companion v0.1.0, published install/
+native messaging/server paths, settings and unrelated files/apps/recordings/
+mounted images remain unchanged. No agents, runner edits, stage advance, push,
+publish, app installation or browser-access bypass occurred. Credentials,
+weights, user audio/transcripts and temporary `.ralph` state are excluded from
+the commit. No Chrome-stage, whole-framework or iPhone completion is claimed.

@@ -15,11 +15,19 @@ for (const clip of manifest.clips) {
   assert.equal(bytes.length, clip.bytes); assert.equal(createHash("sha256").update(bytes).digest("hex"), clip.sha256);
 }
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: {
-  outDir: output, rollupOptions: { input: { asr: resolve("packages/engines-browser/asr-host.ts"), speech: resolve("packages/engines-browser/speech-recognizer.ts") },
+  outDir: output, rollupOptions: { input: { asr: resolve("packages/engines-browser/asr-host.ts"), speech: resolve("packages/engines-browser/speech-recognizer.ts"),
+    normalize: resolve("packages/engines-browser/normalize-audio.ts"), input: resolve("packages/media-web/audio-input.ts"),
+    catalog: resolve("packages/media-web/catalog.ts"), timeline: resolve("packages/core/timeline.ts") },
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } },
 } });
 const server = createServer(async (request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
+  if (path === "/live") {
+    response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/chrome-live-asr.html")); return;
+  }
+  if (path === "/pcm-worklet.js") {
+    response.setHeader("Content-Type", "text/javascript"); response.end(await readFile("packages/media-web/pcm-worklet.js")); return;
+  }
   if (path === "/") {
     response.setHeader("Content-Type", "text/html");
     response.end(`<button id="prepare">Prepare</button><script type="module">
@@ -85,7 +93,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 experimental streaming ASR; paced decoded synthetic PCM with added zero silence, not live selected-video input/translation/DOM", runs: [], checks: [] };
+const observations = { scope: "B2 experimental streaming ASR: paced decoded synthetic PCM and separately asserted live selected-video normalization; no translation/caption DOM", runs: [], checks: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page;
 let peakRssKiB = 0;
 const execute = promisify(execFile);
@@ -266,11 +274,73 @@ try {
   assert.ok([...remotePaths].every(path => /^https:\/\/huggingface.co\/(onnx-community\/whisper-small\/resolve\/36050c46d777d46dc4b5f43f6d90574fc38f8732\/|api\/resolve-cache\/models\/onnx-community\/whisper-small\/36050c46d777d46dc4b5f43f6d90574fc38f8732\/)/.test(path)
     || ["us.aws.cdn.hf.co", "cas-bridge.xethub.hf.co", "cas-server.xethub.hf.co"].includes(new URL(path).hostname)), "Only this pinned profile's model artifacts and storage redirects may be fetched");
   assert.deepEqual(pageErrors, []); assert.deepEqual(failures, [], "Preserved numerical accuracy gates must pass");
+  observations.liveRuns = [];
+  await page.goto(`${origin}/live`); await page.waitForFunction(() => globalThis.ready);
+  for (const [round, language] of ["ja", "ja", "ja", "en"].entries()) {
+    const clip = manifest.clips.find(clip => clip.language === language);
+    await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
+    await page.evaluate(({ language, duration, round }) => configure(language, duration, round), { language, duration: clip.speechDurationSeconds, round });
+    await page.locator("#prepare").click();
+    await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 120000, polling: 100 });
+    assert.equal(await page.evaluate(() => prepareError), undefined);
+    const live = { round, language, baselineRssKiB: await sampleRss() }; peakRssKiB = live.baselineRssKiB;
+    await page.locator("#start").click();
+    if (round === 1) {
+      await page.waitForFunction(() => normalized.chunks >= 20 || globalThis.liveError, undefined, { polling: 100 });
+      await page.locator("#stop").click();
+    }
+    await page.waitForFunction(() => globalThis.finished || globalThis.liveError, undefined, { timeout: 30000, polling: 100 });
+    Object.assign(live, await page.evaluate(() => ({ error: liveError, raw, normalized, identity, transcripts, queueStatuses,
+      lastDelivery, playbackBefore, playbackAfter: state(), timesAfter: [...document.querySelectorAll('video')].map(video => video.currentTime), visibilityEvents })), { peakRssKiB });
+    observations.liveRuns.push(live); console.log(JSON.stringify({ live }));
+    assert.deepEqual(live.playbackBefore, live.playbackAfter);
+    assert.ok(live.playbackAfter.every(video => !video.paused && !video.muted));
+    assert.deepEqual(live.visibilityEvents, []);
+    if (round === 1) {
+      assert.equal(live.error, "cancelled"); assert.deepEqual(live.transcripts, []);
+      assert.equal(live.queueStatuses.at(-1).reason, "cancelled");
+      assert.equal(live.queueStatuses.at(-1).queue.pendingAudioMs, 0);
+      assert.ok(live.queueStatuses.at(-1).queue.droppedAudioMs > 0);
+      await page.waitForTimeout(200);
+      assert.equal(await page.evaluate(() => raw.chunks), live.raw.chunks, "Stop must detach capture while both videos continue");
+      continue;
+    }
+    assert.equal(live.error, undefined); assert.equal(live.transcripts.length, 1);
+    assert.deepEqual(live.raw.rates, [48000]);
+    assert.ok(live.raw.chunks > 100); assert.ok(live.raw.maxMapErrorMs < 150);
+    const own = Math.sqrt(live.raw.selectedTagPower / live.raw.windows), other = Math.sqrt(live.raw.otherTagPower / live.raw.windows);
+    assert.ok(Math.abs(own / 0.06 - 1) < 0.12, `Selected input tag: ${own}`); assert.ok(other < 0.003, `Unselected input tag: ${other}`);
+    assert.equal(live.normalized.samples, Math.floor(live.raw.samples / 3));
+    assert.equal(live.normalized.first.capture.clockId, live.raw.first.capture.clockId);
+    assert.equal(live.normalized.first.audioRange.startMs, live.raw.first.audioRange.startMs);
+    assert.ok(Math.abs(live.normalized.last.audioRange.endMs - live.raw.last.audioRange.endMs) < 0.0625);
+    assert.ok(live.timesAfter.every(time => time >= clip.speechDurationSeconds));
+    assert.ok(live.queueStatuses.every(status => !status.reason && status.queue.droppedAudioMs === 0));
+    assert.equal(live.queueStatuses.at(-1).queue.pendingAudioMs, 0);
+    const revision = live.transcripts[0]; assert.deepEqual(revision.identity, live.identity);
+    assert.equal(revision.final, true); assert.equal(revision.sourceRevision, 1); assert.equal(revision.language, language);
+    live.accuracy = errors(clip.text, revision.text, language);
+    assert.ok(live.accuracy.rate <= 0.2, `Live selected-video ${language} ${live.accuracy.metric}: ${live.accuracy.rate}`);
+    const anchors = language === "ja" ? ["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
+      : ["not meet today", "station tomorrow", "in the afternoon", "not cancel the reservation"];
+    assert.ok(anchors.every(anchor => revision.text.includes(anchor)), "Live input must preserve negation/time/cancellation meaning");
+    live.lastPacketToResultMs = revision.observedAtMs - live.lastDelivery.atMs;
+    assert.ok(live.lastPacketToResultMs >= 0 && live.lastPacketToResultMs < 2000);
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => raw.chunks), live.raw.chunks, "Capture must detach after completion while playback continues");
+  }
+  assert.deepEqual(pageErrors, []);
+  await page.evaluate(() => host.dispose());
   observations.checks.push("Three paced utterances per language, bounded queue, semantic anchors and preserved CER/WER <= 0.2", "Silence-only input makes no ASR call; endpoints create no extra utterances", "Explicit unpaced overload/audio gap with discarded-duration status", "Real invocation-observed cancel and actual GPUDevice loss, no fallback");
+  observations.checks.push("Live selected-element 48 kHz PCM → streaming 16 kHz normalization → real ASR, two audible videos, repeat Start, preserved accuracy/meaning, capture-clock/video mapping and playback state");
   console.log(JSON.stringify({ passed: true, ...observations }));
 } catch (error) {
   observations.documentState = await page?.evaluate(() => ({ visibility: document.visibilityState, visibilityEvents,
-    prepared: globalThis.prepared, prepareError: globalThis.prepareError, lastStatus: statuses.at(-1) })).catch(failure => ({ error: failure.message }));
+    prepared: globalThis.prepared, prepareError: globalThis.prepareError, lastStatus: statuses.at(-1),
+    liveError: globalThis.liveError, finished: globalThis.finished, raw: globalThis.raw, normalized: globalThis.normalized,
+    transcripts: globalThis.transcripts, lastQueueStatus: globalThis.queueStatuses?.at(-1),
+    media: [...document.querySelectorAll('video')].map(video => ({time: video.currentTime, paused: video.paused,
+      ended: video.ended, seeking: video.seeking, readyState: video.readyState, error: video.error?.message})) })).catch(failure => ({ error: failure.message }));
   console.error(JSON.stringify({ passed: false, ...observations, error: error.message })); throw error;
 } finally {
   clearInterval(monitor);
