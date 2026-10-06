@@ -36,14 +36,16 @@ function fixture(t, completed = []) {
   const fakeCodex = `#!/usr/bin/env node
 const fs = require('node:fs');
 const cp = require('node:child_process');
-fs.readFileSync(0, 'utf8');
+const prompt = fs.readFileSync(0, 'utf8');
+const stage = prompt.match(/Ralph stage ([a-z]+),/)[1];
 fs.mkdirSync('.ralph', {recursive:true});
 fs.appendFileSync('.ralph/codex-calls', 'call\\n');
-const action = process.env.RALPH_TEST_ACTION;
+fs.appendFileSync('.ralph/stage-calls', stage + '\\n');
+const action = stage === process.env.RALPH_TEST_STOP_STAGE ? process.env.RALPH_TEST_STOP_ACTION : process.env.RALPH_TEST_ACTION;
 if (action === 'exit') process.exit(7);
 let plan = fs.readFileSync('RALPH_PLAN.md', 'utf8');
 if (action === 'complete' || action === 'partial' || action === 'false-complete' || action === 'blocked') {
-  if (action === 'complete') plan = plan.replace('- [ ] ' + process.env.RALPH_TEST_STAGE, '- [x] ' + process.env.RALPH_TEST_STAGE);
+  if (action === 'complete') plan = plan.replace('- [ ] ' + stage, '- [x] ' + stage);
   plan += '\\nfixture progress\\n';
   fs.writeFileSync('RALPH_PLAN.md', plan);
   cp.execFileSync('git', ['add', 'RALPH_PLAN.md']);
@@ -77,7 +79,7 @@ if (script === process.env.RALPH_TEST_FAIL_SCRIPT) process.exit(1);
     run(args = ['core', '5'], env = {}) {
       return spawnSync(process.execPath, ['scripts/ralph-loop.mjs', ...args], {
         cwd: root, encoding: 'utf8', timeout: 20_000,
-        env: { ...process.env, PATH: `${join(root, 'bin')}:${process.env.PATH}`, RALPH_TEST_STAGE: args[0], ...env },
+        env: { ...process.env, PATH: `${join(root, 'bin')}:${process.env.PATH}`, ...env },
       });
     },
     calls(name) {
@@ -94,6 +96,66 @@ test('dry-run prints the selected prompt without invoking tools or writing state
   assert.match(result.stdout, /stage core, iteration 1\/5/);
   assert.equal(existsSync(join(f.root, '.ralph')), false);
   assert.equal(f.git('status', '--porcelain'), '');
+});
+
+test('all dry-run previews every stage in order without tools or state', (t) => {
+  const f = fixture(t);
+  const result = f.run(['all', '5', '--dry-run']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual([...result.stdout.matchAll(/Ralph stage ([a-z]+), iteration 1\/5/g)].map((match) => match[1]), stages);
+  assert.equal(existsSync(join(f.root, '.ralph')), false);
+  assert.equal(f.git('status', '--porcelain'), '');
+});
+
+test('all runs stages in order with a separate iteration budget and final cleanup', (t) => {
+  const f = fixture(t);
+  const result = f.run(['all', '1'], { RALPH_TEST_ACTION: 'complete' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.calls('stage'), stages);
+  assert.equal(f.calls('npm').filter((script) => script === 'verify').length, 5);
+  assert.equal(existsSync(join(f.root, 'RALPH_PLAN.md')), false);
+  assert.equal(f.git('status', '--porcelain'), '');
+});
+
+test('all stops at a blocked, failed, unfinished or unverified stage', (t) => {
+  for (const [action, failScript, expected] of [
+    ['blocked', undefined, /Stage video blocked/],
+    ['exit', undefined, /Codex exited 7/],
+    ['partial', undefined, /Reached 1 iterations for video/],
+    ['complete', 'test:framework:video', /Acceptance failed/],
+  ]) {
+    const f = fixture(t);
+    const result = f.run(['all', '1'], {
+      RALPH_TEST_ACTION: 'complete', RALPH_TEST_STOP_STAGE: 'video', RALPH_TEST_STOP_ACTION: action,
+      ...(failScript ? { RALPH_TEST_FAIL_SCRIPT: failScript } : {}),
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, expected);
+    assert.deepEqual(f.calls('stage'), ['core', 'video']);
+    assert.ok(existsSync(join(f.root, 'RALPH_PLAN.md')));
+    assert.match(readFileSync(join(f.root, 'RALPH_PLAN.md'), 'utf8'), /\[ \] chrome/);
+  }
+});
+
+test('all rechecks completed stages and resumes at the first unfinished stage', (t) => {
+  const f = fixture(t, ['core', 'video']);
+  const result = f.run(['all', '1'], { RALPH_TEST_ACTION: 'complete' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.calls('stage'), ['chrome', 'safari', 'iphone']);
+  assert.deepEqual(f.calls('npm').slice(0, 6), [
+    'verify', 'test:framework:core', 'test:captions-correction-browser', 'test:transcript-browser',
+    'verify', 'test:framework:video',
+  ]);
+  assert.equal(existsSync(join(f.root, 'RALPH_PLAN.md')), false);
+});
+
+test('all cannot skip failing acceptance of an already-completed stage', (t) => {
+  const f = fixture(t, ['core']);
+  const result = f.run(['all', '1'], { RALPH_TEST_ACTION: 'complete', RALPH_TEST_FAIL_SCRIPT: 'test:framework:core' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Acceptance failed: npm run test:framework:core/);
+  assert.deepEqual(f.calls('codex'), []);
+  assert.ok(existsSync(join(f.root, 'RALPH_PLAN.md')));
 });
 
 test('arguments, unfinished prerequisites and main branch stop before Codex', (t) => {

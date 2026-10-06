@@ -25,18 +25,23 @@ PC Chrome·Safari와 아이폰 Safari에서 **현재 페이지의 선택한 영�
 ## 실행 방법
 
 Node.js 22.12 이상, npm, uv, 로그인한 Codex CLI가 필요하다.
-이 브랜치에서 의존성을 설치한 뒤 첫 단계만 실행한다.
+이 브랜치에서 의존성을 설치한 뒤 전체 단계를 순서대로 실행한다.
 
 ```sh
 npm ci
 uv sync --locked
-node scripts/ralph-loop.mjs core 5 --dry-run
-node scripts/ralph-loop.mjs core 5
+node scripts/ralph-loop.mjs all 5 --dry-run
+node scripts/ralph-loop.mjs all 5
 ```
 
-`core`는 단계, `5`는 **이 호출의 최대 iteration 수**다. 새 호출에서도 plan의
-완료 항목과 검증 기록을 읽어 이어간다. `--dry-run`은 프롬프트를 출력할 뿐
-Codex 호출·검증 실행·파일 변경을 하지 않는다.
+`all`은 `core → video → chrome → safari → iphone`을 순서대로 실행한다.
+`5`는 **단계마다 적용하는 최대 iteration 수**로, 전체 최대 25회다.
+한 단계가 완료 검증을 통과하면 다음 단계로 넘어간다. 횟수 소진·차단·실패 시에는
+즉시 멈추며 다음 단계를 시작하지 않는다. 같은 `all` 명령으로 재개하면 완료된
+단계의 검증을 다시 통과한 뒤 미완료 단계부터 구현을 이어간다.
+`--dry-run`은 모든 단계의 프롬프트를 순서대로 출력할 뿐
+Codex 호출·검증 실행·파일 변경을 하지 않는다. 이후 단계 프롬프트의 미리보기가
+앞 단계 완료를 의미하지는 않는다.
 
 실행기는 설정된 Codex 모델을 사용한다. 각 iteration은 별도 `codex exec`이며
 `--search --ask-for-approval never --sandbox danger-full-access`로 실행한다.
@@ -44,9 +49,10 @@ Codex 호출·검증 실행·파일 변경을 하지 않는다.
 현재 사용자의 앱·녹화·마운트된 DMG·브라우저 설정을 임의로 바꾸지 않는다.
 실제 모델 다운로드는 이 프레임워크 작업에 필요한 후보만 수행하고 이름·용량을 기록한다.
 
-단계가 끝나면 종료한다. 결과를 확인한 뒤 사용자가 다음 단계를 시작한다.
+단계 하나만 실행하려면 단계 이름을 지정한다. 이 경우 단계가 끝나면 종료한다.
 
 ```sh
+node scripts/ralph-loop.mjs core 5
 node scripts/ralph-loop.mjs video 5
 node scripts/ralph-loop.mjs chrome 5
 node scripts/ralph-loop.mjs safari 5
@@ -57,6 +63,20 @@ node scripts/ralph-loop.mjs iphone 5
 `Ctrl+C`로 중단할 수 있다. 중단 후에는 Git 상태와 `.ralph/media-framework/` 로그를
 검토하고, 미완료 변경을 정리한 뒤 같은 명령으로 재개한다. 동시에 두 루프를 돌리지 않는다.
 실행 중인 runner 파일을 수정하지 않는다.
+
+iteration은 미완료 체크리스트 항목 하나를 구현·검증·기록·커밋하는 한 번의 작업이다.
+큰 항목은 여러 iteration으로 나누며, 체크리스트 항목 수가 필요한 iteration 수를
+보장하지 않는다. 단계별 진행 순서는 다음과 같다.
+
+| 단계 | 진행 가이드 | 체크리스트 항목 수 |
+| --- | --- | --- |
+| core | 공통 계약 → 세션/큐/시간 관리 → 자막 정책 → companion 연결 → 회귀 검증 | 5 |
+| video | 영상 선택 → 실제 오디오 입력 → 시간 매핑 → 입력 제약 → 선택 영상 검증 | 5 |
+| chrome | 모델 로드/캐시 → ASR 비교 → 한국어 번역 → 화면 연결 → 장시간 검증 → 품질 평가 | 6 |
+| safari | Safari 빌드 → 번역 엔진 → 영상부터 자막까지 연결 → 실제 Safari 검증 | 4 |
+| iphone | 실기 설치 → 모델/성능 확인 → 영상부터 자막까지 연결 → 10분 실기 측정 → 최종 검증 | 5 |
+
+횟수를 늘려도 실제 Safari/iPhone 환경이나 필요한 권한이 없으면 차단으로 종료한다.
 
 ## iteration 규칙과 종료
 
@@ -77,8 +97,8 @@ node scripts/ralph-loop.mjs iphone 5
 
 runner는 체크리스트, 단계별 보고서, `npm run verify`, 해당 단계의
 `npm run test:framework:<stage>`, whitespace와 clean-worktree를 다시 검사한다.
-검증 명령이 없거나 실패하면 완료가 아니다. 통과하면 **선택한 단계만** 종료하며
-plan을 보존한다. 다음 단계는 자동으로 실행하지 않는다. 마지막 `iphone` 단계가
+검증 명령이 없거나 실패하면 완료가 아니다. 통과하면 **선택한 단계만** 완료로 처리하며
+plan을 보존한다. `all` 실행에서만 runner가 다음 단계를 자동으로 시작한다. 마지막 `iphone` 단계가
 통과하면 앞 단계의 acceptance와 보고서도 다시 검사한다. 모든 필수 검증이 통과하고
 Git 작업이 정리돼 있을 때만 runner가 `RALPH_PLAN.md`를 삭제하고 README의
 Ralph 시작 안내 블록을 제거한 뒤 `chore: remove completed framework Ralph plan`으로

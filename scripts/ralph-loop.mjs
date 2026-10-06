@@ -48,12 +48,12 @@ function finished(plan, selected) {
   return /^- \[x\] /m.test(text) && !/^- \[ \] /m.test(text);
 }
 
-function prompt(iteration, verificationLog = '.ralph/media-framework/<run>-verification.txt') {
+function prompt(iteration, verificationLog = '.ralph/media-framework/<run>-verification.txt', selected = stage) {
   return `Work only in ${root}. Read AGENTS.md if present, RALPH_PLAN.md,
-docs/architecture/media-framework.md and docs/verification/media-framework/${stage}.md if it exists.
+docs/architecture/media-framework.md and docs/verification/media-framework/${selected}.md if it exists.
 Read ${verificationLog} if it exists for independent runner acceptance failures.
-This is the media-framework Ralph stage ${stage}, iteration ${iteration}/${limit}.
-Implement the next unfinished item in Stage ${stage} only. Follow the full framework
+This is the media-framework Ralph stage ${selected}, iteration ${iteration}/${limit}.
+Implement the next unfinished item in Stage ${selected} only. Follow the full framework
 architecture and preserve the published companion and existing user settings.
 Run acceptance checks, record exact passing/failing/unverified evidence in the stage
 report and plan progress log, check only actually completed items, and commit the work.
@@ -71,7 +71,7 @@ Stop after the second independent attempt at the same blocker without new eviden
 When all selected-stage checklist items and acceptance checks actually pass, all intended
 changes are committed and the worktree is clean, end with exactly:
 ${complete}
-The runner will independently rerun npm run verify and npm run test:framework:${stage}.
+The runner will independently rerun npm run verify and npm run test:framework:${selected}.
 The core stage additionally requires the existing correction and transcript browser checks.
 Do not claim whole-framework or iPhone completion at an earlier stage. Otherwise end with
 a concise account of the next unfinished item and omit both terminal markers.\n`;
@@ -99,7 +99,7 @@ function verify(logPath, selected = stage) {
 
 function finishStage(logs, runId) {
   if (stage !== 'iphone') {
-    console.log(`Stage ${stage} completed. Acceptance passed; plan preserved. Review before starting the next stage.`);
+    console.log(`Stage ${stage} completed. Acceptance passed; plan preserved.`);
     return;
   }
   for (const selected of stages.slice(0, -1)) {
@@ -123,12 +123,24 @@ function finishStage(logs, runId) {
 }
 
 function main() {
-  if (!stages.includes(stage) || !Number.isSafeInteger(limit) || limit < 1
+  if ((!stages.includes(stage) && stage !== 'all') || !Number.isSafeInteger(limit) || limit < 1
     || process.argv.length > 5 || (option !== undefined && option !== '--dry-run')) {
-    throw new Error('Usage: node scripts/ralph-loop.mjs <core|video|chrome|safari|iphone> [positive iterations] [--dry-run]');
+    throw new Error('Usage: node scripts/ralph-loop.mjs <all|core|video|chrome|safari|iphone> [positive iterations per stage] [--dry-run]');
   }
   if (!existsSync(planPath)) throw new Error('RALPH_PLAN.md is missing.');
   const plan = readFileSync(planPath, 'utf8');
+  if (stage === 'all') {
+    for (const selected of stages) section(plan, selected);
+    if (option === '--dry-run') {
+      for (const selected of stages) process.stdout.write(prompt(1, undefined, selected));
+      return;
+    }
+    for (const selected of stages) {
+      const result = run(process.execPath, [runnerPath, selected, count]);
+      if (result.status !== 0) throw new Error(`All-stage run stopped at ${selected}; review the plan/logs and rerun all to continue.`);
+    }
+    return;
+  }
   section(plan, stage);
   const otherSections = stages.filter((selected) => selected !== stage).map((selected) => [selected, section(plan, selected)]);
   for (const earlier of stages.slice(0, stages.indexOf(stage))) {

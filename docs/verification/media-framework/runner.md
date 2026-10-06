@@ -33,6 +33,31 @@ runner tests and lint:
 - `npm run lint`: passed, no lint findings.
 - `node --check scripts/ralph-loop.mjs` and `git diff --check`: passed.
 
+## Sequential all-stage execution
+
+`all` invokes the existing stage runner in order, with a separate iteration limit
+for each stage. It advances only after successful stage acceptance. Rerunning
+`all` rechecks completed stages before implementing the first unfinished stage.
+Single-stage commands retain their existing execution and cleanup gates.
+
+- Before implementation, the five new `all` tests failed because the runner
+  rejected `all` as an invalid stage.
+- `node --test tests/ralph-loop.test.mjs`: 19 passed, 0 failed, 14.14 seconds.
+  New cases cover all-stage preview, ordered execution with per-stage budgets,
+  stopping on blockers/CLI failures/iteration limits/acceptance failures, resuming
+  completed stages, and rejecting failed acceptance of a completed stage.
+- `node scripts/ralph-loop.mjs all 5 --dry-run`: printed all five stage prompts
+  in order with iteration 1/5; no actual implementation loop was started.
+- `node --check scripts/ralph-loop.mjs`, `node --check tests/ralph-loop.test.mjs`
+  and `git diff --check`: passed.
+- The first lint attempt could not run because local dependencies were absent.
+  After `npm ci`, `./node_modules/.bin/biome lint scripts/ralph-loop.mjs tests/ralph-loop.test.mjs`
+  passed with no findings.
+
+These focused runner checks use fixture acceptance commands. Project-wide
+`npm run verify` and actual framework/device acceptance were not rerun for this
+runner change.
+
 ## Completion and deletion boundary
 
 Partial stage completion, iteration exhaustion, blocked/failed work and interruption
