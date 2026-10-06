@@ -21,7 +21,7 @@ servers. The app bundles Python 3.12, locked local dependencies, Ollama and the
 built extension; model weights remain in the user's existing Hugging Face/Ollama
 caches. It does not switch models or send inference to the cloud.
 
-1. Open `dist/companion/Interpreter-Companion-macos-arm64.dmg` and move
+1. Download the [companion DMG](https://github.com/norux/interpreter/releases/latest/download/Interpreter-Companion-macos-arm64.dmg), open it and move
    **Interpreter Companion.app** to Applications (or `~/Applications`).
 2. Open the app once. It registers its native host for Chrome, Chrome for Testing
    and Chromium and copies the bundled extension to
@@ -56,10 +56,11 @@ distribution, use that listing's public key and rebuild the matching app; the
 current key is for this development distribution. No extension-ID entry or shell
 environment variable is needed when the app starts the server.
 
-The current DMG is a **local development build with an ad-hoc signature**, not
+The current DMG is a **development build with an ad-hoc signature**, not
 Developer ID signed/notarized software. No Gatekeeper settings are changed.
-Developer ID signing, notarization and a GitHub Release upload remain required
-for normal public distribution. GitHub currently has no companion release. If
+Developer ID signing and notarization remain required for normal public
+distribution. [v0.1.0](https://github.com/norux/interpreter/releases/tag/v0.1.0)
+provides the development DMG and `SHA256SUMS`. If
 the native host is absent, the popup offers a user-triggered download from
 `norux/interpreter`'s latest release asset named
 `Interpreter-Companion-macos-arm64.dmg`; unavailable/interrupted downloads show
