@@ -272,7 +272,8 @@ class MlxTranscriber:
                     previous_id = utterance_id
                     previous_text = ""
                     revision = 0
-                meaningful = " ".join(text.split()).casefold().strip(".,!?")
+                # Case and punctuation can change meaning (US/us, question/statement).
+                meaningful = " ".join(text.split())
                 if meaningful and (final or meaningful != previous_text):
                     previous_text = meaningful
                     revision += 1
@@ -653,9 +654,7 @@ class LocalSession:
                                 ):
                                     source = " ".join(transcript.text.split())
                                     previous = " ".join(current.text.split())
-                                    if source.casefold().strip(".,!?") != (
-                                        previous.casefold().strip(".,!?")
-                                    ):
+                                    if source != previous:
                                         await stop_stream()
                                         completed = None
                                         correcting = revision > 0

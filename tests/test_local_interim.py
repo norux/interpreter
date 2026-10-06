@@ -9,6 +9,159 @@ from server.sessions.contracts import Transcript, Translation
 from tests.test_local import SpeechDetector, frame
 
 
+@pytest.mark.parametrize(
+    "before,after", [("Help us.", "Help US."), ("Ready?", "Ready."), ("Go!", "Go.")]
+)
+def test_asr_preserves_case_and_punctuation_corrections(monkeypatch, before, after):
+    class Segments(local.SpeechSegments):
+        def __init__(self):
+            super().__init__()
+            self.vad = SpeechDetector()
+
+    monkeypatch.setattr(local, "SpeechSegments", Segments)
+
+    async def check():
+        audio = asyncio.Queue()
+        calls = []
+
+        class Engine:
+            executor = ThreadPoolExecutor(max_workers=1)
+
+            def transcribe(self, utterance, *_):
+                calls.append(utterance)
+                if len(calls) == 3:
+                    return "  " + after.replace(" ", "  ") + "  "
+                return before if len(calls) == 1 else after
+
+        async def frames():
+            while (value := await audio.get()) is not None:
+                yield value
+
+        engine = Engine()
+        transcriber = local.MlxTranscriber(engine, "fixture", "English", interim=True)
+        iterator = transcriber.transcribe(frames())
+        try:
+            for i in range(25):
+                audio.put_nowait(frame(i, True))
+            first = await asyncio.wait_for(anext(iterator), 1)
+            for i in range(25, 50):
+                audio.put_nowait(frame(i, True))
+            corrected = await asyncio.wait_for(anext(iterator), 1)
+            assert (first.text, corrected.text) == (before, after)
+            assert first.utterance_id == corrected.utterance_id
+            assert corrected.revision == first.revision + 1
+            assert not first.final and not corrected.final
+            waiting = asyncio.create_task(anext(iterator))
+            for i in range(50, 75):
+                audio.put_nowait(frame(i, True))
+            for _ in range(100):
+                if len(calls) == 3:
+                    break
+                await asyncio.sleep(0.001)
+            assert len(calls) == 3
+            await asyncio.sleep(0.01)
+            assert not waiting.done(), "Whitespace alone must not emit a correction"
+            for i in range(75, 90):
+                audio.put_nowait(frame(i))
+            final = await asyncio.wait_for(waiting, 1)
+            assert final.final and final.text == after
+            assert final.revision == corrected.revision + 1
+            assert final.utterance_id == first.utterance_id
+            audio.put_nowait(None)
+            assert [t async for t in iterator] == []
+            assert len(calls) == 4
+            assert transcriber.pending_audio_ms == transcriber.dropped_utterances == 0
+        finally:
+            await iterator.aclose()
+            engine.executor.shutdown()
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize(
+    "before,after", [("Help us.", "Help US."), ("Ready?", "Ready."), ("Go!", "Go.")]
+)
+@pytest.mark.parametrize("response_complete", [False, True])
+@pytest.mark.parametrize("source_final", [False, True])
+def test_translation_preserves_case_and_punctuation_corrections(
+    before, after, response_complete, source_final
+):
+    async def check():
+        incoming = asyncio.Queue()
+        output = asyncio.Queue()
+        calls = []
+        closed = asyncio.Event()
+
+        class ASR:
+            interim = True
+
+            async def transcribe(self, _frames):
+                while (value := await incoming.get()) is not None:
+                    yield value
+
+            async def close(self):
+                pass
+
+        class Translator:
+            async def translate(self, transcript, context):
+                calls.append((transcript.text, list(context)))
+                if len(calls) == 1:
+                    try:
+                        yield Translation("1", 1, "교정 전", response_complete)
+                        if not response_complete:
+                            try:
+                                await asyncio.Event().wait()
+                            except asyncio.CancelledError:
+                                yield Translation("1", 2, "뒤늦은 교정 전", True)
+                    finally:
+                        closed.set()
+                else:
+                    yield Translation(transcript.utterance_id, 1, "교정 후", True)
+
+            async def close(self):
+                pass
+
+        session = local.LocalSession("source-correction", ASR(), Translator())
+
+        async def collect():
+            async for event in session.run(None):
+                assert event.type != "error", event.message
+                if event.caption:
+                    output.put_nowait(event.caption)
+
+        task = asyncio.create_task(collect())
+        try:
+            incoming.put_nowait(Transcript("1", 1, before, False, 0, 500))
+            first = await asyncio.wait_for(output.get(), 1)
+            incoming.put_nowait(Transcript("1", 2, after, source_final, 0, 1000))
+            corrected = await asyncio.wait_for(output.get(), 1)
+            assert corrected.source == after and corrected.translation == "교정 후"
+            assert corrected.utterance_id == first.utterance_id
+            assert corrected.revision > first.revision
+            assert corrected.final == source_final
+            assert closed.is_set()
+            assert calls == [(before, []), (after, [])]
+            if not source_final:
+                incoming.put_nowait(Transcript("1", 3, after, True, 0, 1200))
+                final = await asyncio.wait_for(output.get(), 1)
+                assert final.final and final.translation == "교정 후"
+                assert final.revision > corrected.revision
+                assert len(calls) == 2
+            incoming.put_nowait(Transcript("2", 1, "Next", True, 1300, 2000))
+            next_final = await asyncio.wait_for(output.get(), 1)
+            assert next_final.final and next_final.utterance_id == "2"
+            assert calls[-1][1] == [(after, "교정 후")]
+            incoming.put_nowait(None)
+            await asyncio.wait_for(task, 1)
+            assert output.empty() and session.pending_translation_ms == 0
+            assert session.revision_task is None
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(check())
+
+
 def test_final_asr_keeps_quiet_samples_that_vad_does_not_hear(monkeypatch):
     class Segments(local.SpeechSegments):
         def __init__(self):
@@ -445,7 +598,7 @@ def test_interim_translation_is_corrected_without_finalizing_or_reusing_old_cont
             # Repeated/older ASR snapshots must not launch duplicate translations.
             incoming.put_nowait(Transcript("1", 1, "뒤늦은 강가", False, 0, 1000))
             incoming.put_nowait(
-                Transcript("1", 3, "은행에서  돈을 인출.", False, 0, 3000)
+                Transcript("1", 3, "은행에서  돈을 인출", False, 0, 3000)
             )
             incoming.put_nowait(Transcript("1", 4, "은행에서 돈을 인출", True, 0, 3100))
             final = await asyncio.wait_for(output.get(), 1)

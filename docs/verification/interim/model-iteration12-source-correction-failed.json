@@ -1,0 +1,1724 @@
+{
+  "iteration": 12,
+  "probeExitCode": 1,
+  "item7dAcceptancePassed": false,
+  "limits": "Model-only isolated paced clips. No tabCapture, browser Paint, listening, subtitle appearance, sustained public media, or speed improvement evidence. Case/punctuation correctness is established by deterministic fault fixtures, not by these generated clips. Earlier iteration is only a settings/hash/call-count reference, not a paired timing baseline.",
+  "report": {
+    "phase": "after",
+    "realLocalModels": true,
+    "tabCapture": false,
+    "browserPaint": false,
+    "prepared": true,
+    "asrModel": "mlx-community/Qwen3-ASR-0.6B-8bit",
+    "textModel": "qwen3:4b-instruct",
+    "source": "English",
+    "target": "Korean",
+    "snapshotVoicedMs": 500,
+    "firstSnapshotMs": 500,
+    "memorySampling": "100ms requested through session end; process RSS bytes",
+    "acceptancePassed": false,
+    "results": [
+      {
+        "clip": 0,
+        "repetition": 0,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true
+        },
+        "prepareMs": 18764.92662500823,
+        "firstInference": true,
+        "wavSha256": "f60cd64de3e4629052a881f6e6c10f0a934fd4a75b2d3330656e820ce7f80de3",
+        "voiceStartMs": 0.4166666666666667,
+        "voiceEndMs": 1356.7916666666667,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 861.8391249910928,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 361.83912499109283
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 884.7609160002321,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 384.7609160002321
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 906.6781660076231,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 406.6781660076231
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 928.690499975346,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 428.69049997534603
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 953.7068749777973,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 453.70687497779727
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 1395.8459579735063,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 395.8459579735063
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": true,
+            "eventMs": 1895.5792909837328,
+            "audioStartMs": 0,
+            "audioEndMs": 1460,
+            "audioPositionToEventMs": 435.5792909837328
+          }
+        ],
+        "sourceCorrections": 1,
+        "duringSpeechEvents": 5,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 259.93787503102794
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 107.1140420390293
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1460,
+            "audioMs": 1760,
+            "inferenceMs": 132.2292079566978
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 192.1644579852
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 287.21062501426786
+          }
+        ],
+        "firstEventFromVoiceStartMs": 861.4224583244262,
+        "lastFinalFromVoiceEndMs": 538.787624317066,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 174522368,
+        "memorySamples": 22,
+        "maxFrameLagMs": 8.204791008028955,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1619846700
+      },
+      {
+        "clip": 1,
+        "repetition": 0,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        },
+        "prepareMs": 6.355375051498413,
+        "firstInference": false,
+        "wavSha256": "4bc0b17358a1565630c92675487f5eb29690b30ff96dcc4d249f715778799315",
+        "voiceStartMs": 1.5416666666666667,
+        "voiceEndMs": 3181.9583333333335,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 682.7045000391081,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 182.7045000391081
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 707.5182500411756,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 207.51825004117563
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 778.6966250278056,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 278.69662502780557
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 801.2530000414699,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 301.25300004146993
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 823.2119170133956,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 323.2119170133956
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 845.435917028226,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 345.43591702822596
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": false,
+            "eventMs": 1526.5110839973204,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 526.5110839973204
+          },
+          {
+            "utteranceId": "1",
+            "revision": 8,
+            "final": false,
+            "eventMs": 1997.4120420520194,
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioPositionToEventMs": 497.4120420520194
+          },
+          {
+            "utteranceId": "1",
+            "revision": 9,
+            "final": false,
+            "eventMs": 2537.1582500520162,
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioPositionToEventMs": 537.1582500520162
+          },
+          {
+            "utteranceId": "1",
+            "revision": 10,
+            "final": true,
+            "eventMs": 3999.273792025633,
+            "audioStartMs": 0,
+            "audioEndMs": 3240,
+            "audioPositionToEventMs": 759.2737920256332
+          }
+        ],
+        "sourceCorrections": 4,
+        "duringSpeechEvents": 9,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 113.33920800825581
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 127.73579201893881
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioMs": 1500,
+            "inferenceMs": 115.41883298195899
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioMs": 2000,
+            "inferenceMs": 119.8695840430446
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioMs": 2500,
+            "inferenceMs": 152.5606249924749
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioMs": 3000,
+            "inferenceMs": 305.522833019495
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3240,
+            "audioMs": 3540,
+            "inferenceMs": 328.8080830243416
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 230.08333396865055
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 396.81958401342854
+          },
+          {
+            "sourceRevision": 3,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 380.833542032633
+          },
+          {
+            "sourceRevision": 4,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 416.4292919449508
+          },
+          {
+            "sourceRevision": 5,
+            "sourceFinal": false,
+            "responseComplete": false,
+            "requestMs": 654.4547079829499
+          },
+          {
+            "sourceRevision": 6,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 691.539624996949
+          }
+        ],
+        "firstEventFromVoiceStartMs": 681.1628333724415,
+        "lastFinalFromVoiceEndMs": 817.3154586922997,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 181321728,
+        "memorySamples": 39,
+        "maxFrameLagMs": 9.909084027166948,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1641165028
+      },
+      {
+        "clip": 2,
+        "repetition": 0,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "instructionMeaning": true,
+          "noRecipeExecution": true
+        },
+        "prepareMs": 3.0542919994331896,
+        "firstInference": false,
+        "wavSha256": "209d16dd384fccd168e73b09da7f1399839c8866dc8c64c18fc315b7bab10688",
+        "voiceStartMs": 3.0416666666666665,
+        "voiceEndMs": 3193.3333333333335,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 690.3132909792475,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 190.31329097924754
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 712.9571659606881,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 212.95716596068814
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 735.1744579500519,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 235.17445795005187
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 757.4058329919353,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 257.4058329919353
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 780.0476249540225,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 280.04762495402247
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 802.6070829946548,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 302.6070829946548
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": false,
+            "eventMs": 1387.0298749534413,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 387.0298749534413
+          },
+          {
+            "utteranceId": "1",
+            "revision": 8,
+            "final": false,
+            "eventMs": 1915.7962499884889,
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioPositionToEventMs": 415.79624998848885
+          },
+          {
+            "utteranceId": "1",
+            "revision": 9,
+            "final": false,
+            "eventMs": 2488.2894999464042,
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioPositionToEventMs": 488.28949994640425
+          },
+          {
+            "utteranceId": "1",
+            "revision": 10,
+            "final": false,
+            "eventMs": 3158.4891659440473,
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioPositionToEventMs": 658.4891659440473
+          },
+          {
+            "utteranceId": "1",
+            "revision": 11,
+            "final": false,
+            "eventMs": 3757.5187499751337,
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioPositionToEventMs": 757.5187499751337
+          },
+          {
+            "utteranceId": "1",
+            "revision": 12,
+            "final": true,
+            "eventMs": 3801.1778749641962,
+            "audioStartMs": 0,
+            "audioEndMs": 3260,
+            "audioPositionToEventMs": 541.1778749641962
+          }
+        ],
+        "sourceCorrections": 5,
+        "duringSpeechEvents": 10,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 121.97912496048957
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 103.16429199883714
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioMs": 1500,
+            "inferenceMs": 128.51645797491074
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioMs": 2000,
+            "inferenceMs": 123.5747910104692
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioMs": 2500,
+            "inferenceMs": 141.68362505733967
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioMs": 3000,
+            "inferenceMs": 215.80341702792794
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3260,
+            "audioMs": 3560,
+            "inferenceMs": 240.56262499652803
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 178.7257919786498
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 271.6947079752572
+          },
+          {
+            "sourceRevision": 3,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 285.42879200540483
+          },
+          {
+            "sourceRevision": 4,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 363.57758298981935
+          },
+          {
+            "sourceRevision": 5,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 515.6792500056326
+          },
+          {
+            "sourceRevision": 6,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 540.8090419950895
+          }
+        ],
+        "firstEventFromVoiceStartMs": 687.2716243125809,
+        "lastFinalFromVoiceEndMs": 607.8445416308628,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 181944320,
+        "memorySamples": 39,
+        "maxFrameLagMs": 11.40399998985231,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1641165028
+      },
+      {
+        "clip": 0,
+        "repetition": 1,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true
+        },
+        "prepareMs": 4.278375010471791,
+        "firstInference": false,
+        "wavSha256": "f60cd64de3e4629052a881f6e6c10f0a934fd4a75b2d3330656e820ce7f80de3",
+        "voiceStartMs": 0.4166666666666667,
+        "voiceEndMs": 1356.7916666666667,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 710.0072499597445,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 210.0072499597445
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 732.5834169751033,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 232.58341697510332
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 754.7480829525739,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 254.7480829525739
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 776.754249993246,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 276.75424999324605
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 799.3198329932056,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 299.31983299320564
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 1420.9970419760793,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 420.99704197607934
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": true,
+            "eventMs": 1898.076957964804,
+            "audioStartMs": 0,
+            "audioEndMs": 1460,
+            "audioPositionToEventMs": 438.076957964804
+          }
+        ],
+        "sourceCorrections": 1,
+        "duringSpeechEvents": 5,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 114.21483295271173
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 130.31362503534183
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1460,
+            "audioMs": 1760,
+            "inferenceMs": 136.8477499927394
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 183.66625002818182
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 288.4462919901125
+          }
+        ],
+        "firstEventFromVoiceStartMs": 709.5905832930779,
+        "lastFinalFromVoiceEndMs": 541.2852912981373,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 182255616,
+        "memorySamples": 22,
+        "maxFrameLagMs": 12.491708002053182,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1641165028
+      },
+      {
+        "clip": 1,
+        "repetition": 1,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        },
+        "prepareMs": 4.643708991352469,
+        "firstInference": false,
+        "wavSha256": "4bc0b17358a1565630c92675487f5eb29690b30ff96dcc4d249f715778799315",
+        "voiceStartMs": 1.5416666666666667,
+        "voiceEndMs": 3181.9583333333335,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 681.6980000003241,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 181.6980000003241
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 699.5169590227306,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 199.5169590227306
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 766.0858340095729,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 266.08583400957286
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 791.3808340090327,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 291.3808340090327
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 811.033625039272,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 311.033625039272
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 833.2545420271344,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 333.25454202713445
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": false,
+            "eventMs": 1505.9102500090376,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 505.91025000903755
+          },
+          {
+            "utteranceId": "1",
+            "revision": 8,
+            "final": false,
+            "eventMs": 1999.7666249983013,
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioPositionToEventMs": 499.76662499830127
+          },
+          {
+            "utteranceId": "1",
+            "revision": 9,
+            "final": false,
+            "eventMs": 2513.324209023267,
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioPositionToEventMs": 513.324209023267
+          },
+          {
+            "utteranceId": "1",
+            "revision": 10,
+            "final": true,
+            "eventMs": 3982.519792043604,
+            "audioStartMs": 0,
+            "audioEndMs": 3240,
+            "audioPositionToEventMs": 742.519792043604
+          }
+        ],
+        "sourceCorrections": 4,
+        "duringSpeechEvents": 9,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 108.20370900910348
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 109.5084169646725
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioMs": 1500,
+            "inferenceMs": 118.46395902102813
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioMs": 2000,
+            "inferenceMs": 110.67870899569243
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioMs": 2500,
+            "inferenceMs": 146.97158301714808
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioMs": 3000,
+            "inferenceMs": 282.5416660052724
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3240,
+            "audioMs": 3540,
+            "inferenceMs": 325.87541703833267
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 224.0099580376409
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 384.67258401215076
+          },
+          {
+            "sourceRevision": 3,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 379.84529096866027
+          },
+          {
+            "sourceRevision": 4,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 402.266375022009
+          },
+          {
+            "sourceRevision": 5,
+            "sourceFinal": false,
+            "responseComplete": false,
+            "requestMs": 635.5910000274889
+          },
+          {
+            "sourceRevision": 6,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 698.5114580020308
+          }
+        ],
+        "firstEventFromVoiceStartMs": 680.1563333336575,
+        "lastFinalFromVoiceEndMs": 800.5614587102705,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 183861248,
+        "memorySamples": 39,
+        "maxFrameLagMs": 13.961999998427926,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1641165028
+      },
+      {
+        "clip": 2,
+        "repetition": 1,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "instructionMeaning": true,
+          "noRecipeExecution": true
+        },
+        "prepareMs": 6.403166975360364,
+        "firstInference": false,
+        "wavSha256": "209d16dd384fccd168e73b09da7f1399839c8866dc8c64c18fc315b7bab10688",
+        "voiceStartMs": 3.0416666666666665,
+        "voiceEndMs": 3193.3333333333335,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 652.6088330429047,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 152.60883304290473
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 675.2800419926643,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 175.28004199266434
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 698.1880830135196,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 198.18808301351964
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 720.0241250102408,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 220.02412501024082
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 741.9389170245267,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 241.93891702452675
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 764.058125030715,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 264.058125030715
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": false,
+            "eventMs": 1383.0756249953993,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 383.07562499539927
+          },
+          {
+            "utteranceId": "1",
+            "revision": 8,
+            "final": false,
+            "eventMs": 1909.705500002019,
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioPositionToEventMs": 409.7055000020191
+          },
+          {
+            "utteranceId": "1",
+            "revision": 9,
+            "final": false,
+            "eventMs": 2486.5965000353754,
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioPositionToEventMs": 486.59650003537536
+          },
+          {
+            "utteranceId": "1",
+            "revision": 10,
+            "final": false,
+            "eventMs": 3162.4374170205556,
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioPositionToEventMs": 662.4374170205556
+          },
+          {
+            "utteranceId": "1",
+            "revision": 11,
+            "final": false,
+            "eventMs": 3751.423417008482,
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioPositionToEventMs": 751.4234170084819
+          },
+          {
+            "utteranceId": "1",
+            "revision": 12,
+            "final": true,
+            "eventMs": 3797.822583001107,
+            "audioStartMs": 0,
+            "audioEndMs": 3260,
+            "audioPositionToEventMs": 537.822583001107
+          }
+        ],
+        "sourceCorrections": 5,
+        "duringSpeechEvents": 10,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 87.92775002075359
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 110.9282910474576
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioMs": 1500,
+            "inferenceMs": 120.16945803770795
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioMs": 2000,
+            "inferenceMs": 118.00191702786833
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioMs": 2500,
+            "inferenceMs": 132.73866602685302
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioMs": 3000,
+            "inferenceMs": 219.2040840163827
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3260,
+            "audioMs": 3560,
+            "inferenceMs": 236.82024999288842
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 174.53800002112985
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 270.1215000124648
+          },
+          {
+            "sourceRevision": 3,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 287.79804095393047
+          },
+          {
+            "sourceRevision": 4,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 361.8197499890812
+          },
+          {
+            "sourceRevision": 5,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 528.1618330045603
+          },
+          {
+            "sourceRevision": 6,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 531.7167079774663
+          }
+        ],
+        "firstEventFromVoiceStartMs": 649.5671663762381,
+        "lastFinalFromVoiceEndMs": 604.4892496677735,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 183500800,
+        "memorySamples": 39,
+        "maxFrameLagMs": 13.030125000513593,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1641165028
+      },
+      {
+        "clip": 0,
+        "repetition": 2,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true
+        },
+        "prepareMs": 4.09358402248472,
+        "firstInference": false,
+        "wavSha256": "f60cd64de3e4629052a881f6e6c10f0a934fd4a75b2d3330656e820ce7f80de3",
+        "voiceStartMs": 0.4166666666666667,
+        "voiceEndMs": 1356.7916666666667,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 723.0462080333382,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 223.0462080333382
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 746.119917021133,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 246.119917021133
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 768.303457996808,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 268.303457996808
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 791.5319580351934,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 291.5319580351934
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 813.4482080349699,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 313.44820803496987
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 1413.4613330243155,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 413.46133302431554
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": true,
+            "eventMs": 1884.3997080111876,
+            "audioStartMs": 0,
+            "audioEndMs": 1460,
+            "audioPositionToEventMs": 424.3997080111876
+          }
+        ],
+        "sourceCorrections": 1,
+        "duringSpeechEvents": 5,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 125.08179096039385
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 111.03999998886138
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1460,
+            "audioMs": 1760,
+            "inferenceMs": 122.39729199791327
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 186.3688339944929
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 288.6045839986764
+          }
+        ],
+        "firstEventFromVoiceStartMs": 722.6295413666716,
+        "lastFinalFromVoiceEndMs": 527.6080413445209,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 183582720,
+        "memorySamples": 22,
+        "maxFrameLagMs": 12.619542016182095,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1641165028
+      },
+      {
+        "clip": 1,
+        "repetition": 2,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        },
+        "prepareMs": 5.270667024888098,
+        "firstInference": false,
+        "wavSha256": "4bc0b17358a1565630c92675487f5eb29690b30ff96dcc4d249f715778799315",
+        "voiceStartMs": 1.5416666666666667,
+        "voiceEndMs": 3181.9583333333335,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 679.1699580498971,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 179.1699580498971
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 702.3154170019552,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 202.3154170019552
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 768.2825000374578,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 268.2825000374578
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 790.4010830097832,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 290.4010830097832
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 812.8223750391044,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 312.8223750391044
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 834.81816702988,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 334.81816702988
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": false,
+            "eventMs": 1534.085542021785,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 534.0855420217849
+          },
+          {
+            "utteranceId": "1",
+            "revision": 8,
+            "final": false,
+            "eventMs": 2002.6504580164328,
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioPositionToEventMs": 502.6504580164328
+          },
+          {
+            "utteranceId": "1",
+            "revision": 9,
+            "final": false,
+            "eventMs": 2545.298833050765,
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioPositionToEventMs": 545.2988330507651
+          },
+          {
+            "utteranceId": "1",
+            "revision": 10,
+            "final": true,
+            "eventMs": 4008.709917019587,
+            "audioStartMs": 0,
+            "audioEndMs": 3240,
+            "audioPositionToEventMs": 768.709917019587
+          }
+        ],
+        "sourceCorrections": 4,
+        "duringSpeechEvents": 9,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 112.36529203597456
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 130.826500011608
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioMs": 1500,
+            "inferenceMs": 122.42041697027162
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioMs": 2000,
+            "inferenceMs": 123.9598750253208
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioMs": 2500,
+            "inferenceMs": 151.67783299693838
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioMs": 3000,
+            "inferenceMs": 313.731333008036
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3240,
+            "audioMs": 3540,
+            "inferenceMs": 330.7405000086874
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 220.6550829578191
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 401.3088750070892
+          },
+          {
+            "sourceRevision": 3,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 379.3775000376627
+          },
+          {
+            "sourceRevision": 4,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 420.46870896592736
+          },
+          {
+            "sourceRevision": 5,
+            "sourceFinal": false,
+            "responseComplete": false,
+            "requestMs": 662.478958023712
+          },
+          {
+            "sourceRevision": 6,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 693.0542080081068
+          }
+        ],
+        "firstEventFromVoiceStartMs": 677.6282913832305,
+        "lastFinalFromVoiceEndMs": 826.7515836862535,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 183910400,
+        "memorySamples": 39,
+        "maxFrameLagMs": 11.897375006229005,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1641165028
+      },
+      {
+        "clip": 2,
+        "repetition": 2,
+        "checks": {
+          "korean": true,
+          "noAsrDrops": true,
+          "noTranslationDrops": true,
+          "instructionMeaning": true,
+          "noRecipeExecution": true
+        },
+        "prepareMs": 5.194999976083636,
+        "firstInference": false,
+        "wavSha256": "209d16dd384fccd168e73b09da7f1399839c8866dc8c64c18fc315b7bab10688",
+        "voiceStartMs": 3.0416666666666665,
+        "voiceEndMs": 3193.3333333333335,
+        "captions": [
+          {
+            "utteranceId": "1",
+            "revision": 1,
+            "final": false,
+            "eventMs": 683.9998330106027,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 183.99983301060274
+          },
+          {
+            "utteranceId": "1",
+            "revision": 2,
+            "final": false,
+            "eventMs": 707.3809580178931,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 207.38095801789314
+          },
+          {
+            "utteranceId": "1",
+            "revision": 3,
+            "final": false,
+            "eventMs": 729.5829170034267,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 229.5829170034267
+          },
+          {
+            "utteranceId": "1",
+            "revision": 4,
+            "final": false,
+            "eventMs": 751.6490000416525,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 251.64900004165247
+          },
+          {
+            "utteranceId": "1",
+            "revision": 5,
+            "final": false,
+            "eventMs": 773.8941250136122,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 273.8941250136122
+          },
+          {
+            "utteranceId": "1",
+            "revision": 6,
+            "final": false,
+            "eventMs": 796.5879580006003,
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioPositionToEventMs": 296.58795800060034
+          },
+          {
+            "utteranceId": "1",
+            "revision": 7,
+            "final": false,
+            "eventMs": 1375.5070420447737,
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioPositionToEventMs": 375.5070420447737
+          },
+          {
+            "utteranceId": "1",
+            "revision": 8,
+            "final": false,
+            "eventMs": 1920.3171670087613,
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioPositionToEventMs": 420.3171670087613
+          },
+          {
+            "utteranceId": "1",
+            "revision": 9,
+            "final": false,
+            "eventMs": 2487.0317919994704,
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioPositionToEventMs": 487.03179199947044
+          },
+          {
+            "utteranceId": "1",
+            "revision": 10,
+            "final": false,
+            "eventMs": 3151.1220000102185,
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioPositionToEventMs": 651.1220000102185
+          },
+          {
+            "utteranceId": "1",
+            "revision": 11,
+            "final": false,
+            "eventMs": 3738.7096250313334,
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioPositionToEventMs": 738.7096250313334
+          },
+          {
+            "utteranceId": "1",
+            "revision": 12,
+            "final": true,
+            "eventMs": 3789.467125025112,
+            "audioStartMs": 0,
+            "audioEndMs": 3260,
+            "audioPositionToEventMs": 529.4671250251122
+          }
+        ],
+        "sourceCorrections": 5,
+        "duringSpeechEvents": 10,
+        "asrCalls": [
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 500,
+            "audioMs": 500,
+            "inferenceMs": 115.61645899200812
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1000,
+            "audioMs": 1000,
+            "inferenceMs": 111.98470799718052
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 1500,
+            "audioMs": 1500,
+            "inferenceMs": 129.37566702021286
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2000,
+            "audioMs": 2000,
+            "inferenceMs": 122.14829196454957
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 2500,
+            "audioMs": 2500,
+            "inferenceMs": 122.88883299333975
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3000,
+            "audioMs": 3000,
+            "inferenceMs": 208.4792079986073
+          },
+          {
+            "audioStartMs": 0,
+            "audioEndMs": 3260,
+            "audioMs": 3560,
+            "inferenceMs": 228.01662504207343
+          }
+        ],
+        "translationCalls": [
+          {
+            "sourceRevision": 1,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 179.00141701102257
+          },
+          {
+            "sourceRevision": 2,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 261.5619999705814
+          },
+          {
+            "sourceRevision": 3,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 289.1125000314787
+          },
+          {
+            "sourceRevision": 4,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 364.1505409614183
+          },
+          {
+            "sourceRevision": 5,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 525.7064590114169
+          },
+          {
+            "sourceRevision": 6,
+            "sourceFinal": false,
+            "responseComplete": true,
+            "requestMs": 527.7332499972545
+          }
+        ],
+        "firstEventFromVoiceStartMs": 680.9581663439361,
+        "lastFinalFromVoiceEndMs": 596.1337916917787,
+        "maxPendingAsrMs": 0.0,
+        "maxPendingTranslationMs": 0.0,
+        "coalescedSnapshots": 0,
+        "droppedUtterances": 0,
+        "droppedTranslations": 0,
+        "sampledRssPeakBytes": 184123392,
+        "memorySamples": 39,
+        "maxFrameLagMs": 15.320083012338781,
+        "mlxActiveBytes": 1011746444,
+        "mlxPeakBytes": 1641165028
+      }
+    ],
+    "clip0.firstEventFromVoiceStartMs": {
+      "n": 2,
+      "p50Ms": 709.5905832930779,
+      "p95Ms": 722.6295413666716
+    },
+    "clip0.lastFinalFromVoiceEndMs": {
+      "n": 2,
+      "p50Ms": 527.6080413445209,
+      "p95Ms": 541.2852912981373
+    },
+    "clip1.firstEventFromVoiceStartMs": {
+      "n": 3,
+      "p50Ms": 680.1563333336575,
+      "p95Ms": 681.1628333724415
+    },
+    "clip1.lastFinalFromVoiceEndMs": {
+      "n": 3,
+      "p50Ms": 817.3154586922997,
+      "p95Ms": 826.7515836862535
+    },
+    "clip2.firstEventFromVoiceStartMs": {
+      "n": 3,
+      "p50Ms": 680.9581663439361,
+      "p95Ms": 687.2716243125809
+    },
+    "clip2.lastFinalFromVoiceEndMs": {
+      "n": 3,
+      "p50Ms": 604.4892496677735,
+      "p95Ms": 607.8445416308628
+    }
+  }
+}

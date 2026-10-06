@@ -2546,3 +2546,60 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   numeric failed evidence/README/docs/plan을 `fix(local): mark speech as translation input`
   Conventional Commit으로 보존한다. key/weights/audio·transcript/.ralph/build는 커밋하지
   않으며 checkbox/전체completion은 바꾸지 않는다.
+
+### Ralph iteration 12/30 — 2026-10-06 — 7d case/punctuation correction fix
+
+- 다음 미완료 **7d만 진행, checkbox는 미체크 유지**다. 시작 checkout clean,
+  AGENTS.md 없음, `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. 지정 저장소/일반 modelcache에서만
+  작업했고 agent/다른worktree/credential/cloud/runner/criteria/model/prompt/cadence/VAD/
+  queue/출력계약/dependency/lock/push/publish 변경은 없다.
+- **작은 제품fix**: ASR snapshot과 revising session의 casefold/terminal `.,!?` 제거가
+  `us→US`, question/exclamation→statement 교정을 숨겼다. final 원문이 달라도 이전
+  completed 번역을 재사용해 잘못 확정할 수도 있었다. 두 비교에서 whitespace만
+  normalize한다. 같은utterance/증가revision/교정전읽기보존/취소·lateoutput거부는 유지하며
+  새helper/API/config/model/inference단계를 만들지 않았다. 의미가 바뀔 수 있는 case/
+  punctuation을 보수적으로 보존하므로 cosmetic edit에도 추가번역이 생길 수 있음을
+  README/docs에 명시했다. cloud final-only 정책은 유지한다.
+- 먼저 새regression 실행: `uv run --locked pytest tests/test_local_interim.py
+  -k case_and_punctuation -q`는 원래제품에서 **15fail/32deselected/12.85초/exit1**이다.
+  ASR3개와 source partial/final × translator in-flight/completed × 교정3개12조합이다.
+  fix 후 전체interim **47pass/0.52초/exit0**, focusedRuff exit0다. sameID/단조revision/
+  provisional·final/취소저항latebytes거부/교정confirmedcontext/unchangedfinal추가요청없음/
+  whitespace-onlysnapshot거부/queue·taskdrain을 확인했다. 기존 duplicatefixture는 spacing만
+  바꾸게 했고 terminalpunctuation교정은 새 failing-first matrix에서 별도 검증한다.
+  fixture는 실제모델이 모든 case/punctuation을 올바로 번역한다는 근거가 아니다.
+- 기존 **실제두모델 probe after1회**: generated weather/construction/spokeninstruction,
+  **3round/9trial/9final/exit1/acceptancefalse**, construction `craneMeaning`3개만 실패한다.
+  최종ASR은 맞지만 animal오역이 지속됨을 tooloutput에서 직접검토했다. weather/명령번역·
+  recipe비실행/during-speechconstruction/source변경/증가revision/boundedqueue/drop0 통과다.
+  **model-only, tabCapture/Paint/시각검토/청취/10분근거 아니다**. 이 fixture의 실제모델결과로
+  새case/punctuation사례의 번역품질을 주장하지 않는다. numeric/exitcode/한계는
+  `docs/verification/interim/model-iteration12-source-correction-failed.json`에 보존했고
+  기존 `model-after-failed.json`은 byte복원했다. transcript/audio는 커밋하지 않는다.
+- MLX0.6B8bit/Ollama0.35.1 qwen3:4b-instruct/English→Korean/temp0/context4096/predict256/
+  500ms/HFoffline/Ollamaclouddisabled다. freshengine/선택Ollamaunload/cachedweights·OS·compiler
+  cache이며 coldcache 아니다. 최초prepare **18764.927ms**는 별도다. 모델probe와 unittest는
+  겹치지 않았다. 이전iteration은 동일hash/설정/호출수 확인용이며 paired지연baseline 아니다.
+- first/final event p50/p95(ms): weather(n2) **709.591/722.630**, **527.608/541.285**;
+  construction(n3) **680.156/681.163**, **817.315/826.752**; instruction(n3)
+  **680.958/687.272**, **604.489/607.845**다. 기존 firstInference1개만 제외하는 정의다.
+  **ASR51/text42/완료39/미완료·취소3**은 이전fixrun과 같다. ASRbusy **8129.981ms**,
+  source변경30(단어연장포함)/coalesced0/queuepeak0/drop0이다. memory300sample/RSSpeak
+  **184123392bytes**, MLXactivepeak **1011746444**/globalpeak **1641165028bytes**다.
+  합산하지 않고 전체browser/OllamaRSS/지속throughput은 미측정이다. speed개선 주장은 없다.
+- independent numeric audit exit0: exact9trial/hash/settings/checkkeys/9final/revisions/
+  시각산술/exact n·percentile/boundedqueue/drop0/sample/정확한3개meaning실패 확인했다.
+  acceptancepass 아니다. 사전text-only prompt/wrapper8개는 construction뜻이 모두 틀려
+  전부 기각했고 제품prompt/현재marker는 그대로다. 사전probe는 ASR/browser근거 아니다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python212**,
+  failures/skips/warnings0, Python **66.65초**다. uv lock --check/git diff --check 통과,
+  ownedOllama SIGINTexit0/base uv sync --locked복원,8765/8766/11434 listener없음이다.
+  생성audio는 probe tempdircleanup으로 삭제, iteration12backup삭제, runner/기존failedreport
+  diff없음이다. source/regressions/README/docs/failednumeric/plan을 Conventional Commit으로
+  보존하며 secret/weights/audio·transcript/.ralph/build는 커밋하지 않는다.
+- **다음도7d**: 새case/punctuation과spokeninstructionregression을 유지하며 원래construction/
+  long 의미와 native first/partial/finalPaint, narrow/fullscreen/전체문자·읽기시간/원음청취/
+  inflightStop/provider·session/지속queue·memory acceptance를 완료한다. native/browser/cloud
+  검증은 이번에 시도하지 않았고 새외부access blocker도 진단하지 않았다. 이후7b→8→9다.
+  제품비교bugfix만으로7d나전체completion을 체크하지 않는다.

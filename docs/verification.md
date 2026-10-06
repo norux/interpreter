@@ -4383,3 +4383,120 @@ report backups under `.ralph` were removed after review/audit; no generated audi
 transcript, key, model weight, build output or temporary state is committed.
 The runner and previous failed report have no diff. Source, regression, numeric
 evidence, README, verification notes and plan are committed together.
+
+### Ralph iteration 12/30 — 7d case and punctuation corrections (2026-10-06)
+
+The next unfinished item remains **7d**, with its checkbox open. Local ASR
+snapshot change detection and the local revising session used case folding and
+stripped terminal `.,!?`. Consequently, an acronym correction such as `us` →
+`US`, or a question/exclamation becoming a statement, could be suppressed.
+At a final boundary the session could attach the corrected source to the old
+completed translation without asking the translator to correct it.
+
+Both local comparisons now normalize whitespace only. Case and punctuation
+changes cancel obsolete output and obtain a replacement translation for the
+same utterance; caption revisions keep increasing. This conservative comparison
+also permits another request for cosmetic case/punctuation changes. No heuristic
+can safely declare all such changes irrelevant. There is no new helper, option,
+provider interface, model, prompt, cadence, VAD or output policy. Cloud text paths
+retain their final-only policy.
+
+Regression command:
+
+```sh
+uv run --locked pytest tests/test_local_interim.py -k case_and_punctuation -q
+uv run --locked pytest tests/test_local_interim.py -q
+```
+
+Before the fix, the 15 new regressions failed (**exit 1**, 32 deselected,
+**12.85 s**): three ASR snapshot cases and twelve session combinations of those
+cases with provisional/final source and in-flight/completed translation. The
+completed-response/final-source cases exposed reuse of the wrong translation;
+other cases timed out waiting for a suppressed correction. After the fix the
+entire interim suite passes **47 tests, exit 0, 0.52 s**. It checks same-ID
+correction, monotonic revisions, provisional/final distinction, late output from
+a cancellation-resistant translator, corrected confirmed context, unchanged
+final reuse without another request, queue/task drain, and whitespace-only
+snapshot suppression. The existing duplicate-source fixture now changes only
+spacing; punctuation correction is explicitly covered by the new failing-first
+matrix rather than treated as a duplicate. Focused Ruff passes **exit 0**.
+These fault fixtures establish comparison/session correctness, not a guarantee
+that the real model translates every capitalization or punctuation change well.
+
+The unchanged real-model probe was also run on the final product source:
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py after
+```
+
+It processed three repetitions of the existing generated weather, construction
+and spoken-command clips: **nine trials/nine finals, exit 1, acceptance false**.
+The only failed checks are the three `craneMeaning` checks. Final construction
+ASR is correct, but the translation still substitutes an animal. Weather meaning,
+command translation without executing a recipe, construction events during
+speech, source changes, revision order, bounds and zero ASR/translation drops
+pass. Source/translation was inspected in tool output and is absent from the
+committed report. Numeric evidence is in
+[model-iteration12-source-correction-failed.json](verification/interim/model-iteration12-source-correction-failed.json).
+The previous `model-after-failed.json` was restored byte-for-byte.
+
+This is **model-only** evidence: no tabCapture, browser Paint, subtitle visual
+review, speaker listening, in-flight browser Stop/provider replacement, or
+advancing public-media/ten-minute evidence. These clips do not specifically
+exercise the newly fixed case/punctuation changes. No native/browser or cloud
+access was attempted, so this iteration diagnoses no new external-access blocker.
+
+The probe retains MLX Qwen3-ASR 0.6B 8bit and Ollama `qwen3:4b-instruct`, English
+→ Korean, temperature 0, context 4096, prediction limit 256, and 500 ms snapshots.
+The engine is fresh and the selected Ollama model is unloaded before preparation;
+weights, OS and compiler caches remain. First preparation is **18764.927 ms**,
+separate from event timing. Warm trials reuse the engine. The harness excludes
+only `firstInference` (the first weather trial); this differs from the native
+harness's first-round warm definition. No unit tests ran concurrently with the
+model probe. Small sample counts are observations, not general p95 guarantees.
+
+| Generated clip | n | Voice start → first event p50/p95 (ms) | Voice end → final event p50/p95 (ms) |
+| --- | ---: | ---: | ---: |
+| Weather | 2 | 709.591 / 722.630 | 527.608 / 541.285 |
+| Construction | 3 | 680.156 / 681.163 | 817.315 / 826.752 |
+| Spoken instruction | 3 | 680.958 / 687.272 | 604.489 / 607.845 |
+
+There are **51 ASR calls**, **42 translation requests**, **39 completed** and
+**3 incomplete/cancelled**, matching the previous iteration's final run. ASR
+worker busy time totals **8129.981 ms**, source-change captions **30** (word
+extensions included), and snapshot coalescing/drop/queue peaks are all **0**.
+The prior run is only a settings/hash/call-count reference, not a paired timing
+baseline or evidence of latency improvement. Requested 100 ms memory sampling
+through inference end yields **300 samples**, RSS peak **184123392 bytes**, MLX
+active peak **1011746444 bytes**, and process-global MLX peak **1641165028 bytes**.
+RSS and MLX overlap and are not added. Full browser/Ollama memory and sustained
+throughput remain unmeasured.
+
+An independent numeric audit passes **exit 0**, checking exact trial assignment,
+same WAV hashes/settings/check keys as iteration 11, exactly nine finals,
+strict revisions, timing arithmetic, exact percentile sample counts, bounded
+queues, zero drops, nonempty memory sampling and exactly the three semantic
+failures. This validates the failed report's accuracy, not 7d acceptance.
+
+Eight preliminary text-only candidates (current marker, quotation/XML wrappers,
+short translator/minimal instructions, a natural-terminology instruction,
+Korean instructions and an explicit target-language task prefix) all still
+mistranslated the construction sentence. All were rejected; product prompt and
+current-source marker remain unchanged. These exploratory requests provide no
+ASR, browser, listening or sustained-load evidence.
+
+Generated audio was removed by probe temporary-directory cleanup. The owned
+Ollama received SIGINT and exited **0**; the base `uv sync --locked` environment
+was restored. No audio/transcript, key, weights, build or temporary state is
+committed. Next is still **7d**: retain these correction regressions while
+resolving original construction/long meaning and measuring native first/partial/
+final Paint, narrow/fullscreen readability, original audio, in-flight lifetime
+and sustained queues/memory. Then proceed to 7b→8→9.
+
+Final `npm run verify` passes **exit 0**: lint, typecheck, production build,
+**12 JS + 212 Python tests**, no failures/skips/warnings; Python **66.65 s**.
+`uv lock --check` and `git diff --check` pass. Ports **8765/8766/11434** have no
+listeners, and the runner and previous failed report have no diff. Repository
+changes are committed with the plan; 7d stays unchecked.

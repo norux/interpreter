@@ -221,8 +221,11 @@ new half-second of voiced audio, within the existing six-second speech boundary.
 These are repeated finite-array inferences, not native live PCM ingestion by MLX.
 Meaningful source changes trigger provisional translations of the same utterance;
 newer source cancels obsolete translation and replaces its caption with increasing
-revisions. A completed provisional translation stays partial until the speech
-boundary confirms it. Unchanged source can reuse that translation at the boundary.
+revisions. Whitespace-only edits do not trigger another translation. Case and
+punctuation edits do, since they can change meaning; this can also retrigger
+translation for a cosmetic edit. A completed provisional translation stays partial
+until the speech boundary confirms it. Unchanged source can reuse that translation
+at the boundary.
 Each provisional translation stream rejects older or repeated output revisions,
 including stale completion markers. A source correction starts a fresh response
 while the caption's revisions continue increasing.
