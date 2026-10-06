@@ -1890,3 +1890,143 @@ epoch/latency arithmetic, nearest-rank warm p50/p95, queue/drop values. Dedicate
 browsers, companions, fixture servers and Ollama closed; no 8765/8766/11434
 listeners remain. No dependency/lockfile change, temporary `.ralph` state, model
 weights, keys, audio or user transcript is committed.
+
+## Ralph iteration 6/30 — real long streamed cue and repeated-context fix (2026-10-06)
+
+Worked only on the next unfinished item, **7a**. Its checkbox remains unchecked:
+the plan permits a large item to span iterations, and the remaining acceptance
+checks below have not passed. No repository AGENTS.md exists; the supplied user
+instructions apply. `.ralph/verification.txt` still says `No completion
+verification attempted in this run.`
+
+Commands used (with the repository uv directory on PATH):
+
+```sh
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" npm run build
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-browser.mjs stream
+PATH="$PWD/.tools/uv/bin:$PATH" uv run --locked --extra local pytest tests/test_ollama_stream.py -k repeated_source
+PATH="$PWD/.tools/uv/bin:$PATH" uv run --locked --extra local pytest tests/test_local.py tests/test_local_prepare.py tests/test_ollama_stream.py tests/test_live.py
+node --import tsx --test tests/caption-paint.test.ts tests/output.test.ts
+PATH="$PWD/.tools/uv/bin:$PATH" npm run test:captions-browser
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked
+PATH="$PWD/.tools/uv/bin:$PATH" npm run verify
+PATH="$PWD/.tools/uv/bin:$PATH" uv lock --check
+git diff --check
+```
+
+The new stream mode uses the existing companion instrumentation and real built
+content sink. A test-only listener records the current cue after each delivered
+revision and observes its timed text changes. Generated source/final/part strings
+remain ephemeral in the dedicated browser and are printed for meaning review.
+The committed report stores only identity, counts, booleans, timestamps, character
+ranges, geometry and the WAV hash. Each final part must have a matching main-frame
+Chromium Paint covering its bounds before the next mark; missing paint fails.
+The harness also requires partial revisions, increasing revision identity,
+the same cumulative translation, two-line layout, all final characters in order,
+expiry and bounded sampled queues. It does not deliver generated captions.
+
+### Failures reproduced and fixed
+
+The first short generated umbrella/station sentence fit in two lines at 390 px,
+and also at 270 px. Both runs correctly failed the requirement to exercise more
+than one final part and exited **1** after native Stop/`stopped`/`exit`. The fixture
+was extended with a warm coat and the trip's purpose. Its waveform lasts
+**5.1014167 seconds**, mono PCM16/24 kHz; its full source was recognized as one
+utterance. The two-part assertion and meaning checks were retained.
+
+The extended phrase then exposed an actual translation failure: repetitions 0/1
+used the correct coat word, but repetition 2 produced a malformed Korean word.
+Its warm-coat meaning check failed; that browser run exited **1**. Three separate
+real Ollama adapter probes with two identical correct earlier source/translation
+pairs reproduced the malformed word **3/3**. Those probes exited 0 because they
+printed observations rather than asserting success. A real request with an added
+standard-vocabulary instruction still failed its coat assertion, exiting **1**;
+that prompt experiment was not applied to product code.
+
+The small product fix skips recent context pairs whose entire source equals the
+current transcript. Other recent phrases remain in the existing last-three window.
+The request, streaming, final-only context insertion, model, prompt, options and
+cancellation behavior remain the same. This removes redundant copies which
+reproducibly corrupted this small model's translation; it adds no response cache,
+model or provider abstraction. The same three adapter probes after this fix
+retained the warm coat **3/3**, with assertions and exit **0**. The automated
+request regression checks one request, retention of a different recent phrase,
+omission of matching copies, and unchanged utterance/final delivery; **1 passed**.
+This request fixture alone is not evidence of real translation quality.
+
+### Passing real Chrome evidence
+
+The fourth dedicated browser run used native Extensions toolbar → Interpreter →
+Start, observed Preparing then capturing, closed the popup, executed `long`, then
+used native Stop/`stopped`/`exit`: **exit 0**. `check` confirmed active native
+tabCapture, and the companion received real PCM. Both actual cached models ran:
+MLX Qwen3-ASR 0.6B 8bit and Ollama qwen3:4b-instruct Q4_K_M/context4096,
+English → Korean, 300 ms silence/6-second cap/current quality boundary.
+Environment: Apple M5/16 GiB, Chrome for Testing **153.0.8010.12**, Playwright
+**1.63.0**, Python **3.12.15**, mlx-audio **0.5.8**, Ollama **0.35.1**.
+HF offline flags and Ollama cloud-disabled mode were used; no cloud inference,
+credentials, microphone replacement or prerecorded translation was used.
+
+[Numeric evidence](verification/latency/stream-long.json) contains **3 cues**
+(one first inference in the fresh companion, two later repetitions; cached weights,
+no cold-cache comparison). Every source and final was reviewed in terminal:
+blue umbrella, warm coat, station, afternoon three and the trip's purpose remain.
+The finals were identical and read naturally; keyword assertions supplement that
+review rather than proving general model accuracy. No Japanese text appeared.
+This fixes the observed repeated-context failure, not all possible lexical errors.
+
+Each cue had **27 painted partial revisions and final revision 28**. The final's
+**41 characters** appeared as ranges **0–29** and **30–40**, with **6/6** final-part
+covering Paints. All recorded parts stayed within two lines and the 270 × 700
+viewport's side/bottom margins. Independent JSON checks passed for identity,
+revision/count, contiguous ranges summing to 41, geometry, paint arithmetic and
+queue/drop values. Sampled pending queue peak **0 ms**, transport frame drops
+**0**, utterance drops **0**; receipts sample every 50 frames and these are short,
+isolated phrases, not continuous-media queue measurements. No new audio-end
+latency, loading-time or p50/p95 improvement is claimed here. The iteration-5
+before/after timings remain evidence from that earlier commit and configuration.
+
+Visually reviewed all three real first-final-part screenshots with `view_image`:
+[first](verification/latency/stream-long-0.png),
+[second](verification/latency/stream-long-1.png),
+[third](verification/latency/stream-long-2.png). They show legible white outlined
+Korean in two lines on the small dark background, centered above the bottom edge.
+The images capture the first final part; the timer-driven second part is evidenced
+by DOM text/range checks and Chromium Paint, not a second-part screenshot or OCR.
+Paint start does not establish GPU completion or physical display presentation.
+
+All four native Stop checks passed idle, no active captured tab, offscreen contexts
+0 and caption hosts 0. Stops followed completed/expired cues; **in-flight native
+model cancellation/replacement is still unverified**, not inferred from cleanup.
+The caption fixture browser passed normal/narrow/wrapper-fullscreen, long final
+all-character display, controls, revision rejection, expiry, clear and late cue
+rejection. That fixture is separate from real audio/model evidence.
+
+Focused local/live/prepare/stream tests: **63 passed / 60.80 seconds / exit 0**.
+Paint/output unit checks: **2 passed / exit 0**. No acceptance, runner or tests
+were weakened to accommodate a failed result.
+
+An asynchronous listening question remained unanswered while generated speech
+played with native capture and the popup closed. The UI tools expose no speaker
+audio; unmuted controls/PCM do not prove audible playback. **Speaker listening
+remains unverified**, with no invented confirmation. This does not prevent the
+next independent 7a implementation/measurement work.
+
+Next 7a work: actual inference in progress during Stop/restart/provider/session
+replacement and late-result rejection; native Start loading/first-inference versus
+prepared timing; original-sound listening confirmation. Also exercise successive
+real long utterances when the next cue arrives before the previous cue's timed
+parts finish: this run verifies complete isolated final cues, not retention under
+that overlap. The single-phrase repeated-context fix and its all-part real paint
+verification are now done. Source Auto (7b), TED advancing 600 seconds (8) and
+final documentation/checks (9) remain.
+
+Final base `uv sync --locked` followed by `npm run verify`: **exit 0**,
+lint/typecheck/build, **11 JS + 160 Python tests**, failures/skips/warnings **0**,
+Python **66.23 seconds**. `uv lock --check`, `git diff --check` and the independent
+numeric report checks passed. Dedicated browser/companion/fixture processes and
+Ollama were stopped; no listeners remain on 8765/8766/11434 (`lsof` exits 1 for
+that empty result). Dependency/lockfiles and production capture/output contracts
+were not changed. No model weights, keys, generated audio, user transcripts or
+temporary `.ralph` state are committed.

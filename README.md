@@ -334,6 +334,24 @@ Cached first-inference samples are separate from warm p50/p95; the run does not
 establish cold-start improvement or long-media queue stability. See the recorded
 limits and remaining 7a acceptance in `docs/verification.md`.
 
+To verify a real streamed translation that spans multiple timed subtitle parts:
+
+```sh
+npm run test:local-browser -- stream
+```
+
+Use native Start, close the popup, then enter `long`. The harness plays the same
+generated five-second English sentence three times at a 270 × 700 viewport.
+Review the printed source, Korean final and displayed parts. It checks the blue
+umbrella, warm coat, station, afternoon meeting time and trip; partial revisions;
+every final character; two-line layout; and a covering Chromium Paint for each
+final part. Matching copies of the current phrase are omitted from recent Ollama
+context because repeated examples caused a reproducible mistranslation.
+Use native Stop, enter `stopped`, then `exit`. Numeric evidence is saved in
+`docs/verification/latency/stream-long.json`, with three generated-caption PNGs.
+This isolated-phrase check does not establish continuous-media cue retention,
+in-flight inference cancellation, speaker listening or cold-start latency.
+
 ## OpenAI direct translation
 
 This optional paid path sends the selected tab's audio to OpenAI. It requires

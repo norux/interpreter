@@ -245,6 +245,40 @@ def test_partial_captions_do_not_enter_context_or_trigger_extra_translation_requ
     asyncio.run(check())
 
 
+def test_repeated_source_does_not_duplicate_its_own_translation_context():
+    async def check():
+        requests = []
+
+        def reply(request):
+            requests.append(json.loads(request.content))
+            return httpx.Response(200, stream=Stream([record("번역", True)]))
+
+        translator = OllamaTranslator("fixture", "English", "Korean")
+        await translator.client.aclose()
+        translator.client = httpx.AsyncClient(
+            transport=httpx.MockTransport(reply), base_url="http://127.0.0.1:11434"
+        )
+        try:
+            context = [
+                (TRANSCRIPT.text, "Previous copy"),
+                ("Related earlier phrase", "Related translation"),
+                (TRANSCRIPT.text, "Another copy"),
+            ]
+            results = [t async for t in translator.translate(TRANSCRIPT, context)]
+            assert len(requests) == 1
+            assert requests[0]["messages"][1:] == [
+                {"role": "user", "content": "Related earlier phrase"},
+                {"role": "assistant", "content": "Related translation"},
+                {"role": "user", "content": TRANSCRIPT.text},
+            ]
+            assert len(results) == 1 and results[0].final
+            assert results[0].utterance_id == TRANSCRIPT.utterance_id
+        finally:
+            await translator.close()
+
+    asyncio.run(check())
+
+
 def test_trickling_stream_has_a_whole_request_deadline():
     async def check():
         class Trickle(Stream):

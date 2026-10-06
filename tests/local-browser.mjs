@@ -10,8 +10,11 @@ import { createInterface } from "node:readline";
 import { chromium } from "playwright";
 import { traceCaptionPaints } from "./caption-paint.mjs";
 
-const paintPhase = process.argv[2];
-assert.ok(paintPhase === undefined || ["before", "after"].includes(paintPhase));
+const mode = process.argv[2];
+assert.ok(mode === undefined || ["before", "after", "stream"].includes(mode));
+const streaming = mode === "stream";
+const paintPhase = streaming ? undefined : mode;
+const instrumented = !!paintPhase || streaming;
 const metrics = [];
 let finishTrace;
 let paintReport;
@@ -24,8 +27,11 @@ execFileSync("say", ["-v", "Samantha", "-r", "165", "-o", `${profile}/speech.aif
 execFileSync("afconvert", ["-f", "WAVE", "-d", "LEI16@24000", "-c", "1", `${profile}/speech.aiff`, `${profile}/speech.wav`]);
 const audio = await readFile(`${profile}/speech.wav`);
 const clips = [];
-if (paintPhase) {
-  for (const [index, text] of ["The weather is sunny today.", "We will walk to the park after lunch."].entries()) {
+if (instrumented) {
+  const sentences = streaming
+    ? ["Bring a blue umbrella and a warm coat, and meet at the station at three in the afternoon for our trip."]
+    : ["The weather is sunny today.", "We will walk to the park after lunch."];
+  for (const [index, text] of sentences.entries()) {
     execFileSync("say", ["-v", "Samantha", "-r", "165", "-o", `${profile}/${index}.aiff`, text]);
     execFileSync("afconvert", ["-f", "WAVE", "-d", "LEI16@24000", "-c", "1", `${profile}/${index}.aiff`, `${profile}/${index}.wav`]);
     clips.push(await readFile(`${profile}/${index}.wav`));
@@ -50,6 +56,7 @@ let passed = false;
 let stopped = false;
 let failed = false;
 let measured = false;
+let tabId;
 try {
   await new Promise((ready) => fixture.listen(8766, "127.0.0.1", ready));
   const extension = resolve("extension/dist");
@@ -59,8 +66,8 @@ try {
   });
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
   const extensionId = new URL(worker.url()).host;
-  companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", paintPhase ? "browser_metrics:app" : "server.app:app",
-    "--app-dir", paintPhase ? "tests" : ".",
+  companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", instrumented ? "browser_metrics:app" : "server.app:app",
+    "--app-dir", instrumented ? "tests" : ".",
     "--host", "127.0.0.1", "--port", "8765", "--ws-max-size", "4096", "--ws-max-queue", "8"], {
     env: { ...process.env, PYTHONPATH: ".", INTERPRETER_EXTENSION_ID: extensionId,
       INTERPRETER_PAINT_BASELINE: paintPhase === "before" ? "1" : "0",
@@ -68,7 +75,7 @@ try {
     stdio: ["ignore", "pipe", "pipe"],
   });
   companion.stdout.on("data", (chunk) => {
-    if (!paintPhase) { log += chunk; return; }
+    if (!instrumented) { log += chunk; return; }
     lineBuffer += chunk;
     let end = lineBuffer.indexOf("\n");
     while (end >= 0) {
@@ -86,18 +93,129 @@ try {
   });
   const page = context.pages()[0];
   await page.goto("http://127.0.0.1:8766/");
-  if (paintPhase) {
-    const tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({})).find((tab) => tab.url === url)?.id, page.url());
+  if (instrumented) {
+    tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({})).find((tab) => tab.url === url)?.id, page.url());
     assert.ok(tabId);
     await worker.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, files: ["content.js"] }), tabId);
     finishTrace = await traceCaptionPaints(context, page, worker, tabId);
   }
+  if (streaming) {
+    await page.setViewportSize({ width: 270, height: 700 });
+    await worker.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, func: () => {
+      // Ephemeral generated text stays in the browser; the report contains no transcript.
+      globalThis.streamViews = [];
+      let observer;
+      chrome.runtime.onMessage.addListener((message, sender) => {
+        if (sender.id !== chrome.runtime.id || message.target !== "captions" || message.type !== "caption") return;
+        observer?.disconnect();
+        const caption = message.caption;
+        const cue = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue");
+        if (!cue) return;
+        const view = { ...caption, parts: [] };
+        globalThis.streamViews.push(view);
+        function record() {
+          const text = cue.textContent;
+          if (!text || text === view.parts.at(-1)?.text) return;
+          const box = cue.getBoundingClientRect();
+          const atMs = performance.timeOrigin + performance.now();
+          const part = { text, atMs, offset: caption.translation.indexOf(text), length: text.length,
+            twoLines: cue.clientHeight <= Number.parseFloat(getComputedStyle(cue).lineHeight) * 2 + 9 };
+          view.parts.push(part);
+          performance.mark(`interpreter-caption:${JSON.stringify({
+            sessionId: caption.sessionId, utteranceId: caption.utteranceId, revision: caption.revision,
+            final: caption.final, type: "part", atMs, offset: part.offset, length: part.length,
+            twoLines: part.twoLines, visible: true, left: box.left, right: box.right, top: box.top, bottom: box.bottom,
+          })}`);
+        }
+        record();
+        observer = new MutationObserver(record);
+        observer.observe(cue, { childList: true, characterData: true, subtree: true });
+      });
+    } }), tabId);
+  }
   console.log(JSON.stringify({ ready: true, browser: context.browser().version(), extensionId,
-    paintPhase, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Enter measure (paint mode), play, check, accept, stopped, or exit." }));
+    mode, profile, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Enter long (stream mode), measure (paint mode), play, check, accept, stopped, or exit." }));
   input = createInterface({ input: process.stdin });
   for await (const command of input) {
     try {
       if (command === "exit") break;
+      if (command === "long") {
+        assert.ok(streaming && finishTrace && tabId);
+        const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
+        assert.equal(captureStatus.state, "capturing");
+        const samples = [];
+        for (let repetition = 0; repetition < 3; repetition++) {
+          const start = metrics.length;
+          await page.locator("audio").evaluate(async (element) => { element.src = "/0.wav"; await element.play(); });
+          const deadline = Date.now() + 90000;
+          while (!metrics.slice(start).some((m) => m.metric === "caption" && m.final)) {
+            assert.ok(Date.now() < deadline, "No real long final before deadline");
+            await page.waitForTimeout(50);
+          }
+          await page.waitForTimeout(100);
+          await page.screenshot({ path: `docs/verification/latency/stream-long-${repetition}.png` });
+          // Wait for every timed part of the real final, including its expiry.
+          while (await page.locator("#interpreter-captions").count()) {
+            assert.ok(Date.now() < deadline, "Long cue did not expire");
+            await page.waitForTimeout(50);
+          }
+          const [{ result: views }] = await worker.evaluate((id) => chrome.scripting.executeScript({
+            target: { tabId: id }, func: () => globalThis.streamViews,
+          }), tabId);
+          const finals = metrics.slice(start).filter((m) => m.metric === "caption" && m.final);
+          assert.equal(finals.length, 1, "This generated phrase must form one complete utterance");
+          const revisions = views.filter((v) => v.sessionId === captureStatus.sessionId && v.utteranceId === finals[0].utteranceId);
+          const final = revisions.find((v) => v.final);
+          assert.ok(final);
+          const translated = final.translation;
+          console.log(JSON.stringify({ review: repetition, source: final.source, translation: translated,
+            displayedParts: final.parts.map((part) => part.text) }));
+          assert.match(final.source.toLowerCase(), /blue umbrella/);
+          assert.match(final.source.toLowerCase(), /warm coat/);
+          assert.match(final.source.toLowerCase(), /station/);
+          assert.match(final.source.toLowerCase(), /three.*afternoon/);
+          assert.match(final.source.toLowerCase(), /trip/);
+          assert.match(translated, /(?:파란|파랑|푸른).*우산/);
+          assert.match(translated, /따뜻한.*(?:코트|외투)/);
+          assert.match(translated, /역/);
+          assert.match(translated, /오후.*(?:3시|세 시)/);
+          assert.match(translated, /여행/);
+          assert.doesNotMatch(translated, /[\u3040-\u30ff]/u);
+          assert.ok(revisions.some((v) => !v.final), "Real translation must stream partials");
+          assert.deepEqual(revisions.map((v) => v.revision), [...new Set(revisions.map((v) => v.revision))].sort((a, b) => a - b));
+          assert.ok(final.parts.length > 1, "Real final must exercise timed splitting at this viewport");
+          assert.equal(final.parts.map((part) => part.text).join(""), translated.trim(), "Every final character must be displayed");
+          assert.ok(revisions.every((v) => v.parts.every((part) => part.twoLines)));
+          assert.ok(revisions.every((v) => translated.startsWith(v.translation)), "Partials must update the same translation");
+          samples.push({ repetition, sessionId: final.sessionId, utteranceId: final.utteranceId,
+            firstInference: repetition === 0, revisionCount: revisions.length, finalRevision: final.revision,
+            characterCount: translated.trim().length, qualityChecks: true, allCharactersDisplayed: true,
+            parts: final.parts.map(({ text, ...part }) => part) });
+        }
+        const rows = await finishTrace(); finishTrace = undefined;
+        for (const sample of samples) {
+          const parts = rows.filter((r) => r.type === "part" && r.sessionId === sample.sessionId
+            && r.utteranceId === sample.utteranceId && r.revision === sample.finalRevision);
+          assert.equal(parts.length, sample.parts.length);
+          assert.ok(parts.every((part) => part.paintAtMs !== null), "Every real final part must have a covering Chromium Paint");
+          sample.parts = parts;
+          sample.partialPaints = rows.filter((r) => r.type === "part" && r.sessionId === sample.sessionId
+            && r.utteranceId === sample.utteranceId && !r.final && r.paintAtMs !== null).length;
+          assert.ok(sample.partialPaints > 0);
+        }
+        const receipts = metrics.filter((m) => m.metric === "receipt" && m.sessionId === captureStatus.sessionId);
+        const report = { browser: context.browser().version(), nativeCapture: true, realLocalModels: true,
+          speech: "macOS Samantha 165 wpm; blue umbrella, warm coat, station, afternoon three, trip", viewport: page.viewportSize(),
+          wavSha256: createHash("sha256").update(clips[0]).digest("hex"), samples,
+          maxPendingAudioMs: Math.max(0, ...receipts.map((r) => r.pendingAudioMs)),
+          droppedFrames: receipts.at(-1)?.droppedFrames, droppedUtterances: receipts.at(-1)?.droppedUtterances,
+          listening: "not verified; UI tools expose no speaker audio" };
+        assert.ok(report.maxPendingAudioMs <= 8000);
+        assert.equal(report.droppedFrames, 0); assert.equal(report.droppedUtterances, 0);
+        await writeFile("docs/verification/latency/stream-long.json", `${JSON.stringify(report, null, 2)}\n`);
+        console.log(JSON.stringify(report));
+        measured = true; passed = true;
+      }
       if (command === "measure") {
         assert.ok(paintPhase && finishTrace);
         const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
@@ -207,5 +325,5 @@ try {
     await exited;
   }
   await new Promise((closed) => fixture.close(closed));
-  if (failed || !passed || !stopped || (paintPhase && !measured)) process.exitCode = 1;
+  if (failed || !passed || !stopped || (instrumented && !measured)) process.exitCode = 1;
 }

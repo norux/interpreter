@@ -1208,3 +1208,72 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   cold-cache 비교를 기존 compile 차이로 대체하지 않는다. UI에서 소리를 확인하지 못한
   한계를 유지하며 다음 구현/브라우저 작업을 진행할 외부 blocker는 없다.
   7b(SourceAuto),8(TED600초),9/최종완료는 남아 있다.
+
+### Ralph iteration 6/30 — 2026-10-06 — 항목 7a 실제 긴 cue/반복 문맥 품질 수정
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7a만 진행**, 큰 항목 분할 규칙에 따라 **checkbox는 미체크로 유지**한다.
+  다른 agent/worktree/push/publish/runner/acceptance 변경/credential 조회/cloud inference는 없다.
+- 기존 local-browser에 `stream` 모드/`long` 명령을 추가했다. 실제 built sink 뒤
+  test-local listener/MutationObserver가 각 revision과 timer-driven final part를
+  관측하고 기존 Chromium Paint 분석기로 같은 frame/범위의 실제 Paint를 확인한다.
+  실제 모델 caption만 관측하며 fake caption/새 model/framework/제품 설정은 없다.
+  원문/번역/part는 browser 메모리와 의미 검토 terminal에만 남긴다. 커밋할 JSON은
+  숫자/boolean/identity/geometry/WAV hash이며 audio는 ignored 전용 profile 안이다.
+- 초기 짧은 생성 umbrella/station 음성은 390px와 270px 모두 두 줄 안에 들어갔다.
+  두 run은 timed splitting assertion을 그대로 실패했고 native Stop/cleanup 뒤 exit1이다.
+  실제 split을 시험하도록 warm coat/여행 목적을 추가한 **5.1014167초** 생성 음성을
+  사용했다. 세 번째 run은 source 전체를 복구하고 final을 두 part로 표시했지만
+  repetition2에서 coat의 한국어가 잘못되어 의미 assertion 실패/exit1이었다.
+- 실제 Ollama adapter에서 정확한 동일 원문/번역 두 쌍의 recent context로 같은
+  잘못된 단어를 **3/3 재현**했다. standard-vocabulary 지침 probe도 실제 실패했으며
+  제품 prompt에 넣지 않았다. 현재 원문과 완전히 같은 recent source의 context 쌍만
+  제외하는 **3줄 수정**으로 중복 예시를 없앴다. 다른 최근 구절/last3 window/원문당
+  단일 request/final-only context/model/prompt/options/cancel 계약은 유지한다.
+  수정 후 동일 실제 adapter probe **3/3 의미 assertion 통과/exit0**이다.
+  request fixture 회귀도 다른 구절 유지/중복 제거/단일 호출/동일 utterance/final을
+  확인하며 1 passed다. fixture만으로 모델 의미 성공을 주장하지 않는다.
+- 네 번째 실제 browser run `node tests/local-browser.mjs stream` exit0:
+  **native toolbar Start**→Preparing/capturing 확인→popup 닫기→`long`→**native Stop**→
+  `stopped`→`exit`이다. active native tabCapture/실제 PCM/실제 cached 두 모델이며
+  Chrome153.0.8010.12/Playwright1.63.0/AppleM5/16GiB/Python3.12.15/
+  mlx-audio0.5.8/Ollama0.35.1, ASR0.6B8bit/qwen3:4b-instruct Q4_K_M/context4096,
+  English→Korean/300ms silence/현재 quality boundary/6초 cap이다. HF offline/
+  Ollama cloud-disabled이며 microphone/기존 번역을 입력으로 대체하지 않았다.
+- 같은 Samantha165wpm 생성 WAV를 **3회**(fresh companion 첫 inference1+이후2) 재생했다.
+  모든 source/final을 terminal로 검토해 파란 우산/따뜻한 코트/역/오후3시/여행 목적을
+  확인했다. 한국어 finals는 동일하며 일본어가 없다. 일반 모델 정확도를 보장하지 않는다.
+  cue마다 **27 partial Paint + final revision28**, **41문자** final의 part 범위는
+  **0–29 / 30–40**이고 **6/6 final part Paint**를 확인했다. 각 part 두 줄/좌우 및
+  하단 안전 여백/전체 문자 순서/expiry가 통과했다. 숫자 근거는
+  docs/verification/latency/stream-long.json이며 독립 identity/revision/range/geometry/
+  paint arithmetic/queue 일관성 검사가 통과했다. sampled pending peak0ms/frame drop0/
+  utterance drop0은 50frame receipt 간격의 짧은 isolated clips 근거다.
+- 270×700의 실제 첫 final-part PNG3개를 view_image로 검토했다. 흰 outline/작은
+  어두운 배경/하단 중앙/두 줄 한국어가 읽힌다. 두 번째 part는 DOM 문자/Paint 근거이며
+  별도 screenshot/OCR는 없다. Paint start를 GPU 완료/화면 presentation으로 표현하지
+  않는다. 새 audio-end p50/p95/cold/loading 개선 수치는 측정하지 않았다. iteration5의
+  이전 commit/configuration 비교 수치는 보존하며 이번 context 수정의 속도라고 하지 않는다.
+- 네 번의 native Stop은 idle/active capture 없음/offscreen0/host0을 통과했다.
+  완료/만료 뒤 Stop이므로 **진행 중 inference 취소/교체/늦은 결과 실측은 아직 아니다**.
+  `npm run test:captions-browser` exit0의 normal/narrow/wrapper fullscreen/긴 final
+  모든 문자/controls/revision/expiry/clear/늦은 caption은 별도 fixture 근거다.
+  focused local/live/prepare/stream **63 passed/60.80초/exit0**, Paint/output unit2 passed다.
+- 실제 native capture/popup 닫기 상태에서 생성 음성이 재생되는 동안 비동기 청취 질문을
+  보냈으나 답변이 없었다. UI tool에는 speaker audio가 없어 **원음 청취는 미검증**이다.
+  unmuted/PCM 도착을 청취 확인으로 바꾸지 않는다. 다른 7a 구현/계측은 계속 진행 가능하다.
+- 최종 base `uv sync --locked` 뒤 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify`
+  exit0: **JS11+Python160**, failures/skips/warnings0,Python66.23초.
+  `uv lock --check`, `git diff --check`, 독립 JSON 검사 통과. 전용 browser/companion/
+  fixture/Ollama 종료,8765/8766/11434 listener없음. dependency/lock 변경 없음.
+  README 재현 명령/docs 상세 실패·성공·한계를 보존했다. 키/weights/audio/사용자 전사문/
+  임시 .ralph는 커밋하지 않는다.
+- **다음 iteration도7a**: 실제 inference 중 Stop/restart/provider/session 교체와
+  늦은 결과 거부, native Start loading/first inference 대비 prepared timing, 원음 청취
+  확인이 남아 있다. 다음 실제 긴 cue가 이전 cue의 timed parts보다 먼저 도착하는
+  연속 구절도 확인한다. 이번 isolated final의 모든 문자 성공을 그 overlap 성공으로
+  확대하지 않는다. 반복 문맥 품질 수정/isolated 긴 cue real Paint는 완료했으므로
+  재구현하지 않는다. 다음 구현/브라우저 검증은 외부 변경 없이 진행 가능하며,
+  전체 7a 완료에는 실제 원음 청취 확인이 필요하다. 7b(SourceAuto),8(TED600초),
+  9/최종완료는 남아 있다.

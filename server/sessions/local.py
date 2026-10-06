@@ -295,6 +295,9 @@ class OllamaTranslator:
             }
         ]
         for source, translation in context[-3:]:
+            # Repeated copies of this same phrase distort the small model's output.
+            if source == transcript.text:
+                continue
             messages.extend(
                 [
                     {"role": "user", "content": source[:1000]},
