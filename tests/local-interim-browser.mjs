@@ -13,7 +13,7 @@ import { traceCaptionPaints } from "./caption-paint.mjs";
 const phase = process.argv[2];
 assert.ok(["before", "after"].includes(phase));
 const trial = process.argv[3];
-assert.ok([undefined, "interval500", "interval1000"].includes(trial));
+assert.ok([undefined, "interval500", "interval1000", "first500", "first300"].includes(trial));
 assert.ok(!trial || phase === "after");
 await mkdir(".ralph", { recursive: true });
 const profile = await mkdtemp(resolve(".ralph/interim-browser-"));
@@ -122,6 +122,7 @@ try {
       if (command === "exit") break;
       if (command === "check") console.log(JSON.stringify(await worker.evaluate(() => chrome.storage.session.get("captureStatus"))));
       if (command === "measure") {
+        assert.ok(!["first500", "first300"].includes(trial), "Use continuous for the direct first-snapshot comparison");
         assert.ok(finishTrace && !measured);
         const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
         assert.equal(captureStatus.state, "capturing");
@@ -360,14 +361,20 @@ try {
         }
         const queueSamples = observed().filter((m) => ["sample", "receipt"].includes(m.metric));
         const receipt = observed().filter((m) => m.metric === "receipt").at(-1);
+        const preparation = metrics.find((m) => m.metric === "prepare");
+        assert.ok(preparation);
         const report = { phase, browser: context.browser().version(), realTabCapture: true, realLocalModels: true,
           measurement: "continuous browser audio to covering main-frame Paint; estimated PCM origin; not acoustic timing",
           playback: "three rounds, nine advancing clips, 400ms added pause; no inference or subtitle expiry waits",
           coldWarm: "cached weights and OS caches, fresh engine, selected Ollama model unloaded; first sample includes first inference",
-          baseline: "before disables only snapshots; models, prompt, VAD, preparation and token streaming identical",
+          baseline: ["first500", "first300"].includes(trial)
+            ? "after first500 changes only first voiced threshold; subsequent 500ms cadence and all other settings identical"
+            : "before disables only snapshots; models, prompt, VAD, preparation and token streaming identical",
           snapshotVoicedMs: metrics.find((m) => m.metric === "prepare")?.snapshotMs,
           firstSnapshotMs: metrics.find((m) => m.metric === "prepare")?.firstSnapshotMs,
           snapshotsEnabled: metrics.find((m) => m.metric === "prepare")?.snapshotsEnabled,
+          modelSettings: { asrModel: preparation.asrModel, textModel: preparation.textModel,
+            source: preparation.source, target: preparation.target, translationOptions: preparation.translationOptions },
           wavSha256: clips.map((clip) => createHash("sha256").update(clip).digest("hex")), trials, captions,
           asrCalls: observed().filter((m) => m.metric === "asr"), translationCalls: observed().filter((m) => m.metric === "translation"),
           queueAndRssSamples: queueSamples, prepareMs: metrics.find((m) => m.metric === "prepare")?.prepareMs,
@@ -382,9 +389,17 @@ try {
           report[`clip${clip}.${field}`] = { n: values.length, p50Ms: values[Math.ceil(values.length * .5) - 1] ?? null,
             p95Ms: values[Math.ceil(values.length * .95) - 1] ?? null };
         }
-        if (phase === "after") {
-          const before = JSON.parse(await readFile(".ralph/interim-continuous-browser-before.json", "utf8"));
+        if (phase === "after" && trial !== "first500") {
+          const baseline = trial === "first300" ? ".ralph/interim-continuous-browser-first500.json" : ".ralph/interim-continuous-browser-before.json";
+          const before = JSON.parse(await readFile(baseline, "utf8"));
+          report.comparisonBaseline = baseline;
           report.checks.sameAudio = JSON.stringify(report.wavSha256) === JSON.stringify(before.wavSha256);
+          if (trial === "first300") {
+            report.checks.sameSettingsExceptFirstSnapshot = ["browser", "realTabCapture", "realLocalModels", "measurement", "playback", "coldWarm", "baseline", "snapshotVoicedMs", "snapshotsEnabled"]
+              .every((key) => report[key] === before[key])
+              && JSON.stringify(report.modelSettings) === JSON.stringify(before.modelSettings)
+              && before.firstSnapshotMs === 500 && report.firstSnapshotMs === 300;
+          }
           report.checks.firstPaintImproved = [0, 1, 2].every((clip) => {
             const a = report[`clip${clip}.firstPaintFromVoiceStartMs`], b = before[`clip${clip}.firstPaintFromVoiceStartMs`];
             return a.n === 2 && b.n === 2 && a.p50Ms < b.p50Ms && a.p95Ms < b.p95Ms;
@@ -394,6 +409,7 @@ try {
         await mkdir("docs/verification/interim", { recursive: true });
         await writeFile(`docs/verification/interim/continuous-browser-${phase}${trial ? `-${trial}` : ""}${report.acceptancePassed ? "" : "-failed"}.json`, `${JSON.stringify(report, null, 2)}\n`);
         if (phase === "before") await writeFile(".ralph/interim-continuous-browser-before.json", `${JSON.stringify(report, null, 2)}\n`);
+        if (trial === "first500") await writeFile(".ralph/interim-continuous-browser-first500.json", `${JSON.stringify(report, null, 2)}\n`);
         measured = true;
         console.log(JSON.stringify({ report: report.checks, acceptancePassed: report.acceptancePassed, screenshot: `${profile}/continuous-long.png` }));
         assert.ok(report.acceptancePassed, "Continuous native interim checks failed; numeric failed report preserved");

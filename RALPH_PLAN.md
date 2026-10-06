@@ -2745,3 +2745,83 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   통과이며 runner/제품 source/기존 evidence diff없음이다. 새 test-only 직접 비교,
   README/docs/numeric failed evidence/plan을 Conventional Commit으로 보존한다.
   secret/weights/audio·transcript/.ralph/build는 커밋하지 않으며 7d/전체 완료는 미체크다.
+
+### Ralph iteration 15/30 — 2026-10-06 — 7d native first300 rejected, first500 restored
+
+- 다음 미완료 **7d만 진행, checkbox는 미체크 유지**다. 시작 worktree clean,
+  AGENTS.md 없음, `.ralph/verification.txt`는 `No completion verification attempted
+  in this run.`이다. 지정 checkout/일반 model cache/전용 로컬 app 검증만 사용했다.
+  agent/다른 worktree/credentials/cloud inference/새 모델/runner/criteria/dependency·lock/
+  push/publish 변경은 없다. 기존 capture/model/output 계약과 작은 구조는 유지했다.
+- 이전 iteration의 model-only first500→first300 비교를 **실제 native continuous
+  tabCapture/covering Paint**로 확장했다. 기존 browser harness/metrics에 test-only
+  `after first500`/`after first300`, 별도 ignored baseline/보고서, 실제 adapter model ID/
+  language·fixed options 계측, 동일 WAV/settings/정확한 500→300 guard를 추가했다.
+  각 clip warm first-Paint p50/p95 개선을 요구하며 기존 meaning/during-speech/final/
+  queue/drop 체크는 그대로다. 이 모드는 `continuous`만 허용하고 README에 명령을 적었다.
+- **두 native phase 모두 exit1/acceptance false**다. Chrome for Testing153.0.8010.12,
+  native toolbar Start→popup닫기→check→continuous→native Stop→stopped→exit다.
+  각 3round/9clip/**35453.499ms advancing media**, 약39초/400ms pause/중간 inference·
+  만료 대기없음이다. **12final 모두 covering Paint**, cue/revision/assignment/queue/drain/
+  drop0은 통과한다. 각 **craneMeaning3 + beforeNoon3 + duringSpeech4** 실패다.
+  duringSpeech는 warm weather/construction 각2개다. 실제 final ASR와 번역을 직접검토해
+  animal 오역/정오→오후 오류를 확인했다. first300은 firstPaintImproved도 실패한다.
+- warm **n2/clip** start→first Paint p50/p95(ms), first500→300:
+  weather **2103.982/2326.438→3351.721/3425.803**, construction
+  **4370.075/4800.738→5589.782/5734.349**, long
+  **1683.925/1700.729→1932.554/2075.063**다. end→last final은 각각
+  **1279.870/1509.402→2540.301/2637.592**, **1965.363/2049.245→2409.366/2553.933**,
+  **2349.442/2370.435→1918.142/3720.552**다. warm partial audio-position→Paint
+  **999.622/2094.234(n40)→2050.914/3378.238(n29)**는 token 포함 caption revision sample이다.
+  PCM origin/media 추정 + covering Chromium Paint이며 acoustic/physical screen 아님이다.
+  작은 n/순차 cache 조건이므로 일반 품질·속도 보장은 없고 model-event 개선을 Paint
+  개선으로 간주하지 않는다. 첫 round/first inference는 full numeric에 별도 보존했다.
+- ASR/text **67/54→73/51**, text complete/incomplete **15/39→15/36**, ASRbusy
+  **33786.857→35629.906ms**, text request합 **39530.332→39476.049ms**다.
+  caption84→77/source-change7→8/during-speech Paint26→17/coalesced8→15,
+  peak ASR/text **6500/1980→6500/2960ms**, finaldrain/drop0이다. 이 유한 입력의 bounded
+  queue 근거이며 10분·일반throughput은 아니다. incomplete는 취소된 중간 revision 포함이다.
+- AppleM5/16GiB/MLX Audio0.5.8/ASR0.6B8bit/Ollama0.35.1/Qwen3 4B Q4_K_M,
+  English→Korean/temp0/context4096/predict256/think false/HFoffline/Ollamaclouddisabled다.
+  freshengine/선택Ollamaunload/cachedweights·OS·compiler cache이며 coldcache아니다.
+  prepare **24061.999→3479.212ms**는 별도 cache차다. RSS samples445→441/peak
+  **150306816→120995840bytes**, MLXactive **1034293042→1034293034**/global
+  **1680166368→1680164312bytes**다. 합산하지 않고 전체 browser/Ollama RSS는 미측정,
+  memory 감소/GPU utilization 주장없음이다.
+- **제품 결정: 첫 voiced snapshot만 25frames/500ms로 복원**했다. 이 native workload에서
+  모든 clip warm first-Paint가 악화된 anchored300을 기각한다. 후속500ms/VAD/6초/단일
+  worker/queue/prompt/model/revision/읽기시간/유료 final-only 정책은 그대로다. 새로운
+  제품옵션/helper/API/추상화는 없다. 300ms는 model/native harness의 명시적 test-only
+  후보로 보존했다. 실제 paired run은 scalar 복원 전 동일한 effective500/300 override로
+  실행했다. 복원 후 별도native run은 주장하지 않으며 default와first500의 PCM/metrics
+  회귀로 동등 schedule을 확인했다. 이후제품 기본은 **500ms**, iteration13/14의300ms
+  기본 설명은 historical evidence다.
+- failing first: native modes **2fail/4pass/0.18s**, default300의 너무 이른 추론 회귀
+  **2fail/47deselected/0.18s**다. 복원 후 interim/native-metrics **55pass/0.86s**,
+  focusedRuff/Biome pass다. 중간 **53pass/2fail**은 제거된 extra snapshot의 coalescing
+  기대 count를 하나 줄여 해결했다. final/queue/lateoutput 기준은 유지하며 기존300ms
+  gated regression은 test-only threshold를 명시해서 silence/anchored cadence를 보존했다.
+- baseline text-only4개와 일반 English/Chinese prompt3개×4개(**12request**)도 확인했다.
+  construction의 animal 오류가 지속되어 모두 기각했다. spokeninstruction은 번역됐으나
+  모델/제품prompt 변경 근거로 사용하지 않았다. ASR/browser/일반accuracy 근거 아니다.
+- 실제 normal screenshot2개 + livebaseline 화면1개를 검토했다. 하단흰outlined text/작은
+  배경/기존문장+provisional동시표시/위 controls는 읽을 수 있으나 crane 의미는 틀리다.
+  전체문자·읽기시간/narrow/fullscreen/청취/깜빡임/inflightStop/provider·session/10분은
+  미검증이다. 두 post-measurement nativeStop은 capturedtab/host/offscreen **0/0/0**이다.
+  inflight 근거로 사용하지 않는다. browseraccess는 작동했고 새외부blocker는 없다.
+- fullfailednumeric/commands/exitcode/Stop/settings/독립audit은
+  `docs/verification/interim/browser-iteration15-first-snapshot-rejected.json`이다.
+  independentnumeric audit **exit0**: 배정/final/revision/Paint시각산술/exactpercentile/
+  sameWAV·settings/queue/drop/drain/pairedguard를 재계산했다. acceptancepass 아니다.
+  이전 report는 변경없고 생성audio/ownedprofile/이번ignoredbaseline·auditstate는 삭제,
+  ownedOllama SIGINTexit0/base uv sync --locked 복원/uv lock --check 통과다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python216**,
+  failures/skips/warnings0, Python **66.79s**다. git diff --check 통과,
+  8765/8766/11434 listener없음, runner/dependency·lock/기존numeric diff없음이다.
+  scalar복원/feature-local검증회귀/README/docs/failednumeric/plan을 Conventional Commit으로
+  보존한다. secrets/weights/audio·transcript/.ralph/build는 커밋하지 않는다.
+- **다음도7d**: construction/noon 의미와 warmcontinuous native during-speech 표시를
+  해결한다. unreadfinal/단일worker/queue를 지키며 paired native Paint를 다시 측정한다.
+  보이는 같은문장의 발화중 문맥교정/전체문자·읽기시간/narrow/fullscreen/원음청취/
+  inflight 수명도 완료해야 한다. model-only속도로 native성공을 주장하지 않는다.
+  이후7b→8→9이며 이번복원만으로7d/전체completion을 체크하지 않는다.

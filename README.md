@@ -217,10 +217,11 @@ before the hard limit to avoid cutting a word. This is a quiet audio boundary,
 not a guarantee of a complete sentence. ASR resamples to 16 kHz float32 in memory.
 Silence alone does not call either model. One dedicated ASR worker is shared across
 sessions. Local ASR with local Ollama takes its first cumulative PCM snapshot
-after 300 ms of voiced audio, then at
-500 ms, 1000 ms and subsequent half-second boundaries within the existing
-six-second speech boundary. The early snapshot adds inference work; provisional
-fragments can be incomplete or inaccurate and still need correction.
+after 500 ms of voiced audio, then at 1000 ms and subsequent half-second
+boundaries within the existing six-second speech boundary. Iteration 15 restored
+this threshold: the 300 ms candidate increased inference work and worsened warm
+first Paint in the paired continuous native test, despite faster model-only first
+events. Provisional fragments can be incomplete or inaccurate and need correction.
 These are repeated finite-array inferences, not native live PCM ingestion by MLX.
 Meaningful source changes trigger provisional translations of the same utterance;
 newer source cancels obsolete translation and replaces its caption with increasing
@@ -360,9 +361,9 @@ ten-minute public-video run, acoustic playback and complete appearance checks.
 
 For a bounded cadence comparison, add `interval500` or `interval1000` after
 `after` in `tests/local-interim-continuous.py` or `tests/local-interim-browser.mjs`.
-Both now take the first snapshot at 300 ms, followed by deadlines at multiples
-of the selected voiced-audio interval. Historical cadence reports used a 500 ms
-first snapshot; repeat both phases for a current comparison. The browser comparison
+Both take the first snapshot at 500 ms, followed by deadlines at multiples
+of the selected voiced-audio interval. Iterations 13–14 used a 300 ms first
+snapshot; repeat both phases for a current comparison. The browser comparison
 uses `continuous` and native Start/Stop. These
 test-only controls write distinct numeric reports and retain all acceptance
 checks. Run a fresh `before` browser phase first; model-only `after` still reads
@@ -370,8 +371,8 @@ the saved final-only control from `.ralph/interim-continuous-before.json`.
 They do not add a product setting or change VAD, models, prompt, queue limits,
 translation policy, or paid-provider behavior.
 
-To compare the previous 500 ms first snapshot directly with the current anchored
-300 ms first snapshot under continuous **model-only** load, run:
+To compare the retained 500 ms first snapshot directly with the rejected anchored
+300 ms candidate under continuous **model-only** load, run:
 
 ```sh
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
@@ -387,6 +388,26 @@ that baseline. Reports use distinct `continuous-after-first500/first300` names,
 include per-clip percentiles, and retain every meaning/finalization/queue check.
 Run these sequentially with the same Ollama instance and no competing model work.
 This comparison does not measure browser Paint or establish native appearance.
+
+For the direct **native tabCapture/Paint** comparison, with Ollama still running:
+
+```sh
+npm run build
+node tests/local-interim-browser.mjs after first500
+node tests/local-interim-browser.mjs after first300
+```
+
+Use native toolbar Start, close the popup, enter `continuous`, then native Stop,
+`stopped`, and `exit` in each process, including when meaning checks fail.
+`first500` writes ignored `.ralph/interim-continuous-browser-first500.json`;
+`first300` requires that fresh baseline, identical audio/model settings and
+500→300 ms thresholds, and lower warm first-Paint p50/p95 for every clip. Both
+retain subsequent 500 ms deadlines and all meaning/finalization/queue checks.
+Reports use distinct `continuous-browser-after-first500/first300` names, and
+failed checks retain `-failed.json` with exit 1. The first round includes first
+inference; warm samples are n=2 per clip. This finite test does not replace
+ten-minute public playback, listening or full appearance verification.
+Do not run other `uv` commands while a native phase owns the shared `.venv`.
 
 Iteration 6 rejected the one-second default: it reduced ASR cost but worsened
 final Paint latency and did not fix warm short-speech Paint or construction

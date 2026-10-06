@@ -17,7 +17,7 @@ from server.sessions.local import (
 phase = os.environ["INTERPRETER_INTERIM_PHASE"]
 assert phase in ("before", "after")
 trial = os.environ.get("INTERPRETER_INTERIM_TRIAL")
-assert trial in (None, "interval500", "interval1000")
+assert trial in (None, "interval500", "interval1000", "first500", "first300")
 assert trial is None or phase == "after"
 sessions = weakref.WeakSet()
 current_session = None
@@ -46,8 +46,12 @@ def initialize(self, *args, **kwargs):
     if phase == "before":
         kwargs["interim"] = False
     original_init(self, *args, **kwargs)
-    if trial:
+    if trial in ("interval500", "interval1000"):
         self.snapshot_frames = 25 if trial == "interval500" else 50
+    if trial == "first500":
+        self.first_snapshot_frames = 25
+    if trial == "first300":
+        self.first_snapshot_frames = 15
 
 
 def set_session(session):
@@ -67,6 +71,16 @@ async def prepare(self):
         snapshotMs=self.transcriber.snapshot_frames * 20,
         firstSnapshotMs=self.transcriber.first_snapshot_frames * 20,
         snapshotsEnabled=self.transcriber.interim,
+        asrModel=self.transcriber.model_id,
+        textModel=self.translator.model_id,
+        source=self.transcriber.language,
+        target=self.translator.target_language,
+        translationOptions={
+            "temperature": 0,
+            "num_ctx": 4096,
+            "num_predict": 256,
+            "think": False,
+        },
     )
 
 

@@ -314,20 +314,25 @@ def test_local_snapshots_arrive_during_speech_and_finalize_the_same_utterance(
         transcriber = local.MlxTranscriber(engine, "fixture", "English", interim=True)
         iterator = transcriber.transcribe(frames())
         try:
+            first_wait = asyncio.create_task(anext(iterator))
             for i in range(15):
                 audio.put_nowait(frame(i, True))
-            first = await asyncio.wait_for(anext(iterator), 1)
+            await asyncio.sleep(0.02)
+            assert calls == [] and not first_wait.done()
+            for i in range(15, 25):
+                audio.put_nowait(frame(i, True))
+            first = await asyncio.wait_for(first_wait, 1)
             assert not first.final
-            assert (first.audio_start_ms, first.audio_end_ms) == (0, 300)
+            assert (first.audio_start_ms, first.audio_end_ms) == (0, 500)
             next_snapshot = asyncio.create_task(anext(iterator))
-            for i in range(15, snapshot_frames):
+            second_end = 50
+            third_end = second_end + snapshot_frames
+            for i in range(25, second_end):
                 audio.put_nowait(frame(i, True))
             second = await asyncio.wait_for(next_snapshot, 1)
             assert not second.final
             assert second.utterance_id == first.utterance_id
             assert second.revision > first.revision
-            second_end = snapshot_frames
-            third_end = snapshot_frames * 2
             assert second.audio_end_ms == second_end * 20
             for i in range(second_end, third_end):
                 audio.put_nowait(frame(i, True))
@@ -344,20 +349,20 @@ def test_local_snapshots_arrive_during_speech_and_finalize_the_same_utterance(
             assert final.revision > third.revision
             assert final.audio_end_ms == third_end * 20
             assert [len(u.frames) for u in calls] == [
-                15,
+                25,
                 second_end,
                 third_end,
                 third_end + 15,
             ]
-            assert calls[1].frames[:15] == calls[0].frames
+            assert calls[1].frames[:25] == calls[0].frames
             assert transcriber.dropped_utterances == 0
-            for i in range(third_end + 15, third_end + 30):
+            for i in range(third_end + 15, third_end + 40):
                 audio.put_nowait(frame(i, True))
             restarted = await asyncio.wait_for(anext(iterator), 1)
             assert not restarted.final
             assert restarted.utterance_id != final.utterance_id
-            assert restarted.audio_end_ms == (third_end + 30) * 20
-            assert len(calls[-1].frames) == 15
+            assert restarted.audio_end_ms == (third_end + 40) * 20
+            assert len(calls[-1].frames) == 25
             audio.put_nowait(None)
             assert [t async for t in iterator] == []
         finally:
@@ -369,7 +374,7 @@ def test_local_snapshots_arrive_during_speech_and_finalize_the_same_utterance(
 
 
 @pytest.mark.parametrize(
-    "snapshot_frames,first_call,coalesced", [(25, 50, 10), (50, 50, 5)]
+    "snapshot_frames,first_call,coalesced", [(25, 50, 9), (50, 50, 5)]
 )
 @pytest.mark.parametrize("final_queued", [False, True])
 def test_slow_first_snapshot_is_emitted_even_when_its_final_queues(
@@ -523,7 +528,7 @@ def test_inflight_correction_remains_available_before_a_waiting_final(
             assert [t.revision for t in results] == list(range(1, len(results) + 1))
             assert len({t.utterance_id for t in results}) == 1
             assert len(calls) == 3
-            assert transcriber.coalesced_snapshots == (2 if final_queued else 1)
+            assert transcriber.coalesced_snapshots == (1 if final_queued else 0)
             assert transcriber.dropped_utterances == transcriber.pending_audio_ms == 0
         finally:
             release.set()
@@ -1197,6 +1202,8 @@ def test_early_snapshot_preserves_regular_cadence_and_ignores_silence(
 
     monkeypatch.setattr(local, "SpeechSegments", Segments)
     monkeypatch.setattr(local.MlxTranscriber, "snapshot_frames", snapshot_frames)
+    # Keep the rejected early candidate measurable without changing the default.
+    monkeypatch.setattr(local.MlxTranscriber, "first_snapshot_frames", 15)
 
     async def check():
         audio = asyncio.Queue()

@@ -12,16 +12,18 @@ from tests.test_local import frame
 
 
 @pytest.mark.parametrize(
-    "phase,interim,trial,snapshot_frames",
+    "phase,interim,trial,snapshot_frames,first_snapshot_frames",
     [
-        ("before", False, None, 25),
-        ("after", True, None, 25),
-        ("after", True, "interval500", 25),
-        ("after", True, "interval1000", 50),
+        ("before", False, None, 25, 25),
+        ("after", True, None, 25, 25),
+        ("after", True, "interval500", 25, 25),
+        ("after", True, "interval1000", 50, 25),
+        ("after", True, "first500", 25, 25),
+        ("after", True, "first300", 25, 15),
     ],
 )
 def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text(
-    monkeypatch, capsys, phase, interim, trial, snapshot_frames
+    monkeypatch, capsys, phase, interim, trial, snapshot_frames, first_snapshot_frames
 ):
     monkeypatch.setenv("INTERPRETER_INTERIM_PHASE", phase)
     if trial:
@@ -33,6 +35,11 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
         local.SpeechSegments.long_pause_frames,
     )
     monkeypatch.setattr(local.MlxEngine, "transcribe", lambda *_: "Private source")
+
+    async def prepare(_self):
+        pass
+
+    monkeypatch.setattr(local.LocalSession, "prepare", prepare)
 
     closed = []
 
@@ -65,13 +72,13 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
         session = local.LocalSession("measured", transcriber, translator)
         assert transcriber.interim is interim
         assert transcriber.snapshot_frames == snapshot_frames
-        assert transcriber.first_snapshot_frames == 15
+        assert transcriber.first_snapshot_frames == first_snapshot_frames
         assert (
             local.SpeechSegments.silence_frames,
             local.SpeechSegments.long_pause_frames,
         ) == (silence, pause)
         try:
-            module["set_session"](session)
+            await session.prepare()
             utterance = local.Utterance((frame(0, True),), 0, 20)
             assert (
                 engine.transcribe(utterance, "fixture", "English") == "Private source"
@@ -160,6 +167,17 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
     }
     assert all(m["sessionId"] == "measured" for m in metrics)
     assert "Private" not in json.dumps(metrics)
+    preparation = next(m for m in metrics if m["metric"] == "prepare")
+    assert preparation["firstSnapshotMs"] == first_snapshot_frames * 20
+    assert preparation["snapshotMs"] == snapshot_frames * 20
+    assert preparation["snapshotsEnabled"] is interim
+    assert (
+        preparation["asrModel"], preparation["textModel"],
+        preparation["source"], preparation["target"],
+    ) == ("fixture", "fixture", "English", "Korean")
+    assert preparation["translationOptions"] == {
+        "temperature": 0, "num_ctx": 4096, "num_predict": 256, "think": False,
+    }
     asr = next(m for m in metrics if m["metric"] == "asr")
     assert asr["startedAtMs"] <= asr["atMs"]
     assert (asr["audioMs"], asr["mlxActiveBytes"], asr["mlxPeakBytes"]) == (

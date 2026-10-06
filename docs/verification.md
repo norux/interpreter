@@ -4684,3 +4684,138 @@ Python tests**, no failures/skips/warnings; Python **66.84 s**. `uv lock --check
 and `git diff --check` pass. Runner, product source and prior evidence have no
 diff. All intended changes are committed; item 7d and overall completion remain
 unchecked.
+
+## Ralph iteration 15 — native first-snapshot comparison rejects 300 ms
+
+Continued unfinished **7d**, which remains unchecked. Read the plan and ignored
+verification note (`No completion verification attempted in this run.`); no
+repository AGENTS.md exists. Work stayed in this checkout, normal model caches
+and the dedicated local test browser. No agents, credentials, cloud inference,
+new models, runner/acceptance changes, dependency changes, push or publication.
+
+The previous iteration measured earlier **model events** at 300 ms. This
+iteration adds test-only `after first500` / `after first300` to the existing
+native harness and instrumented companion. The controls differ only in the first
+voiced threshold; subsequent deadlines remain at 500 ms multiples. Preparation
+metrics include actual adapter model IDs/languages and fixed translation options,
+without speech text. The candidate requires matching audio/settings and lower
+warm first-Paint p50/p95 for **every** clip, retaining all existing meaning,
+during-speech, finalization, queue and drop checks. `first500` stores a separate
+ignored baseline; `measure` rejects these modes so the continuous comparison
+cannot be mistaken for the isolated clip test. README contains the workflow.
+
+Commands, executed sequentially with the same owned Ollama instance:
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked --extra local
+npm run build
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs after first500
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-browser.mjs after first300
+```
+
+For both: native Extensions toolbar → Interpreter → Start, close popup, `check`
+confirmed capturing, `continuous`, native Stop, `stopped`, `exit`. Chrome for
+Testing **153.0.8010.12**, Apple M5 / 16 GiB, MLX Audio 0.5.8 / ASR 0.6B 8bit,
+Ollama 0.35.1 / Qwen3 4B Q4_K_M. English→Korean, temperature 0, context 4096,
+256 output tokens, think false; HF offline and Ollama cloud disabled. Each phase
+uses a fresh engine and unloads the selected Ollama model. Weights/OS/compiler
+caches remain warm; this is not a cold-cache comparison. Prepare times
+**24061.999→3479.212 ms** are separate cache conditions, not a speed claim.
+Each phase played nine advancing clips, **35453.499 ms** of media in approximately
+39 seconds with fixed 400 ms pauses, without inference/expiry waits between clips.
+The first round includes first inference; warm percentiles use **n=2 per clip**.
+
+Both processes exit **1**, with `acceptancePassed:false`. All nine clips preserve
+source details and Korean output, all **12** displayed utterances finalize and
+have a covering Paint, and queues drain with zero frame/ASR/text drops. Both fail
+**3 craneMeaning + 3 beforeNoon + 4 duringSpeech** checks. The during-speech
+failures are weather and construction in each warm round. Manual terminal review
+confirmed animal substitution despite correct construction ASR, and the noon
+deadline becomes an afternoon expression. Negation/umbrella/station/afternoon
+three checks pass; the incorrect meanings are still failures. Delivered source
+changes **7→8** do not establish successful visible semantic correction during
+speech. The 300 ms candidate additionally fails `firstPaintImproved`.
+
+Warm covering-Paint milliseconds, **first500→first300**:
+
+| Clip | start→first p50/p95 (n=2 each) | end→last final p50/p95 (n=2 each) |
+| --- | --- | --- |
+| Weather | 2103.982 / 2326.438 → 3351.721 / 3425.803 | 1279.870 / 1509.402 → 2540.301 / 2637.592 |
+| Construction | 4370.075 / 4800.738 → 5589.782 / 5734.349 | 1965.363 / 2049.245 → 2409.366 / 2553.933 |
+| Long | 1683.925 / 1700.729 → 1932.554 / 2075.063 | 2349.442 / 2370.435 → 1918.142 / 3720.552 |
+
+Warm provisional audio-position→Paint is **999.622 / 2094.234 ms (n=40)** versus
+**2050.914 / 3378.238 ms (n=29)**. These samples are painted caption revisions,
+including multiple token updates per cue, rather than independent utterances.
+Position uses the estimated PCM origin and caption audio end. Covering Chromium
+Paint is not acoustic latency or physical-display observation. Small samples,
+sequential cache conditions and different coalescing forbid a general performance
+conclusion. They do reject the early candidate on this required native workload.
+
+ASR calls **67→73**, busy sum **33786.857→35629.906 ms**; text calls **54→51**,
+complete/incomplete **15/39→15/36**, request-time sum **39530.332→39476.049 ms**.
+Incomplete requests include obsolete cancelled revisions. Caption events **84→77**,
+during-speech Paints **26→17**, coalesced snapshots **8→15**. Peak ASR/text waiting
+**6500/1980→6500/2960 ms**, with final drain and zero drops. This finite workload
+has bounded queues; it does not establish ten-minute throughput. RSS sample
+counts **445→441**, companion RSS peaks **150306816→120995840 bytes**, MLX active
+peaks **1034293042→1034293034**, global peaks **1680166368→1680164312 bytes**.
+Memory measures are separate, not added; browser/Ollama memory is unmeasured.
+No memory reduction or GPU-utilization claim is made.
+
+**Product decision:** restore only `MlxTranscriber.first_snapshot_frames` to
+**25 frames / 500 ms**. This removes the extra early inference while keeping
+provisional translation and all subsequent cadence/VAD/queue/revision/output
+behavior. The 300 ms candidate remains explicitly selectable in both test-only
+model/native harnesses. The paired native measurements ran before the scalar
+restoration with that identical effective 500 ms schedule; no post-restoration
+native run is claimed. Fixture regressions verify default/first500 equivalence.
+No new product option, model, prompt, helper or abstraction was introduced.
+
+Failing first: adding native modes produced **2 failed / 4 passed (0.18 s)**.
+The new default regression then reproduced inference too early at 300 ms:
+**2 failed / 47 deselected (0.18 s)** before restoring the scalar. Afterward,
+full interim/native metrics regressions **55 passed (0.86 s)**. Exact coalescing
+expectations decrease by one where the removed extra snapshot had been counted;
+final/late-output/queue assertions remain. The historical gated 300 ms test now
+explicitly selects that candidate and retains silence/anchored cadence coverage.
+Focused Ruff and Biome pass. An intermediate run had two coalescing-count failures
+(**53 pass / 2 fail**); correcting the schedule-specific counts resolved them.
+
+A baseline text-only review (four inputs) and twelve requests across three generic
+English/Chinese prompt candidates also retained construction/animal errors.
+The candidates translated the spoken command but did not repair the ambiguity;
+none was adopted. They are not ASR/browser or general quality evidence.
+
+The native long-speech screenshots and one live baseline screenshot were visually
+reviewed: readable bottom-centred white outlined text, compact dark background,
+coexisting prior sentence/provisional fragment and controls above the subtitle.
+The construction text is semantically wrong. Screenshots alone do not verify all
+characters/reading time, narrow/fullscreen, listening, or absence of flicker.
+Those checks, native in-flight Stop/provider/session changes and ten-minute public
+playback remain pending. Normal post-measurement Stop cleared captured tabs,
+caption hosts and offscreen contexts in both phases; it is not in-flight evidence.
+
+[Paired numeric evidence](verification/interim/browser-iteration15-first-snapshot-rejected.json)
+includes both complete failed reports, commands/exit codes, Stop checks, settings,
+source-free event/queue/memory records and independent numeric audit (**exit 0**).
+The audit recomputed assignments, final/revision counts, Paint arithmetic, exact
+percentiles, queue/drop/drain and paired guards. Audit consistency is not acceptance
+success. Generated audio/profiles and iteration-owned ignored baseline/audit files
+were deleted; owned Ollama exited 0 on SIGINT. Base `uv sync --locked` restored.
+
+Next is still **7d**: repair construction/noon meaning and warm continuous native
+during-speech display while preserving unread finals and bounded single-worker
+inference. Repeat paired native measurements for further candidates; do not infer
+Paint improvements from model events. Complete visible correction, full appearance,
+listening and in-flight lifecycle checks before checking 7d, then 7b→8→9. Browser
+access worked; no external access blocker was diagnosed.
+
+Final `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` **exit 0**: lint,
+typecheck, extension build, **12 JS + 216 Python tests**, zero failures/skips/
+warnings; Python **66.79 s**. `uv lock --check` and `git diff --check` pass.
+No listeners remain on 8765/8766/11434. Runner, dependency/lock definitions and
+previous numeric evidence are unchanged. Commit contains the scalar restoration,
+feature-local verification controls/regressions, README/docs/plan and the paired
+failed numeric evidence; no keys, weights, audio/transcripts, profiles or `.ralph`.

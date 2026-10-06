@@ -153,6 +153,8 @@ async def main():
         transcriber.snapshot_frames = 25 if trial_name == "interval500" else 50
     if trial_name == "first500":
         transcriber.first_snapshot_frames = 25
+    if trial_name == "first300":
+        transcriber.first_snapshot_frames = 15
     session = LocalSession(f"continuous-{phase}", transcriber, translator)
     samples, frame_lags, errors = [], [], []
     sources = [[] for _ in trials]

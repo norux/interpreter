@@ -155,7 +155,7 @@ class MlxEngine:
 
 
 class MlxTranscriber:
-    first_snapshot_frames = 15
+    first_snapshot_frames = 25
     snapshot_frames = 25
 
     def __init__(
