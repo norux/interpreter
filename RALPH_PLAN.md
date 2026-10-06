@@ -162,7 +162,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 
 목표: 일반 영상 하나에서 실제 음성을 가져오는 플랫폼 공통 입력을 구현한다.
 
-- [ ] V1. 선택 UI와 MediaCatalog를 구현한다. 영상/문서/frame identity를 갖고, 여러 영상·광고·SPA/iframe에서 자동으로 다른 영상으로 바뀌지 않는다.
+- [x] V1. 선택 UI와 MediaCatalog를 구현한다. 영상/문서/frame identity를 갖고, 여러 영상·광고·SPA/iframe에서 자동으로 다른 영상으로 바뀌지 않는다.
 - [ ] V2. 같은 출처 일반 영상의 Web Audio 입력을 구현한다. 영상이 이미 소유한 graph와 충돌을 처리하고, Stop·repeat Start 후 원래 재생/볼륨이 유지되는지 실제 소리를 확인한다.
 - [ ] V3. playback anchor로 영상 시간과 PCM 시간을 연결한다. seek·pause/resume·rate/source 변경 시 epoch를 바꾸고 이전 작업 결과를 버린다. 서로 다른 context의 performance.now를 직접 빼지 않는다.
 - [ ] V4. CORS 허용/미허용, 실제 무음, muted video, 교차 출처 iframe, blob/MSE·보호 영상 경로를 구분한다. 접근을 입증하지 못하면 원래 재생을 건드리지 않고 명시적으로 미지원 처리한다. crossOrigin 재설정/reload로 우회하지 않는다.
@@ -517,3 +517,67 @@ user audio/transcripts/runner state는 커밋하지 않는다. 사용자 앱/녹
 통과했고 core 차단은 없다. 다음 plan 항목은 V1 영상 선택/MediaCatalog지만 이번
 iteration에서 시작하지 않았다. 이후 stage checkbox와 plan은 보존한다.
 선택한 core만 완료이며 전체 framework/iPhone 완료를 주장하지 않는다.
+
+### 2026-10-06 / video / iteration 1/5 — V1
+
+관련 commit: 이 기록을 포함한 `feat: add explicit video catalog and selection`.
+
+수행한 변경: 다음 미완료 항목 V1의 page-owned `MediaCatalog`와 명시적 선택 UI를
+`packages/media-web`에 구현했다. opaque 영상 ID/document ID/host-assigned frame ID,
+label/viewport visibility/dimensions/playback 상태를 제공하고 DOM/URL/MediaStream은
+adapter 안에 둔다. 추천은 확인을 대체하지 않으며 다른 영상 재생·새 광고는 선택을
+바꾸지 않는다. source 교체/reload, source child·영상 remove/reinsert, SPA URL 변경,
+host의 same-URL route invalidation, pagehide/dispose는 handle을 폐기하고 null 선택을
+알려 재확인을 요구한다. 같은 JS task의 resolution도 pending mutation을 처리한다.
+frame마다 허용된 별도 owner가 필요하며 parent는 iframe DOM/권한에 접근하지 않는다.
+history API를 교체하지 않고 URL을 확인한다. same-URL router host는
+`invalidateDocument()`를 호출해야 한다. 실제 platform host 연결은 B4/S3 범위다.
+companion v0.1.0/설치 경로/기존 tab-mix capture/프로토콜/사용자 설정은 보존했다.
+
+실행한 명령과 결과:
+
+- PASS: 최종 `npm run test:framework:video` (exit 0, DOM/no-extension-ambient
+  adapter typecheck + Chromium 153.0.8010.12 실제 DOM V1 검사, top video 3개,
+  별도 frame owner 2개, main 320×180, page errors `[]`, `passed: true`).
+  현재 harness 범위는 V1만이며 JSON에 V2–V5 미검증을 명시한다.
+- PASS: 최종 `npm run verify` (exit 0, Biome 71 files/39 ms/no findings,
+  Ruff/typecheck/build, main 28 modules/40 ms + content 10 modules/6 ms,
+  JS 64 passed/0 failed/0 skipped/0 cancelled/14561.168125 ms,
+  Python 222 passed/66.90 s).
+- PASS: same-task fix 전 `npm run verify` (exit 0, Biome 71 files/24 ms,
+  Ruff/typecheck/build, JS 64 passed/0 failed/0 skipped/15027.675708 ms,
+  Python 222 passed/66.92 s). 위 최종 run이 마지막 코드를 다시 검증했다.
+- FAIL → FIXED: 첫 video command (exit 1, typecheck 뒤 harness line 16의
+  `SyntaxError: Unexpected token ')'`). build options closing brace 수정 후 통과.
+- FAIL → FIXED: 첫 verify (exit 1, Biome 71 files/37 ms, 새 fixture video의
+  `useMediaCaption` 3 errors, 이후 단계 미실행). silent fixture의 empty caption
+  track 추가 후 기존 lint rule/configuration을 유지한 전체 verify 통과.
+- FAIL → FIXED: expanded video command (exit 1, source child remove/reinsert 뒤
+  `page.waitForFunction: Timeout 30000ms exceeded`). 동일 최종 URL에도 owner
+  handle을 폐기하도록 수정한 뒤 같은 assertion 통과.
+- FAIL → FIXED: same-task regression video command (exit 1, detached/reinserted
+  target resolution `true !== false`). pending mutation을 동기 처리한 뒤 동일
+  assertion 유지/통과. 기존 acceptance를 제거하거나 약화하지 않았다.
+- PASS: 최종 targeted Biome (4 files/3 ms/no findings, exit 0). 초기 7개의
+  non-null warning은 live document window를 narrow한 local binding으로 해결했다.
+- PASS: 최종 문서 포함 `git diff --check` (exit 0, whitespace 오류 없음).
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, existing Chromium 153.0.8010.12. 실제 DOM identity/
+selection/navigation/frame isolation만 검증했다. 실제 playing 상태는 생성된 canvas
+video-only MediaStream으로 검사했으며 fake paused/ended property나 mock catalog가
+아니다. PCM/원래 소리/ASR 정확도·번역 품질/model load/Safari/iPhone은 미검증이다.
+`realSelectedVideoPCM: false`, `originalAudibility: "unverified"`,
+`asrAccuracy: "unverified"`를 기록했다. V2–V5 체크박스는 보존한다.
+
+실패·미검증과 증거 위치: [video 보고서](docs/verification/media-framework/video.md)의
+coverage/명령 표 및 committed harness/fixture. `.ralph/media-framework/video-1-v1-*.log`
+와 임시 bundle은 local 진단만이며 커밋하지 않는다. AGENTS.md/이전 video report/
+요청된 independent runner failure 파일은 없었다. 현재 V1 환경 차단은 없고
+blocked browser 접근·권한 우회가 없었다. credentials/model weights/user audio/
+transcripts/temporary runner state는 커밋하지 않는다. 사용자 앱·녹화·마운트·설정과
+관련 없는 파일을 보존했으며 dependency/model/app 설치·위임·push·게시를 하지 않았다.
+
+다음 미완료 항목: V2 같은 출처 Web Audio 입력, 기존 graph 충돌 처리와 실제 소리로
+Stop/repeat Start 후 원래 재생·볼륨 유지 검증. V1만 체크했고 이후 stage를 시작하지
+않았다. Stage video/전체 framework/iPhone 완료는 주장하지 않는다.
