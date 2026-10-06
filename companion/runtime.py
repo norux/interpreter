@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 HOST_NAME = "com.norux.interpreter"
 ASR_MODEL = "mlx-community/Qwen3-ASR-0.6B-8bit"
-TEXT_MODEL = "qwen3:4b-instruct"
+TEXT_MODEL = "qwen3.5:9b"
 
 
 def configuration():

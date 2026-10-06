@@ -5328,3 +5328,78 @@ signature. Developer ID signing, Apple notarization and release publication are
 pending. No Gatekeeper settings were changed. Automatic app updates are outside
 this first implementation. The installed first app remains in use; the final DMG
 is available for replacement after the current capture ends.
+
+## 2026 local model and Japanese verification (2026-10-06)
+
+The new-install text default is `qwen3.5:9b` across extension settings, server,
+companion setup and `.env.example`. This is the 2026
+[Qwen3.5 family](https://huggingface.co/Qwen/Qwen3.5-9B), packaged by
+[Ollama](https://ollama.com/library/qwen3.5:9b). Installed model files are
+6,550,825,550 bytes (Q4_K_M); its digest is retained in the numeric evidence.
+Translation keeps `think: false`, temperature 0 and context 4096. ASR remains
+`mlx-community/Qwen3-ASR-0.6B-8bit`. Existing saved extension settings are retained.
+
+The finite production-adapter comparison covers eight generated English texts
+and Japanese weather, long multi-clause speech, negation, past/future tense and
+AM/PM. The old Qwen3 4B lost time details and confused crane/bat senses. Qwen3.5
+4B improved some English clauses but mixed kana/Latin into Japanese translations
+and misinterpreted noon; a Korean instruction experiment did not resolve these
+errors, so it was rejected. Initial 9B output removed that language mixing, but
+reversed Japanese midnight/noon and still translated the bird crane as a machine.
+These are meaning failures despite successful final-stream completion.
+
+The time regression first failed on Japanese “not 12 AM, but 12 PM.” The product
+instruction now explicitly defines 12 AM/PM and preserves the association between
+a negation and its time. `tests/local-text-models.py` adds the opposite direction
+and a 9 AM/3 PM case. The updated adapter run **exits 0**: all six Japanese
+language-mixing/selected-meaning-anchor checks pass, with final output on all
+14 generated texts. Checks are deliberately limited; English bird/crane ambiguity
+and the invitation-to-statement wording shift in the weather fixture remain.
+This is a trial default, not a claim of general Japanese or English accuracy.
+The numeric evidence is [interim/qwen35-comparison.json](verification/interim/qwen35-comparison.json).
+
+On this Apple M5/16 GB machine, the updated 14-text run's median first output was
+270.282 ms and completion 1060.263 ms. The initial 12-text runs measured
+97.136/633.973 ms for old Qwen3 4B, 148.702/581.607 ms for Qwen3.5 4B and
+257.312/924.760 ms for initial 9B. These are finite adapter measurements with the
+user's companion still running, different fixture counts for the final run and
+no isolated repeated benchmark, capture latency, Paint or real-video acceptance.
+Historical old-model capture latency results are not relabelled as 9B results.
+
+`tests/local-japanese-model.py` generates four short Kyoko Japanese clips and
+runs actual MLX ASR followed by the selected 9B translator. It **exits 1**, after
+writing every sample, because only one of four normalized transcripts matches.
+Two change the source meaning: “do not cancel” becomes “do not emphasize,” and
+“send tomorrow” becomes “come tomorrow.” The third mismatch uses a nonstandard
+Chinese word for noon; its Korean translation still preserves noon. All four
+produce final Korean output, but that does not undo ASR meaning errors.
+[interim/japanese-asr.json](verification/interim/japanese-asr.json) separates
+literal mismatches from meaning review. These generated component checks bypass
+VAD, tabCapture and interim decoding; natural Japanese video acceptance is pending.
+
+`npm run verify` passes lint, typecheck, extension build, **13 JS tests** and
+**222 Python tests in 67.08s**. An initial lint run failed on one long line in the
+new text harness; it was fixed before the passing run. The ASR fidelity failure
+above remains visible rather than being counted as a successful accuracy check.
+
+Browser automation policy rejected access to the running Chrome extension's
+settings page. Its saved selection was not changed through another surface.
+The current installed first-stage companion remains active and is not overwritten
+while its libraries are in use. Apply the new packaged build after Stop, reload
+the extension and enter `qwen3.5:9b` in Text model for previously saved settings.
+Japanese tests require Source language Japanese. Final-build native full-capture
+acceptance remains pending, as described in the companion section above.
+
+The updated `npm run build:companion` **exits 0** and the DMG passes
+`shasum -a 256 -c SHA256SUMS`. Running the committed
+`tests/companion-model-smoke.py` with the final app's own Python `-I -B` and offline
+ASR settings **exits 0**: cached ASR prepares using the macOS-14-targeted bundled
+wheels, the bundled server selects 9B, the Japanese time/negation fixture passes
+against the existing Ollama, and strict signature verification passes before and
+after imports/inference. Compact evidence is
+[companion/model-smoke.json](verification/companion/model-smoke.json).
+This is an isolated bundled-runtime/model check, not a new native tabCapture or
+GUI installation test. A subsequent focused lint caught a second long assertion
+line in the ASR harness; it was fixed and final lint passes. Full unit tests were
+not repeated solely for that assertion-message formatting or the added standalone
+packaged-runtime smoke harness.

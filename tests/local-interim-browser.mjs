@@ -78,7 +78,7 @@ try {
   const extensionId = new URL(worker.url()).host;
   const unloaded = await fetch("http://127.0.0.1:11434/api/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "qwen3:4b-instruct", keep_alive: 0 }),
+    body: JSON.stringify({ model: "qwen3.5:9b", keep_alive: 0 }),
   });
   assert.ok(unloaded.ok);
   companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", "interim_browser_metrics:app", "--app-dir", "tests",

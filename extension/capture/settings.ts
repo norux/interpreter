@@ -9,5 +9,5 @@ export interface SessionSettings {
 
 export const defaultSettings: SessionSettings = {
   provider: "local", asr: "local", sourceLanguage: "en", targetLanguage: "ko",
-  asrModel: "mlx-community/Qwen3-ASR-0.6B-8bit", textModel: "qwen3:4b-instruct",
+  asrModel: "mlx-community/Qwen3-ASR-0.6B-8bit", textModel: "qwen3.5:9b",
 };

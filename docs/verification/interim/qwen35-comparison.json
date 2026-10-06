@@ -1,0 +1,629 @@
+{
+  "generatedText": true,
+  "realCapture": false,
+  "inferenceConditions": "Finite adapter calls; user companion remained active; not an isolated latency benchmark",
+  "models": {
+    "qwen3:4b-instruct": {
+      "digest": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+      "bytes": 2497293803,
+      "samples": [
+        {
+          "fixture": 0,
+          "sourceLanguage": "en",
+          "firstOutputMs": 121.146,
+          "completionMs": 703.947,
+          "characters": 35,
+          "interim": 20,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 1,
+          "sourceLanguage": "en",
+          "firstOutputMs": 101.809,
+          "completionMs": 1043.034,
+          "characters": 65,
+          "interim": 38,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 2,
+          "sourceLanguage": "en",
+          "firstOutputMs": 96.894,
+          "completionMs": 636.132,
+          "characters": 32,
+          "interim": 21,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 3,
+          "sourceLanguage": "en",
+          "firstOutputMs": 97.952,
+          "completionMs": 520.401,
+          "characters": 22,
+          "interim": 16,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 4,
+          "sourceLanguage": "en",
+          "firstOutputMs": 95.869,
+          "completionMs": 445.866,
+          "characters": 21,
+          "interim": 13,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 5,
+          "sourceLanguage": "en",
+          "firstOutputMs": 97.377,
+          "completionMs": 811.361,
+          "characters": 29,
+          "interim": 22,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 6,
+          "sourceLanguage": "en",
+          "firstOutputMs": 99.895,
+          "completionMs": 499.794,
+          "characters": 21,
+          "interim": 14,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 7,
+          "sourceLanguage": "en",
+          "firstOutputMs": 95.902,
+          "completionMs": 559.483,
+          "characters": 30,
+          "interim": 18,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 8,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 103.991,
+          "completionMs": 749.038,
+          "characters": 37,
+          "interim": 23,
+          "final": true,
+          "containsKana": true,
+          "containsLatin": false
+        },
+        {
+          "fixture": 9,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 96.214,
+          "completionMs": 907.502,
+          "characters": 59,
+          "interim": 33,
+          "final": true,
+          "containsKana": true,
+          "containsLatin": false
+        },
+        {
+          "fixture": 10,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 95.639,
+          "completionMs": 631.813,
+          "characters": 30,
+          "interim": 21,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 11,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 96.184,
+          "completionMs": 532.477,
+          "characters": 29,
+          "interim": 17,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        }
+      ],
+      "medianFirstOutputMs": 97.13550000000001,
+      "medianCompletionMs": 633.9725
+    },
+    "qwen3.5:4b": {
+      "digest": "d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04",
+      "bytes": 3324173934,
+      "samples": [
+        {
+          "fixture": 0,
+          "sourceLanguage": "en",
+          "firstOutputMs": 462.443,
+          "completionMs": 889.026,
+          "characters": 33,
+          "interim": 15,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 1,
+          "sourceLanguage": "en",
+          "firstOutputMs": 205.693,
+          "completionMs": 1148.481,
+          "characters": 61,
+          "interim": 31,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 2,
+          "sourceLanguage": "en",
+          "firstOutputMs": 155.553,
+          "completionMs": 590.058,
+          "characters": 29,
+          "interim": 16,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 3,
+          "sourceLanguage": "en",
+          "firstOutputMs": 140.775,
+          "completionMs": 513.409,
+          "characters": 25,
+          "interim": 14,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 4,
+          "sourceLanguage": "en",
+          "firstOutputMs": 142.538,
+          "completionMs": 596.172,
+          "characters": 30,
+          "interim": 17,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 5,
+          "sourceLanguage": "en",
+          "firstOutputMs": 148.055,
+          "completionMs": 465.726,
+          "characters": 19,
+          "interim": 12,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 6,
+          "sourceLanguage": "en",
+          "firstOutputMs": 142.107,
+          "completionMs": 573.156,
+          "characters": 24,
+          "interim": 16,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 7,
+          "sourceLanguage": "en",
+          "firstOutputMs": 145.108,
+          "completionMs": 542.868,
+          "characters": 29,
+          "interim": 15,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 8,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 171.603,
+          "completionMs": 544.405,
+          "characters": 31,
+          "interim": 14,
+          "final": true,
+          "containsKana": true,
+          "containsLatin": false
+        },
+        {
+          "fixture": 9,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 149.348,
+          "completionMs": 1058.048,
+          "characters": 67,
+          "interim": 30,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": true
+        },
+        {
+          "fixture": 10,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 166.296,
+          "completionMs": 623.106,
+          "characters": 26,
+          "interim": 14,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        },
+        {
+          "fixture": 11,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 143.556,
+          "completionMs": 517.637,
+          "characters": 28,
+          "interim": 14,
+          "final": true,
+          "containsKana": false,
+          "containsLatin": false
+        }
+      ],
+      "medianFirstOutputMs": 148.7015,
+      "medianCompletionMs": 581.607
+    },
+    "qwen3.5:9b": {
+      "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+      "bytes": 6550825550,
+      "samples": [
+        {
+          "fixture": 0,
+          "sourceLanguage": "en",
+          "firstOutputMs": 379.923,
+          "completionMs": 1118.937,
+          "characters": 34,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 15,
+          "final": true
+        },
+        {
+          "fixture": 1,
+          "sourceLanguage": "en",
+          "firstOutputMs": 264.414,
+          "completionMs": 1950.486,
+          "characters": 69,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 33,
+          "final": true
+        },
+        {
+          "fixture": 2,
+          "sourceLanguage": "en",
+          "firstOutputMs": 266.865,
+          "completionMs": 1118.771,
+          "characters": 28,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 18,
+          "final": true
+        },
+        {
+          "fixture": 3,
+          "sourceLanguage": "en",
+          "firstOutputMs": 249.66,
+          "completionMs": 857.632,
+          "characters": 26,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 13,
+          "final": true
+        },
+        {
+          "fixture": 4,
+          "sourceLanguage": "en",
+          "firstOutputMs": 246.619,
+          "completionMs": 717.113,
+          "characters": 19,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 10,
+          "final": true
+        },
+        {
+          "fixture": 5,
+          "sourceLanguage": "en",
+          "firstOutputMs": 250.273,
+          "completionMs": 864.37,
+          "characters": 17,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 12,
+          "final": true
+        },
+        {
+          "fixture": 6,
+          "sourceLanguage": "en",
+          "firstOutputMs": 247.971,
+          "completionMs": 1003.008,
+          "characters": 26,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 16,
+          "final": true
+        },
+        {
+          "fixture": 7,
+          "sourceLanguage": "en",
+          "firstOutputMs": 256.109,
+          "completionMs": 788.571,
+          "characters": 22,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 11,
+          "final": true
+        },
+        {
+          "fixture": 8,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 276.321,
+          "completionMs": 985.149,
+          "characters": 34,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 15,
+          "final": true
+        },
+        {
+          "fixture": 9,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 258.515,
+          "completionMs": 1633.497,
+          "characters": 55,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 26,
+          "final": true
+        },
+        {
+          "fixture": 10,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 262.936,
+          "completionMs": 779.327,
+          "characters": 21,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 11,
+          "final": true
+        },
+        {
+          "fixture": 11,
+          "sourceLanguage": "ja",
+          "firstOutputMs": 250.538,
+          "completionMs": 814.208,
+          "characters": 29,
+          "containsKana": false,
+          "containsLatin": false,
+          "interim": 12,
+          "final": true
+        }
+      ],
+      "medianFirstOutputMs": 257.312,
+      "medianCompletionMs": 924.7595
+    }
+  },
+  "qwen35_4bDecision": "Rejected: Japanese mixed output and noon/midnight error, persisting after a Korean-only instruction experiment",
+  "qwen35_9bBeforeTimeRule": "No kana or Latin mixing on these generated fixtures, but Japanese noon/midnight was reversed and an English bird was translated as a machine",
+  "updatedPrompt": {
+    "generatedText": true,
+    "realCapture": false,
+    "qualityCheckScope": "Japanese language mixing and selected meaning anchors; not general translation accuracy",
+    "models": {
+      "qwen3.5:9b": {
+        "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+        "bytes": 6550825550,
+        "samples": [
+          {
+            "fixture": 0,
+            "sourceLanguage": "en",
+            "firstOutputMs": 367.082,
+            "completionMs": 1085.053,
+            "characters": 34,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": null,
+            "interim": 15,
+            "final": true
+          },
+          {
+            "fixture": 1,
+            "sourceLanguage": "en",
+            "firstOutputMs": 285.021,
+            "completionMs": 1848.09,
+            "characters": 65,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": null,
+            "interim": 30,
+            "final": true
+          },
+          {
+            "fixture": 2,
+            "sourceLanguage": "en",
+            "firstOutputMs": 265.741,
+            "completionMs": 1114.673,
+            "characters": 29,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": null,
+            "interim": 18,
+            "final": true
+          },
+          {
+            "fixture": 3,
+            "sourceLanguage": "en",
+            "firstOutputMs": 271.606,
+            "completionMs": 903.318,
+            "characters": 26,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": null,
+            "interim": 13,
+            "final": true
+          },
+          {
+            "fixture": 4,
+            "sourceLanguage": "en",
+            "firstOutputMs": 260.273,
+            "completionMs": 733.243,
+            "characters": 19,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": null,
+            "interim": 10,
+            "final": true
+          },
+          {
+            "fixture": 5,
+            "sourceLanguage": "en",
+            "firstOutputMs": 266.844,
+            "completionMs": 880.881,
+            "characters": 17,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": null,
+            "interim": 12,
+            "final": true
+          },
+          {
+            "fixture": 6,
+            "sourceLanguage": "en",
+            "firstOutputMs": 263.698,
+            "completionMs": 1028.615,
+            "characters": 26,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": null,
+            "interim": 16,
+            "final": true
+          },
+          {
+            "fixture": 7,
+            "sourceLanguage": "en",
+            "firstOutputMs": 268.958,
+            "completionMs": 837.372,
+            "characters": 23,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": null,
+            "interim": 12,
+            "final": true
+          },
+          {
+            "fixture": 8,
+            "sourceLanguage": "ja",
+            "firstOutputMs": 313.54,
+            "completionMs": 1026.501,
+            "characters": 34,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": true,
+            "interim": 15,
+            "final": true
+          },
+          {
+            "fixture": 9,
+            "sourceLanguage": "ja",
+            "firstOutputMs": 274.956,
+            "completionMs": 1648.207,
+            "characters": 55,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": true,
+            "interim": 26,
+            "final": true
+          },
+          {
+            "fixture": 10,
+            "sourceLanguage": "ja",
+            "firstOutputMs": 278.176,
+            "completionMs": 1313.047,
+            "characters": 32,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": true,
+            "interim": 16,
+            "final": true
+          },
+          {
+            "fixture": 11,
+            "sourceLanguage": "ja",
+            "firstOutputMs": 271.74,
+            "completionMs": 1035.472,
+            "characters": 36,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": true,
+            "interim": 16,
+            "final": true
+          },
+          {
+            "fixture": 12,
+            "sourceLanguage": "ja",
+            "firstOutputMs": 265.466,
+            "completionMs": 1215.713,
+            "characters": 32,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": true,
+            "interim": 16,
+            "final": true
+          },
+          {
+            "fixture": 13,
+            "sourceLanguage": "ja",
+            "firstOutputMs": 264.326,
+            "completionMs": 1118.454,
+            "characters": 30,
+            "containsKana": false,
+            "containsLatin": false,
+            "missingMeaningAnchors": [],
+            "japaneseChecksPassed": true,
+            "interim": 14,
+            "final": true
+          }
+        ],
+        "medianFirstOutputMs": 270.28200000000004,
+        "medianCompletionMs": 1060.2625
+      }
+    }
+  },
+  "selectedModel": "qwen3.5:9b",
+  "decision": "Trial default: Japanese meaning-anchor checks 6/6 after explicit AM/PM and negation rules; English bird/crane ambiguity remains. This is not general translation accuracy or a real-capture latency benchmark.",
+  "asrSeparateReport": "japanese-asr.json"
+}

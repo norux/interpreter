@@ -248,7 +248,7 @@ uv sync --locked --extra local
 uv run --locked --extra local python -c 'from huggingface_hub import snapshot_download; snapshot_download("mlx-community/Qwen3-ASR-0.6B-8bit", token=False)'
 # Install Ollama using https://ollama.com/download, then start it in another terminal:
 ollama serve
-ollama pull qwen3:4b-instruct
+ollama pull qwen3.5:9b
 # Restart the companion using your unpacked extension ID:
 INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
   HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
@@ -257,8 +257,8 @@ INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
 ```
 
 The defaults are `mlx-community/Qwen3-ASR-0.6B-8bit` and Ollama
-`qwen3:4b-instruct` (Q4_K_M). Set exported `INTERPRETER_ASR_MODEL` and
-`INTERPRETER_TEXT_MODEL` for compatible IDs. The ASR adapter expects an
+`qwen3.5:9b` (Q4_K_M, about 6.6 GB of model files). Set exported
+`INTERPRETER_ASR_MODEL` and `INTERPRETER_TEXT_MODEL` for compatible IDs. The ASR adapter expects an
 MLX-converted Qwen3-ASR checkpoint with its tokenizer/feature extractor and a
 `generate` result carrying `.text`; arbitrary Hugging Face models are not supported.
 The text adapter expects an installed Ollama chat model that supports
@@ -267,6 +267,32 @@ unverified. TranslateGemma is a candidate requiring its own template validation.
 Use `INTERPRETER_SOURCE_LANGUAGE=English` and `INTERPRETER_TARGET_LANGUAGE=Korean`
 to change language names until the settings UI is implemented. ASR must support
 the chosen source language.
+
+Existing extension settings retain their saved model. To try the new local model,
+Stop capture, set **Text model** to `qwen3.5:9b`, then Start again. For Japanese,
+set **Source language** to Japanese. The model is from the 2026
+[Qwen3.5 family](https://huggingface.co/Qwen/Qwen3.5-9B), with an
+[Ollama package](https://ollama.com/library/qwen3.5:9b). Thinking is disabled for
+translation. The selected text fixtures improve over the old 4B model, but an
+English bird/crane ambiguity and Japanese ASR errors remain; see
+[verification](docs/verification.md#2026-local-model-and-japanese-verification-2026-10-06).
+
+Finite local checks (installed Ollama must already be running):
+
+```sh
+PYTHONPATH=. uv run --locked python tests/local-text-models.py \
+  --models qwen3.5:9b --report /tmp/interpreter-text-models.json
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-japanese-model.py \
+  --text-model qwen3.5:9b --report /tmp/interpreter-japanese.json
+```
+
+The first check covers generated English text and six Japanese cases, including
+long clauses, negation, time, future tense and mixed-language output. Its Japanese
+meaning anchors are limited checks, not a general accuracy score. The second uses
+macOS Kyoko speech with real MLX ASR and optional translation, without tab capture.
+It writes all numeric results before failing on transcript mismatches; currently
+the small ASR model does fail that check.
 
 The worklet sends mono 24 kHz PCM16. Local VAD uses an 8 kHz decision stream,
 200 ms pre-roll, 300 ms silence boundary, at least 200 ms speech, and a six-second

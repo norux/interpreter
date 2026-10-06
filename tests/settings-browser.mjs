@@ -33,7 +33,7 @@ try {
   await popup.locator("#start:enabled").waitFor();
   assert.equal(await popup.locator('[name="sourceLanguage"]').inputValue(), "en");
   assert.equal(await popup.locator('[name="targetLanguage"]').inputValue(), "ko");
-  assert.equal(await popup.locator('[name="textModel"]').inputValue(), "qwen3:4b-instruct");
+  assert.equal(await popup.locator('[name="textModel"]').inputValue(), "qwen3.5:9b");
   await popup.locator('[name="provider"]').selectOption("luna");
   await popup.locator('[name="asr"]').selectOption("openai");
   await popup.locator('[name="sourceLanguage"]').selectOption("ja");

@@ -194,7 +194,7 @@ try {
           const restored = configurations.find((change) => change.provider === "local" && change.atMs > report.initialProviderChange.interruptedAtMs);
           assert.ok(restored && restored.atMs <= starts[1], "Restore Local · Ollama through the native popup before Start");
           const preparations = metrics.filter((m) => m.metric === "prepare");
-          assert.ok(preparations.every((m) => [oldSession, restartedSession].includes(m.sessionId) && m.textModel === "qwen3:4b-instruct"), "Provider selection must not prepare a cloud session");
+          assert.ok(preparations.every((m) => [oldSession, restartedSession].includes(m.sessionId) && m.textModel === "qwen3.5:9b"), "Provider selection must not prepare a cloud session");
           report.localRestoredAtMs = restored.atMs;
           report.checks.noCloudSession = true;
         }

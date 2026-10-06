@@ -72,7 +72,7 @@ async def main():
         async with httpx.AsyncClient(trust_env=False) as client:
             response = await client.post(
                 "http://127.0.0.1:11434/api/generate",
-                json={"model": "qwen3:4b-instruct", "keep_alive": 0},
+                json={"model": TEXT_MODEL, "keep_alive": 0},
             )
             response.raise_for_status()
         engine = MeasuredEngine()
@@ -170,7 +170,7 @@ async def main():
     report = {
         "label": label,
         "asrModel": ASR_MODEL,
-        "textModel": "qwen3:4b-instruct",
+        "textModel": TEXT_MODEL,
         "source": "English",
         "target": "Korean",
         "speech": "macOS Samantha 165 wpm",
