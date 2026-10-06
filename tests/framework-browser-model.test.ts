@@ -10,17 +10,20 @@ test("model repository readiness, cancellation, cache ownership and failures", a
   const originals = ["caches", "navigator", "fetch"].map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const);
   const records = new Map<string, Response>();
   const removed: string[] = [];
+  let cacheExists = false;
   const cache = {
     match: async (key: string) => records.get(key)?.clone(),
     put: async (key: string, response: Response) => { records.set(key, response); },
   } as unknown as Cache;
   const storage = { estimate: async () => ({ quota: requiredBytes * 2, usage: 0 }) };
   Object.defineProperty(globalThis, "caches", { configurable: true, value: {
-    open: async (name: string) => { assert.equal(name, modelCacheName); return cache; },
-    delete: async (name: string) => { removed.push(name); records.clear(); return true; },
+    has: async (name: string) => { assert.equal(name, modelCacheName); return cacheExists; },
+    open: async (name: string) => { assert.equal(name, modelCacheName); cacheExists = true; return cache; },
+    delete: async (name: string) => { removed.push(name); records.clear(); cacheExists = false; return true; },
   } });
   Object.defineProperty(globalThis, "navigator", { configurable: true, value: { storage, onLine: false } });
   function cached() {
+    cacheExists = true;
     for (const file of modelFiles) records.set(modelUrl(file.path), new Response("fixture metadata only", { headers: { "Content-Length": String(file.bytes) } }));
   }
   try {
@@ -55,6 +58,7 @@ test("model repository readiness, cancellation, cache ownership and failures", a
       await repository.evict(preparationModel);
       assert.equal(disposed, 1); assert.deepEqual(removed, [modelCacheName]);
       assert.equal((await repository.status(preparationModel)).state, "evicted");
+      assert.equal(cacheExists, false, "Reading evicted status must not recreate the deleted cache");
     });
     await context.test("offline first run and insufficient quota stay failed without invoking the loader", async () => {
       let loads = 0;

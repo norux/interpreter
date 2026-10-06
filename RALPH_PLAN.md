@@ -175,7 +175,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 
 목표: companion/Ollama 서버 없이 실제 영상 음성 인식·번역·자막이 동작하는 Chrome 빌드.
 
-- [ ] B1. browser engine의 execution host/worker와 model repository를 구현한다. 모델 준비의 ID·버전·다운로드·캐시·실제 로드 상태를 표시하고 document/user activation 제약을 처리한다.
+- [x] B1. browser engine의 execution host/worker와 model repository를 구현한다. 모델 준비의 ID·버전·다운로드·캐시·실제 로드 상태를 표시하고 document/user activation 제약을 처리한다.
 - [ ] B2. 일본어/영어를 지원하는 browser ASR 후보를 비교한다. WebGPU/WASM 실제 실행, 메모리와 지연·정확도 증거를 남기고 기본 모델을 선택한다. 큐 과부하·GPU loss·cancel을 검증한다.
 - [ ] B3. Chrome Translator document adapter를 구현하고 실제 일본어/영어 → 한국어 지원을 검사한다. 최신 원문 revision과 번역을 정확히 짝짓고 원문을 먼저 표시하며 final 작업이 partial에 밀리지 않게 한다.
 - [ ] B4. 새 Chrome 단독 빌드에 선택 영상 입력·엔진·공통 정책·원문/시간/번역 화면을 연결한다. 기존 companion 빌드의 native messaging/설치 경로는 보존하며 새 빌드에는 필요한 권한만 포함한다.
@@ -990,3 +990,38 @@ transcripts/임시 state commit은 없다.
 환경 또는 누락된 host 동작의 새 근거를 제공한 뒤 unchanged visibility assertion과
 나머지 B1 checks를 재실행해야 한다. B2–B6 및 Safari/iPhone은 모두 미완료다.
 이 iteration은 progress commit 후 RALPH_BLOCKED로 종료한다.
+
+### 2026-10-07 / chrome / B1 중단 원인 조사 및 수정
+
+관련 commit: 이 기록을 포함한 `fix: unblock browser preparation lifecycle acceptance`.
+
+원인은 Playwright 1.63.0의 기본 focus emulation이었다. Chromium은 해당 CDP
+session이 잡은 capture handle로 background tab도 visible로 유지한다. 별도 CDP
+session에서 false를 보내거나 browser startup flag를 제거해도 기존 session의
+handle은 해제되지 않는다. 같은 test-owned Chromium의 native background tab에서
+hidden → focus emulation true로 visible → 동일 session의 false로 hidden → 실제
+foreground 전환으로 visible을 직접 확인했다. 사용자 browser/profile/settings는
+변경하지 않았으며 synthetic event/property override로 검사를 대체하지 않았다.
+
+검증 harness는 bundled Chromium을 새 임시 profile에서 실행하고 default context에
+`connectOverCDP(..., { noDefaults: true })`로 연결한다. 기존 10초 hidden/visible
+assertion을 보존하고 owned process/profile을 정리한다. 이후 처음 도달한 실제
+eviction 검사에서 status가 삭제한 빈 캐시를 재생성하는 오류도 확인했다. 실패하는
+회귀 assertion을 먼저 추가하고 status가 `caches.has`를 확인하게 수정했다.
+
+- FAIL → FIXED: 첫 corrected browser run은 native hidden/visible을 통과한 뒤
+  삭제한 cache가 남는 assertion으로 exit 1. Port 회귀도 `Reading evicted status
+  must not recreate the deleted cache`로 실패했고 같은 assertion을 유지해 수정했다.
+- PASS: `npm run test:framework:chrome:preparation`, exit 0. Typecheck/5 port tests/
+  별도 build와 11개 actual browser 검사 모두 통과. 실제 hidden/visible lifecycle,
+  eviction/disposal/production UI 포함, page errors `[]`. Pinned model 43,613,734 bytes,
+  실제 first preparation 9,408.123458 ms, fresh-worker offline preparation 623.665 ms.
+- PASS: `npm run verify`, exit 0. Biome 94 files/no findings, Ruff/typecheck/build,
+  JS 82 passed/0 failed, Python 222 passed/66.92 s.
+- PASS: `git diff --check`, exit 0.
+
+세부 원인/공식 source와 증거는 chrome 보고서 및 ignored
+`.ralph/media-framework/chrome-focus-fix-*.log`에 기록했다. B1 준비 검증만 완료했으며
+ASR 정확도/번역/실제 영상부터 자막까지의 B2–B6, Safari/iPhone은 미완료다.
+전체 `test:framework:chrome` script는 B5에서 구현할 항목으로 아직 없다. B1만 체크하고
+다음 항목은 B2 후보 ASR 실제 비교이다. 자동 loop 재시작/push/publish/앱 설치 없음.

@@ -22,7 +22,7 @@ export function createModelRepository(load: (cache: Cache) => Promise<{ dispose(
   return {
     async status(model) {
       check(model);
-      const bytes = await cachedBytes(await caches.open(modelCacheName));
+      const bytes = await caches.has(modelCacheName) ? await cachedBytes(await caches.open(modelCacheName)) : 0;
       if (resident) return state("ready", bytes);
       if (bytes === requiredBytes) { observedCache = true; return state("cached", bytes); }
       return state(observedCache ? "evicted" : "absent", bytes);

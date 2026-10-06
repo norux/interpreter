@@ -1,8 +1,8 @@
-# Chrome stage — iteration 1/5, B1 progress (blocked)
+# Chrome stage — B1 model preparation
 
 2026-10-06. Commit: the `feat: add browser model preparation host` commit containing
-this report. **B1 remains unchecked**; no B2–B6 or whole-framework/iPhone completion
-is claimed. Neither this report nor successful model construction replaces ASR,
+this report. The original B1 blocker was resolved on 2026-10-07 as recorded below;
+no B2–B6 or whole-framework/iPhone completion is claimed. Neither this report nor successful model construction replaces ASR,
 translation, selected-video caption, or physical-device acceptance.
 
 ## Implementation and boundary
@@ -13,7 +13,7 @@ a dedicated module worker, a version-1 validated command/status boundary, and a
 actual document user activation and a visible secure document. Stop invalidates
 the request synchronously and terminates only the owned worker. Hidden/pagehide
 handlers terminate residency; a fresh explicit Prepare is required on return.
-The real hidden-document behavior is the outstanding acceptance blocker below.
+The original hidden-document blocker and its verified resolution are recorded below.
 
 The repository separates absent/evicted, downloading, cached, loading, ready and
 failed states. It downloads registered immutable URLs without credentials, bounds
@@ -138,6 +138,9 @@ and no caption accuracy/display claim follows from these loading checks.
 
 ## Blocker, unverified scope and resume condition
 
+The following is the historical 2026-10-06 blocker; the 2026-10-07 investigation
+below supersedes its unknown cause and resume condition.
+
 **BLOCKED:** this local automated Chromium environment has not delivered the native
 hidden/visible transition required by the document lifetime assertion. Attempts 8
 (headless) and 10 (headed) independently timed out after actual model/offline
@@ -180,3 +183,48 @@ plan and full architecture were read. No runner changes, checkbox completions,
 stage advance, agents, push/publish/app installation or user app/recording/mount
 changes occurred. Credentials, weights, user audio/transcripts and `.ralph` state
 are excluded from the commit.
+
+## 2026-10-07 — native visibility blocker resolved
+
+The cause was Playwright's default `Emulation.setFocusEmulationEnabled(true)`.
+The installed Playwright 1.63.0 source enables it for every page. Chromium's
+[browser-side handler](https://github.com/chromium/chromium/blob/main/content/browser/devtools/protocol/emulation_handler.cc)
+holds a per-session capture handle with `stay_hidden=false`. Sending `false`
+through a separate CDP session changes renderer focus but cannot release the
+original session's capture handle. Removing browser startup flags also cannot
+remove that session override.
+
+A controlled test with the same Chromium 153.0.8010.12, an owned temporary
+profile and the same background tab observed native `hidden`, then `visible`
+when enabling this override, then `hidden` when disabling it on the same CDP
+session. Bringing that tab forward restored native `visible`. No document
+property override or synthetic visibility event was used.
+
+The acceptance harness now starts the bundled Chromium in its own temporary
+profile and attaches to its default context with the documented
+[`noDefaults: true`](https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp).
+This prevents focus emulation from being installed. It preserves the original
+10-second hidden/visible assertions and cleans up the owned browser/profile.
+
+The first corrected browser run passed native suspension/recovery, then exposed
+a previously unreached eviction failure: `status()` reopened the deleted model
+cache. A regression assertion failed before the fix. Status now checks whether
+the cache exists before opening it; the same assertion passes, and the actual
+browser confirms that eviction leaves no candidate cache.
+
+PASS: `npm run test:framework:chrome:preparation`, exit 0; typecheck, five port
+tests, separate build and all eleven real browser checks, including native
+hidden/visible lifecycle, eviction, disposal and production preparation UI.
+First real preparation took 9,408.123458 ms; fresh-worker offline preparation
+took 623.665 ms. All 43,613,734 pinned model bytes were prepared, and page errors
+were `[]`. Evidence: ignored `chrome-focus-fix-preparation-final.log`; the first
+eviction failure and failing port regression are recorded in
+`chrome-focus-fix-preparation.log` and `chrome-focus-fix-eviction-regression.log`.
+Loading durations are not transcription latency. B2–B6 and Safari/iPhone remain
+unimplemented/unverified; the full `test:framework:chrome` script is still absent.
+
+PASS: `npm run verify`, exit 0; Biome 94 files/no findings, Ruff, typecheck,
+build, 82 JS tests and 222 Python tests (66.92 s). Final whitespace checks pass.
+Evidence: ignored `chrome-focus-fix-verify.log`. B1 is now checked in the plan;
+the next unfinished item is B2. No automatic loop restart or later-stage work
+was performed during this investigation.

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
 import { extname, resolve, sep } from "node:path";
 import { chromium } from "playwright";
 import { build } from "vite";
@@ -41,13 +43,30 @@ const server = createServer(async (request, response) => {
 await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
+let browserProcess;
+let browserExit;
+let profile;
 const observations = { scope: "B1 model preparation only; no PCM/ASR/translation accuracy", checks: [] };
 try {
-  // A real foreground tab switch is required for the document lifetime check.
-  browser = await chromium.launch({ channel: "chromium", headless: false });
+  // Playwright's default focus emulation keeps background tabs visible. Attach
+  // without overrides so the owned browser delivers native visibility events.
+  profile = await mkdtemp(resolve(tmpdir(), "interpreter-chrome-preparation-"));
+  browserProcess = spawn(chromium.executablePath(), [
+    "--no-first-run", "--no-default-browser-check", `--user-data-dir=${profile}`,
+    "--remote-debugging-port=0", "about:blank",
+  ], { stdio: "ignore" });
+  browserExit = new Promise((done) => { browserProcess.once("exit", done); browserProcess.once("error", done); });
+  let port;
+  const deadline = performance.now() + 10000;
+  while (performance.now() < deadline && browserProcess.exitCode === null) {
+    try { port = (await readFile(resolve(profile, "DevToolsActivePort"), "utf8")).split("\n")[0]; break; }
+    catch { await new Promise((done) => setTimeout(done, 100)); }
+  }
+  assert.ok(port, "Owned Chromium must expose its local debugging endpoint");
+  browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true });
   observations.browser = browser.version();
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  const context = browser.contexts()[0];
+  const page = context.pages()[0];
   page.setDefaultTimeout(10000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -203,5 +222,8 @@ try {
   throw error;
 } finally {
   await browser?.close();
+  browserProcess?.kill("SIGTERM");
+  await browserExit;
+  if (profile) await rm(profile, { recursive: true, force: true });
   await new Promise((done) => server.close(done));
 }
