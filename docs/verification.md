@@ -1051,3 +1051,147 @@ quality and latency remain unverified. Next is item 8: real YouTube translation
 and normal/theatre/fullscreen appearance, at least ten minutes of bounded
 processing, lifecycle/recovery and measured p50/p95/drop/memory metrics. No blocker
 was encountered in this iteration; final completion checks have not been attempted.
+
+## Ralph iteration 5/30 — 2026-10-06 — item 8 progress, YouTube playback blocked
+
+Worked only in the requested checkout. No repository AGENTS.md exists; supplied
+instructions applied. `.ralph/verification.txt` still reads `No completion
+verification attempted in this run.` Item 8 remains unchecked.
+
+Added `npm run test:youtube-browser` and a test-only numeric ASGI wrapper. They
+run the built unpacked extension in a fresh ignored headed profile, real native
+Start, actual YouTube audio, cached MLX ASR and loopback Ollama. Product capture,
+model and output abstractions did not change. No microphone/fake stream, injected
+caption or existing YouTube caption supplied the translation. The wrapper does
+not save audio or transcripts; `check` can inspect the most recent actual caption
+in memory. Exit 0 requires 600 advancing media seconds, caption/queue/memory
+observations, all three display modes, and Stop/navigation/disconnect/recovery.
+
+Commands actually run, with uv on PATH:
+
+```sh
+.tools/ollama/ollama serve
+npm run build
+node tests/captions-browser.mjs --youtube
+# Read-only native/window access probe; cancelled before generated-caption checks.
+# It exited 1 (AbortError on Ctrl+C), not a caption acceptance pass.
+npm run test:youtube-browser
+# Ken Robinson video: Start, long, normal screenshot, reload/navigation assertion,
+# native Start, long, normal/theatre/fullscreen screenshots, report, exit.
+npm run test:youtube-browser -- 'https://www.youtube.com/watch?v=8KkKuTCFvzI'
+# Waldinger video: Start, long, normal screenshot, disconnect, restart,
+# reload, native Start, recovered, native Stop, stopped, report, exit.
+# Added direct player-error diagnostics and repeated on a fresh profile:
+npm run test:youtube-browser -- 'https://www.youtube.com/watch?v=8KkKuTCFvzI'
+# Start, long, normal screenshot, check, blocked, native Stop, stopped, report, exit.
+# All three acceptance harness invocations exited 1: required long playback absent.
+UV_PROJECT_ENVIRONMENT="$PWD/.ralph/verify-venv" npm run verify
+uv sync --locked
+npm run verify
+git diff --check
+```
+
+Environment: Chrome for Testing **153.0.8010.12**, Playwright **1.63.0**, Apple
+M5/16 GiB, Python **3.12.15**, Ollama **0.35.1**. Locked MLX/ASR dependencies are
+unchanged. Models: `mlx-community/Qwen3-ASR-0.6B-8bit` cached snapshot
+`89e96d92ba34aca20b3e29fb10cc284097d1219f`, `qwen3:4b-instruct` Q4_K_M,
+4096 context, temperature 0, think false, one ASR worker/one active session.
+Ollama `/api/ps` confirmed the model's existing digest and Metal allocation.
+HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE=1 and cached-only ASR were used; the text
+adapter retains its fixed loopback endpoint. No cloud inference or credentials
+were used, and live cloud paths remain unverified.
+
+### Actual partial results
+
+- Native Extensions → Interpreter → Start granted real tabCapture; Escape closed
+  the popup while frames/captions continued. The final diagnostic run observed
+  active capture, 1200 frames / 576,000 samples / peak 29296 at the playback-error
+  check. Actual local ASR and Ollama emitted a Korean cue conveying that more than
+  80 percent named becoming wealthy as a major life goal. The inspected source
+  and Korean translation agreed on this passage; neither was preloaded by the
+  harness. Earlier cues conveyed imagining one's future self and where to invest
+  time/energy. This is limited passage evidence, not a general accuracy claim.
+- A fragmented ASR result misrecognized a short phrase as a reference to walls;
+  opening music also produced a spurious short Korean cue. These are observed
+  quality limits, not successful semantic evidence.
+- Native reload during the Ken Robinson capture passed `navigation`: idle,
+  no active captured tab, offscreen contexts 0, caption hosts 0. Fresh native Start
+  created a replacement session. Waldinger `disconnect` stopped the actual
+  companion and passed error cleanup with the reconnect message, no active
+  capture/offscreen/overlay. Restarting the companion and native Start passed
+  `recovered`: a different session produced a real Korean cue. Both Waldinger
+  runs passed native Stop → `stopped`: idle, no active capture, contexts 0, hosts 0.
+- Inspected all four PNGs using `view_image`. [Normal](verification/youtube/normal.png)
+  is a readable **two-line** real translation at 1280×800 (94 px high, 43.008 px
+  line height); its bottom was 483 px, control top 504 px. White text, dark shadow,
+  small translucent background and pointer-events none passed assertions.
+  [Fullscreen](verification/youtube/fullscreen.png) is a real Ken Robinson cue,
+  one line, inside the actual YouTube fullscreen wrapper, bottom 720 px/control
+  top 741 px. Native theatre/fullscreen controls remained operable during capture.
+  [Theatre](verification/youtube/theatre.png) passed geometry/pointer assertions
+  (bottom 607/control top 628), but captured the short spurious music cue and a
+  site promotional panel. **Meaningful speech-cue theatre acceptance remains
+  pending**; this PNG does not establish it. No site CSS or promotional overlay
+  was removed to improve the evidence.
+
+### Measurements are short-run observations only
+
+[Blocked snapshot](verification/youtube/blocked.json) was saved when the final
+player error appeared, before native Stop. It explicitly has `accepted: false`:
+20.021 advancing media seconds, 5 painted cues, p50 **2.480 s**, p95 **4.762 s**,
+maximum sampled ASR waiting audio **820 ms**, dropped frames **0**, dropped
+utterances **0**. A sixth late cue appeared before Stop; the final terminal report
+had 6 cues and p50 1.976 s with the same p95. Neither report is a ten-minute sample.
+
+The first cold Ken Robinson session had 6 painted cues, p50 1.404 s/p95 **20.219 s**,
+maximum sampled waiting audio 6960 ms, 0 dropped frames/2 discarded utterances.
+Cold ASR imports/model loading and Ollama loading coincided with this delay;
+that correlation is not a separate profiling breakdown. After reload with both
+models resident, 11 cues had p50 1.117 s/p95 1.866 s, maximum sampled waiting audio
+0, no drops. These small samples do not prove the five-second goal over sustained
+playback, and the cold result missed it.
+
+The final blocked snapshot's MLX active allocation peak was **1,034,000,178 bytes**
+and MLX allocation peak **1,680,164,320 bytes**. Its first 30-second process sample
+was companion RSS 289,226,752 bytes, Ollama RSS 3,141,861,376 bytes, dedicated
+browser RSS 1,107,591,168 bytes: summed process RSS **4,538,679,296 bytes** (4.23 GiB).
+Ollama separately reported **3,175,339,786 bytes** allocated on Metal. These are
+sampled RSS and GPU allocations with overlapping unified memory, not total physical
+system memory, a model file size, or ten-minute stable memory. The final terminal
+sample at 60 seconds had summed RSS 4,668,817,408 bytes; memory growth/leak acceptance
+cannot be decided from two samples.
+
+Timing uses first PCM-frame reception minus its relative timestamp/20 ms duration
+to estimate the capture origin. A browser animation-frame observer timestamps the
+first cue text display; the test pairs that with the latest numeric companion
+caption event. This includes VAD, inference, transport and DOM scheduling, but
+has capture/transport/scheduling uncertainty and is not a compositor trace. ASR
+waiting depth is sampled each second, not an instantaneous high-water mark; the
+8-second limit is also covered by existing deterministic backpressure tests.
+
+### Exact blocker and resume requirements
+
+The two public videos were
+[Ken Robinson](https://www.youtube.com/watch?v=iG9CE55wbtY) and
+[Robert Waldinger](https://www.youtube.com/watch?v=8KkKuTCFvzI). Across fresh profiles,
+reloads and the companion restart, their players stopped around **42–44 seconds**
+and displayed:
+
+> 문제가 발생했습니다. 새로고침하거나 나중에 다시 시도해 보세요.
+
+[Player-error screenshot](verification/youtube/playback-error.png) shows that
+message with the final real translated cue. The site reset its media element to
+time 0, duration NaN (JSON null), paused true, and `video.error` null. The diagnostic
+run recorded no observed googlevideo HTTP response >=400. This does **not** identify
+the cause or prove an absence of network errors. There was no login/CAPTCHA prompt
+and no access-control bypass. Capture kept receiving silence after the site's
+error; the harness counted only advancing media, so it never confused that silence
+with ten minutes of playback.
+
+Required external change: public YouTube playback must work uninterrupted for
+at least ten minutes in the dedicated test browser. Confirm/fix that browser/site
+playback outside the extension as needed, then rerun the documented harness with
+the same actual native Start flow. Recheck meaningful normal/theatre/fullscreen
+speech cues, the full 600 seconds, queue/drop/latency/memory results and all lifecycle
+checks in the same acceptance run. Do not reuse these short observations as a
+long-run pass. Item 8, final item 9 and overall completion remain pending.

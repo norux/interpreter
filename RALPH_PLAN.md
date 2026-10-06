@@ -745,3 +745,68 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   normal/theatre/fullscreen screenshot 시각 검토, 최소 10분 큐/drop/latency p50/p95/
   모델·전체 메모리 및 Start/Stop/navigation/companion 복구를 기록해야 한다.
   항목 8–9와 최종 완료 검증은 아직 남아 있다.
+
+### Ralph iteration 5/30 — 2026-10-06 — 항목 8 진척, YouTube 재생 차단
+
+- 지정 checkout 안에서 다음 미완료 항목 8만 진행했다. AGENTS.md는 없으며 사용자
+  지침을 적용했다. `.ralph/verification.txt`는 `No completion verification attempted
+  in this run.`이다. 다른 agent/worktree/push/cloud API/credential 파일을 쓰지 않았다.
+- `npm run test:youtube-browser`와 test-only numeric companion wrapper를 추가했다.
+  fresh ignored profile/실제 unpacked extension/실제 native toolbar Start/실제
+  YouTube tabCapture/cached MLX/loopback Ollama를 사용한다. 제품 capture/model/output
+  추상화는 변경하지 않았다. audio/transcript를 저장하지 않으며 최신 caption은
+  `check`에서 메모리로만 확인한다. 통과하려면 600초 실제 미디어 진행, 큐/latency/
+  memory, 세 화면 및 Stop/navigation/disconnect/recovery assertion이 모두 필요하다.
+- Chrome for Testing 153.0.8010.12, Playwright 1.63.0, Apple M5/16 GiB,
+  Python 3.12.15, Ollama 0.35.1. ASR snapshot/8bit 및 qwen3:4b-instruct Q4_K_M은
+  이전 검증과 동일하며 offline ASR/고정 loopback만 사용했다. cloud live는 미검증이다.
+- 실제 YouTube → PCM → 두 모델 → 한국어 cue를 관측했다. 마지막 run의 error 직전
+  active capture, 1200 frames/576,000 samples/peak 29296. 미래의 자신/시간·에너지
+  투자 및 80% 이상의 부 축적 목표에 관한 한국어가 실제 ASR 원문 의미를 전달했다.
+  미리 만든 caption/기존 YouTube 자막/마이크/가짜 stream은 사용하지 않았다.
+  짧은 구절 오인식과 opening music의 spurious cue도 관측했으며 일반 품질 보장은 아니다.
+- 실제 native reload 뒤 navigation cleanup, native Start 재시작, 실제 companion SIGINT
+  뒤 error cleanup/재시작/native Start/다른 session의 실제 cue recovery가 통과했다.
+  마지막 두 run 모두 native Stop 후 idle/no active capture/offscreen contexts 0/
+  caption hosts 0 assertion 통과. browser/companion/Ollama를 종료했고
+  8765/8766/11434 listener가 없음을 확인했다.
+- 네 PNG를 실제 view_image로 검토했다. normal은 읽히는 실제 두 줄 번역(94px/
+  line-height 43.008px), fullscreen은 실제 wrapper 내부의 한 줄 번역이다. control
+  위 위치와 pointer-events none, native theatre/fullscreen 조작이 통과했다.
+  **theatre PNG는 음악에 대한 spurious 짧은 cue라 의미 있는 speech cue의 theatre
+  acceptance는 아직 미검증**이다. 사이트 promotional panel을 제거하지 않았다.
+- 마지막 error 시점 `docs/verification/youtube/blocked.json`은 accepted:false,
+  실제 미디어 20.021초/painted cue 5개/p50 2.480초/p95 4.762초, sampled ASR 대기
+  최대 820ms, frame/utterance drop 0이다. Stop 전 6번째 cue를 포함한 최종 terminal
+  report p50은 1.976초, p95 동일. **어느 것도 10분 실측이 아니다.** cold 첫 run은
+  p95 20.219초/대기 6960ms/utterance drop 2로 5초 목표를 못 지켰다. warm reload는
+  11개 cue p50 1.117/p95 1.866초지만 작은 sample이며 장시간 보장은 아니다.
+- blocked snapshot MLX active peak 1,034,000,178 bytes/peak allocation
+  1,680,164,320 bytes. 첫 process sample의 companion+Ollama+전용 browser 합산 RSS
+  4,538,679,296 bytes(4.23GiB), Ollama Metal allocation 별도 3,175,339,786 bytes.
+  Apple unified memory에서 allocation/RSS는 중첩되므로 더하지 않는다. 두 sample만으로
+  장시간 memory 안정성/누수를 판정하지 않았다. timing/샘플링 한계를 문서화했다.
+- **Blocker (외부 YouTube/browser 재생 변경 필요)**: 공개 Ken Robinson
+  `iG9CE55wbtY`와 Waldinger `8KkKuTCFvzI` 모두 fresh profile/refresh/companion restart
+  이후에도 약 42–44초에서 “문제가 발생했습니다. 새로고침하거나 나중에 다시 시도해
+  보세요.”로 중단했다. video가 time 0/duration NaN/paused true/error null로 reset됐고,
+  관측된 googlevideo HTTP >=400은 없었다. 원인을 network/codec/login으로 단정하지
+  않는다. 로그인/CAPTCHA 화면은 없었으며 우회하지 않았다. error screenshot과 정확한
+  numeric snapshot을 docs/verification/youtube에 보존했다. silence PCM은 계속
+  도착했으나 harness가 실제 advancing media만 세어 10분 성공으로 취급하지 않았다.
+- 실제 acceptance harness 세 실행 모두 필수 long playback 미달로 exit 1이다.
+  최초 caption-browser native access probe는 test caption checks 전에 Ctrl+C로 종료해
+  AbortError/exit 1이며 acceptance pass가 아니다. 첫 lint의 assignment-in-expression/
+  Python line length는 고쳤다. acceptance/runner/tests를 완화하지 않았다.
+- 마지막 `uv sync --locked`로 optional MLX를 제거한 기본 환경에서
+  `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 9 + Python 130 tests, failures/skips/warnings 0(Python 35.98초).
+  browser가 실행 중일 때 별도 ignored base venv의 verify도 exit 0(Python 36.94초).
+  `git diff --check`와 lock check 통과. 새 dependency/lockfile 변경은 없다.
+- 재개에 필요한 외부 동작: dedicated test Chrome에서 공개 영어 YouTube 영상이
+  확장 없이도 최소 10분 연속 재생 가능한 상태인지 확인/해결한다. 그 뒤 README의
+  test:youtube-browser/native Start 순서로 meaningful normal/theatre/fullscreen cue,
+  전체 600초, 큐/drop/p50/p95/model·process memory 및 모든 수명 check를 같은
+  acceptance run에서 다시 검증한다. 상세 명령/결과/한계는 docs/verification.md에 있다.
+  **다음 작업은 여전히 항목 8**이며 체크하지 않았다. 항목 9/최종 완료도 남아 있다.
+  이번 progress/blocker를 Conventional Commit으로 보존하고 runner를 차단 종료한다.

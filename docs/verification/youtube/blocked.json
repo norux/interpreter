@@ -1,0 +1,43 @@
+{
+  "accepted": false,
+  "browser": "153.0.8010.12",
+  "video": "https://www.youtube.com/watch?v=8KkKuTCFvzI",
+  "realTabCapture": true,
+  "realLocalModels": true,
+  "mediaSeconds": 20.020543000000004,
+  "captions": 5,
+  "paintedCaptions": 5,
+  "latencyP50Ms": 2480.31298828125,
+  "latencyP95Ms": 4762.31298828125,
+  "maxPendingAudioMs": 820,
+  "droppedFrames": 0,
+  "droppedUtterances": 0,
+  "mlxActivePeakBytes": 1034000178,
+  "mlxPeakBytes": 1680164320,
+  "memory": [
+    {
+      "elapsedSeconds": 30,
+      "mediaSeconds": 6.003572000000002,
+      "companionRssBytes": 289226752,
+      "ollamaRssBytes": 3141861376,
+      "browserRssBytes": 1107591168,
+      "ollamaAllocatedBytes": 3175339786
+    }
+  ],
+  "mediaErrors": [],
+  "playbackError": {
+    "media": {
+      "time": 0,
+      "duration": null,
+      "paused": true,
+      "muted": false,
+      "rate": 1,
+      "error": null
+    },
+    "playerMessage": "문제가 발생했습니다. 새로고침하거나 나중에 다시 시도해 보세요.\n자세히 알아보기"
+  },
+  "checks": [],
+  "screenshots": [
+    "normal"
+  ]
+}

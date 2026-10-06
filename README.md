@@ -132,6 +132,46 @@ selected cloud adapters read exported server keys. Never commit keys, model weig
 or transcripts. See [verification evidence](docs/verification.md) for checks that
 actually ran and their limitations.
 
+For actual YouTube translation and ten-minute acceptance, prepare the local models
+below, start Ollama, and run:
+
+```sh
+export PATH="$PWD/.tools/uv/bin:$PATH"
+npm run test:youtube-browser
+# An alternate public English video can be supplied explicitly:
+npm run test:youtube-browser -- 'https://www.youtube.com/watch?v=8KkKuTCFvzI'
+```
+
+This launches a fresh headed Chrome test profile and an offline local companion.
+Invoke **Interpreter → Start** through the native extension toolbar, then close
+the popup. Play the video at normal speed with audio enabled and site subtitles
+off. After any ads finish, enter `long` in the harness terminal. It counts advancing
+media time, so a stalled player or silent capture cannot pass the ten-minute check.
+Use `check` to inspect capture and the current cue. While actual speech captions
+are visible, enter `shot normal`, then use the player's native theatre/fullscreen
+controls and enter `shot theatre` and `shot fullscreen`. Review the saved PNGs
+and compare the Korean meaning with the public speech.
+
+After at least 600 seconds, use native **Stop**, then enter `stopped`. Start again,
+navigate/reload the captured page, and enter `navigation` to assert cleanup. Start
+again, enter `disconnect` to stop the companion and assert error cleanup, then
+`restart`, native **Start**, and `recovered` to require a new translated cue. Finish
+with native **Stop**, `stopped`, `accept`, and `exit`. Exit 0 requires all these
+checks; a blocked or incomplete run exits 1. `report` saves numeric observations
+inside the ignored profile even when acceptance cannot finish.
+If the player reports an error, `blocked` preserves its message, screenshot and
+numeric snapshot with `accepted: false`. Use native Stop and `stopped` before exit.
+
+The test-only companion measures ASR waiting audio, drop counters and MLX
+allocations without saving audio or transcripts. First-frame reception establishes
+the capture clock; an animation-frame observer timestamps the first visible cue.
+Reported latency includes VAD, inference, transport and DOM scheduling, with
+capture/receive/animation-frame timing uncertainty; it is not a compositor trace.
+RSS samples cover the dedicated browser, companion and Ollama processes. GPU
+allocations and RSS overlap on Apple unified memory and must not be added together.
+Successful numeric evidence is written to `docs/verification/youtube/metrics.json`;
+failed attempts must be recorded as limitations in the verification document.
+
 ## Local models
 
 On an Apple Silicon Mac, install the optional local dependencies and download the
