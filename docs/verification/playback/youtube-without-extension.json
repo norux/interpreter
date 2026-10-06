@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-10-06T00:50:24.604Z",
+  "extensionActive": false,
+  "companionActive": false,
+  "modelInferenceActive": false,
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+  "firstSample": {
+    "seconds": 1.001,
+    "time": 1.220186,
+    "duration": 766.961,
+    "paused": false
+  },
+  "firstPlaybackError": {
+    "seconds": 35.001,
+    "time": 0,
+    "duration": null,
+    "paused": true,
+    "message": "문제가 발생했습니다. 새로고침하거나 나중에 다시 시도해 보세요.\n자세히 알아보기"
+  },
+  "lastAdvancingSample": {
+    "seconds": 34.002,
+    "time": 34.220628,
+    "duration": 766.961,
+    "paused": false
+  },
+  "lastSample": {
+    "seconds": 70.002,
+    "time": 0,
+    "duration": null,
+    "paused": true,
+    "message": "문제가 발생했습니다. 새로고침하거나 나중에 다시 시도해 보세요.\n자세히 알아보기"
+  }
+}

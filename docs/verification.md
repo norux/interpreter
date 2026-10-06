@@ -1195,3 +1195,73 @@ the same actual native Start flow. Recheck meaningful normal/theatre/fullscreen
 speech cues, the full 600 seconds, queue/drop/latency/memory results and all lifecycle
 checks in the same acceptance run. Do not reuse these short observations as a
 long-run pass. Item 8, final item 9 and overall completion remain pending.
+
+## User follow-up — 2026-10-06 — playback baseline and revised plan
+
+The user requested latency improvements and automatic Source language detection
+in the plan, and authorized recording the verifiable YouTube limitation or using
+another public video. `RALPH_PLAN.md` now adds unchecked items 7a/7b before item 8.
+Item 8 retains actual local-model/tabCapture captions, 600 consecutive advancing
+media seconds, queue/drop/memory/latency measurements and lifecycle checks. A
+public alternative can satisfy those checks while YouTube failures and unverified
+site-specific behavior remain explicitly documented. This supersedes the earlier
+requirement to restore YouTube playback before any further work. No runner,
+implementation, tests or existing failed evidence were changed in this follow-up.
+
+### YouTube without the extension
+
+Used `agent-browser` with the same Chrome for Testing executable as the acceptance
+harness, in a separate headed session without the extension, companion or models.
+Opened the public Waldinger YouTube URL and clicked the actual player Play control.
+A read-only page timer sampled the media element once per second. No sign-in,
+credential access, player replacement or access-control bypass was used.
+
+[Baseline snapshot](verification/playback/youtube-without-extension.json) records
+the last advancing sample at **34.221 media seconds**, followed at observation
+second **35.001** by the same Korean player error, time 0, null/NaN duration and
+paused state. The error persisted through the 70-second observation window.
+The observed 16 googlevideo requests after playback began all reported HTTP 200;
+`agent-browser errors` was empty. These limited diagnostics do not establish a
+root cause or rule out response-body/network/player failures. They do establish
+that this error can occur without capture or inference; translator load is not
+required for the failure. Playback in the user's normal Chrome remains untested.
+
+### Alternative: TED's official player
+
+Opened the [same public Waldinger talk on TED](https://www.ted.com/talks/robert_waldinger_what_makes_a_good_life_lessons_from_the_longest_study_on_happiness)
+in another separate headed session using the same test browser. Rejected optional
+cookies and used the player's Unmute control. The initial 15-second advertisement
+was excluded: the sampler selected the main video with duration >=600 seconds,
+not the first `video` element. Its reported duration was **757.341 seconds**.
+
+[TED baseline](verification/playback/ted-without-extension.json) summarizes 90
+one-second samples: the main talk advanced from **8.179 to 97.179 seconds**,
+**89.000 advancing media seconds**, at playback rate 1, unmuted, with no inactive
+sample or observed media error. Observed manifests used
+`hls.ted.com` and video segments used `pu.tedcdn.com` (HTTP 200); no YouTube iframe
+was present. This is a playback candidate check, not extension capture, translated
+caption appearance, a ten-minute pass, or proof that the YouTube cause is fixed.
+
+Commands used (refs are acquired from each fresh snapshot):
+
+```sh
+npx --yes agent-browser --session interpreter-playback-diagnosis --headed \
+  --executable-path '/Users/norux/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing' \
+  open 'https://www.youtube.com/watch?v=8KkKuTCFvzI' --json
+# snapshot -i; click the observed Play ref; sample video state once per second.
+npx --yes agent-browser --session interpreter-playback-diagnosis errors --json
+npx --yes agent-browser --session interpreter-playback-diagnosis close --json
+npx --yes agent-browser --session interpreter-ted-diagnosis --headed \
+  --executable-path '/Users/norux/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing' \
+  open 'https://www.ted.com/talks/robert_waldinger_what_makes_a_good_life_lessons_from_the_longest_study_on_happiness' --json
+# snapshot -i; reject optional cookies; Unmute; sample the >=600s main video.
+npx --yes agent-browser --session interpreter-ted-diagnosis errors --json
+npx --yes agent-browser --session interpreter-ted-diagnosis close --json
+```
+
+The existing `test:youtube-browser` rejects non-YouTube URLs and assumes one video
+and theatre controls. The plan requires a small TED verification path with the
+same actual native Start and 600-second assertions; passing the TED URL directly
+to the existing command is not a working alternative. Next unfinished task is
+7a; 7b, 8, 9 and final verification remain pending. No application code changed,
+so `npm run verify` was not rerun for this documentation/evidence-only update.

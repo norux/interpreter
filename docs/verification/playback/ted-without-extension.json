@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-10-06T00:57:46.767Z",
+  "url": "https://www.ted.com/talks/robert_waldinger_what_makes_a_good_life_lessons_from_the_longest_study_on_happiness",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+  "extensionActive": false,
+  "companionActive": false,
+  "modelInferenceActive": false,
+  "youtubeFrames": 0,
+  "sampleCount": 90,
+  "firstSample": {
+    "seconds": 1.002,
+    "time": 8.178916,
+    "duration": 757.3409999999989,
+    "paused": false,
+    "muted": false,
+    "volume": 0.5,
+    "rate": 1,
+    "error": null
+  },
+  "lastSample": {
+    "seconds": 90.003,
+    "time": 97.178705,
+    "duration": 757.3409999999989,
+    "paused": false,
+    "muted": false,
+    "volume": 0.5,
+    "rate": 1,
+    "error": null
+  },
+  "advancingMediaSeconds": 88.99978899999999,
+  "observedMediaErrors": [],
+  "inactiveSamples": 0,
+  "acceptancePassed": false,
+  "limitations": "Playback-only candidate probe; no extension, model inference, translated captions, or ten-minute verification."
+}

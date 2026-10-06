@@ -17,7 +17,8 @@ macOS에서 Chrome으로 재생하는 음성을 거의 실시간으로 한국어
 
 설치 방식은 개발자 모드의 unpacked extension과 로컬 companion server다.
 웹스토어 게시, 호스팅, 로그인, 결제 UI, 사용자 오디오/전사문 저장은 만들지 않는다.
-기본 번역 방향은 영어 → 한국어. 입력 언어와 출력 언어를 설정에서 변경 가능하게 한다.
+기본 입력 언어는 Auto, 출력 언어는 한국어로 한다. 입력 언어 자동 감지와 수동 지정,
+출력 언어 변경을 설정에서 지원한다. 기존에 저장한 수동 입력 언어 선택은 유지한다.
 첫 실제 출력은 자막만 구현한다. 음성 재생, 파일 내보내기 등은 출력 계약의 확장점으로
 남기며 이번에 구현하지 않는다. 테스트용 메모리 sink로 출력 분리와 fan-out을 검증한다.
 
@@ -38,7 +39,11 @@ node scripts/ralph-loop.mjs 30
 각 iteration에서 다음 미완료 항목을 구현하고 해당 acceptance check를 실행한다.
 필요하면 큰 항목을 여러 iteration으로 나눌 수 있다. 실제 통과한 항목만 체크하고,
 진척과 실패/미검증 이유를 이 파일에 적고 Conventional Commit으로 커밋한다.
-runner와 완료 기준을 수정하거나 테스트를 무력화해 완료시키지 않는다.
+runner를 수정하거나 테스트를 무력화해 완료시키지 않는다. 완료 기준은 사용자 요청이
+있을 때만 변경한다.
+2026-10-06 사용자 요청으로 지연 개선/언어 자동 감지를 추가하고, YouTube 재생 오류는
+확인 가능한 범위를 기록하되 다른 공개 영상으로 장시간 검증을 진행하도록 변경했다.
+이 변경은 아래 체크리스트와 완료 기준에 반영했다. 10분 실제 처리 요구는 유지한다.
 다른 에이전트, 별도 작업 트리, 배포, push는 사용하지 않는다.
 
 모든 필수 항목을 끝내고 `npm run verify`가 통과하며 worktree가 깨끗할 때만
@@ -224,13 +229,58 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
   - Acceptance: provider 변경 시 이전 세션을 중단하고 새 세션만 표시한다. 중복 overlay,
     자막 HTML injection, 오래된 응답의 자막 덮어쓰기가 없다. 페이지에 키가 노출되지 않는다.
 
+- [ ] 7a. 로컬 자막 지연 개선
+  - 현재 500ms silence/최대 6초 구절, ASR → 전체 번역 응답 → 표시의 지연을
+    기준으로 같은 공개/생성 음성의 변경 전후 VAD 대기, ASR, 번역, 첫 표시를 측정한다.
+    모델 로딩이 포함된 첫 실행과 모델이 준비된 실행을 분리한다.
+  - 작은 변경부터 진행한다: Start 준비 중 모델을 미리 준비하고 silence 경계를
+    250–300ms 후보와 비교한다. 자동 캡처/가짜 caption은 추가하지 않는다.
+    더 짧은 구절 길이는 의미 손실/오인식을 비교한 뒤 적용하며 고정값 변경만으로
+    지연이 해결됐다고 주장하지 않는다.
+  - Ollama의 번역 출력 스트리밍을 같은 utterance ID/증가 revision의 partial/final
+    cue에 연결해 전체 답변이 끝나기 전에 표시한다. 원문 partial마다 번역 호출을
+    늘리지 않고, 완성된 짧은 원문에 대한 하나의 요청에서 출력만 점진적으로 받는다.
+    필요할 때만 ASR/번역 직렬 대기의 추가 개선을 진행한다. 파일 입력 토큰 스트리밍을
+    live PCM ASR로 표현하지 않으며 새 모델/공통 provider framework를 추가하지 않는다.
+  - Acceptance: 동일 음성/설정의 변경 전후 첫 자막 및 final 자막 p50/p95, sample 수,
+    cold/warm, queue/drop을 기록하고 첫 표시 지연의 개선을 실측한다. 영어→한국어
+    의미/긴 cue 무손실, partial/final 교체, Stop/세션 교체 뒤 늦은 결과 거부,
+    bounded queue와 원음 재생을 확인한다. 0ms나 미측정 지연 수치를 보장하지 않는다.
+
+- [ ] 7b. Source 언어 자동 감지
+  - popup의 Source/Input language에 Auto와 기존 수동 언어를 제공한다. 새 설치의
+    기본은 Auto이며 저장된 명시적 수동 선택을 덮어쓰지 않는다. 목적 언어는 별도다.
+  - 설치된 MLX Qwen3-ASR 버전의 자동 감지 입력/출력을 확인하고 Auto에서 언어를
+    강제하지 않는다. 번역 지침도 영어로 고정하지 않는다. 별도 언어 판별 모델은 없다.
+    Auto를 local ASR를 사용하는 local/Luna/Anthropic 경로에 연결한다.
+    OpenAI ASR는 공식 protocol의 자동 감지 지원을 확인해 제공하며 미지원이면
+    명확히 알리고 수동 선택을 요구한다. 몰래 영어로 대체하지 않는다.
+    OpenAI direct의 기존 자동 감지 경로는 유지한다.
+  - Acceptance: Auto 설정 저장/POST 검증/token 바인딩과 수동 override를 검증하고,
+    실제 로컬 모델로 비민감 영어/한국어 음성의 인식 및 한국어 출력을 확인한다.
+    짧은 발화/무음/음악/혼합 언어의 관측 결과와 오판 한계를 기록한다. 자동 감지에
+    신뢰도 API가 있다고 추측하지 않고, 미확정 결과를 영어로 고정하거나 성공으로
+    기록하지 않는다. 키가 없는 cloud 경로는 기존 fixture/live 구분 규칙을 적용한다.
+
 - [ ] 8. 실제 브라우저 동작과 장시간 처리 검증
   - Chrome/Chromium의 전용 테스트 profile에서 unpacked extension을 로드한다.
     tabCapture는 실제 사용자 Start 동작으로 시험한다. 마이크/가짜 stream만으로
     실제 tab capture를 검증했다고 주장하지 않는다.
-  - Acceptance: 실제 YouTube 재생에서 의미가 맞는 한국어 자막을 확인하고,
-    일반/theatre/fullscreen screenshot을 검토한다. 최소 10분 재생에서 큐가 무한히
-    증가하지 않고 Start/Stop, 탭 이동, companion 중단 후 복구를 확인한다.
+  - Acceptance: 실제 공개 영어 영상의 Chrome 탭 오디오 → 로컬 두 모델 → 의미가
+    맞는 한국어 자막을 확인하고 일반/fullscreen screenshot을 검토한다. 최소 10분
+    연속 advancing media에서 큐가 무한히 증가하지 않고 Start/Stop, 탭 이동,
+    companion 중단 후 복구를 확인한다. 무음 캡처/정지/seek/loop를 10분으로 세지 않는다.
+  - YouTube에서는 확인 가능한 실제 자막/일반/theatre/fullscreen 및 재생 오류,
+    확장 없는 비교 결과와 한계를 남긴다. 사이트 재생이 계속 실패하면 같은 상태의
+    재시도를 반복하지 않고 다른 공개 영상으로 위 필수 검증을 진행한다.
+    YouTube의 미검증 동작을 통과로 체크하지 않되, 대체 영상의 필수 검증이 모두
+    통과하고 YouTube 오류/한계가 기록되면 항목 8은 완료할 수 있다.
+  - 우선 대체 후보는 TED 공식 Robert Waldinger 강연(약 12분 37초):
+    https://www.ted.com/talks/robert_waldinger_what_makes_a_good_life_lessons_from_the_longest_study_on_happiness
+    기존 YouTube harness는 YouTube origin/단일 video/theatre를 전제하므로 그대로
+    이 URL을 넣지 않는다. TED의 광고를 제외한 본 영상 선택과 native Start,
+    일반/fullscreen, 동일한 600초/성능/수명 assertion을 지원하도록 작은 검증 경로를
+    추가하고 README에 실제 실행 명령을 남긴다. 플랫폼별 없는 모드는 이유를 기록한다.
   - 오디오 구절 끝 → 자막 표시의 p50/p95, 버린 프레임/구절 수, 모델/전체 메모리,
     칩과 실행 설정을 기록한다. 5초 이내를 개선 목표로 삼되 실측 전 보장하지 않는다.
     목표 미달은 수치와 원인을 공개하고 backlog를 쌓아 감추지 않는다.
@@ -251,13 +301,17 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
 설정 변경과 session 수명. 함수 구조를 그대로 따라가는 의미 없는 테스트는 쓰지 않는다.
 기본 CI/verify는 키 없이도 재현 가능하며 cloud protocol은 fixture로 검증한다.
 
-완료 필수: **실제 local 모델 + 실제 Chrome 탭 오디오 + 한국어 자막**, 실제 YouTube
-동작/자막 시각 검토, 수명/큐 검증, 네 가지 경로의 실제 adapter 코드와 contract tests.
+완료 필수: **실제 local 모델 + 실제 Chrome 탭 오디오 + 한국어 자막**, 공개 영상의
+10분 연속 처리/일반·fullscreen 시각 검토, 지연 개선 실측, Source Auto 및 수동 선택,
+수명/큐 검증, 네 가지 경로의 실제 adapter 코드와 contract tests.
+YouTube는 가능한 동작/자막 시각 검토와 재생 오류의 범위를 기록한다. YouTube가
+막혀도 TED 등 대체 영상에서 위 필수 검증이 통과하면 전체 완료를 허용한다.
 키가 없어 live cloud 호출을 못 했어도 adapter/protocol 검증을 통과했다면 해당 경로는
 “구현/fixture 검증 완료, live 미검증”이라고 정확히 기록한다. live cloud 성공으로
 표시하지 않는다. API 키를 찾아 다른 앱/사용자의 credential 파일을 읽지 않는다.
 
-로컬 모델 실행 또는 실제 Chrome/YouTube 검증을 할 수 없다면 필수 완료가 아니다.
+로컬 모델 실행 또는 어느 공개 영상에서도 실제 Chrome 탭 캡처/10분 처리 검증을
+할 수 없다면 필수 완료가 아니다. YouTube 사이트 오류만으로 다른 구현/검증을 멈추지 않는다.
 막힌 항목을 체크하지 말고 정확한 blocker와 필요한 사용자 동작을 진척에 적는다.
 runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 도달 시 플랜을
 보존하므로, 사람의 브라우저 권한/설정 확인 후 다시 실행할 수 있다.
@@ -810,3 +864,37 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   acceptance run에서 다시 검증한다. 상세 명령/결과/한계는 docs/verification.md에 있다.
   **다음 작업은 여전히 항목 8**이며 체크하지 않았다. 항목 9/최종 완료도 남아 있다.
   이번 progress/blocker를 Conventional Commit으로 보존하고 runner를 차단 종료한다.
+
+### 사용자 요청 반영 — 2026-10-06 — 지연/Auto 추가, 대체 영상 검증 허용
+
+- 사용자가 자막 지연 개선과 Source 자동 감지를 플랜에 추가하고, YouTube 오류는
+  확인 가능한 범위를 적거나 다른 영상을 찾아 검증하도록 요청했다.
+  미완료 항목 **7a(지연 개선), 7b(Source Auto)**를 항목 8 앞에 추가했다.
+  작은 VAD/모델 준비 개선과 번역 출력 스트리밍, 같은 음성의 변경 전후 첫 표시/
+  final 지연·의미·수명 검증을 요구한다. 새 기본 Source는 Auto이며 수동 선택은 유지한다.
+- 항목 8/완료 기준은 사용자 요청에 따라 대체 공개 영상을 허용하도록 변경했다.
+  실제 Chrome tabCapture/실제 local 두 모델/한국어 의미/일반·fullscreen 시각 검토/
+  연속 600초/큐·drop·latency·memory/수명·복구 요구는 유지한다.
+  YouTube에서 못 확인한 동작을 통과로 표시하지 않으며 오류와 한계를 남긴다.
+  이전 iteration의 “YouTube 복구 전 재개 불가”는 이 사용자 변경으로 대체됐다.
+- 동일 테스트 Chrome을 확장/companion/모델 없이 재검증했다. Waldinger YouTube
+  마지막 정상 sample은 미디어 34.221초, 관찰 35.001초에 같은 오류/time 0/
+  duration NaN/paused true가 됐고 관찰 70초까지 유지됐다. 관측한 googlevideo
+  요청 16개는 HTTP 200, page errors는 없었다. 번역/캡처 없이 재현되므로 모델
+  부하가 필수 원인은 아니다. YouTube/브라우저/network 내부의 정확한 원인은
+  여전히 미확인이고 사용자의 일반 Chrome은 시험하지 않았다.
+- 대체 영상은 같은 Waldinger 강연의 TED 공식 페이지다(항목 8 URL).
+  같은 테스트 Chrome의 별도 세션, 확장/모델 없이 optional cookies 거부 후
+  실제 Unmute를 눌렀다. 약 15초 광고는 제외하고 duration >=600초의 본 영상만
+  샘플링했다. 본 영상 duration 757.341초, 90개 1초 sample에서 미디어
+  8.179→97.179초/진행 89.000초, rate 1/unmuted/중단 sample 0/media error 0.
+  hls.ted.com/pu.tedcdn.com HTTP 200, YouTube iframe 0을 확인했다.
+  **재생 후보 확인만 했으며 실제 캡처/번역/10분 검증 성공은 아니다.**
+- 두 baseline의 numeric JSON과 명령/한계를 docs/verification/playback 및
+  docs/verification.md에 보존했다. 테스트 browser 세션은 종료했다.
+  기존 YouTube harness는 origin/단일 video/theatre 가정 때문에 TED URL을 바로
+  받을 수 없다. 항목 8에서 본 영상 선택과 동일 600초 assertion을 지원하는 작은
+  검증 경로 및 README 명령을 추가해야 한다. 임의 caption이나 seek/loop로 대체하지 않는다.
+- 제품 코드/runner/tests/기존 실패 증거는 변경하지 않았고 새 항목을 체크하지 않았다.
+  문서/증거 변경이므로 npm run verify는 재실행하지 않는다. 문서 diff, JSON과 링크를
+  검증한다. **다음 미완료 작업은 7a**이며 7b/8/9/최종 완료가 남아 있다.
