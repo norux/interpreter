@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Video audio acceptance</title>
+<video id="video" controls preload="auto" style="width:160px;height:90px">
+  <track kind="captions" srclang="en" label="Synthetic fixture" src="data:text/vtt,WEBVTT%0A%0A">
+</video>
+<button type="button" id="play">Play and observe output</button>
+<button type="button" id="start">Start selected capture</button>
+<button type="button" id="stop">Stop selected capture</button>
+<script type="module">
+  import { createMediaCatalog } from '/catalog.js';
+  import { createVideoInput } from '/input.js';
+  const video = document.querySelector('video');
+  const kind = new URLSearchParams(location.search).get('kind');
+  const catalog = createMediaCatalog(document, location.hostname === 'localhost' ? 'access-frame' : 'access-top');
+  const input = createVideoInput(catalog, '/pcm-worklet.js', { maxChunkBytes: 8192, maxAudioQueueMs: 1000 });
+  let handle, outputStream, outputContext, observer, objectUrl, keys;
+  const other = `http://localhost:${location.port}`;
+  try {
+    if (kind === 'cors') video.crossOrigin = 'anonymous';
+    if (kind === 'blob') {
+      objectUrl = URL.createObjectURL(await (await fetch('/tone.webm')).blob()); video.src = objectUrl;
+    } else if (kind === 'mse') {
+      const media = new MediaSource(); objectUrl = URL.createObjectURL(media); video.src = objectUrl;
+      await new Promise((done) => media.addEventListener('sourceopen', done, { once: true }));
+      const buffer = media.addSourceBuffer('video/webm;codecs="vp8,opus"');
+      const appended = new Promise((done) => buffer.addEventListener('updateend', done, { once: true }));
+      buffer.appendBuffer(await (await fetch('/tone.webm')).arrayBuffer()); await appended; media.endOfStream();
+    } else {
+      video.src = kind === 'cors' || kind === 'allow-without-mode' ? `${other}/allowed.webm`
+        : kind === 'denied' || kind === 'late-mode' ? `${other}/denied.webm`
+        : kind === 'redirect' ? '/redirect.webm' : kind === 'silence' ? '/silent.webm' : '/tone.webm';
+    }
+    await new Promise((done, reject) => {
+      if (video.readyState >= 2) done();
+      else { video.addEventListener('loadeddata', done, { once: true }); video.addEventListener('error', () => reject(new Error('Video failed to load')), { once: true }); }
+    });
+    // Deliberately change only the attribute after a no-CORS resource is loaded.
+    // A successful fetch/attribute is not proof of the existing playback's access.
+    if (kind === 'late-mode') video.crossOrigin = 'anonymous';
+    if (kind === 'protected') {
+      const access = await navigator.requestMediaKeySystemAccess('org.w3.clearkey', [{
+        initDataTypes: ['webm'], audioCapabilities: [{ contentType: 'audio/webm;codecs="opus"' }],
+        videoCapabilities: [{ contentType: 'video/webm;codecs="vp8"' }],
+      }]);
+      keys = await access.createMediaKeys(); await video.setMediaKeys(keys);
+    }
+    globalThis.target = (await catalog.discover())[0].target;
+    globalThis.probe = () => input.probe(globalThis.target);
+    globalThis.foreignProbe = (target) => input.probe(target);
+    globalThis.frameCandidates = () => catalog.discover();
+    globalThis.ready = true;
+  } catch (error) { globalThis.setupError = error.message; }
+  video.addEventListener('loadstart', () => { globalThis.reloads = (globalThis.reloads ?? 0) + 1; });
+  globalThis.state = () => ({ src: video.src, currentSrc: video.currentSrc, crossOrigin: video.crossOrigin,
+    paused: video.paused, volume: video.volume, muted: video.muted, rate: video.playbackRate, reloads: globalThis.reloads ?? 0 });
+  document.querySelector('#play').onclick = async () => {
+    try {
+      video.loop = kind !== 'mse'; video.volume = 0.4; video.muted = kind === 'muted'; await video.play();
+      outputStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { suppressLocalAudioPlayback: false,
+        echoCancellation: false, noiseSuppression: false, autoGainControl: false }, preferCurrentTab: true });
+      if (outputStream.getAudioTracks().length !== 1) throw new Error('Tab output audio track missing');
+      globalThis.outputSettings = outputStream.getAudioTracks()[0].getSettings();
+      outputContext = new AudioContext(); observer = outputContext.createAnalyser(); observer.fftSize = 4096;
+      outputContext.createMediaStreamSource(outputStream).connect(observer); await outputContext.resume(); globalThis.outputReady = true;
+    } catch (error) { globalThis.outputError = error.message; }
+  };
+  globalThis.measureOutput = async () => {
+    await new Promise((done) => setTimeout(done, 250));
+    const samples = new Float32Array(observer.fftSize); observer.getFloatTimeDomainData(samples);
+    return Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length);
+  };
+  globalThis.chunks = [];
+  document.querySelector('#start').onclick = async () => {
+    try {
+      handle = await input.open(globalThis.target, { sessionId: 'access', targetId: globalThis.target.id, epoch: 0 });
+      globalThis.opened = true;
+      for await (const event of handle.events) if (!('type' in event)) {
+        const samples = new Float32Array(event.pcm);
+        globalThis.chunks.push({ peak: Math.max(...samples.map(Math.abs)), sequence: event.sequence,
+          bytes: event.pcm.byteLength, scope: event.scope });
+      }
+      globalThis.captureClosed = true;
+    } catch (error) { globalThis.captureError = error.message; }
+  };
+  document.querySelector('#stop').onclick = async () => { await handle?.close(); await handle?.close(); };
+  window.addEventListener('pagehide', () => {
+    for (const track of outputStream?.getTracks() ?? []) track.stop();
+    void handle?.close(); void outputContext?.close(); catalog.dispose();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  });
+</script>
+</html>

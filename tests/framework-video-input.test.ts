@@ -17,6 +17,7 @@ function fixture() {
   let stops = 0;
   const activation = { isActive: true };
   const view = Object.assign(new EventTarget(), {
+    DOMException,
     crypto: { randomUUID: () => `clock-${contexts.length}` }, navigator: { userActivation: activation },
     AudioContext: class {
       currentTime = 2;
@@ -49,6 +50,7 @@ function fixture() {
     },
   });
   const catalog = {
+    frameId: "frame",
     resolve() { return current ? video as unknown as HTMLVideoElement : undefined; },
     subscribe(listener: () => void) { subscriber = listener; return () => { subscriber = undefined; }; },
   } as unknown as ReturnType<typeof createMediaCatalog>;
@@ -169,4 +171,34 @@ test("pagehide cancels waiting seek preparation and closes only owned resources"
   await assert.rejects(opening, /target-invalidated/);
   assert.equal(f.captures, 0);
   assert.equal(f.contexts[0].closes, 1);
+});
+
+test("CORS-mode HTTP media is eligible, but a failed capture security check reports access denial and cleans up", async () => {
+  const f = fixture();
+  Object.assign(f.video, { currentSrc: "https://other.test/tone.webm", crossOrigin: "anonymous" });
+  assert.deepEqual(await f.input.probe(f.target), { state: "available" });
+  f.video.captureStream = () => { throw new DOMException("Not origin clean", "SecurityError"); };
+  await assert.rejects(f.input.open(f.target, f.identity), /media-access-denied:/);
+  assert.equal(f.contexts[0].closes, 1);
+  assert.equal(f.processors.length, 0);
+  // Failed preparation must release the active-session guard as well.
+  await assert.rejects(f.input.open(f.target, f.identity), /media-access-denied:/);
+  assert.equal(f.contexts[1].closes, 1);
+});
+
+test("foreign-frame, non-CORS, blob and protected routes are rejected before creating resources", async () => {
+  const f = fixture();
+  const foreign = await f.input.probe({ ...f.target, frameId: "other" });
+  assert.ok("reason" in foreign); assert.equal(foreign.reason, "frame-permission-required");
+  Object.assign(f.video, { currentSrc: "https://other.test/tone.webm", crossOrigin: null });
+  const denied = await f.input.probe(f.target);
+  assert.ok("reason" in denied); assert.equal(denied.reason, "media-access-denied");
+  f.video.currentSrc = "blob:http://fixture.test/video";
+  const blob = await f.input.probe(f.target);
+  assert.ok("reason" in blob); assert.equal(blob.reason, "media-route-unknown");
+  Object.assign(f.video, { mediaKeys: {} });
+  const protectedMedia = await f.input.probe(f.target);
+  assert.ok("reason" in protectedMedia); assert.equal(protectedMedia.reason, "protected-media");
+  await assert.rejects(f.input.open(f.target, f.identity), /protected-media/);
+  assert.equal(f.contexts.length, 0); assert.equal(f.captures, 0);
 });

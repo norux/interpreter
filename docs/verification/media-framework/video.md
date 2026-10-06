@@ -529,3 +529,135 @@ later stage remain unchecked. No later item was implemented in this iteration.
 Published companion v0.1.0, installation/server/protocol paths and existing user
 settings remain untouched. Credentials, weights, user media/transcripts and
 temporary `.ralph` state are excluded from the commit.
+
+## 2026-10-06 — video iteration 2/5 (resumed run, V4)
+
+Result: **V4 passes** route classification and real browser playback preservation.
+V5 remains unchecked; Stage video is incomplete. Commit: the
+`feat: classify selected video media access` commit containing this report.
+
+### Input scope and access proof
+
+The existing selected-element `captureStream → Web Audio → worklet` path is
+retained. The catalog exposes its local frame identity so the input explicitly
+rejects foreign-frame handles with `frame-permission-required`. Parent discovery
+still does not traverse frame DOM. Each permitted frame owns its own adapter.
+
+CORS-mode HTTP media is eligible for Start. Eligibility is **not sample access
+proof**: the browser's actual `captureStream()` origin-clean check remains the
+gate. Its native SecurityError is reported with `media-access-denied` and owned
+preparation resources are released. An existing no-CORS resource cannot be made
+capturable by a permissive response header or a late crossOrigin attribute.
+A same-origin-looking URL that redirects to inaccessible cross-origin media
+also fails the native check. No production fetch, crossOrigin assignment, reload,
+source-node rerouting, mute change or tab-mix fallback is introduced.
+
+Ordinary blob and real MSE playback are conservatively `media-route-unknown`;
+neither a blob's origin nor its availability for download proves this adapter's
+route. A real attached Clear Key MediaKeys object is `protected-media`, even for
+the fixture's clear payload. This verifies the conservative protected-route guard;
+encrypted payload, licenses and decryption are **unverified and unsupported**.
+Unknown routes are rejected while their original playback continues.
+
+Genuine encoded silence remains available and supplies near-zero decoded PCM.
+A muted tone remains available and supplies nonzero decoded PCM while the
+original playback output stays muted. No zero-sample heuristic labels either as
+an access denial. Route/Start errors are input-port results; wiring a standalone
+host's user-facing status display remains later-stage work.
+
+### Actual media and playback evidence
+
+`tests/framework-video-access.mjs` and `tests/fixtures/video-access.html` run as
+part of the unchanged `npm run test:framework:video` command, after every existing
+V1/V2/V3 assertion. The fixture server serves CORS-permitted/denied resources and
+a real HTTP redirect on two loopback origins (`127.0.0.1` and `localhost`).
+Two real MediaRecorders encode an eight-second 160×90 VP8/Opus tone and silence;
+the final files are **147286** and **21622 bytes**. Synthetic frame numbers keep
+both encoded video fixtures above the unchanged >10000-byte requirement.
+Generated media stays in memory; no user audio or transcripts are used.
+
+Final serial acceptance observations (RMS values are actual independent browser
+tab-output PCM, with audio processing and local-playback suppression disabled):
+
+| Route | Actual input result | Baseline output RMS | After Stop/rejection RMS |
+| --- | --- | --- | --- |
+| CORS-mode load, ACAO `*` | Available; 11 real chunks, peak 0.15105554461479187 | 0.04237199701293925 | 0.04229652185648752 |
+| Cross-origin load, no CORS permission/mode | `media-access-denied`, 0 chunks | 0.042450689157224386 | 0.04242723660795439 |
+| ACAO `*` but resource loaded without CORS mode | `media-access-denied`, 0 chunks | 0.04239205771492109 | 0.04238349935125653 |
+| No-CORS playback, attribute changed to anonymous after load | Eligible at probe; native capture SecurityError → `media-access-denied`, 0 chunks | 0.04241134400814177 | 0.04238609016376156 |
+| Same-origin URL → cross-origin no-CORS redirect | Eligible at probe; native capture SecurityError → `media-access-denied`, 0 chunks | 0.04241728486891036 | 0.042391961810427724 |
+| Encoded genuine silence | Available; 11 real chunks, peak 2.0345869483764863e-34 | 8.137982825476283e-35 | 8.137984608355612e-35 |
+| Muted encoded tone | Available; 11 real chunks, peak 0.15105554461479187 | 0 | 0 |
+| Ordinary blob playback | `media-route-unknown`, 0 chunks | 0.042406917975572785 | 0.04242615820887474 |
+| Real MediaSource/SourceBuffer playback | `media-route-unknown`, 0 chunks | 0.042307423097040414 | 0.042383291035958136 |
+| Real MediaKeys attached | `protected-media`, 0 chunks | 0.04242404447567434 | 0.04241636109996062 |
+
+All during/after output levels pass the unchanged 12% baseline bound for audible
+routes; silence/mute stay below 0.001. Audible baselines also match the encoded
+tone's expected `0.15 * 0.4 / sqrt(2)` within 12%. During values and full JSON
+are in `.ralph/media-framework/video-2-v4-serial-acceptance.log`.
+Every route preserves exact `src`, `currentSrc`, `crossOrigin`, volume, mute,
+rate, paused state and reload count through probe/Start/Stop. Playback advances
+more than 0.4 seconds. Rejected routes deliver no PCM; supported routes stop
+delivery and tolerate repeated Stop. Every page has `pageErrors: []`.
+
+The controlled cross-origin iframe has an explicitly owned adapter. Parent
+native DOM access still throws SecurityError, parent discovery returns only its
+one video, and a foreign-frame probe returns permission-required/
+`frame-permission-required`. The frame's own activated Start captures five real
+tone chunks; its original output after Stop is **0.04221221158992649 RMS**.
+This is permitted local frame-owner testing, not a browser-access bypass or
+proof of extension permission installation on arbitrary sites. The parent's
+video is deliberately paused by the fixture before testing the frame's output;
+simultaneous two-audible-video isolation remains V5.
+
+Existing V3 real input/core acceptance still observes 55 chunks in each ordinary
+and site-owned graph case, with maximum mapping errors **57.51900000000023** and
+**28.036333333333914 ms**, both below the unchanged every-chunk <150 ms bound.
+Seek/pause/resume/rate/source cancellation, late generated-engine result rejection
+and original output assertions all pass. No engine/model/ASR/translation was added.
+
+### Exact command results and failures
+
+Environment: requested worktree, Darwin arm64, Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, Chromium 153.0.8010.12. Root/nested AGENTS.md and
+the requested `2026-10-06T12-54-43-105Z-video-verification.txt` were absent.
+All log names below are under ignored `.ralph/media-framework/`.
+
+| Command/run | Exact result | Evidence |
+| --- | --- | --- |
+| Baseline `npm run test:framework:video` | PASS, exit 0; existing V1/V2/V3 before V4 changes | `video-2-v4-baseline.log` |
+| Before-fix `node --import tsx --test --test-name-pattern='CORS\|foreign-frame' tests/framework-video-input.test.ts` | EXPECTED FAIL, Node child exit 1, 0 passed/2 failed/104.073916 ms; log-printing shell wrapper exit 0 | `video-2-v4-port-regression.log` |
+| After-fix `node --import tsx --test tests/framework-video-input.test.ts` | PASS, exit 0, 11 passed/0 failed/0 skipped/0 cancelled/76.64525 ms; **mock-port scope only**, including denial cleanup and pre-resource guards | CLI output |
+| First expanded `npm run test:framework:video` | FAIL, exit 1; silent encoded fixture 7256 bytes below >10000; actual audio/matrix checks not reached | `video-2-v4-first-acceptance.log` |
+| Expanded video acceptance after changing synthetic picture frames | FAIL, exit 1; V1/V2/V3 pass, CORS real PCM captured, then 10000 ms timeout because fixture assigned read-only `window.closed` | `video-2-v4-changing-frames.log` |
+| Video acceptance after `captureClosed` flag fix | PASS, exit 0; 13 port/worklet tests/48.045208 ms, V1–V4 real matrix including all ten cases and owned frame | `video-2-v4-capture-closed-fix.log` |
+| First `npm run verify` | FAIL, exit 1; Biome 81 files/38 ms and Ruff PASS, typecheck TS2339 on four new test Capability `.reason` accesses; build/tests not reached | `video-2-v4-verify.log` |
+| Video acceptance run concurrently with final verify | FAIL, exit 1; 13 port/worklet tests PASS, V1 PASS, existing V2 first-round frequency 454.4792425345958 Hz exceeds unchanged 440 ±12 Hz bound; V3/V4 not reached | `video-2-v4-final-acceptance.log` |
+| Final `npm run verify`, after explicit test union narrowing | PASS, exit 0; Biome 81 files/25 ms/no findings, Ruff/typecheck/build (28 main modules/44 ms, 10 content modules/7 ms); JS 77 passed/0 failed/0 skipped/0 cancelled/15110.082291 ms; Python 222 passed/67.01 s | `video-2-v4-final-verify.log` |
+| One independent serial `npm run test:framework:video`, after verify finished | PASS, exit 0; adapter compile, 13 port/worklet tests/0 failed/0 skipped/0 cancelled/49.190459 ms, all V1–V4 browser assertions and final measurements above | `video-2-v4-serial-acceptance.log` |
+| Targeted Biome and standalone adapter typecheck | PASS, exit 0; Biome 8 files/4 ms/no findings; `tsc -p tsconfig.media-web.json` no errors | CLI output |
+| Final `git diff --check` and `git diff --cached --check` | PASS, exit 0, no whitespace errors, including report/plan | CLI output |
+
+The single 454.479 Hz failure's cause is **unverified**. No frequency/output/
+mapping assertion was weakened and no PCM was repaired or fabricated. After
+verify finished, one independent serial run passed all unchanged criteria.
+There is no current required-environment blocker; the failed run remains evidence
+and must not be hidden by the passing run. No acceptance retry follows this pass.
+
+### Unverified scope and next item
+
+V4 is checked only after the actual route/output matrix and both required final
+commands pass. Protected-media decryption, arbitrary-site compatibility,
+extension frame permissions, physical speaker/listener audibility, speech/ASR/
+translation accuracy, standalone host UI, Safari and physical iPhone remain
+unverified. Mocks and near-zero PCM are not transcription-accuracy evidence.
+
+Next unfinished item: **V5** Japanese/English ordinary speech-video fixtures and
+simultaneous two-audible-video selection isolation, with real PCM/playback/mapping
+measurements. V5 and every later-stage checkbox remain unchanged. No whole-stage,
+whole-framework or iPhone completion is claimed. Published companion v0.1.0,
+installation/server/protocol paths and user settings/apps/recordings/mounted
+images are preserved. Existing caches were used; no installation, delegation,
+push, publish or blocked-access bypass occurred. Credentials, weights, user
+audio/transcripts and temporary `.ralph` state are excluded from the commit.

@@ -121,6 +121,7 @@ export function createMediaCatalog(document: Document, frameId: string) {
   }
 
   const catalog = {
+    frameId,
     async discover(): Promise<readonly MediaCandidate[]> {
       synchronize();
       if (disposed) return [];
@@ -154,6 +155,7 @@ export function createMediaCatalog(document: Document, frameId: string) {
     },
     dispose,
   } satisfies MediaCatalog & {
+    frameId: string;
     resolve(target: MediaTarget): HTMLVideoElement | undefined;
     invalidateDocument(): void;
     subscribe(listener: () => void): () => void;

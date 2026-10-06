@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { build } from "vite";
 import { verifyVideoTimeline } from "./framework-video-timeline.mjs";
+import { verifyVideoAccess } from "./framework-video-access.mjs";
 
 const output = resolve(".ralph/media-framework/video-audio-build");
 await build({ configFile: false, logLevel: "warn", build: {
@@ -15,20 +16,27 @@ await build({ configFile: false, logLevel: "warn", build: {
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js", chunkFileNames: "[name]-[hash].js" } },
 } });
 let media;
+let silentMedia;
 const server = createServer(async (request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
-  if (path === "/tone.webm" || path === "/replacement.webm") {
+  if (path === "/redirect.webm") {
+    response.writeHead(302, { Location: `http://localhost:${server.address().port}/denied.webm` }); response.end();
+  }
+  else if (["/tone.webm", "/replacement.webm", "/allowed.webm", "/denied.webm", "/silent.webm"].includes(path)) {
+    const bytes = path === "/silent.webm" ? silentMedia : media;
+    if (path === "/allowed.webm") response.setHeader("Access-Control-Allow-Origin", "*");
     response.setHeader("Content-Type", "video/webm"); response.setHeader("Accept-Ranges", "bytes");
     const range = request.headers.range?.match(/^bytes=(\d+)-(\d*)$/);
     const start = range ? Number(range[1]) : 0;
-    const end = range?.[2] ? Math.min(Number(range[2]), media.length - 1) : media.length - 1;
-    if (start > end) { response.writeHead(416, { "Content-Range": `bytes */${media.length}` }); response.end(); return; }
-    if (range) { response.statusCode = 206; response.setHeader("Content-Range", `bytes ${start}-${end}/${media.length}`); }
-    response.setHeader("Content-Length", end - start + 1); response.end(media.subarray(start, end + 1));
+    const end = range?.[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1;
+    if (start > end) { response.writeHead(416, { "Content-Range": `bytes */${bytes.length}` }); response.end(); return; }
+    if (range) { response.statusCode = 206; response.setHeader("Content-Range", `bytes ${start}-${end}/${bytes.length}`); }
+    response.setHeader("Content-Length", end - start + 1); response.end(bytes.subarray(start, end + 1));
   }
   else if (path === "/pcm-worklet.js") { response.setHeader("Content-Type", "text/javascript"); response.end(await readFile("packages/media-web/pcm-worklet.js")); }
   else if (/^\/[\w-]+\.js$/.test(path)) { response.setHeader("Content-Type", "text/javascript"); response.end(await readFile(resolve(output, path.slice(1)))); }
   else if (path === "/timeline") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-timeline.html")); }
+  else if (path === "/access") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-access.html")); }
   else if (path === "/") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-audio.html")); }
   else { response.setHeader("Content-Type", "text/html"); response.end("<button>Generate</button>"); }
 });
@@ -42,26 +50,44 @@ try {
   await generator.getByRole("button").click();
   const encoded = await generator.evaluate(async () => {
     const canvas = document.createElement("canvas"); canvas.width = 160; canvas.height = 90;
-    const draw = () => { canvas.getContext("2d").fillStyle = "#426"; canvas.getContext("2d").fillRect(0, 0, 160, 90); };
+    let frame = 0;
+    const draw = () => {
+      const image = canvas.getContext("2d"); image.fillStyle = "#426"; image.fillRect(0, 0, 160, 90);
+      image.fillStyle = "white"; image.fillText(`Synthetic frame ${frame++}`, 10, 45);
+    };
     draw(); const timer = setInterval(draw, 100);
     const context = new AudioContext({ sampleRate: 48000 });
     const oscillator = context.createOscillator(); oscillator.frequency.value = 440;
     const gain = context.createGain(); gain.gain.value = 0.15;
     const destination = context.createMediaStreamDestination();
     oscillator.connect(gain).connect(destination); oscillator.start(); await context.resume();
+    const silentGain = context.createGain(); silentGain.gain.value = 0;
+    const silentDestination = context.createMediaStreamDestination(); oscillator.connect(silentGain).connect(silentDestination);
     const stream = canvas.captureStream(10);
     stream.addTrack(destination.stream.getAudioTracks()[0]);
+    const silentStream = new MediaStream([stream.getVideoTracks()[0].clone(), silentDestination.stream.getAudioTracks()[0]]);
     const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp8,opus" });
+    const silentRecorder = new MediaRecorder(silentStream, { mimeType: "video/webm;codecs=vp8,opus" });
     const parts = []; recorder.ondataavailable = ({ data }) => parts.push(data);
+    const silentParts = []; silentRecorder.ondataavailable = ({ data }) => silentParts.push(data);
     const stopped = new Promise((done) => { recorder.onstop = done; });
-    recorder.start(); await new Promise((done) => setTimeout(done, 8000)); recorder.stop(); await stopped;
-    clearInterval(timer); oscillator.stop(); stream.getTracks().forEach((track) => { track.stop(); }); await context.close();
-    const bytes = new Uint8Array(await new Blob(parts).arrayBuffer());
-    let text = ""; for (const byte of bytes) text += String.fromCharCode(byte);
-    return btoa(text);
+    const silentStopped = new Promise((done) => { silentRecorder.onstop = done; });
+    recorder.start(); silentRecorder.start(); await new Promise((done) => setTimeout(done, 8000));
+    recorder.stop(); silentRecorder.stop(); await Promise.all([stopped, silentStopped]);
+    clearInterval(timer); oscillator.stop();
+    for (const track of [...stream.getTracks(), ...silentStream.getTracks()]) track.stop();
+    await context.close();
+    const encode = async (parts) => {
+      const bytes = new Uint8Array(await new Blob(parts).arrayBuffer());
+      let text = ""; for (const byte of bytes) text += String.fromCharCode(byte);
+      return btoa(text);
+    };
+    return { tone: await encode(parts), silence: await encode(silentParts) };
   });
-  media = Buffer.from(encoded, "base64");
+  media = Buffer.from(encoded.tone, "base64");
+  silentMedia = Buffer.from(encoded.silence, "base64");
   assert.ok(media.length > 10000, `A real encoded video/audio fixture must exist (${media.length} bytes)`);
+  assert.ok(silentMedia.length > 10000, `A real encoded silent video/audio fixture must exist (${silentMedia.length} bytes)`);
   await generator.close();
   const observations = [];
   for (const owned of [false, true]) {
@@ -127,6 +153,7 @@ try {
     physicalSpeakerAudibility: "unverified", observations, timelineMapping: "unverified", asrAccuracy: "unverified",
     remainingAcceptance: ["V3 PCM timeline/epoch", "V4 media access matrix", "V5 speech/two-audible-video fixtures"] }));
   await verifyVideoTimeline(browser, `http://127.0.0.1:${server.address().port}`);
+  await verifyVideoAccess(browser, `http://127.0.0.1:${server.address().port}`, { tone: media.length, silence: silentMedia.length });
 } finally {
   await browser?.close();
   await new Promise((done) => server.close(done));

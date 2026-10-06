@@ -165,7 +165,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 - [x] V1. 선택 UI와 MediaCatalog를 구현한다. 영상/문서/frame identity를 갖고, 여러 영상·광고·SPA/iframe에서 자동으로 다른 영상으로 바뀌지 않는다.
 - [x] V2. 같은 출처 일반 영상의 Web Audio 입력을 구현한다. 영상이 이미 소유한 graph와 충돌을 처리하고, Stop·repeat Start 후 원래 재생/볼륨이 유지되는지 실제 소리를 확인한다.
 - [x] V3. playback anchor로 영상 시간과 PCM 시간을 연결한다. seek·pause/resume·rate/source 변경 시 epoch를 바꾸고 이전 작업 결과를 버린다. 서로 다른 context의 performance.now를 직접 빼지 않는다.
-- [ ] V4. CORS 허용/미허용, 실제 무음, muted video, 교차 출처 iframe, blob/MSE·보호 영상 경로를 구분한다. 접근을 입증하지 못하면 원래 재생을 건드리지 않고 명시적으로 미지원 처리한다. crossOrigin 재설정/reload로 우회하지 않는다.
+- [x] V4. CORS 허용/미허용, 실제 무음, muted video, 교차 출처 iframe, blob/MSE·보호 영상 경로를 구분한다. 접근을 입증하지 못하면 원래 재생을 건드리지 않고 명시적으로 미지원 처리한다. crossOrigin 재설정/reload로 우회하지 않는다.
 - [ ] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
 
 완료 검증: `npm run verify`, `npm run test:framework:video`.
@@ -781,3 +781,68 @@ user browser/profile/settings/apps/recordings/mounts/companion v0.1.0 및 설치
 다음 미완료 항목: V4 CORS/실제 무음/muted/교차 출처 iframe/blob/MSE/protected route
 구분과 원래 재생 보존. V3만 체크했고 V4/V5와 later-stage checkbox는 보존한다.
 Stage video/전체 framework/iPhone 완료가 아니므로 완료 marker를 출력하지 않는다.
+
+### 2026-10-06 / video / iteration 2/5 — resumed V4
+
+관련 commit: 이 기록을 포함한 `feat: classify selected video media access`.
+
+수행한 변경: 다음 미완료 V4만 완료했다. CORS-mode HTTP media는 route 후보로
+허용하지만 실제 captureStream의 origin-clean 보안 검사를 통과해야 입력을 연다.
+no-CORS playback, 늦은 crossOrigin 속성 변경, same-origin URL의 cross-origin redirect는
+`media-access-denied`로 거부한다. 다른 frame의 handle은 `frame-permission-required`,
+blob/MSE는 `media-route-unknown`, 실제 MediaKeys 연결은 `protected-media`로 구분한다.
+입력은 playback graph/CORS 속성/src/볼륨/mute/rate를 변경하거나 reload하지 않는다.
+encoded 실제 무음 및 muted tone, CORS/redirect/blob/MSE/MediaKeys/교차 출처 frame의
+실제 브라우저 fixture와 input-port 회귀 2개를 기존 acceptance에 추가했다.
+
+실행한 명령과 결과:
+
+- PASS: baseline `npm run test:framework:video`, exit 0; 기존 V1/V2/V3.
+- EXPECTED FAIL: 변경 전 CORS/frame port 회귀, Node child exit 1,
+  0 passed/2 failed/104.073916 ms; log 출력 wrapper exit 0.
+- PASS: production 수정 후 input-port 검사, exit 0, 11 passed/0 failed/
+  0 skipped/0 cancelled/76.64525 ms; injected PCM/fake ports scope만 검증.
+- FAIL → FIXED: 첫 video acceptance의 silent encoded fixture 7256 bytes가
+  기존 >10000-byte 기준 미달. 합성 frame 번호를 그림에 추가하여 21622 bytes로
+  생성했고 모든 크기/주파수/output/mapping 기준은 유지했다.
+- FAIL → FIXED: 확장 실제 matrix가 CORS PCM을 수집한 후 read-only `window.closed`
+  fixture flag 때문에 timeout. `captureClosed`로 수정 후 전체 matrix PASS, exit 0.
+- FAIL → FIXED: 첫 `npm run verify`, exit 1; Biome/Ruff 통과 후 새 tests의
+  Capability union `.reason` 접근 TS2339 4개. 명시적 narrowing으로 수정했다.
+- FAIL: verify와 동시 실행한 video acceptance, exit 1; 기존 V2 tone 측정
+  454.4792425345958 Hz가 unchanged 440±12 Hz 기준 밖. 원인은 미확인이다.
+  반복하여 성공을 만들지 않고 verify 종료 후 독립 serial attempt를 한 번 실행했다.
+- PASS: 최종 serial `npm run test:framework:video`, exit 0; adapter typecheck,
+  port/worklet 13 passed/0 failed/0 skipped/0 cancelled/49.190459 ms,
+  기존 V1/V2/V3 및 V4 실제 10개 media route와 permitted frame PCM/output.
+- PASS: 최종 `npm run verify`, exit 0; Biome 81 files/25 ms/no findings,
+  Ruff/typecheck/build (main 28 modules/44 ms, content 10 modules/7 ms),
+  JS 77 passed/0 failed/0 skipped/0 cancelled/15110.082291 ms,
+  Python 222 passed/67.01 s.
+- PASS: targeted Biome, exit 0 (8 files/4 ms/no findings), standalone adapter
+  typecheck exit 0, 최종 unstaged/staged whitespace checks exit 0.
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1, uv 0.12.23/
+Python 3.12.15, Chromium 153.0.8010.12. 147286-byte tone/21622-byte silence
+VP8/Opus를 실제 decode했다. CORS/muted 각각 11 PCM chunks/peak
+0.15105554461479187, 실제 무음 11 chunks/peak 2.0345869483764863e-34.
+muted original output RMS는 0, 무음은 약 8.138e-35이며 정상 available로 유지한다.
+거부된 route는 PCM 0 chunks, 원래 playback output은 unchanged 12% bound 내 유지.
+cross-origin frame은 parent native DOM SecurityError를 유지하면서 명시적으로 소유한
+frame adapter만 5 PCM chunks를 수집하고 Stop 후 output RMS 0.04221221158992649.
+V3 재검증은 graph별 55 chunks, mapping 최대 오차 57.51900000000023/
+28.036333333333914 ms (<150 ms). 모든 V4 source/CORS/volume/mute/rate/reload
+상태는 동일하고 원래 재생은 계속 진행했다. 전체 page errors는 `[]`.
+
+실패·미검증과 증거 위치: [video 보고서](docs/verification/media-framework/video.md)의
+V4 수치/명령 표 및 ignored `.ralph/media-framework/video-2-v4-*.log`.
+현재 필수 Chromium acceptance 차단은 없다. encrypted payload/decryption은 검증하지
+않았고 MediaKeys의 보수적 거부만 검증했다. 임의 site/extension frame permission 설치,
+physical speaker 청취, ASR/번역 정확도, Safari/iPhone/standalone host는 미검증이다.
+root/nested AGENTS.md와 요청된 independent runner failure file은 없었다.
+companion v0.1.0/설치 경로/기존 사용자 설정/앱/녹화/mounts를 보존했다.
+위임/설치/push/publish/blocked browser access 우회/임시 state 커밋 없음.
+
+다음 미완료 항목: V5 일본어/영어 일반 영상과 동시에 audible한 두 영상 fixture,
+선택 PCM isolation 및 playback/mapping 수치. V4만 새로 체크했다. V5와 모든 later
+stage는 미완료이며 Stage video/전체 framework/iPhone 완료를 주장하지 않는다.

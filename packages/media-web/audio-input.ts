@@ -15,6 +15,9 @@ export function createVideoInput(
   let authorized: SessionIdentity | undefined;
 
   function route(target: MediaTarget): Capability {
+    if (target.frameId !== catalog.frameId) {
+      return { state: "permission-required", reason: "frame-permission-required", message: "Select this video through its own permitted frame adapter" };
+    }
     const video = catalog.resolve(target);
     if (!video) return { state: "unavailable", reason: "target-invalidated", message: "Choose the video again" };
     if (video.mediaKeys) return { state: "unavailable", reason: "protected-media", message: "Protected video is unsupported" };
@@ -23,12 +26,17 @@ export function createVideoInput(
       return { state: "unavailable", reason: "execution-context-unavailable", message: "Selected-element Web Audio capture is unavailable" };
     }
     if (video.srcObject || !video.currentSrc || (video.readyState < 2 && !(video.seeking && video.readyState >= 1))) {
-      return { state: "unverified", reason: "media-route-unknown", message: "Load an ordinary same-origin video first" };
+      return { state: "unverified", reason: "media-route-unknown", message: "Load an ordinary HTTP video first; stream routes are unverified" };
     }
     const url = new URL(video.currentSrc);
-    if (!["http:", "https:"].includes(url.protocol) || url.origin !== video.ownerDocument.location.origin) {
-      return { state: "unavailable", reason: "media-route-unknown", message: "Only ordinary same-origin media is verified by this adapter" };
+    if (!["http:", "https:"].includes(url.protocol)) {
+      return { state: "unavailable", reason: "media-route-unknown", message: "Blob/MSE and non-HTTP media require a verified site adapter" };
     }
+    if (url.origin !== video.ownerDocument.location.origin && video.crossOrigin === null) {
+      return { state: "unavailable", reason: "media-access-denied", message: "Cross-origin playback without CORS mode cannot be captured; playback is unchanged" };
+    }
+    // This is route eligibility, not access proof. captureStream enforces the loaded
+    // resource's origin cleanliness, including redirects and late attribute changes.
     return { state: "available" };
   }
 
@@ -176,7 +184,13 @@ export function createVideoInput(
         }
         if (closed || ended || !catalog.resolve(target)) throw new Error("target-invalidated");
         const capture = (video as HTMLVideoElement & { captureStream(): MediaStream }).captureStream;
-        stream = capture.call(video);
+        try { stream = capture.call(video); }
+        catch (error) {
+          if (error instanceof view.DOMException && error.name === "SecurityError") {
+            throw new Error("media-access-denied: The loaded video resource does not permit sample access; playback is unchanged");
+          }
+          throw error;
+        }
         if (stream.getAudioTracks().length !== 1) throw new Error("media-route-unknown: Expected one captured audio track");
         audioTrack = stream.getAudioTracks()[0];
         for (const track of stream.getVideoTracks()) { track.stop(); stream.removeTrack(track); }
