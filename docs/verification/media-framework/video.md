@@ -661,3 +661,162 @@ installation/server/protocol paths and user settings/apps/recordings/mounted
 images are preserved. Existing caches were used; no installation, delegation,
 push, publish or blocked-access bypass occurred. Credentials, weights, user
 audio/transcripts and temporary `.ralph` state are excluded from the commit.
+
+## 2026-10-06 — video iteration 3/5 (resumed run, V5)
+
+Result: **V5 and Stage video pass** the required real input acceptance and
+whole-tree verification. V1–V5 are checked; later stages remain unfinished. Commit: the
+`test: verify selected speech video isolation` commit containing this report.
+Only V5 was implemented; later-stage work was not started.
+
+### Fixtures and input scope
+
+Added committed, synthetic Japanese/English ordinary HTTP video files under
+`tests/fixtures/video-speech/`. They contain local macOS `say` speech from the
+already installed Kyoko/Samantha voices, repeated in 24-second 320×180 VP8/Opus
+videos. Japanese is **450500 bytes**, SHA-256
+`6cf37e5d26eda80957c97cc9785e474357a3e8ca53a62d4dd4782727912593ff`;
+English is **446449 bytes**, SHA-256
+`eaa1416429c5bb037614035eafbbf01e5ef2292a65c162ee48acc2565cc8a615`.
+The manifest preserves the synthetic source texts, Korean meaning anchors,
+voices, speech durations (6.972229166666667/6.666479166666667 seconds), generation
+provenance and hashes. These are fixture labels, not recognized/translated output.
+There is no user audio or transcript. No model or voice installation occurred.
+
+Optional regeneration: `node tests/fixtures/video-speech/generate.mjs` requires
+those installed macOS voices and an existing Playwright Chromium. It uses only
+an owned local browser/server; raw synthetic WAVs stay in ignored `.ralph`.
+Acceptance reads the committed videos and verifies their hashes, and does not
+require macOS speech synthesis or regenerate binaries. Browser encoding can
+change bytes, so regeneration also updates the manifest.
+
+`tests/fixtures/video-speech.html` mounts the production selection/catalog/input
+and core timeline. Two visible videos both play throughout three captures:
+Japanese, repeat Start on Japanese, then explicit selection of English. A second
+page repeats all three with real pre-existing site-owned source nodes for both
+videos. User playback states stay Japanese volume 0.4, English volume 0.25,
+muted=false, rate=1, paused=false, with unchanged sources/CORS attributes.
+Only the selected element's `captureStream → Web Audio → worklet` provides PCM.
+No production module, companion protocol, published companion v0.1.0, install
+path or user setting was changed.
+
+### Independent oracles and acceptance bounds
+
+`tests/framework-video-speech.mjs` is appended to the existing stage harness;
+every existing V1–V4 assertion/threshold still runs. A separately decoded copy
+of each committed file provides reference speech only, never input-port samples.
+Four 3 kHz low-pass biquads suppress the 6500/9000 Hz fixture isolation tags.
+The most energetic half-second captured speech window must have RMS >0.008 and
+normalized correlation >0.85 with the selected reference. The selected reference
+search is within ±250 ms of the mapped position, at eight-sample steps followed
+by single-sample refinement. The wrong-source comparison sweeps its first
+14 seconds at 10 ms steps and must remain <0.35. This is waveform/source identity
+checking, **not ASR or translation accuracy**. It is not an exhaustive wrong-file
+correlation search or a long-run acoustic timestamp guarantee.
+
+Each encoded file includes its own continuous 0.06-amplitude isolation tag.
+Captured selected-tag amplitude must remain within 12% of 0.06; the unselected
+video's tag must remain <0.003. Tag amplitude uses RMS power of 1024-sample Hann
+windows, so phase changes cannot cancel a present source across a long interval.
+The independently decoded references also pass the same tag presence/absence
+checks. Selected-speech identity and independent tag exclusion together reject
+substitution of the other video or use of the whole-tab mix.
+
+The test-owned tab loopback is solely an independent playback oracle. It measures
+both original output tags before/during/after each selected capture, requiring
+amplitude within 12% of expected user-volume levels **0.024/0.015** and within 12%
+of baseline. Actual AGC, echo cancellation, noise suppression and local playback
+suppression settings are all false. A 500 ms initial wait fills the loopback
+transport/analyser window; it does not repair samples. No other user tab,
+microphone, system audio or existing user browser/profile is accessed.
+
+Every chunk is real mono float32/48 kHz PCM, 8192 bytes, with consecutive sequence
+and matching session/target/epoch. The production timeline accepts every chunk
+without gaps; each capture's playback anchor and PCM share one context clock.
+Mapped PCM duration must agree within 0.001 ms, and every mapped end must stay
+within the existing <150 ms bound of contemporaneous selected-video currentTime.
+No raw clocks from different contexts are subtracted. Stop is idempotent and
+must end delivery; both videos must advance >6 seconds through the three rounds.
+
+### Final real measurements
+
+Final serial `npm run test:framework:video`, exit 0, Chromium 153.0.8010.12:
+
+| Playback graphs / selected round | Real chunks | Selected speech correlation | Wrong speech correlation | Speech RMS | Selected / unselected tag amplitude | Maximum mapping error |
+| --- | --- | --- | --- | --- | --- | --- |
+| Ordinary / Japanese Start | 60 | 1.000000 | 0.164628 | 0.039920 | 0.060108 / 0.000543 | 3.285667 ms |
+| Ordinary / Japanese repeat | 59 | 1.000000 | 0.143934 | 0.041216 | 0.060199 / 0.000324 | 3.204000 ms |
+| Ordinary / English selection | 59 | 0.992871 | 0.149958 | 0.045265 | 0.059830 / 0.001000 | 4.214333 ms |
+| Site-owned / Japanese Start | 59 | 1.000000 | 0.122749 | 0.039636 | 0.059834 / 0.000547 | 0.760667 ms |
+| Site-owned / Japanese repeat | 60 | 1.000000 | 0.126805 | 0.041132 | 0.060170 / 0.000436 | 2.576333 ms |
+| Site-owned / English selection | 58 | 0.980234 | 0.212450 | 0.045744 | 0.059976 / 0.001108 | 2.574000 ms |
+
+There are **355** real V5 chunks across six captures. Ordinary baseline output
+tags are 0.024030307556010523/0.015069822758528454; site-owned baseline tags are
+0.024096912453999857/0.0150827599434453. All during/after levels pass both unchanged
+12% output bounds; Japanese output spans 0.02389846036201667–0.0242746783593005,
+English output spans 0.014947580202868562–0.015124776337104445. Both original videos
+advance 9.478854/9.478863 seconds (ordinary) and 9.375648/9.375649 seconds
+(site-owned). All pages have `pageErrors: []`, exact playback states are preserved,
+and there is no PCM after Stop. Selected waveform match offsets in the local
+±250 ms search range from -71.6455 to -0.333333334 ms; these are distinct from the
+contemporaneous video-position mapping errors and do not establish ASR timing.
+
+The same final stage run also revalidates all prior video scope: V1 identity/UI,
+V2 real output/three restarts per graph/overflow, V3 55 real chunks per graph with
+maximum mapping errors **67.38999999999942/28.072333333333518 ms**, cancellation
+and stale generated-engine result rejection, and V4 ten route cases plus the
+owned cross-origin frame. Real runtime tone/silence are 147286/21622 bytes.
+No PCM acquisition, mock engine event or decoded reference is called recognized
+speech or a Korean subtitle.
+
+### Exact commands, failures and evidence
+
+Environment: requested worktree, Darwin arm64; Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, Chromium 153.0.8010.12. Root/nested AGENTS.md and the
+requested `2026-10-06T12-54-43-105Z-video-verification.txt` were absent. The
+user-supplied Agent Core instructions were followed. Logs/scripts/bundles/raw
+synthetic WAVs named below remain ignored under `.ralph/media-framework/`.
+
+| Command/run | Exact outcome | Local evidence |
+| --- | --- | --- |
+| `node tests/fixtures/video-speech/generate.mjs` | PASS, exit 0; two real encoded synthetic speech videos with sizes/hashes above; fixture generation, not acceptance | `video-3-v5-generate.log` |
+| First expanded `npm run test:framework:video` | FAIL, exit 1; 13 port/worklet tests PASS (55.349125 ms), all V1–V4 PASS; V5 baseline tags 0.012343929318266892/0.008652159913031917 fail 12% expected-output bound before capture | `video-3-v5-first-acceptance.log` |
+| First `node .ralph/media-framework/video-3-v5-diagnostic.mjs` | Diagnostic FAIL, exit 1; helper attempted to serve nonexistent favicon bundle; no acceptance | `video-3-v5-output-diagnostic.log` |
+| Diagnostic after helper 404 fix | Diagnostic PASS, exit 0; decoded tags 0.059790095284170876/0.05994606459915941; early observation 0.007443820336273424/0.005824384190492887 rises to 0.024043493278875082/0.015025096203143618 on next observation; strongest bins stay 6500/9000 Hz | `video-3-v5-output-diagnostic-fixed.log` |
+| `node .ralph/media-framework/video-3-v5-targeted.mjs`, after loopback warm-up | FAIL, exit 1; first Japanese capture passes; second has 60 real chunks, selected low-pass speech correlation 1.0/wrong 0.16957981050486484, but long-window selected-tag projection 0.029800045401415974 fails the unchanged 12% bound | `video-3-v5-targeted.log` |
+| `node .ralph/media-framework/video-3-v5-tag-diagnostic.mjs` | Diagnostic PASS, exit 0; both decoded files' first 12 one-second windows show own tags near 0.06; short-window power detects each tag without long-window phase cancellation; not acceptance | `video-3-v5-tag-diagnostic.log` |
+| Targeted V5 after short-window power measurement | PASS, exit 0; all six actual captures, both playback graph modes; selected correlations 1.0, wrong maximum 0.20703848085286755, mapping maximum 5.497333333333245 ms | `video-3-v5-short-window.log` |
+| Initial targeted Biome | PASS, exit 0; 5 files/23 ms, one approximate-constant warning; corrected to Math.SQRT1_2 | CLI output |
+| Final targeted Biome | PASS, exit 0; 5 files/17 ms/no findings | CLI output |
+| Final `npm run test:framework:video` | PASS, exit 0; adapter compile, 13 port/worklet tests/0 failed/0 skipped/0 cancelled/54.665125 ms, all V1–V5 actual browser assertions and measurements above | `video-3-v5-final-acceptance.log` |
+| Final `npm run verify` | PASS, exit 0; Biome 85 files/41 ms/no findings, Ruff/typecheck/build (28 main modules/43 ms, 10 content modules/6 ms), JS 77 passed/0 failed/0 skipped/0 cancelled/15076.266834 ms, Python 222 passed/66.96 s | `video-3-v5-final-verify.log` |
+| Final `git diff --check` and `git diff --cached --check` | PASS, exit 0; no whitespace errors, including final report/plan; rerun before commit | CLI output |
+
+The initial output failure was traced to an unfilled loopback observation window.
+The long-window captured-tag discrepancy's underlying phase/transport cause is
+**unverified**; it is not silently labeled a production fix. Short-window power
+measures the actual tag presence without coherent cancellation, while all PCM,
+sequence, gap, mapping, source-correlation and output criteria remain enforced.
+There is no sample fabrication, timestamp repair, output gain change, route
+fallback, blocked-access bypass or acceptance retry after the final full pass.
+All failed runs remain documented. No production capture behavior was changed.
+
+### Unverified scope and completion boundary
+
+This evidence covers actual selected speech-video PCM, simultaneous two-audible
+video isolation, input/clock ordering, short-run video mapping, real browser-output
+preservation and cleanup in the owned Chromium fixtures. Physical speaker/listener
+hearing, speech recognition/translation accuracy, long-run content alignment/drift,
+external-site compatibility, extension installation/frame permissions, encrypted
+media decryption, standalone host integration, Safari and physical iPhone remain
+**unverified**. These belong to later acceptance or unsupported scope, not V5 PCM
+claims. V5 runs no recognizer, translator or real model.
+
+Only V5 is newly checked after both required final commands passed. Stage video
+completion does not mean whole-framework or iPhone completion. No current required
+Chromium environment/device/permission blocker remains in the tested scope. Plan,
+runner, companion, user settings, unrelated files, existing apps/recordings/mounted
+images and later-stage checkboxes are preserved. No installation, other agents,
+push or publishing occurred. Credentials, weights, user audio/transcripts and all
+temporary `.ralph` state are excluded from the commit.

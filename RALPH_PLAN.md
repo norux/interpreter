@@ -166,7 +166,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 - [x] V2. 같은 출처 일반 영상의 Web Audio 입력을 구현한다. 영상이 이미 소유한 graph와 충돌을 처리하고, Stop·repeat Start 후 원래 재생/볼륨이 유지되는지 실제 소리를 확인한다.
 - [x] V3. playback anchor로 영상 시간과 PCM 시간을 연결한다. seek·pause/resume·rate/source 변경 시 epoch를 바꾸고 이전 작업 결과를 버린다. 서로 다른 context의 performance.now를 직접 빼지 않는다.
 - [x] V4. CORS 허용/미허용, 실제 무음, muted video, 교차 출처 iframe, blob/MSE·보호 영상 경로를 구분한다. 접근을 입증하지 못하면 원래 재생을 건드리지 않고 명시적으로 미지원 처리한다. crossOrigin 재설정/reload로 우회하지 않는다.
-- [ ] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
+- [x] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
 
 완료 검증: `npm run verify`, `npm run test:framework:video`.
 이 단계에서는 인식/번역 품질을 PCM 획득 성공과 혼동하지 않는다.
@@ -846,3 +846,82 @@ companion v0.1.0/설치 경로/기존 사용자 설정/앱/녹화/mounts를 보�
 다음 미완료 항목: V5 일본어/영어 일반 영상과 동시에 audible한 두 영상 fixture,
 선택 PCM isolation 및 playback/mapping 수치. V4만 새로 체크했다. V5와 모든 later
 stage는 미완료이며 Stage video/전체 framework/iPhone 완료를 주장하지 않는다.
+
+### 2026-10-06 / video / iteration 3/5 — resumed V5
+
+관련 commit: 이 기록을 포함한 `test: verify selected speech video isolation`.
+
+수행한 변경: 다음 미완료 V5만 완료했다. 이미 설치된 macOS Kyoko/Samantha 음성으로
+합성 일본어/영어 24초 320×180 VP8/Opus 일반 영상 fixture와 재생성 script, source text/
+Korean meaning anchors/voice/size/SHA-256 manifest를 추가했다. 사용자 음성·전사문은 없다.
+실제 production selection/catalog/input/core timeline을 사용해 두 audible 영상을 계속
+재생하면서 Japanese Start → Japanese repeat Start → English explicit selection을 검증한다.
+ordinary 및 두 실제 site-owned source graph에서 총 6회 실제 PCM을 수집한다.
+별도 decoded-file waveform correlation과 6500/9000 Hz tag exclusion으로 선택 음성만
+수집됨을 확인하고 독립 test-owned tab-output oracle로 두 원래 playback level을 측정한다.
+이 tab mix는 input으로 사용하지 않는다. 모든 기존 V1–V4 assertion/threshold를 유지했다.
+production modules/companion v0.1.0/설치·서버·프로토콜/기존 설정/later-stage 코드는
+변경하지 않았다. 파일 provenance/수치/실패·미검증은 video 보고서에 기록했다.
+
+실행한 명령과 결과:
+
+- PASS: `node tests/fixtures/video-speech/generate.mjs`, exit 0; Japanese 450500 bytes,
+  English 446449 bytes, manifest SHA-256과 일치. fixture 생성이며 ASR acceptance 아님.
+- FAIL → FIXED: 첫 expanded `npm run test:framework:video`, exit 1; adapter compile/
+  port-worklet 13 passed/55.349125 ms 및 V1–V4 PASS, V5 baseline output tags
+  0.012343929318266892/0.008652159913031917이 기존 12% expected-output bound 실패.
+  독립 local diagnostic에서 첫 loopback window 이후 0.024043493278875082/
+  0.015025096203143618로 정상화되는 것을 확인하고 500 ms initial warm-up을 추가했다.
+- DIAGNOSTIC FAIL → PASS: 첫 output helper는 favicon bundle ENOENT로 exit 1;
+  404 처리 후 exit 0. 실제 decoded tag 0.059790095284170876/0.05994606459915941,
+  output strongest bins 6500/9000 Hz를 관측했다. acceptance 성공을 대신하지 않는다.
+- FAIL → FIXED: warm-up 후 targeted V5, exit 1; Japanese repeat 60 real chunks,
+  selected speech correlation 1.0/wrong 0.16957981050486484, long-window tag
+  projection 0.029800045401415974가 unchanged 12% bound 실패. 별도 file diagnostic
+  exit 0에서 12개 one-second reference window의 own tags 약 0.06을 확인했다.
+  장시간 coherent projection 대신 1024-sample Hann window power를 평균하여 phase
+  cancellation에 의해 present tag가 숨겨지지 않게 했다. captured discrepancy의
+  underlying phase/transport 원인은 미확인으로 남겼다. PCM/timeline/output 기준은
+  그대로 유지하고 sample/gain/timestamp를 변경하지 않았다.
+- PASS: targeted V5 short-window run, exit 0; 6회 real captures/두 graph modes,
+  selected correlation 1.0, wrong maximum 0.20703848085286755,
+  mapping maximum 5.497333333333245 ms. ignored local helper scope이며 full stage 아님.
+- PASS: 최종 `npm run test:framework:video`, exit 0; standalone adapter compile,
+  13 port/worklet tests/0 failed/0 skipped/0 cancelled/54.665125 ms,
+  V1–V5 모든 실제 browser assertion 통과 (`video-3-v5-final-acceptance.log`).
+- PASS: 최종 `npm run verify`, exit 0; Biome 85 files/41 ms/no findings,
+  Ruff/typecheck/build (main 28 modules/43 ms, content 10 modules/6 ms),
+  JS 77 passed/0 failed/0 skipped/0 cancelled/15076.266834 ms,
+  Python 222 passed/66.96 s (`video-3-v5-final-verify.log`).
+- PASS: 최종 targeted Biome, exit 0, 5 files/17 ms/no findings. 첫 lint의
+  approximate numeric constant warning은 Math.SQRT1_2로 수정했다.
+- PASS: 최종 `git diff --check`/`git diff --cached --check`, exit 0/no whitespace
+  errors; final report/plan 포함하여 commit 전에 재검사했다.
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1, uv 0.12.23/
+Python 3.12.15, Chromium 153.0.8010.12. V5 355 real mono/48 kHz float32 chunks,
+8192 bytes/연속 sequence/정확한 session-target-epoch/context-clock, Stop 후 PCM 없음,
+두 source/CORS/volume/mute/rate/paused 상태 보존. selected low-pass speech correlation
+0.9802335596111816–1.0 (>0.85), wrong maximum 0.21245008334894455 (<0.35),
+selected tags 0.05983033836362112–0.06019855322378691 (0.06 ±12%),
+unselected tag maximum 0.0011082801340152825 (<0.003), speech RMS >0.0396 (>0.008),
+maximum video mapping error 4.214333333333343 ms (<150 ms). 두 original output tag는
+expected user-volume 0.024/0.015 및 baseline의 ±12% 내 유지됐다. 두 영상은 각각
+9.478854/9.478863 s (ordinary), 9.375648/9.375649 s (site-owned) 계속 진행했다.
+모든 page errors `[]`. V3 재검증은 각 55 chunks/최대 오차 67.38999999999942 및
+28.072333333333518 ms, V4 10개 route와 owned cross-origin frame도 통과했다.
+
+실패·미검증과 증거 위치: [video 보고서](docs/verification/media-framework/video.md)의
+V5 수치/방법/전체 실패·명령 표 및 ignored `.ralph/media-framework/video-3-v5-*.log`.
+PCM/decoded waveform correlation/fixture source labels/mock engine event를 ASR/번역
+정확도로 표시하지 않는다. physical speaker 청취, speech/translation quality, 장시간
+acoustic alignment/drift, external sites/extension installation/frame permissions,
+encrypted media decryption, standalone host/Safari/iPhone은 미검증이다. root/nested
+AGENTS.md 및 요청된 independent runner file은 없었고 user 제공 Agent Core를 따랐다.
+현재 필수 Chromium 환경/device/permission 차단 없음. 기존 user apps/recordings/mounts/
+browser/profile/settings/companion을 보존했고 blocked access 우회/설치/위임/push/publish 없음.
+credentials/weights/user audio·transcripts/임시 `.ralph` state는 commit에서 제외했다.
+
+다음 미완료 항목: **Stage video에는 없음**. 두 required final commands가 실제로
+통과한 뒤 V5만 새로 체크했고 V1–V5/Stage video acceptance가 완료됐다. plan/runner를
+보존하며 이후 stage로 진행하지 않는다. 전체 framework나 iPhone 완료가 아니다.

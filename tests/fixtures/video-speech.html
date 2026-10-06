@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Video audio acceptance</title>
+<video id="ja" title="Japanese synthetic speech" src="/ja.webm" controls preload="auto" width="320" height="180">
+  <track kind="captions" srclang="ja" label="Synthetic speech" src="data:text/vtt,WEBVTT%0A%0A">
+</video>
+<video id="en" title="English synthetic speech" src="/en.webm" controls preload="auto" width="320" height="180">
+  <track kind="captions" srclang="en" label="Synthetic speech" src="data:text/vtt,WEBVTT%0A%0A">
+</video>
+<div id="selection"></div>
+<button type="button" id="play">Play both and observe output</button>
+<button type="button" id="start">Start selected capture</button>
+<button type="button" id="stop">Stop selected capture</button>
+<script type="module">
+  import { createMediaCatalog } from '/catalog.js';
+  import { createVideoInput } from '/input.js';
+  import { mountVideoSelection } from '/selection.js';
+  import { createTimeline } from '/timeline.js';
+  const videos = [...document.querySelectorAll('video')];
+  const catalog = createMediaCatalog(document, 'speech-fixture');
+  const input = createVideoInput(catalog, '/pcm-worklet.js', { maxChunkBytes: 8192, maxAudioQueueMs: 1000 });
+  let selected, handle, round = 0, observer, outputStream, outputContext, siteContext;
+  const confirmations = [];
+  const selection = mountVideoSelection(document.querySelector('#selection'), catalog, (target) => { selected = target; confirmations.push(target); });
+  globalThis.confirmations = confirmations;
+  globalThis.candidates = () => catalog.discover();
+  globalThis.state = () => videos.map((video) => ({ src: video.src, currentSrc: video.currentSrc, crossOrigin: video.crossOrigin,
+    volume: video.volume, muted: video.muted, rate: video.playbackRate, paused: video.paused }));
+  globalThis.times = () => videos.map((video) => video.currentTime);
+  // Independent decoded file oracle. These samples never enter the input port.
+  const referenceContext = new AudioContext({ sampleRate: 48000 });
+  const references = await Promise.all(videos.map(async (video) => referenceContext.decodeAudioData(await (await fetch(video.src)).arrayBuffer())));
+  await referenceContext.close();
+  const lowpass = async (samples, rate) => {
+    const context = new OfflineAudioContext(1, samples.length, rate);
+    const buffer = context.createBuffer(1, samples.length, rate); buffer.copyToChannel(samples, 0);
+    const source = context.createBufferSource(); source.buffer = buffer;
+    let node = source;
+    for (let i = 0; i < 4; i++) {
+      const filter = context.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 3000; filter.Q.value = Math.SQRT1_2;
+      node.connect(filter); node = filter;
+    }
+    node.connect(context.destination); source.start();
+    return (await context.startRendering()).getChannelData(0);
+  };
+  const speechReferences = await Promise.all(references.map((reference) => lowpass(reference.getChannelData(0), reference.sampleRate)));
+  const tagAmplitude = (samples, rate, frequency) => {
+    // Average short-window power so transport phase changes cannot cancel a
+    // present tag across seconds. Hann taper suppresses the other source's tag.
+    const size = 1024;
+    let power = 0, windows = 0;
+    for (let start = 0; start + size <= samples.length; start += size) {
+      let sine = 0, cosine = 0, weight = 0;
+      for (let i = 0; i < size; i++) {
+        const taper = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (size - 1));
+        const phase = 2 * Math.PI * frequency * i / rate;
+        sine += samples[start + i] * taper * Math.sin(phase); cosine += samples[start + i] * taper * Math.cos(phase); weight += taper;
+      }
+      power += 4 * (sine * sine + cosine * cosine) / (weight * weight); windows++;
+    }
+    return Math.sqrt(power / windows);
+  };
+  globalThis.referenceInfo = references.map((reference) => ({ duration: reference.duration, rate: reference.sampleRate, channels: reference.numberOfChannels }));
+  globalThis.referenceTags = references.map((reference) => [6500, 9000].map((frequency) => tagAmplitude(reference.getChannelData(0).subarray(48000, 96000), reference.sampleRate, frequency)));
+  document.querySelector('#play').onclick = async () => {
+    try {
+      if (new URLSearchParams(location.search).get('owned') === 'true') {
+        siteContext = new AudioContext();
+        for (const video of videos) siteContext.createMediaElementSource(video).connect(siteContext.destination);
+        await siteContext.resume();
+      }
+      videos[0].volume = 0.4; videos[1].volume = 0.25;
+      await Promise.all(videos.map((video) => video.play()));
+      outputStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { suppressLocalAudioPlayback: false,
+        echoCancellation: false, noiseSuppression: false, autoGainControl: false }, preferCurrentTab: true });
+      if (outputStream.getAudioTracks().length !== 1) throw new Error('Tab output audio track missing');
+      globalThis.outputSettings = outputStream.getAudioTracks()[0].getSettings();
+      outputContext = new AudioContext(); observer = outputContext.createAnalyser(); observer.fftSize = 8192;
+      outputContext.createMediaStreamSource(outputStream).connect(observer); await outputContext.resume();
+      // Allow tab-loopback transport and the 8192-frame observation window to fill.
+      await new Promise((done) => setTimeout(done, 500));
+      globalThis.outputReady = true;
+    } catch (error) { globalThis.outputError = error.message; }
+  };
+  globalThis.measureOutput = async () => {
+    const levels = [];
+    for (let i = 0; i < 5; i++) {
+      await new Promise((done) => setTimeout(done, 60));
+      const samples = new Float32Array(observer.fftSize); observer.getFloatTimeDomainData(samples);
+      levels.push([6500, 9000].map((frequency) => tagAmplitude(samples, outputContext.sampleRate, frequency)));
+    }
+    return [0, 1].map((index) => levels.reduce((sum, level) => sum + level[index], 0) / levels.length);
+  };
+  document.querySelector('#start').onclick = async () => {
+    globalThis.chunks = []; globalThis.anchors = []; globalThis.captureClosed = false; globalThis.captureError = undefined;
+    try {
+      const video = catalog.resolve(selected);
+      const identity = { sessionId: `speech-${++round}`, targetId: selected.id, epoch: 0 };
+      const timeline = createTimeline(identity);
+      handle = await input.open(selected, identity);
+      for await (const event of handle.events) {
+        if ('type' in event) { timeline.playback(event); globalThis.anchors.push(event); }
+        else {
+          const order = timeline.audio(event);
+          if (order !== 'accepted') throw new Error(`Real speech PCM order: ${order}`);
+          globalThis.chunks.push({ ...event, mapped: timeline.map(event.audioRange), observedMediaMs: video.currentTime * 1000 });
+        }
+      }
+      globalThis.captureClosed = true;
+    } catch (error) { globalThis.captureError = error.message; }
+  };
+  document.querySelector('#stop').onclick = async () => { await handle.close(); await handle.close(); };
+  globalThis.captureSummary = async () => {
+    const chunks = globalThis.chunks, first = chunks[0], rate = first.sampleRate;
+    const samples = new Float32Array(chunks.reduce((sum, chunk) => sum + chunk.pcm.byteLength / 4, 0));
+    let cursor = 0; for (const chunk of chunks) { const pcm = new Float32Array(chunk.pcm); samples.set(pcm, cursor); cursor += pcm.length; }
+    const speech = await lowpass(samples, rate);
+    const length = Math.round(rate * 0.5);
+    let offset = 0, energy = 0;
+    // Use the most energetic speech window, avoiding initial capture silence.
+    for (let start = Math.round(rate * 0.1); start + length <= speech.length; start += Math.round(rate * 0.1)) {
+      let sum = 0; for (let i = start; i < start + length; i += 8) sum += speech[i] ** 2;
+      if (sum > energy) { energy = sum; offset = start; }
+    }
+    const expectedMs = chunks[0].mapped.startMs + offset / rate * 1000;
+    const selectedIndex = videos.indexOf(catalog.resolve(selected));
+    const matches = speechReferences.map((reference, index) => {
+      const referenceRate = references[index].sampleRate;
+      let best = -1, bestMs = 0;
+      // Selected content must align near its playback map; wrong-source search
+      // covers its entire original utterance to avoid a lucky time mismatch.
+      const startMs = index === selectedIndex ? Math.max(0, expectedMs - 250) : 0;
+      const endMs = index === selectedIndex ? expectedMs + 250 : Math.min(14000, reference.length / referenceRate * 1000 - 500);
+      const stepMs = index === selectedIndex ? 8 / referenceRate * 1000 : 10;
+      const correlate = (start) => {
+        let dot = 0, own = 0, other = 0;
+        for (let i = 0; i < length; i += 8) { const a = speech[offset + i], b = reference[start + i]; dot += a * b; own += a * a; other += b * b; }
+        return dot / Math.sqrt(own * other);
+      };
+      for (let ms = startMs; ms <= endMs; ms += stepMs) {
+        const start = Math.round(ms / 1000 * referenceRate);
+        if (start + length > reference.length) break;
+        const correlation = correlate(start);
+        if (correlation > best) { best = correlation; bestMs = ms; }
+      }
+      if (index === selectedIndex) {
+        const center = Math.round(bestMs / 1000 * referenceRate);
+        for (let start = Math.max(0, center - 8); start <= center + 8 && start + length <= reference.length; start++) {
+          const correlation = correlate(start);
+          if (correlation > best) { best = correlation; bestMs = start / referenceRate * 1000; }
+        }
+      }
+      return { correlation: best, referenceTimeMs: bestMs, mapOffsetMs: bestMs - expectedMs };
+    });
+    const steady = samples.subarray(Math.round(rate * 0.1));
+    return { selectedLanguage: videos[selectedIndex].id, chunks: chunks.length, identity: first.identity,
+      scope: first.scope, sampleRate: rate, channels: first.channels, format: first.sampleFormat,
+      sequence: chunks.map((chunk) => chunk.sequence), byteLengths: chunks.map((chunk) => chunk.pcm.byteLength),
+      maxMappingErrorMs: Math.max(...chunks.map((chunk) => Math.abs(chunk.mapped.endMs - chunk.observedMediaMs))),
+      maxDurationErrorMs: Math.max(...chunks.map((chunk) => Math.abs(chunk.mapped.endMs - chunk.mapped.startMs - chunk.pcm.byteLength / 4 / rate * 1000))),
+      clocksMatch: chunks.every((chunk) => chunk.capture.clockId === globalThis.anchors[0].anchor.clockId),
+      speechRms: Math.sqrt(energy / Math.ceil(length / 8)), matches,
+      tagAmplitudes: [6500, 9000].map((frequency) => tagAmplitude(steady, rate, frequency)) };
+  };
+  window.addEventListener('pagehide', () => {
+    void handle?.close(); selection.dispose(); catalog.dispose();
+    for (const track of outputStream?.getTracks() ?? []) track.stop(); void outputContext?.close(); void siteContext?.close();
+  });
+  await Promise.all(videos.map((video) => new Promise((done) => { if (video.readyState >= 2) done(); else video.addEventListener('loadeddata', done, { once: true }); })));
+  globalThis.ready = true;
+</script>
+</html>

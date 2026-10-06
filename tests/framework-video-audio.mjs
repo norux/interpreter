@@ -7,12 +7,13 @@ import { chromium } from "playwright";
 import { build } from "vite";
 import { verifyVideoTimeline } from "./framework-video-timeline.mjs";
 import { verifyVideoAccess } from "./framework-video-access.mjs";
+import { verifyVideoSpeech } from "./framework-video-speech.mjs";
 
 const output = resolve(".ralph/media-framework/video-audio-build");
 await build({ configFile: false, logLevel: "warn", build: {
   outDir: output, emptyOutDir: true, minify: false,
   rollupOptions: { input: { input: resolve("packages/media-web/audio-input.ts"), catalog: resolve("packages/media-web/catalog.ts"),
-    controller: resolve("packages/core/session-controller.ts"), timeline: resolve("packages/core/timeline.ts") },
+    controller: resolve("packages/core/session-controller.ts"), timeline: resolve("packages/core/timeline.ts"), selection: resolve("packages/media-web/selection.ts") },
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js", chunkFileNames: "[name]-[hash].js" } },
 } });
 let media;
@@ -22,8 +23,8 @@ const server = createServer(async (request, response) => {
   if (path === "/redirect.webm") {
     response.writeHead(302, { Location: `http://localhost:${server.address().port}/denied.webm` }); response.end();
   }
-  else if (["/tone.webm", "/replacement.webm", "/allowed.webm", "/denied.webm", "/silent.webm"].includes(path)) {
-    const bytes = path === "/silent.webm" ? silentMedia : media;
+  else if (["/tone.webm", "/replacement.webm", "/allowed.webm", "/denied.webm", "/silent.webm", "/ja.webm", "/en.webm"].includes(path)) {
+    const bytes = ["/ja.webm", "/en.webm"].includes(path) ? await readFile(`tests/fixtures/video-speech${path}`) : path === "/silent.webm" ? silentMedia : media;
     if (path === "/allowed.webm") response.setHeader("Access-Control-Allow-Origin", "*");
     response.setHeader("Content-Type", "video/webm"); response.setHeader("Accept-Ranges", "bytes");
     const range = request.headers.range?.match(/^bytes=(\d+)-(\d*)$/);
@@ -37,6 +38,7 @@ const server = createServer(async (request, response) => {
   else if (/^\/[\w-]+\.js$/.test(path)) { response.setHeader("Content-Type", "text/javascript"); response.end(await readFile(resolve(output, path.slice(1)))); }
   else if (path === "/timeline") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-timeline.html")); }
   else if (path === "/access") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-access.html")); }
+  else if (path === "/speech") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-speech.html")); }
   else if (path === "/") { response.setHeader("Content-Type", "text/html"); response.end(await readFile("tests/fixtures/video-audio.html")); }
   else { response.setHeader("Content-Type", "text/html"); response.end("<button>Generate</button>"); }
 });
@@ -154,6 +156,7 @@ try {
     remainingAcceptance: ["V3 PCM timeline/epoch", "V4 media access matrix", "V5 speech/two-audible-video fixtures"] }));
   await verifyVideoTimeline(browser, `http://127.0.0.1:${server.address().port}`);
   await verifyVideoAccess(browser, `http://127.0.0.1:${server.address().port}`, { tone: media.length, silence: silentMedia.length });
+  await verifyVideoSpeech(browser, `http://127.0.0.1:${server.address().port}`);
 } finally {
   await browser?.close();
   await new Promise((done) => server.close(done));
