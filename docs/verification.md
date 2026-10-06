@@ -782,3 +782,95 @@ committed. This iteration did not measure audio-end-to-caption p50/p95 or verify
 real YouTube translation, ten-minute queue behavior, or live cloud. Those remain
 for later items. The next unfinished item is 5, the OpenAI direct adapter and
 dedicated realtime translation protocol tests.
+
+## Ralph iteration 2/30 — 2026-10-06 — OpenAI direct protocol acceptance
+
+Completed item 5 in the specified checkout using the existing session/caption
+interfaces. There was no repository AGENTS.md; supplied instructions applied.
+`.ralph/verification.txt` still said `No completion verification attempted in this run.`
+No other agents or interactive browsers were launched.
+
+Rechecked the official [translation guide](https://developers.openai.com/api/docs/guides/realtime-translation)
+and [translation server events](https://developers.openai.com/api/reference/resources/realtime/translation-server-events).
+The direct adapter uses the dedicated endpoint, configures the target language
+before audio, appends continuous PCM, and drains the translation close lifecycle.
+It uses no voice-agent response or VAD/commit commands. Transcript fragments are
+append-only; repeated alignment times are allowed. The API does not supply
+utterance IDs or final transcript events, so punctuation, a 160-character limit,
+and graceful close define local display boundaries. Optional timing metadata
+provides approximate alignment; captured frame time is the fallback. Source
+transcription is disabled and translated audio is discarded.
+
+Commands actually run, with repository-local uv on PATH:
+
+```sh
+uv run --locked python -c 'import os, websockets; print("websockets", websockets.__version__); print("OPENAI_API_KEY", "available" if os.environ.get("OPENAI_API_KEY") else "unavailable")'
+uv lock
+uv run --locked ruff check server tests
+uv run --locked pytest tests/test_direct.py -q
+uv run --locked pytest tests/test_direct.py::test_companion_routes_selected_direct_pcm_and_captions_without_local_models -q
+npm run verify
+npm run test:direct-live
+uv lock --check
+git diff --check
+```
+
+- Python 3.12.15, websockets 17.2, anyio 4.15.1. Declare both newly imported
+  transport dependencies explicitly; no optional MLX installation was required.
+- Nineteen direct tests use real local WebSocket fixture connections, with a
+  substituted connector asserting the exact production endpoint and server-only
+  Authorization header. No fixture is reported as a successful OpenAI call.
+- Confirmed `session.update` requests `audio.output.language=ko` and waits for
+  acknowledgment. Four 20 ms PCM frames, including zero silence, arrived in
+  order as exactly 960 bytes each after base64 decoding, without the PCM1 header.
+  The fixture's expected sequence excludes voice-agent response/VAD/commit events.
+- Three fragments with equal `elapsed_ms=200` revised `direct-1` through revisions
+  1/2/3, yielding `좋`, `좋은 날`, and `좋은 날씨입니다.` without inserted spaces.
+  Partial/final flags were false/false/true. After `session.close`, trailing text
+  arrived before `session.closed`, producing a separate cue and final revision.
+  Source remained empty and translated-audio events produced no output.
+- A generated 600-character unpunctuated stream produced four bounded cues,
+  with no characters lost when final cues were concatenated. Missing alignment
+  metadata used the actual captured 20 ms frame time. Stop canceled the sender,
+  discarded a late caption, awaited the close acknowledgment, and cleared all
+  session socket/sender/task references. Repeated cleanup was safe.
+- Withheld `session.closed` deliberately: the adapter waited five seconds then
+  reported a stalled/disconnected error and released its socket/tasks. Tested
+  handshake 401/403/429, provider model access/rate/invalid-event errors,
+  malformed output, unprompted close, disconnection, missing key, and unknown
+  provider. Keys/raw provider bodies did not enter captions or errors.
+- Companion integration used real authenticated PCM transport and the actual
+  DirectSession with the local provider fixture. Explicit `openai-direct` never
+  created a local model session. Caption session ID/translation/final fields and
+  normalized access errors reached the extension-facing socket. Missing-key and
+  unknown selections closed the connection and allowed a new session token.
+- Initial integration failed (15-second fixture deadline; provider saw no
+  `session.close`) because ASGI disconnect cancellation interrupted cleanup.
+  Added a small cancellation shield to transport cleanup. Both successful-caption
+  and provider-error integration cases now observe close/ack and pass. Initial
+  lint line lengths and two fallback-fixture frame/close expectation mismatches
+  were also corrected; no assertions or acceptance checks were removed.
+- Final `npm run verify` exit 0: lint/typecheck/production build, JS 7 and Python
+  48 tests passed, failures/skips/warnings 0 (Python 5.48 seconds). `uv lock --check`
+  and `git diff --check` passed. Fixture servers close their sockets within the
+  test context; no browser, companion daemon, or cloud connection was started.
+
+**Live limitation:** the process reported `OPENAI_API_KEY unavailable`. The final
+explicit `npm run test:direct-live` exited 1 with
+`Live smoke unavailable: OPENAI_API_KEY is not exported.` Its key gate ran before
+speech generation or network connection. Model access, real Korean output,
+translation meaning, latency, and cloud/browser appearance remain unverified.
+No credential files were searched/read and no paid call was made.
+
+The optional smoke is excluded from `verify`. With an exported authorized server
+key, explicitly run it on macOS to send generated non-sensitive English speech
+and inspect the Korean meaning. It fails on access/provider errors or missing
+Korean captions and does not exercise tabCapture. Generated audio stays in an
+ignored temporary directory and is cleaned up; no user audio/transcripts, keys,
+weights, or temporary `.ralph` state are committed.
+
+Under the plan's keyless cloud rule, item 5 is **implemented/fixture verified,
+live unverified**. Missing credentials do not block this protocol acceptance.
+Next: item 6, Luna/Anthropic text adapters and ASR selection. Final project
+completion, actual YouTube translation, ten-minute behavior, and performance
+measurements have not been established by this iteration.

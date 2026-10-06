@@ -268,10 +268,12 @@ name = "interpreter-companion"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "anyio" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "webrtcvad-wheels" },
+    { name = "websockets" },
 ]
 
 [package.optional-dependencies]
@@ -288,11 +290,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "mlx-audio", extras = ["stt"], marker = "extra == 'local'", specifier = "==0.5.8" },
     { name = "uvicorn", extras = ["standard"] },
     { name = "webrtcvad-wheels" },
+    { name = "websockets" },
 ]
 provides-extras = ["local"]
 

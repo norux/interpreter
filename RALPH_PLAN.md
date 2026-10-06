@@ -205,7 +205,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
     YouTube 기존 자막을 읽는 구현으로 대체하지 않는다. 로컬 상태에서는 외부
     inference API 요청이 없고 모델 미설치 안내가 이해 가능해야 한다.
 
-- [ ] 5. OpenAI direct 실시간 번역 경로 구현
+- [x] 5. OpenAI direct 실시간 번역 경로 구현
   - 키는 server-side에서 사용하고 전용 endpoint/events/close를 처리한다.
   - Acceptance: protocol fixture 테스트로 한국어 출력 설정, 연속 PCM 전송,
     transcript delta의 cue 수정, session close/error를 확인한다. 키가 있을 때만
@@ -607,3 +607,50 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   상세 evidence는 `docs/verification.md`의 이번 기록에 보존했다.
   필수 항목 4 acceptance 통과 후 체크했다. 다음 미완료 작업은
   **항목 5 — OpenAI direct 전용 realtime translations adapter/protocol 검증**이다.
+
+### Ralph iteration 2/30 — 2026-10-06 — 항목 5 구현/fixture 검증 완료, live 미검증
+
+- 지정 checkout 안에서 다음 미완료 항목 5만 구현했다. AGENTS.md는 없으며
+  사용자 지침을 적용했다. `.ralph/verification.txt`는 `No completion verification
+  attempted in this run.`이다. 다른 agent/browser/model을 실행하지 않았다.
+- 공식 translation guide와 translation server events를 다시 조회했다.
+  `server/sessions/direct.py`의 작은 DirectSession은 기존 TranslationSession 계약을
+  사용한다. 가짜 Transcriber, provider framework, 새 제품 output을 추가하지 않았다.
+  고정 `/v1/realtime/translations?model=gpt-realtime-translate`, 서버 환경 변수의 키,
+  output language update/ack, silence 포함 연속 24 kHz raw PCM16 append를 처리한다.
+  voice-agent response.create/VAD/commit protocol은 보내지 않는다.
+- append-only transcript delta를 같은 cue ID의 증가 revision으로 정규화한다.
+  같은 elapsed_ms의 별도 delta를 버리거나 임의 공백을 넣지 않는다. 문장부호/160자/
+  정상 close가 local display cue를 확정한다(API utterance-final 이벤트가 아니다).
+  텍스트/수신 큐/전송 대기를 제한하고 source transcription 없이 caption source는 빈 값,
+  번역 음성은 버린다. optional alignment metadata와 captured-time fallback을 사용한다.
+- companion 환경 변수 `INTERPRETER_PROVIDER=openai-direct`로 명시 선택하며 기본은
+  local이다. 설정 UI는 항목 7에 남긴다. 키 누락/unknown provider/access/quota/protocol/
+  disconnect/stall은 상태 오류이며 fallback이 없다. API 키/원시 provider body를
+  extension caption/status/auth 응답에 넣지 않는다. README/.env.example에 실행법을 썼다.
+- Stop은 sender를 취소하고 늦은 caption을 버리면서 session.close를 한 번 보내고
+  session.closed까지 drain한다(5초 제한). 실제 ASGI companion fixture에서 disconnect
+  cancellation이 cleanup을 중단하는 회귀를 먼저 확인했다(15초 실패, close 미관측).
+  transport finally의 작은 CancelScope shield로 수정한 뒤 정상/error 두 integration
+  case에서 실제 local fixture socket의 session.close/closed를 검증했다.
+- `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` 최종 exit 0: lint/typecheck/build,
+  JS 7 + Python 48 tests 통과, failures/skips/warnings 0. direct 신규 19 cases는 한국어
+  output config, 4개 silence/PCM frame의 정확한 byte 순서, partial/final/revision,
+  600자 무문장부호 cue 무손실 분할, timestamp fallback, graceful trailing caption,
+  Stop의 늦은 결과/PCM 거부, 5초 timeout, handshake 401/403/429, provider access/rate
+  error, malformed/disconnect, companion routing/error/키 미노출/재시작을 검증한다.
+  line-length lint 및 fallback fixture 수정 중 frame/close 기대값 불일치 2건도 고쳤다.
+  acceptance를 약화하거나 실패를 성공으로 기록하지 않았다. `uv lock --check`와
+  `git diff --check` 통과. websockets 17.2/anyio 4.15.1을 직접 의존성으로 선언했다.
+- **정확한 live 한계**: 이 process의 OPENAI_API_KEY는 unavailable이다. 명시 opt-in
+  `npm run test:direct-live`를 구현했지만 이번 실행은 key gate에서 exit 1:
+  `Live smoke unavailable: OPENAI_API_KEY is not exported.` 실제 OpenAI 연결/모델
+  접근/번역 품질/지연은 미검증이며 fixture 성공을 live 성공으로 주장하지 않는다.
+  credential 파일을 찾거나 읽지 않았고 유료 호출/생성 audio는 실행하지 않았다.
+  live 재검증은 서버 shell에 키를 export한 뒤 위 명령으로 generated macOS speech를
+  전송하고 한국어 의미를 확인한다. 이 smoke는 tabCapture/자막 appearance 증거가 아니다.
+- 플랜의 keyless cloud fixture 규칙에 따라 필수 protocol acceptance 통과 후 항목 5를
+  체크했다. 키 부재는 이 항목의 blocker가 아니다. 상세 증거는 docs/verification.md에
+  보존한다. 사용자 음성/전사문/키/가중치/임시 .ralph state는 커밋하지 않는다.
+  다음 미완료 작업은 **항목 6 — Luna/Anthropic TextTranslator + ASR 선택**이다.
+  항목 6–9, 실제 YouTube 번역/10분/성능/최종 완료 검증은 남아 있다.

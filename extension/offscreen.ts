@@ -70,7 +70,7 @@ async function start(streamId: string, tabId: number) {
       if (reply.type === "receipt") {
         const dropped = (reply.droppedFrames ?? 0) + (reply.droppedUtterances ?? 0);
         report({ ...status, frames: reply.frames, samples: reply.samples, peak: reply.peak,
-          ...(dropped > 0 ? { message: `Local processing is behind; dropped ${reply.droppedFrames ?? 0} frames and ${reply.droppedUtterances ?? 0} waiting speech segments.` } : {}),
+          ...(dropped > 0 ? { message: `Translation is behind; dropped ${reply.droppedFrames ?? 0} frames and ${reply.droppedUtterances ?? 0} waiting speech segments.` } : {}),
         });
       } else if (reply.type === "caption" && reply.caption?.sessionId === sessionId) {
         void chrome.runtime.sendMessage({ target: "worker", type: "caption", caption: reply.caption }).catch(() => {});
@@ -100,7 +100,7 @@ async function start(streamId: string, tabId: number) {
       connection.send(packet);
     });
     if (started !== generation) { await audio.stop(); return status; }
-    report({ state: "capturing", sessionId, tabId, message: "Local translation is listening. Korean subtitles appear after each short speech segment." });
+    report({ state: "capturing", sessionId, tabId, message: "Speech translation is listening. Subtitles appear as speech is translated." });
   } catch (error) {
     if (started === generation) {
       await stop({ state: "error", message: error instanceof Error ? error.message : "Tab audio capture failed." });

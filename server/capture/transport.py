@@ -8,9 +8,11 @@ import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
+from anyio import CancelScope
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from server.capture.pcm import FRAME_SAMPLES, decode_frame
+from server.sessions.direct import direct_session
 from server.sessions.local import MlxEngine, local_session
 
 
@@ -106,7 +108,7 @@ def capture_router() -> APIRouter:
                         )
                     if event.type == "error":
                         await websocket.close(
-                            code=1011, reason="Local model unavailable"
+                            code=1011, reason="Translation unavailable"
                         )
                         return
             except (WebSocketDisconnect, RuntimeError):
@@ -131,7 +133,23 @@ def capture_router() -> APIRouter:
             pending = None
             active = owns_session = True
             await websocket.send_json({"type": "ready", "sessionId": session_id})
-            session = local_session(session_id, engine)
+            provider = os.environ.get("INTERPRETER_PROVIDER", "local")
+            if provider == "openai-direct":
+                session = direct_session(session_id)
+            elif provider == "local":
+                session = local_session(session_id, engine)
+            else:
+                await send(
+                    {
+                        "type": "error",
+                        "sessionId": session_id,
+                        "message": (
+                            "Unknown INTERPRETER_PROVIDER. Use local or openai-direct."
+                        ),
+                    }
+                )
+                await websocket.close(code=1008, reason="Unknown translation provider")
+                return
             model_task = asyncio.create_task(captions())
             frames = 0
             dropped_frames = 0
@@ -194,10 +212,12 @@ def capture_router() -> APIRouter:
         finally:
             if owns_session:
                 active = False
-            if model_task:
-                model_task.cancel()
-                await asyncio.gather(model_task, return_exceptions=True)
-            if session:
-                await session.close()
+            # ASGI disconnect cancellation must not interrupt provider drain/close.
+            with CancelScope(shield=True):
+                if model_task:
+                    model_task.cancel()
+                    await asyncio.gather(model_task, return_exceptions=True)
+                if session:
+                    await session.close()
 
     return router

@@ -103,8 +103,8 @@ repeat Start/Stop, close the captured tab, and check navigation and disconnect
 cleanup. Record actual observations in `docs/verification.md` before checking item 2.
 
 Copy `.env.example` to `.env` as a settings reference.
-Keys belong exclusively to the companion; `.env` is ignored. Cloud keys are not
-loaded or used yet; capture reads the exported extension ID. Never commit keys, model weights, recordings,
+Keys belong exclusively to the companion; `.env` is ignored. The explicitly
+selected OpenAI direct adapter reads the exported server key. Never commit keys, model weights, recordings,
 or transcripts. See [verification evidence](docs/verification.md) for checks that
 actually ran and their limitations.
 
@@ -178,3 +178,52 @@ requires both `accept` and `stopped` to pass. Enter `check` to inspect capture
 status or `exit` to stop the browser/listeners. The generated audio is ignored
 and must not be committed. The screenshots need visual and meaning review;
 a Hangul assertion alone is not evidence of accurate translation.
+
+## OpenAI direct translation
+
+This optional paid path sends the selected tab's audio to OpenAI. It requires
+an API key with access to `gpt-realtime-translate`; a chat subscription does not
+provide API billing. Export the key in the companion's shell, then explicitly
+select the provider when restarting the companion:
+
+```sh
+# OPENAI_API_KEY must already be exported in this shell; never put it in the extension.
+INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
+  INTERPRETER_PROVIDER=openai-direct INTERPRETER_TARGET_LANGUAGE=ko \
+  npm run dev:server
+```
+
+For direct translation, the target is an API language code (`ko` by default),
+rather than the language name used by local prompts. Source language is detected
+by the translation model. Settings UI selection comes in plan item 7; until then,
+stop capture before restarting the companion with changed environment settings.
+Omit `INTERPRETER_PROVIDER` or set it to `local` to use the local models. Neither
+provider automatically falls back to the other.
+
+The companion connects to the fixed `/v1/realtime/translations` WebSocket and
+continuously sends mono 24 kHz PCM16, including silence. It configures the output
+language before sending audio. Append-only translated transcript fragments revise
+the same subtitle cue; punctuation, 160 characters, or graceful close finalize
+a local display cue. These are display boundaries, not model utterance-final
+events. Timing uses the API's optional alignment metadata, with captured audio
+time as a fallback; it is not word-level forced alignment. Source transcription
+is not enabled and translated audio is discarded. Stop cancels input and hides
+captions, sends `session.close`, and drains until `session.closed`, with a
+five-second limit if the provider stalls. Keys and raw provider errors are never
+sent to the extension. Access, quota, disconnect, and missing-key errors are
+reported without switching providers.
+
+`npm run verify` checks the protocol against local WebSocket fixtures without
+keys or paid calls. To explicitly opt into a live paid smoke on non-sensitive
+macOS-generated English speech, export `OPENAI_API_KEY` and run:
+
+```sh
+npm run test:direct-live
+```
+
+It fails if the key, model access, or Korean caption output is unavailable;
+review meaning yourself. This command does not exercise Chrome tab capture or
+subtitle appearance. Live cloud verification has not run in this iteration
+because the process has no exported key. Protocol references:
+[translation guide](https://developers.openai.com/api/docs/guides/realtime-translation),
+[translation events](https://developers.openai.com/api/reference/resources/realtime/translation-server-events).
