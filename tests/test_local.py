@@ -67,6 +67,34 @@ def test_silence_boundary_minimum_speech_and_frame_gap():
     assert all(segments.push(frame(i)) is None for i in range(51, 80))
 
 
+def test_speech_flushes_after_300ms_silence_without_waiting_for_more_audio():
+    segments = SpeechSegments()
+    segments.vad = SpeechDetector()
+    for i in range(20):
+        assert segments.push(frame(i, True)) is None
+    for i in range(20, 34):
+        assert segments.push(frame(i)) is None
+    utterance = segments.push(frame(34))
+    assert utterance is not None
+    assert utterance.end_ms == 400
+    assert len(utterance.frames) == 35
+    assert all(segments.push(frame(i)) is None for i in range(35, 100))
+
+
+@pytest.mark.parametrize("pause_frames", [12, 14])
+def test_short_internal_pause_keeps_both_halves_of_speech_in_one_segment(pause_frames):
+    segments = SpeechSegments()
+    segments.vad = SpeechDetector()
+    # A 240/280 ms hesitation must not split a clause from its context.
+    end = 40 + pause_frames
+    for i in range(end):
+        assert segments.push(frame(i, i < 20 or i >= 20 + pause_frames)) is None
+    results = [u for i in range(end, end + 28) if (u := segments.push(frame(i)))]
+    assert len(results) == 1
+    assert results[0].end_ms == end * 20
+    assert sum(any(f.pcm) for f in results[0].frames) == 40
+
+
 def test_slow_asr_drops_old_segments_and_does_not_block_loop_or_overlap():
     async def check():
         started = threading.Event()

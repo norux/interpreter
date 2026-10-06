@@ -1510,3 +1510,117 @@ No dependency/lockfile changes. Dedicated browser, companion, fixture and Ollama
 were terminated; `lsof -nP -iTCP:8765 -iTCP:8766 -iTCP:11434 -sTCP:LISTEN`
 found no listeners. No model weights, secrets, generated audio, user transcript
 or temporary `.ralph` state is committed.
+
+## Ralph iteration 3 — local VAD candidate comparison (2026-10-06)
+
+Item 7a remains unchecked. This iteration implements only the measured local
+silence-boundary change, from 500 to 300 ms. The six-second maximum, pre-roll,
+minimum speech, single ASR worker, streaming translation and queue budgets remain
+as before. `SpeechSegments.silence_frames` keeps the setting inside the existing
+feature. OpenAI live transcription explicitly retains its existing 500 ms commit
+boundary; its fixture still requires all 64 original PCM frames before commit.
+No capture/model/output framework, cloud inference, other agent or runner change.
+
+Commands (inside the designated checkout):
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked --extra local
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  PATH="$PWD/.tools/uv/bin:$PATH" uv run --locked --extra local \
+  python tests/local-vad-latency.py
+PATH="$PWD/.tools/uv/bin:$PATH" uv run --locked pytest \
+  tests/test_local.py tests/test_live.py tests/test_local_prepare.py \
+  tests/test_ollama_stream.py -q
+npm run test:captions-browser
+```
+
+The real-model comparison exited 0 on Apple M5 / 16 GiB, Python 3.12.15,
+mlx-audio 0.5.8, cached MLX Qwen3-ASR 0.6B 8bit, Ollama 0.35.1 and
+`qwen3:4b-instruct` Q4_K_M, English → Korean. Three identical macOS Samantha
+165 wpm clips run three times at each candidate, rotating candidate order across
+repetitions: **27 warm clip runs / 36 warm finalized cues**, 9 runs / 12 cues per
+candidate. Clip 2 contains a deliberately added 240 ms pause between a negated
+main clause and its reason, and continues beyond six seconds. TTS can include
+its own pauses; the added pause is not a claim about the exact VAD silence span.
+The generated waveform is reused in memory at all candidates, paced at 20 ms.
+Temporary generated audio under `.ralph` is removed by `TemporaryDirectory`.
+Generated ASR/final text was reviewed only in terminal and is not saved.
+
+[Numeric measurements](verification/latency/vad-events.json) contain nearest-rank
+percentiles and each cue's audio interval, first/final event, VAD plus worker wait,
+ASR duration, revision count and queue/drop measurements. Translation-to-first/
+final fields are derived as event latency minus VAD/worker wait minus ASR time;
+they include HTTP and event scheduling, not just model compute. These two fields
+were derived from recorded raw timings after the run using the same arithmetic
+now included in the harness; no new timing run is claimed.
+
+| Warm event measurement | 500 ms baseline p50 / p95 | 300 ms selected p50 / p95 | 260 ms candidate p50 / p95 |
+| --- | --- | --- | --- |
+| First caption event (ms) | 680.591 / 811.228 | 493.693 / 586.934 | 454.747 / 548.191 |
+| Final caption event (ms) | 985.087 / 1139.874 | 790.330 / 1113.188 | 739.896 / 1107.732 |
+| VAD plus worker wait (ms) | 502.372 / 502.555 | 302.202 / 302.523 | 261.652 / 262.503 |
+
+The selected candidate's first-event p50 improves **27.46%** in this small warm
+sample. 260 ms is faster still; 300 ms was selected to keep more tolerance for
+brief pauses, with deterministic 240/280 ms pause-preservation checks. This is an
+implementation choice, not evidence that 260 ms has worse real-model accuracy.
+ASR ranges were 140.665–287.628 / 107.115–261.435 / 110.678–269.735 ms respectively.
+Derived translation-to-first ranges were 30.882–142.444 / 31.399–143.958 /
+32.663–143.825 ms. The long clip hits the existing six-second maximum and emits
+two cues at all candidates; its first cue ends without silence waiting, so pooled
+percentiles include both kinds of boundary. The same clip/cue distribution is used
+for every candidate. Nine runs at each candidate have **0 dropped utterances**,
+**0 pending audio at end**, and sampled queue peak **6000 ms**, within the existing
+8000 ms budget. This sparse sample does not prove long-run queue stability.
+Transport frame drop and original audio playback are not exercised here.
+
+Cold/warm distinction: one shared engine is prepared before PCM starts. The first
+500 ms weather run is excluded from every warm percentile: first/final event
+**15308.749 / 15546.209 ms**, ASR **14670.100 ms**, VAD/worker wait **505.134 ms**,
+whole warm-up including preparation/audio **21692.324 ms**, n=1. Cached weights
+and OS caches were not cleared. No cold candidate comparison or cold improvement
+is claimed. Start preparation loads models but does not remove first-inference
+compilation. Warm event latency excludes Start preparation.
+
+Meaning review: weather and lunch/park source and Korean finals match across all
+three candidates and repetitions. The longer clip's sources and finals also
+match, including the **existing failure**: the six-second cut loses “station,”
+and the generated translation contains Japanese wording mixed into Korean.
+Negation, rain stopping before noon, blue umbrella and afternoon three survive,
+but this is not full long-phrase meaning preservation. Shortening the maximum
+was not attempted. This quality defect is a next-iteration task under 7a; do not
+use matching defective baseline output as a passed meaning acceptance check.
+
+Before the fix, the new 300 ms flush regression failed (1 failed / 1 passed /
+13 deselected, exit 1): no utterance arrived on the 15th silent frame. After the
+change, focused tests pass **59 cases in 60.71 seconds**, exit 0, including
+300 ms flushing, 240/280 ms internal pauses, silence/noise/frame-gap handling,
+six-second continuous speech, slow-ASR queue bounds, Stop/late results, model
+preparation, streaming completion and existing OpenAI ASR PCM/commit protocol.
+No failing assertion or acceptance criterion was weakened.
+
+`test:captions-browser` exited 0 in Chrome for Testing **153.0.8010.12**:
+normal/narrow/wrapper fullscreen, same-cue revision replacement/old-revision
+rejection, every character of a long generated final, controls, expiration,
+Stop and late-caption rejection. Screenshots retained identical bytes; no new
+visual-review claim. This is generated caption fixture evidence, not actual
+Chrome audio → model → paint, original-sound listening or long-phrase meaning.
+
+Remaining 7a acceptance: fix/recheck the observed long-phrase quality defect,
+measure revision-aware native tabCapture first/final **paint** p50/p95 using
+identical speech/settings before/after with sample counts and cold/warm phases,
+and verify original-sound listening, partial/final/long-cue rendering and Stop/
+session replacement together with bounded queue/drop evidence. Prior event-only
+baselines cannot replace paint measurements. There is no external blocker.
+Source Auto, TED 600-second run and final documentation/acceptance remain after 7a.
+
+Final base-environment verification: `PATH="$PWD/.tools/uv/bin:$PATH" uv sync
+--locked` removed optional MLX packages, then `PATH="$PWD/.tools/uv/bin:$PATH"
+npm run verify` exited 0: lint/typecheck/build, **10 JS + 156 Python tests**,
+failures/skips/warnings 0, Python **66.02 seconds**. Final Ruff, `uv lock --check`,
+`git diff --check`, and numeric sample/percentile/derived-duration consistency
+checks passed. Dependency/lockfiles are unchanged. The generated-caption browser
+closed; the real-model process completed and Ollama was terminated. No
+8765/8766/11434 listeners remain. Only intended source/tests/documentation and
+numeric evidence are committed, with no temporary `.ralph` state or generated audio.

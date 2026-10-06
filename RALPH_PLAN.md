@@ -1016,3 +1016,64 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   기존 tests/local-latency.py와 numeric events, tests/browser_metrics.py를 출발점으로
   사용한다. ASR 파일 token streaming을 live PCM ASR로 표현하지 않는다.
   7b/8(TED 600초)/9와 최종 완료는 남아 있다.
+
+### Ralph iteration 3/30 — 2026-10-06 — 항목 7a VAD 실측/300ms 진척
+
+- 지정 checkout만 사용했다. AGENTS.md는 없으며 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7a만 진행**, 큰 항목 분할 규칙에 따라 **checkbox는 미체크로 유지**한다.
+  다른 agent/worktree/push/runner 변경/credential 파일/cloud inference는 사용하지 않았다.
+- 같은 생성 음성/실제 cached MLX Qwen3-ASR 0.6B 8bit + Ollama
+  qwen3:4b-instruct Q4_K_M으로 500/300/260ms silence를 비교했다. 모델 준비/streaming/
+  English→Korean/최대 6초는 동일하다. Apple M5/16 GiB, Python 3.12.15,
+  mlx-audio 0.5.8/Ollama 0.35.1. macOS Samantha 165 wpm 세 clip을 후보마다
+  3회, 후보 순서를 회전해 **warm 9 runs/12 cues씩**, 총 27 runs/36 cues 실측했다.
+  긴 clip은 부정/이유절 사이에 추가 240ms pause가 있으며 6초를 넘는다.
+  생성 audio는 ignored TemporaryDirectory 종료 시 제거했고 text는 terminal에서만
+  의미를 검토했다. numeric JSON은 docs/verification/latency/vad-events.json이다.
+- **session-event 실측, browser paint가 아니다**: warm first p50/p95
+  500ms 680.591/811.228 → 300ms **493.693/586.934 ms(n=12)**, p50 27.46% 개선.
+  final은 985.087/1139.874 → **790.330/1113.188 ms**. 260ms first는
+  454.747/548.191, final 739.896/1107.732 ms로 더 빠르다. 짧은 pause 허용을
+  더 유지하는 300ms를 선택했으며 260ms 실제 ASR 품질이 나쁘다는 근거는 없다.
+  VAD/worker p50은 502.372→302.202ms. ASR/translation 시간과 원시 sample/분포/
+  정확한 한계는 docs/verification.md에 있다. translation-to-first/final 값은 기록한
+  event−VAD/worker−ASR의 산술 파생값이며 후처리와 harness에 같은 산식을 넣었다.
+- local silence를 기존 feature-local SpeechSegments에서 **15×20ms**로 바꿨다.
+  OpenAI live ASR는 명시적으로 기존 25×20ms를 유지하며 기존 64 PCM frame/commit
+  assertion을 변경하지 않았다. 6초 cap/pre-roll/최소 speech/queue budget/model/
+  capture/output 계약은 동일하며 새 설정 UI/framework는 없다.
+- 준비 뒤 첫 500ms weather warm-up은 n=1 first/final 15308.749/15546.209ms,
+  ASR 14670.100ms, 전체 준비/audio 포함 21692.324ms이며 warm에서 제외했다.
+  하나의 shared engine이고 OS/model cache를 지우지 않았으므로 cold 후보 비교/
+  cold 개선으로 주장하지 않는다. Start 준비는 첫 inference compilation을 제거하지
+  않는다. 각 warm run utterance drop 0/끝 pending 0/sampled queue peak 최대6000ms.
+  sparse sample이며 transport frame drop/원음 playback/장시간 queue는 미측정이다.
+- 날씨/점심 후 공원 원문과 한국어 finals는 모든 후보/반복에서 같고 의미가 맞다.
+  **긴 clip의 기존 품질 실패도 모든 후보에서 같았다**: 6초 cut에서 station이
+  사라지고 번역에 일본어가 섞였다. 부정/정오 전 비 그침/파란 우산/오후3시는
+  유지됐지만 전체 의미 보존 acceptance는 실패다. 동일한 불완전 baseline을
+  통과 근거로 쓰지 않는다. 최대 길이를 무작정 줄이지 않았고 품질 수정을 다음
+  7a 작업으로 남겼다. 외부 blocker가 아니라 구현/검증 가능한 문제다.
+- 변경 전 300ms flush regression은 1 failed/1 passed/13 deselected/exit1로
+  재현했다. 변경 후 focused local/live/prepare/stream **59 passed/60.71초/exit0**:
+  300ms 즉시 flush, 240/280ms 내부 pause 유지, silence/noise/gap/6초 cap,
+  slow-ASR bounded queue/Stop/late result/stream completion/기존 live commit 통과.
+  `npm run test:captions-browser` exit0: Chrome for Testing 153.0.8010.12에서
+  normal/narrow/wrapper fullscreen/revision 교체/오래된 revision/긴 final 모든 문자/
+  controls/만료/Stop/늦은 caption 통과. fixture caption이며 real paint/audio/의미
+  성공으로 기록하지 않았다. PNG는 동일 byte이며 새 시각 검토 주장은 없다.
+- 최종 base `uv sync --locked` 후 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify`
+  exit0: lint/typecheck/build, **JS10 + Python156**, failures/skips/warnings0,
+  Python66.02초. 최종 Ruff/uv lock --check/git diff --check/numeric consistency 통과.
+  dependency/lock 변경 없음. 모델 process/browser/Ollama 종료, 8765/8766/11434
+  listener 없음. README 재현 명령과 docs/verification.md를 갱신했다.
+  키/모델/audio/사용자 전사문/임시 .ralph는 커밋하지 않는다.
+- **다음 iteration도 7a**: 새 긴 생성 fixture에서 드러난 6초 cut의 정보 손실과
+  번역 품질을 먼저 재현/수정하고 무손실 의미를 검증한다. 이후 native Chrome
+  tabCapture의 revision-aware first/final **실제 paint**를 같은 음성/설정의 변경
+  전후로 측정해 p50/p95/sample/cold-warm/queue-drop을 기록한다. event baseline을
+  paint로 대신하지 않는다. 실제 원음 청취/긴 cue/partial-final/Stop 및 session
+  교체 뒤 늦은 결과 거부를 함께 확인해야 checkbox를 바꿀 수 있다. 이번 300ms
+  후보 비교/선택은 끝났으므로 다시 구현할 필요가 없다. 7b(Source Auto),
+  8(TED 연속600초), 9/최종 완료는 남아 있고 외부 blocker는 없다.

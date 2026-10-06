@@ -33,6 +33,8 @@ class Utterance:
 
 
 class SpeechSegments:
+    silence_frames = 15
+
     def __init__(self):
         self.vad = webrtcvad.Vad(2)
         self.preroll = deque(maxlen=10)
@@ -70,7 +72,7 @@ class SpeechSegments:
             self.last_voice_ms = frame.timestamp_ms + 20
         else:
             self.silent += 1
-        if self.silent < 25 and len(self.frames) < 300:
+        if self.silent < self.silence_frames and len(self.frames) < 300:
             return None
         result = None
         if self.voiced >= 10:

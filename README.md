@@ -210,7 +210,7 @@ to change language names until the settings UI is implemented. ASR must support
 the chosen source language.
 
 The worklet sends mono 24 kHz PCM16. Local VAD uses an 8 kHz decision stream,
-200 ms pre-roll, 500 ms silence boundary, at least 200 ms speech, and a six-second
+200 ms pre-roll, 300 ms silence boundary, at least 200 ms speech, and a six-second
 maximum segment. ASR resamples the segment to 16 kHz float32 in memory. Silence
 alone does not call either model. One dedicated ASR worker is shared across
 sessions; translation processes finalized segments with up to three recent
@@ -244,6 +244,21 @@ fixture results for meaning review, and saves only numeric measurements. The
 not switch implementations. These are audio-end → session-event timings, not
 Chrome capture or subtitle paint measurements. See `docs/verification.md` for
 the baseline, sample counts, cold/warm distinction, and remaining item 7a checks.
+
+To compare the 500/300/260 ms silence candidates on identical generated PCM:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-vad-latency.py
+```
+
+This prepares one shared local engine, excludes its first inference from the warm
+comparison, rotates candidate order, and saves numeric session-event measurements
+to `docs/verification/latency/vad-events.json`. Generated text is printed only for
+meaning review; temporary generated audio is removed. The 300 ms local boundary
+reduced first-event latency in this sample. The longer fixture also exposes an
+existing six-second split/translation quality limitation; these measurements do
+not establish browser paint latency, cold-start improvement, or item 7a completion.
 
 If ASR dependencies or cached weights are missing, the popup gives the setup
 command. Missing text weights ask for `ollama pull`; connection failure asks for

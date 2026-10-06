@@ -47,6 +47,8 @@ class LiveTranscriber:
     async def transcribe(self, frames):
         self.task = asyncio.current_task()
         segments = SpeechSegments()
+        # Keep the existing live-transcription commit boundary.
+        segments.silence_frames = 25
         queue: asyncio.Queue[Utterance | None] = asyncio.Queue(maxsize=2)
 
         async def read():
