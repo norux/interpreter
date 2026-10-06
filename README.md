@@ -216,8 +216,11 @@ maximum segment. After four seconds, a 100 ms VAD pause can end the segment
 before the hard limit to avoid cutting a word. This is a quiet audio boundary,
 not a guarantee of a complete sentence. ASR resamples to 16 kHz float32 in memory.
 Silence alone does not call either model. One dedicated ASR worker is shared across
-sessions. Local ASR with local Ollama takes cumulative PCM snapshots after each
-new half-second of voiced audio, within the existing six-second speech boundary.
+sessions. Local ASR with local Ollama takes its first cumulative PCM snapshot
+after 300 ms of voiced audio, then at
+500 ms, 1000 ms and subsequent half-second boundaries within the existing
+six-second speech boundary. The early snapshot adds inference work; provisional
+fragments can be incomplete or inaccurate and still need correction.
 These are repeated finite-array inferences, not native live PCM ingestion by MLX.
 Meaningful source changes trigger provisional translations of the same utterance;
 newer source cancels obsolete translation and replaces its caption with increasing
@@ -357,8 +360,10 @@ ten-minute public-video run, acoustic playback and complete appearance checks.
 
 For a bounded cadence comparison, add `interval500` or `interval1000` after
 `after` in `tests/local-interim-continuous.py` or `tests/local-interim-browser.mjs`.
-Both keep the first snapshot at 500 ms; only subsequent voiced-audio intervals
-change. The browser comparison uses `continuous` and native Start/Stop. These
+Both now take the first snapshot at 300 ms, followed by deadlines at multiples
+of the selected voiced-audio interval. Historical cadence reports used a 500 ms
+first snapshot; repeat both phases for a current comparison. The browser comparison
+uses `continuous` and native Start/Stop. These
 test-only controls write distinct numeric reports and retain all acceptance
 checks. Run a fresh `before` browser phase first; model-only `after` still reads
 the saved final-only control from `.ralph/interim-continuous-before.json`.

@@ -65,7 +65,7 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
         session = local.LocalSession("measured", transcriber, translator)
         assert transcriber.interim is interim
         assert transcriber.snapshot_frames == snapshot_frames
-        assert transcriber.first_snapshot_frames == 25
+        assert transcriber.first_snapshot_frames == 15
         assert (
             local.SpeechSegments.silence_frames,
             local.SpeechSegments.long_pause_frames,

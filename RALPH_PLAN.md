@@ -2603,3 +2603,86 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   inflightStop/provider·session/지속queue·memory acceptance를 완료한다. native/browser/cloud
   검증은 이번에 시도하지 않았고 새외부access blocker도 진단하지 않았다. 이후7b→8→9다.
   제품비교bugfix만으로7d나전체completion을 체크하지 않는다.
+
+### Ralph iteration 13/30 — 2026-10-06 — 7d anchored early snapshot
+
+- 다음 미완료 **7d만 진행했고 checkbox는 미체크 유지**다. 시작 worktree clean,
+  AGENTS.md 없음, `.ralph/verification.txt`는 `No completion verification attempted
+  in this run.`이다. 지정 저장소/일반 모델 cache/명시적 로컬 app 검증에서만 작업했다.
+  agent/다른 worktree/credentials/cloud 호출/모델 교체/runner/criteria/lock/push/publish
+  변경은 없다. capture/model/output 추상화나 제품 설정은 추가하지 않았다.
+- **작은 제품 변경**: 첫 누적 ASR snapshot을 voiced **300 ms**로 앞당기되 후속
+  deadline은 **500/1000/1500… ms**로 유지한다. 첫 snapshot 이후 간격을 더하는
+  300/800/1300… 후보는 construction/instruction final 지연이 커져 기각했다.
+  read-local 다음 voiced deadline scalar로 구현했고 VAD/6초 경계/단일 worker/queue,
+  모델/prompt/source·caption revision/읽기 시간/유료 final-only 정책은 유지한다.
+- 먼저 새로운 gated 회귀가 원래 제품에서 **2 fail/47 deselected/0.66초/exit 1**이었다.
+  300 ms 전 추론 없음, silence 제외, 후속 정상 cadence, 누적 PCM/동일 ID/증가 revision,
+  기존 silence final과 drain을 검사한다. 변경 후 interim **49 pass/0.66초/exit 0**,
+  focused Ruff 통과다. 기존 정확한 snapshot 길이/coalescing count를 새 schedule에
+  맞췄고 final/queue/cancel assertion은 유지했다. native 계측의 first threshold 기대도
+  15 frames로 바꿨고 control이 snapshot만 끄며 text를 기록하지 않는 계약은 유지한다.
+- 기존 `tests/local-interim-model.py after`를 **control → unanchored 후보 → anchored
+  제품**으로 순차 실행했다. 각각 **3 round/9 trial/9 final/exit 1/acceptance false**,
+  construction `craneMeaning` 3개만 실패한다. 실제 final ASR은 맞고 번역이 animal인
+  것을 직접 검토했다. weather/명령 번역·recipe 비실행/발화 중 construction event/
+  source 변경/단조 revision/queue/drop 0은 통과한다. **model-only, Paint/청취 아님**.
+- first event p50/p95(ms), control→anchored: weather(n2)
+  **706.163/709.337→481.825/494.763**, construction(n3)
+  **678.458/684.672→455.187/529.079**, instruction(n3)
+  **678.454/681.053→454.990/455.403**. final은 각각
+  **536.714/536.973→537.782/555.778**, **815.087/832.138→819.964/823.646**,
+  **601.998/603.909→614.830/634.260**다. 작은 n/순차 cache 조건이며 일반 품질·처리량/
+  final 속도 개선 주장은 없다. unanchored의 construction/instruction final p50
+  **1060.118/998.051 ms** 때문에 후속 정상 cadence를 보존했다.
+- 제품 후보는 추가 비용이 있다: ASR/text **51/42→60/48**, 완료/미완료 text
+  **39/3→45/3**, ASR busy **8252.034→9420.401 ms**, source-change caption
+  **30→36**(단어 연장 포함)이다. 각 queue/coalescing/drop 0. MLX Audio0.5.8/
+  Ollama0.35.1/Q4_K_M/English→Korean/temp0/context4096/predict256/think false/
+  HF offline/Ollama cloud disabled이다. fresh engine/선택 모델 unload/cached weights·
+  OS·compiler cache며 cold cache가 아니다. prepare **18653.923→3047.572 ms**는
+  별도 cache 차다. 각 최초 weather `firstInference`만 제외한 model harness 정의다.
+  RSS/MLX/기각 후보 전체 numeric은 docs에 보존했고 합산하지 않는다.
+- **실제 native browser 비교도 진행**: Chrome for Testing **153.0.8010.12**, 기존
+  `node tests/local-interim-browser.mjs before` → `after`, native toolbar Start/popup
+  닫기/`measure`/native Stop/`stopped`/`exit`다. 각 첫 weather n1 + warm 3 round/6 trial,
+  **각 exit 1**, construction 의미 3개만 실패한다. after의 sameAudio/firstPaintImproved/
+  boundedQueues/noDrops는 통과했다. **before는 snapshot 전체 비활성화**이며 native
+  first500→first300 비교는 아니다. 같은 source의 provisional→final 변화는 실제
+  전달됐지만 construction 교정은 final 때만 나타났고 의미도 틀린다.
+- warm n3의 실제 start→first Paint p50/p95(ms), final-only→anchored:
+  weather **2241.554/2513.338→758.374/820.334**, construction
+  **4127.479/4350.860→763.061/766.926**다. end→final Paint는 각각
+  **1273.617/1543.513→688.629/726.701**, **1825.171/2021.361→1726.953/1746.214**.
+  covering Chromium Paint + PCM/관측 media 시각이며 acoustic/physical screen 측정은
+  아니다. partial-position/first-inference 개별 시각은 numeric에 있다. warm weather
+  한 번은 첫 ASR이 weather를 web으로 오인했고 후속 교정했다. 작은 입력의 품질
+  tradeoff를 숨기지 않고 README/docs에 기록했다. generic prompt text-only 10개도
+  construction을 animal로 번역해 전부 기각했고 제품 prompt 변경은 없다.
+- native ASR/text **7/7→40/31**, ASR busy **2495.492→13420.811 ms**, queue peak
+  **0→3740 ms ASR/0 ms text**, coalescing/drop 0. companion RSS peak
+  **1255374848→1256210432 bytes**, per-trial sample **257→230**이며 MLX active/global
+  peak는 docs/numeric에 별도다. 전체 browser/Ollama memory는 미측정이고 합산하지
+  않는다. 이 probe는 cue 만료를 기다리는 isolated clip이므로 지속 throughput/10분
+  근거가 아니다. 두 native Stop에서 caption host/offscreen context **0/0** 확인했다.
+- native screenshot은 cue 사이 자막 없는 순간을 검토했으며 새 appearance 통과
+  근거가 아니다. 원음 청취/narrow/fullscreen/in-flight native Stop/provider·session
+  교체/continuous/10분/original long 의미는 미검증이다. browser access는 작동했고
+  새 외부 blocker는 없다. 의미 실패를 mock/keyword 완화로 통과시키지 않는다.
+- 전체 failed numeric/실제 exit code는
+  `docs/verification/interim/model-iteration13-first-snapshot-failed.json`과
+  `docs/verification/interim/browser-iteration13-first-snapshot-failed.json`이다.
+  independent audit **exit 0**: 배정/hash/정확한 실패/final/revision/시각 산술/exact
+  percentile/queue/drop/memory를 확인했다. 실제 acceptance 성공은 아니다. 이전
+  failed report는 byte 복원했고 generated audio/owned browser profile 삭제,
+  owned Ollama SIGINT exit 0/base uv sync --locked 복원했다.
+- **다음도 7d**: anchored300의 추가 추론을 paired continuous model/browser에서 검증하고
+  original construction/long 문맥 의미를 해결한다. native first500 대 first300의 직접
+  비교, 읽기 시간/전체 문자/narrow/fullscreen/청취/in-flight 수명도 필요하다. 추가
+  snapshot의 일반 성능/품질을 보장하지 않는다. 이후 우선순위는 7b→8→9다.
+- **최종 npm run verify exit 0**: lint/typecheck/build, **JS 12 + Python 214**,
+  failures/skips/warnings 0, Python **66.73초**다. uv lock --check/git diff --check
+  통과이고 8765/8766/11434 listener 없음, runner/기존 failed report diff 없음이다.
+  source/regressions/README/docs/numeric failed evidence/plan을 Conventional Commit으로
+  보존한다. secret/weights/audio·transcript/.ralph/build는 커밋하지 않고 7d/전체 완료는
+  체크하지 않는다.

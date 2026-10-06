@@ -4500,3 +4500,110 @@ Final `npm run verify` passes **exit 0**: lint, typecheck, production build,
 `uv lock --check` and `git diff --check` pass. Ports **8765/8766/11434** have no
 listeners, and the runner and previous failed report have no diff. Repository
 changes are committed with the plan; 7d stays unchecked.
+
+### Ralph iteration 13/30 — anchored early local snapshot (7d remains open)
+
+The local path now requests its first cumulative ASR snapshot after **300 ms of
+voiced audio**, then at **500, 1000, 1500… ms**. It preserves the regular cadence
+instead of moving every subsequent snapshot earlier. VAD, six-second boundary,
+models, prompt, single worker, queue bounds, source/caption revision rules,
+reading time and paid final-only translation policy are unchanged. No new
+capture/model/output interface or product setting was added.
+
+The new gated regression failed on the original source: **2 failures, 47
+deselected, 0.66 s, exit 1**. It checks no inference before 300 ms of voice,
+silence excluded from the threshold, the next regular deadline, cumulative PCM,
+same utterance/increasing revisions, unchanged silence finalization and drain.
+With the implementation, the interim suite passes **49 tests, 0.66 s, exit 0**.
+Existing snapshot lengths and exact coalescing counts were updated to the new
+schedule; final preservation, cancellation and queue assertions remain. Focused
+Ruff passes. Native instrumentation still verifies that the control disables
+only snapshots and its metrics exclude source/translation text.
+
+Three sequential runs of the existing paced model probe used the same generated
+WAV hashes, settings and three repetitions of weather/construction/instruction:
+
+| Model-only schedule | First event p50/p95: weather (n=2), construction (n=3), instruction (n=3), ms | Final event p50/p95, same cohorts, ms | ASR / text calls |
+| --- | --- | --- | --- |
+| Existing 500 ms first/500 ms updates | 706.163/709.337; 678.458/684.672; 678.454/681.053 | 536.714/536.973; 815.087/832.138; 601.998/603.909 | 51 / 42 |
+| Rejected unanchored 300, 800, 1300… ms | 454.012/468.619; 473.177/541.069; 463.224/465.906 | 523.638/526.573; 1060.118/1075.623; 998.051/1002.022 | 54 / 51 |
+| Anchored 300, 500, 1000… ms | 481.825/494.763; 455.187/529.079; 454.990/455.403 | 537.782/555.778; 819.964/823.646; 614.830/634.260 | 60 / 48 |
+
+Each run exits **1**, with nine finals and exactly three `craneMeaning` failures.
+Weather and spoken-instruction meaning/no-recipe checks, during-speech construction
+events, source changes, increasing revisions, bounded queues and zero drops pass.
+The unanchored schedule was rejected for delayed finals. The anchored schedule
+brings first model events forward with extra inference work; these small runs do
+not establish general quality, throughput or a final-latency improvement.
+Completed/incomplete text calls are **39/3, 51/0, 45/3**; source-change captions
+**30, 42, 36** include word extensions. ASR busy totals are **8252.034, 7077.084,
+9420.401 ms**. Queue peaks, coalescing and drops are zero in these isolated trials.
+
+Ollama **0.35.1**, MLX Audio **0.5.8**, Qwen3-ASR 0.6B 8bit and
+`qwen3:4b-instruct` Q4_K_M use English→Korean, temperature 0, context 4096,
+256 output tokens and thinking disabled. Hugging Face is offline; Ollama cloud
+is disabled. Each phase has a fresh engine/selected Ollama unload, with cached
+weights/OS/compiler caches. Initial preparation **18653.923, 2433.348, 3047.572 ms**
+is separate and reflects sequential cache conditions, not an optimization claim.
+The model harness excludes only its designated first-inference weather sample.
+RSS samples **301/307/301** peak at **191971328/183287808/179732480 bytes**;
+MLX active peaks are **1011746444 bytes**, global peaks
+**1641165028/1641167076/1641162980 bytes**. These overlap and are not summed.
+
+The native harness was also run sequentially in dedicated Chrome for Testing
+**153.0.8010.12** profiles, using native toolbar **Start**, closing the popup,
+`measure`, native **Stop**, `stopped`, `exit`. Each phase uses one first-inference
+weather sample plus three warm repetitions of weather/construction. The control
+**disables snapshots entirely**; it is not a native 500→300 ms comparison.
+Both phases exit **1** solely for construction meaning; after also passes
+`sameAudio` and `firstPaintImproved`. Actual source/final translations were
+reviewed in console: crane remains an animal. Construction source corrections
+only appeared at final output, so they do not demonstrate correct contextual
+construction meaning during speech. One warm early weather snapshot misheard
+weather as web and was subsequently corrected; small input windows remain a
+quality tradeoff. Ten preliminary generic text-only system/task-prefix variants
+also produced an animal translation and were rejected without changing the prompt.
+
+| Actual tabCapture → covering Chromium Paint, warm n=3 per clip | Final-only control p50/p95, ms | Anchored interim p50/p95, ms |
+| --- | --- | --- |
+| Weather start → first Paint | 2241.554/2513.338 | 758.374/820.334 |
+| Construction start → first Paint | 4127.479/4350.860 | 763.061/766.926 |
+| Weather end → final Paint | 1273.617/1543.513 | 688.629/726.701 |
+| Construction end → final Paint | 1825.171/2021.361 | 1726.953/1746.214 |
+
+These are covering main-frame Paint timings aligned to generated PCM bounds and
+observed media playback, not acoustic/physical-display timing. Partial-position
+Paint values and first-inference samples remain in the numeric reports. The
+warm after trials have **4/3/4 weather** and **6/6/3 construction** during-speech
+Paints. Preparation is **3576.010→3183.066 ms**, separately measured with cached
+weights. Native ASR/text calls **7/7→40/31**, ASR busy **2495.492→13420.811 ms**,
+queue peaks **0→3740 ms ASR / 0 ms translation**, coalescing/drop zero. Companion
+RSS peaks **1255374848→1256210432 bytes**; per-trial samples **257→230**;
+MLX active peaks **1034245938→1034309426**, global peaks
+**1642064124→1642701058 bytes**. Browser/Ollama total memory is not measured;
+these overlapping memory metrics are not added. This isolated probe waits for
+caption expiry between clips and is not sustained-load or ten-minute evidence.
+
+Native Stop checks pass in both phases: **0 caption hosts, 0 offscreen contexts**.
+Native screenshots were inspected between cues with no caption visible; they
+supply no new subtitle appearance acceptance. Acoustic playback, narrow/fullscreen
+appearance, native in-flight Stop/provider/session replacement, continuous load
+and original long-speech meaning remain pending. No new access blocker occurred.
+
+Full numeric evidence and actual exit codes are in
+`interim/model-iteration13-first-snapshot-failed.json` and
+`interim/browser-iteration13-first-snapshot-failed.json`. The previous report files
+were restored byte-for-byte. An independent audit passes **exit 0**, checking
+assignments/hashes/exact failures, finals/revisions, timing arithmetic, exact
+percentiles, bounds/zero drops and memory samples. It does not convert semantic
+failures into acceptance. Generated audio and owned test profiles were removed;
+owned Ollama exits **0**, and the base uv environment is restored. The next task
+is still **7d**: measure the added snapshot work under continuous model/browser
+load and resolve original construction/long meaning, then complete the remaining
+appearance/audio/lifetime acceptance before checking the item.
+
+Final `npm run verify` passes **exit 0**: lint/typecheck/build, **12 JS + 214
+Python tests**, no failures/skips/warnings; Python **66.73 s**. `uv lock --check`
+and `git diff --check` pass. Ports **8765/8766/11434** have no listeners; runner
+and prior evidence have no diff. The plan and all intended repository changes
+are committed. Item 7d and overall completion remain unchecked.

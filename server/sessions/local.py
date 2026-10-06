@@ -155,7 +155,7 @@ class MlxEngine:
 
 
 class MlxTranscriber:
-    first_snapshot_frames = 25
+    first_snapshot_frames = 15
     snapshot_frames = 25
 
     def __init__(
@@ -209,7 +209,7 @@ class MlxTranscriber:
         async def read():
             nonlocal ended
             snapshot_id = 0
-            snapshot_voice = 0
+            next_snapshot_voice = self.first_snapshot_frames
             try:
                 async for frame in frames:
                     utterance = segments.push(frame)
@@ -218,21 +218,18 @@ class MlxTranscriber:
                         continue
                     if segments.utterance_id != snapshot_id:
                         snapshot_id = segments.utterance_id
-                        snapshot_voice = 0
-                    # Keep the first snapshot early when comparing update cadences.
+                        next_snapshot_voice = self.first_snapshot_frames
+                    # An early first snapshot leaves the regular cadence anchored.
                     # The installed model takes finite arrays, not native live PCM.
                     if (
                         self.interim
                         and segments.frames
                         and segments.silent == 0
-                        and segments.voiced - snapshot_voice
-                        >= (
-                            self.snapshot_frames
-                            if snapshot_voice
-                            else self.first_snapshot_frames
-                        )
+                        and segments.voiced >= next_snapshot_voice
                     ):
-                        snapshot_voice = segments.voiced
+                        next_snapshot_voice = (
+                            segments.voiced // self.snapshot_frames + 1
+                        ) * self.snapshot_frames
                         enqueue(
                             Utterance(
                                 tuple(segments.frames),
