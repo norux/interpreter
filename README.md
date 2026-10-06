@@ -226,6 +226,10 @@ boundary confirms it. Unchanged source can reuse that translation at the boundar
 The first translation streams immediately; later corrections keep the earlier
 text visible until the replacement response completes, avoiding repeated erasure
 to a one-token prefix. This completion still does not confirm provisional speech.
+The latest provisional cue keeps its visible ending available after its reading
+time while awaiting correction. Finalization starts the corrected cue's reading
+time; a newer utterance retires a fully read provisional cue, and late corrections
+cannot revive it. Stop/session replacement clears it immediately.
 Only confirmed source/translation pairs enter the three-pair recent context.
 Local ASR with Luna/Anthropic and OpenAI ASR with text translators retain final-only
 translation requests. Waiting work in each local stage is limited to two segments
@@ -247,8 +251,8 @@ acceptance. Small audio windows can produce inaccurate provisional source/text.
 Model loading and the time needed for a complete translation remain measurable.
 Preparation also imports the PCM resampler before capture starts, so its first
 import does not consume the initial speech window. The 500 ms snapshot interval
-is a measured model-only candidate; native Paint and sustained-load acceptance
-remain unverified.
+has model and short native Paint measurements; contextual accuracy and
+sustained-load acceptance remain incomplete.
 
 The paced model-only probe below uses generated weather and an ambiguous
 construction sentence, three repetitions per phase, and identical PCM/settings.
@@ -302,8 +306,11 @@ screen presentation. Generated text is printed for review but numeric reports
 contain no transcript. Any failed check produces only a `browser-*-failed.json`
 report and a nonzero exit. A passing subprobe still does not establish continuous
 load, all subtitle appearance checks, or the full 7d acceptance. Native window
-access failed in Ralph iteration 4, before Start; no new capture/Paint report was
-created. The construction translation also remains incorrect in text-only probes.
+access worked in the resumed iteration after iteration 4's failure. Actual paired
+tabCapture/model/Paint runs produced failed reports: construction meaning remains
+incorrect. An initial run also found provisional expiry hiding the later final;
+the sink now retains the latest provisional ending for correction. See
+`docs/verification.md` for the regression, measured results and remaining checks.
 
 To repeat the older final-only model timing probe on paced, generated English PCM
 with fixed language settings (it deliberately leaves snapshots disabled), start

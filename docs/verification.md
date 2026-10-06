@@ -2964,3 +2964,155 @@ zero failures/skips/warnings; Python **66.14seconds**. `uv lock --check` and
 `git diff --check` passed. This verifies the repository and companion fixtures,
 not the blocked native acceptance. All intended source/test/documentation changes
 are committed together; 7d remains unchecked and no completion promise applies.
+
+## Ralph iteration 1/30 (resumed run) — 2026-10-06 — provisional cue retention
+
+Continued item **7d**, after the previous run's iteration 4. The checkout started
+clean; no repository AGENTS.md was present. `.ralph/verification.txt` still said
+`No completion verification attempted in this run.` No agents, other worktrees,
+runner changes, acceptance changes, model replacements, credential files, cloud
+inference, publication or push were used.
+
+The previous native-access blocker **did not recur**. The dedicated headed
+Chrome for Testing window was accessible with
+`cua.getApp("com.google.chrome.for.testing")`, with the observed title
+**Interim subtitle acceptance**. Native Extensions → Interpreter → Start started
+actual tabCapture; the popup was closed during measurement. The generated
+Samantha weather/construction clips went through captured PCM, cached MLX
+Qwen3-ASR 0.6B 8bit and local Ollama qwen3:4b-instruct, not injected captions.
+The owned Ollama 0.35.1 server used `OLLAMA_HOST=127.0.0.1:11434` and
+`OLLAMA_NO_CLOUD=1`; the companion used HF offline flags. The models, prompt,
+4096 context, English→Korean, VAD and 500ms snapshot interval were unchanged.
+
+The first native baseline exposed a harness bug after its first actual final:
+`page.evaluate: TypeError: Cannot read properties of undefined (reading 'filter')`.
+The collector was in Chrome's isolated extension world, while the reader used
+the page's main world. Reading through `chrome.scripting.executeScript` in the
+same isolated world fixes the error without exposing model text to page globals.
+This initial run produced no comparison report. Native Stop followed by `stopped`
+confirmed idle/no active capture/no offscreen document/no caption host; exit1
+correctly retained the harness failure.
+
+The first full native pair then exposed a product regression. The short
+provisional construction caption finished its 2.5-second reading period while
+speech/correction continued. The overlay retired its utterance ID, then rejected
+the real final. All three construction finals had `visible:false` and null Paint;
+their server events existed. Numeric failed evidence is preserved separately in
+`interim/browser-{before,after}-expiry-failed.json`. The after cohort's first
+Paint was faster and occurred during speech, but neither missing finals nor the
+crane→animal mistranslation constituted passing 7d acceptance.
+
+The sink now keeps the visible ending of the **latest provisional cue** available
+for correction after reading it. It does not schedule an expired timer repeatedly.
+Finalization gives the corrected text its reading time; arrival of a newer
+utterance retires a fully read provisional cue. Retired IDs still reject later
+finals/corrections. Older finals' clocks, timed long-text parts, four visible
+lines, waiting bounds and Stop/session clear behavior remain in place. No new
+capture, model or output interface was introduced. If a provider never finalizes
+and sends no following cue, that last provisional ending remains until clear/Stop.
+
+The built-sink regression was added **before** the fix. Actual command
+`npm run test:captions-overlap-browser` exited1 with
+`The latest provisional cue must survive until finalization` (empty vs expected
+cue). After the fix the same command exited0. It checks delayed final display
+and reading time, later-utterance retirement, expired/old revision rejection,
+rolling order, every final character, narrow wrapping, fullscreen, controls,
+overload counts, audio budget, session replacement and clear. Updated numeric
+fixture evidence is `captions/rolling-fixture.json`; this fixture is not audio or
+model evidence. Existing generated-caption PNGs were unchanged.
+
+The initial baseline's actual normal-screen native screenshot was inspected:
+the weather subtitle was legible, centered near the bottom with white outlined
+text and a small dark background, separated from the page's audio controls. That
+single screen does not establish narrow/fullscreen appearance, speaker listening,
+continuous load, or the final construction's semantics. No screenshot containing
+user audio/transcripts was created or committed.
+
+Final-sink commands (each browser phase was a separate fresh headed profile):
+
+```sh
+npm run build
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+node tests/local-interim-browser.mjs before
+node tests/local-interim-browser.mjs after
+# In each: native Start, close popup, measure, native Stop, stopped, exit.
+```
+
+Both final-sink phases ran all seven samples and **exited1**: construction
+`craneMeaning` failed in all three warm samples. Their passing file names were
+not created. `interim/browser-before-failed.json` and
+`interim/browser-after-failed.json` have `acceptancePassed:false`. Unlike the
+pre-fix cohort, **every final in both phases now has a covering Paint**. Every
+after sample has a provisional Paint during speech and one visible source
+correction; the same utterance ID progresses through ordered revisions to final.
+The normal-screen native construction final was also visually inspected after
+the fix: its entire generated sentence was visible and legible, but the Korean
+crane meaning was wrong (deer). Early weather text was incomplete/occasionally
+ungrammatical before the later correct final. Faster first Hangul output is not
+a claim that the first partial accurately expresses the entire clause.
+
+Final pair, **warm n=3 per cell**, milliseconds (nearest-rank p50/p95):
+
+| Generated clip / metric | Before p50 / p95 | After p50 / p95 |
+| --- | ---: | ---: |
+| Weather voice start → first Paint | 2375.563 / 2420.613 | 966.282 / 1126.470 |
+| Weather voice end → final Paint | 1397.405 / 1471.112 | 717.271 / 720.441 |
+| Construction voice start → first Paint | 4305.342 / 4310.789 | 889.054 / 960.404 |
+| Construction voice end → final Paint | 1972.142 / 1982.265 | 1667.632 / 1690.207 |
+
+Source-audio end position → non-final revision Paint (token/revision samples,
+not independent utterances): weather before **n24 / 935.768 / 1175.064ms**,
+after **n19 / 506.889 / 875.954ms**; construction before
+**n60 / 1260.035 / 1719.059ms**, after **n19 / 415.605 / 563.568ms**
+(n/p50/p95). This is the age of the recognized source snapshot at Paint using
+the receipt-origin estimate; it is not a speaker or physical-display clock.
+Media voice bounds use generated PCM abs≥100 aligned to observed
+`playing/currentTime`. Actual capture/transport alignment has uncertainty.
+
+The separate first-engine weather sample was before **2470.793ms** to first
+Paint / **1486.421ms** end→final; after **1244.334 / 753.381ms**.
+Prepare took **3506.777 / 3413.507ms**, excluded from those timings. Both phases
+used cached weights/OS/MLX caches, a fresh engine and an unloaded selected Ollama
+model; these are **not cold-cache measurements**. Chrome153.0.8010.12,
+Playwright1.63.0, Python3.12.15, mlx-audio0.5.8, Apple M5/16GiB.
+
+Per warm clip: before **ASR1/translation1**, source corrections0;
+after weather **ASR3/translation2**, construction **ASR7/translation6**, each
+with one displayed source correction. After weather translation changes were
+5/4/4 and during-speech Paint counts6/5/4; construction changes6/5/5 and Paints
+7/6/6. Token growth is counted separately from source correction and does not
+prove semantic improvement. Neither final cohort sampled waiting ASR/translation
+audio above0ms; coalesced snapshots and frame/ASR/translation drops were0.
+Short separated samples with expiry pauses do not establish sustained throughput.
+
+Requested100ms companion RSS sampling peaked at **1256030208 / 1255440384bytes**
+(before/after). Per-ASR MLX active maxima were **1034243890 / 1034295082bytes**,
+phase peaks **1642064124 / 1642078452bytes**. They overlap on unified memory and
+are not summed. These are companion/MLX measurements, not whole-browser/Ollama
+memory or evidence of long-run stability. A separate independent JSON check
+passed failed-report labeling, identical WAV hashes, sample counts, monotone
+revisions, one final per utterance, zero-drop/bound checks, final/during-speech
+Paint flags and exact percentile arithmetic for all four native reports.
+
+All five native attempts (initial reader failure and two full pairs) passed their
+native Stop `stopped` cleanup checks: idle, no active captured tabs, offscreen0,
+caption hosts0. Failed runs remained exit1. Owned browser/companion/fixture
+processes closed; Ollama stopped via SIGINT/exit0. `uv sync --locked` restored
+the base environment; `uv lock --check` and `git diff --check` passed.
+
+**7d remains unchecked.** The former window-access blocker is cleared; there is
+no new external-access/credential blocker. Next work is the original construction
+accuracy failure using the same permitted models/fixtures, then paired/native
+long/continuous/context/pause/silence, all-character/expiry/appearance, speaker
+listening, in-flight Stop/provider/session replacement and sustained queue/memory
+acceptance. Existing 7a/7c evidence and the new short comparison do not satisfy
+these remaining checks; 7b,8,9 also remain unfinished.
+
+Final-source **`npm run verify` exited0**: lint/typecheck/build, **JS12 + Python170**,
+zero failures/skips/warnings; Python **66.18seconds**. The final-source
+`npm run test:captions-browser` also exited0 with generated-caption normal/narrow/
+fullscreen, long-final character and cleanup assertions. Its PNGs are ignored
+`.ralph` artifacts; it is not additional audio/model evidence. No listeners
+remain on8765/8766/11434. All intended source, tests, failed numeric evidence,
+README, verification document and plan progress are committed together. No
+checklist checkbox or completion promise is warranted by these results.

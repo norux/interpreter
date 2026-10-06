@@ -1851,3 +1851,75 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   failures/skips/warnings0,Python**66.14초**다. uv lock --check/git diff --check 통과다.
   source/tests/README/docs/plan을 Conventional Commit으로 보존하고 7d는 미체크다.
   native window 접근의 외부 변경이 필요하므로 INTERPRETER_BLOCKED로 끝낸다.
+
+### Ralph iteration 1/30 (resumed run) — 2026-10-06 — 7d 임시 cue 보관/실제 Paint 회귀 수정
+
+- 이전 run의 iteration4 다음 **7d만 진행했고 checkbox는 미체크 유지**다.
+  지정 checkout은 시작 시 clean이고 AGENTS.md는 없다. 사용자 지침을 적용했고
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  agent/다른worktree/runner/criteria/model/prompt/VAD/queue/dependency/lock/cloud/
+  credential파일/push/publish 변경은 없다. 입력/모델/출력 계약도 그대로다.
+- **기존 native 창 접근 blocker는 이번에 재현되지 않았다**. observed title
+  `Interim subtitle acceptance`의 Chrome for Testing bundleID를 cua.getApp으로
+  선택하고 실제 native Extensions→Interpreter→Start/Stop을 수행했다.
+  실제 tabCapture PCM→cached MLX0.6B8bit→Ollama qwen3:4b-instruct의 생성 음성을
+  처리했다. HFoffline/Ollamacloud disabled/English→Korean/context4096이다.
+- 첫 before는 실제 final 뒤 harness의 page-world reader가 isolated-world collector를
+  읽으려 해 undefined.filter **실패/exit1**했다. 같은 isolated world의
+  chrome.scripting.executeScript로 읽도록 고쳤다. 이 첫 run에는 비교report가 없다.
+  이후 before/after 실제7sample씩을 처리해 reader 회귀 수정도 확인했다.
+- 첫 native pair에서 **short provisional이 2.5초 뒤 만료되어 아직 이어지는 발화의
+  final이 거부되는 실제 제품 회귀**를 발견했다. construction3sample의 final
+  event는 있지만 visiblefalse/Paintnull이었다. numeric 근거를
+  docs/verification/interim/browser-{before,after}-expiry-failed.json에 보존한다.
+- overlay의 **마지막 provisional의 보이는 끝부분을 final/다음utterance/clear까지
+  유지**한다. expiredtimer 반복을 막고 final은 새 readingtime으로 교정문을 표시한다.
+  이미 읽은 provisional은 다음utterance가 오면 앞부터 제거하며 이후 늦은 final을
+  되살리지 않는다. 이전 final clocks/긴문장parts/4줄/waitingbudget은 그대로다.
+  provider가 final/다음cue를 전혀 주지 않으면 마지막임시끝부분은 Stop/clear까지
+  남는다는 한계도 docs에 적었다. 추측한 큰timeout/새 abstraction은 추가하지 않았다.
+- 새 built-sink 회귀는 수정 전 **The latest provisional cue must survive until
+  finalization(empty)**로 exit1, 수정 뒤 같은명령 exit0다. delayedfinal/readingtime,
+  다음문장/늦은final거부와 기존 rolling/모든final문자/narrow/fullscreen/controls/
+  bounds/drop/clear/session 회귀가 통과했다. rolling-fixture.json을 갱신했고
+  기존 fixture PNG는 unchanged다. fixture를 실제음성 성공이라고 표시하지 않는다.
+- **최종sink로 before→after 둘 다 다시 실제 native7sample**을 처리했다.
+  두phase 모두 construction의 crane→deer 의미실패로 **exit1/acceptancePassedfalse**다.
+  passing report는 만들지 않았다. browser-before-failed.json/browser-after-failed.json
+  에서는 **모든 final coveringPaint**가 있다. after7sample 모두 speech중Paint와
+  sameID/증가revision/보이는source교정1회/final을 확인했다. 의미 성공과 다르다.
+  normal nativeweather/수정후construction screenshot을 직접검토해 글자/배치가
+  읽히는 것을 확인했지만 crane의 뜻은 여전히 틀렸다. 초기weather 임시는 불완전/
+  문법오류가 있다. 좁은/fullscreen새실제음성/physicaldisplay/청취 성공은 아니다.
+- **warm각n3 start→firstPaint p50/p95(ms)** weather
+  **2375.563/2420.613→966.282/1126.470**, construction
+  **4305.342/4310.789→889.054/960.404**;
+  end→final weather **1397.405/1471.112→717.271/720.441**, construction
+  **1972.142/1982.265→1667.632/1690.207**이다. separatefirstengineweather는
+  start→first **2470.793→1244.334ms**, end→final **1486.421→753.381ms**다.
+  prepare3506.777/3413.507ms는 제외한다. cachedweights/OS/MLX 유지/freshengine/
+  선택Ollamaunload이며 coldcache가 아니다. PCMabs≥100+playing/currentTime/receipt
+  origin추정이다. sourceend→partialPaint n/p50/p95도 docs에 정확히 적었다.
+- before각clip ASR1/번역1, afterweather3/2·construction7/6이다. speech중Paint
+  weather6/5/4·construction7/6/6, visible source교정은각1이다. sampled waiting
+  ASR/번역0ms/coalesced0/frame·ASR·번역drop0이다. separateclip+expiry쉼이며
+  continuous처리량/backlog안정성 근거가 아니다. companionRSSpeak
+  **1256030208/1255440384bytes**, MLXactivepeak **1034243890/1034295082**,
+  phasepeak **1642064124/1642078452bytes**다. wholebrowser/OllamaRSS가 아니고
+  unifiedmemory를 합산하지 않는다. Chrome153.0.8010.12/Playwright1.63.0/
+  Python3.12.15/mlx-audio0.5.8/Ollama0.35.1/AppleM5·16GiB다.
+- fourfailedJSON의 동일WAVhash/n/revision/final/정확한percentile/bounds/checkflag
+  독립검사도 통과했다. **native5run 모두 Stop 후 idle/activecapture없음/offscreen0/
+  host0** 확인, harness exit1 그대로보존, ownedbrowser/companion/fixture 정리,
+  OllamaSIGINTexit0, base uv sync --locked 복원이다. uv lock --check/git diff --check
+  통과했다. 키/weights/useraudio·transcript/.ralph/build는 커밋하지 않는다.
+- **다음도7d**: 원래 construction 정확도를 해결하고 같은 permitted모델/fixture로
+  long/continuous/문맥교정/쉼/무음/모든문자·expiry·appearance/원음청취/inflightStop/
+  provider·session교체/장시간queue·memory acceptance를 끝낸다. 창접근의 외부
+  blocker는 현재 없으며 새7d 성공/전체완료를 주장하지 않는다. 7b/8/9도 남아있다.
+- **최종 source npm run verify exit0**: lint/typecheck/build, **JS12+Python170**,
+  failures/skips/warnings0, Python**66.18초**다. basic captions browser도
+  normal/narrow/fullscreen/longfinal전체문자/clear 회귀 **exit0**다. generatedfixture와
+  실제nativepair를 구분했다. 8765/8766/11434 listener없음, git diff --check 통과다.
+  구현/테스트/README/docs/failednumeric/plan 진척을 Conventional Commit으로 보존한다.
+  7d 체크는 하지 않으며 정확도/나머지 실제 acceptance를 다음iteration에서 계속한다.

@@ -79,6 +79,8 @@ export function createCaptionOverlay(): OutputSink {
     // Advance only the oldest visible sentence, after its own reading time.
     while (entries[0]?.until && entries[0].until <= now) {
       const entry = entries[0];
+      // Keep the latest provisional ending available for its delayed correction.
+      if (!entry.caption.final && entries.length === 1 && entry.end >= Array.from(entry.caption.translation.trim()).length) break;
       entry.offset = entry.end;
       entry.until = 0;
       if (entry.offset >= Array.from(entry.caption.translation.trim()).length) retire(0);
@@ -121,8 +123,8 @@ export function createCaptionOverlay(): OutputSink {
       notice.textContent = `자막 표시 과부하: 대기 문장 ${dropped}개 생략 (4개/12초 제한)`;
       console.warn(`Interpreter skipped ${skipped} waiting captions (total ${dropped}; 4 captions/12 seconds of audio).`);
     }
-    if (entries[0]?.until) timer = setTimeout(layout, Math.max(1, entries[0].until - performance.now()));
-    else if (!notice.textContent) host.remove();
+    if (entries[0]?.until > now) timer = setTimeout(layout, Math.max(1, entries[0].until - performance.now()));
+    else if (!entries.length && !notice.textContent) host.remove();
   }
 
   document.addEventListener("fullscreenchange", layout);

@@ -140,7 +140,14 @@ try {
             assert.equal(captions.filter((m) => m.final).length, 1);
             assert.deepEqual(captions.map((m) => m.revision), [...new Set(captions.map((m) => m.revision))].sort((a, b) => a - b));
             const final = captions.at(-1);
-            const review = await page.evaluate((id) => globalThis.interimCaptions.filter((c) => c.utteranceId === id), final.utteranceId);
+            const review = await worker.evaluate(async ({ tabId, utteranceId }) => {
+              const [{ result }] = await chrome.scripting.executeScript({
+                target: { tabId },
+                func: (id) => globalThis.interimCaptions.filter((c) => c.utteranceId === id),
+                args: [utteranceId],
+              });
+              return result;
+            }, { tabId, utteranceId: final.utteranceId });
             const translated = review.at(-1).translation;
             console.log(JSON.stringify({ review: [repetition, clip], source: review.at(-1).source, translation: translated,
               corrections: review.map((c) => [c.source, c.translation, c.final]) }));

@@ -62,6 +62,27 @@ try {
   assert.doesNotMatch(await cue.textContent(), /오래된/);
   await send({ type: "clear", sessionId: base.sessionId });
 
+  // A provisional phrase can finish reading while speech and its correction continue.
+  await send({ type: "start", sessionId: base.sessionId });
+  await send({ type: "caption", caption: { ...base, translation: "나는 보았다.", final: false } });
+  await page.waitForTimeout(2700);
+  assert.deepEqual(await page.locator(".sentence").allTextContents(), ["나는 보았다."], "The latest provisional cue must survive until finalization");
+  await send({ type: "caption", caption: { ...base, revision: 2, translation: "건설 현장에서 크레인을 보았다." } });
+  assert.equal(await cue.textContent(), "건설 현장에서 크레인을 보았다.");
+  await page.waitForTimeout(1000);
+  assert.equal(await cue.textContent(), "건설 현장에서 크레인을 보았다.", "Finalization grants the corrected cue its reading time");
+  await page.waitForFunction(() => !document.querySelector("#interpreter-captions"), null, { timeout: 3000 });
+  await send({ type: "caption", caption: { ...base, revision: 3, translation: "만료 문장 부활" } });
+  assert.equal(await page.locator("#interpreter-captions").count(), 0);
+  await send({ type: "start", sessionId: base.sessionId });
+  await send({ type: "caption", caption: { ...base, translation: "미확정.", final: false } });
+  await page.waitForTimeout(2700);
+  await send({ type: "caption", caption: { ...base, utteranceId: "next", translation: "다음 문장.", audioStartMs: 1000 } });
+  assert.equal(await cue.textContent(), "다음 문장.", "A newer utterance retires a fully read provisional cue");
+  await send({ type: "caption", caption: { ...base, revision: 4, translation: "늦은 확정" } });
+  assert.equal(await cue.textContent(), "다음 문장.");
+  await send({ type: "clear", sessionId: base.sessionId });
+
   const texts = ["파란 우산과 따뜻한 코트를 챙겨 여행을 위해 오후 세 시에 역에서 만나세요.",
     "내일은 비가 옵니다. 빨간 가방을 챙겨 집에서 여덟 시에 출발하세요."];
   const samples = [];
@@ -167,7 +188,8 @@ try {
   assert.equal(await page.locator("#interpreter-captions").count(), 0, "Clear discards waiting work and its timer");
   const report = { passed: true, browser: context.browser().version(), generatedCaptions: true,
     audioTranslation: "not exercised", samples, readingTime: true, inPlaceCorrections: true, oldRevisionsRejected: true,
-    expiredRevisionRejected: true, tiedAudioTimestamps: true, resizeReadingPosition: true, fullscreen: true, controls: true,
+    expiredRevisionRejected: true, provisionalRetention: true, delayedFinalReadingTime: true, abandonedProvisionalRetired: true,
+    tiedAudioTimestamps: true, resizeReadingPosition: true, fullscreen: true, controls: true,
     maxLines: 4, maxWaitingCaptions: 4, maxWaitingAudioMs: 12000, overloadDropped: 4, audioBudgetDropped: 2, clear: true, replacement: true };
   await writeFile("docs/verification/captions/rolling-fixture.json", `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report));

@@ -19,8 +19,8 @@
               "id": "long-0",
               "height": 43,
               "line": 43.008,
-              "at": 2590.300000011921,
-              "hiddenAtMs": 6380.700000047684,
+              "at": 10529.100000023842,
+              "hiddenAtMs": 14317.900000035763,
               "length": 42
             }
           ]
@@ -34,8 +34,8 @@
               "id": "long-1",
               "height": 43,
               "line": 43.008,
-              "at": 2592.5,
-              "hiddenAtMs": 6380.700000047684,
+              "at": 10531.400000035763,
+              "hiddenAtMs": 14317.900000035763,
               "length": 38
             }
           ]
@@ -60,16 +60,16 @@
               "id": "long-0",
               "height": 50,
               "line": 25.2,
-              "at": 6412.900000035763,
-              "hiddenAtMs": 9112.300000011921,
+              "at": 14339.600000023842,
+              "hiddenAtMs": 17041.600000023842,
               "length": 30
             },
             {
               "id": "long-0",
               "height": 25,
               "line": 25.2,
-              "at": 9112.300000011921,
-              "hiddenAtMs": 11612,
+              "at": 17041.600000023842,
+              "hiddenAtMs": 19542.200000047684,
               "length": 12
             }
           ]
@@ -83,16 +83,16 @@
               "id": "long-1",
               "height": 50,
               "line": 25.2,
-              "at": 6414.600000023842,
-              "hiddenAtMs": 11612,
+              "at": 14340.5,
+              "hiddenAtMs": 19542.200000047684,
               "length": 30
             },
             {
               "id": "long-1",
               "height": 25,
               "line": 25.2,
-              "at": 11612,
-              "hiddenAtMs": 14130.600000023842,
+              "at": 19542.200000047684,
+              "hiddenAtMs": 22053,
               "length": 8
             }
           ]
@@ -107,6 +107,9 @@
   "inPlaceCorrections": true,
   "oldRevisionsRejected": true,
   "expiredRevisionRejected": true,
+  "provisionalRetention": true,
+  "delayedFinalReadingTime": true,
+  "abandonedProvisionalRetired": true,
   "tiedAudioTimestamps": true,
   "resizeReadingPosition": true,
   "fullscreen": true,
