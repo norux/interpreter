@@ -5403,3 +5403,20 @@ GUI installation test. A subsequent focused lint caught a second long assertion
 line in the ASR harness; it was fixed and final lint passes. Full unit tests were
 not repeated solely for that assertion-message formatting or the added standalone
 packaged-runtime smoke harness.
+
+## Companion setup model guidance (2026-10-06)
+
+The setup button now announces the exact ASR and translation model IDs before
+cache checks or downloads. Cached ASR and Ollama models each get an explicit reuse
+message. The window explains where to read the model/download status, and the log
+distinguishes prepared defaults from the extension's actual saved selection.
+
+Lint, `npm run build:companion`, the four focused companion tests, strict app
+signature verification and DMG checksum verification all **exit 0**. The final
+bundled Python also runs `setup_models()` successfully against both cached models
+and the existing Ollama; its output confirms both IDs precede their checks, two
+reuse messages and completion. Only `register_host()` was replaced with a no-op
+for that check to avoid changing the active installation's registration. A fresh
+GUI button-click/visual check was not run. The installed active app is retained.
+The additional request to transcribe heard audio awaits clarification between the
+current Chrome tab and whole-computer audio; no capture behavior changed here.

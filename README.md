@@ -26,8 +26,10 @@ caches. It does not switch models or send inference to the cloud.
 2. Open the app once. It registers its native host for Chrome, Chrome for Testing
    and Chromium and copies the bundled extension to
    `~/Library/Application Support/Interpreter/extension`.
-3. Click **모델 준비 시작**. Missing default models download explicitly; cached
-   models are reused. Wait for **준비 완료**.
+3. Click **모델 준비 시작**. The status area lists the ASR/translation model IDs
+   before checking them and reports when existing downloads are reused. Missing
+   default models download explicitly. Wait for **준비 완료**. These are the models
+   the app prepares; actual capture uses the models selected in the extension.
 4. Click **확장 폴더 열기**. In `chrome://extensions`, enable Developer mode and
    load that folder. Existing checkout users can reload `extension/dist` instead.
 5. Select an ordinary audio tab and press **Start**. The extension starts its

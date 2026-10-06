@@ -35,7 +35,7 @@ final class SetupWindow: NSObject, NSApplicationDelegate {
         title.font = .boldSystemFont(ofSize: 22)
         title.frame = NSRect(x: 24, y: 298, width: 490, height: 30)
         let description = NSTextField(wrappingLabelWithString:
-            "최초 준비에서 음성 인식·번역 모델을 다운로드합니다. 이후에는 Chrome 확장의 Start로 자동 실행됩니다.")
+            "모델 준비 시작을 누르면 아래에 모델 이름과 다운로드 상태가 표시됩니다. 준비 후에는 Chrome 확장의 Start로 자동 실행됩니다.")
         description.frame = NSRect(x: 24, y: 238, width: 490, height: 50)
         button = NSButton(title: "모델 준비 시작", target: self, action: #selector(prepare))
         button.bezelStyle = .rounded

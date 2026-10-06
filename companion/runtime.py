@@ -161,11 +161,19 @@ async def setup_models():
         loop.add_signal_handler(signum, task.cancel)
     from huggingface_hub import snapshot_download
 
+    print(
+        "준비할 기본 모델\n"
+        f"음성 인식: {ASR_MODEL}\n"
+        f"번역: {TEXT_MODEL}\n"
+        "실제 사용 모델은 Chrome 확장의 모델 설정에 따릅니다.\n",
+        flush=True,
+    )
     register_host()
     print("확장 연결을 등록했습니다. 음성 인식 모델을 확인합니다…", flush=True)
     # First try the existing user cache; network downloads require this setup action.
     try:
         snapshot_download(ASR_MODEL, local_files_only=True)
+        print("음성 인식 모델: 기존 다운로드를 사용합니다.", flush=True)
     except Exception:
         print("음성 인식 모델을 다운로드합니다. 처음에는 시간이 걸립니다…", flush=True)
         snapshot_download(ASR_MODEL, token=False)
@@ -200,6 +208,8 @@ async def setup_models():
                         if status != last:
                             print(f"번역 모델 다운로드: {status}", flush=True)
                             last = status
+        else:
+            print("번역 모델: 기존 다운로드를 사용합니다.", flush=True)
         print("준비 완료. Chrome 확장에서 Start를 누르세요.", flush=True)
     finally:
         await services.close()
