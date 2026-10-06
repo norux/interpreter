@@ -149,7 +149,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 이 단계에서는 브라우저 모델과 새 영상 캡처를 아직 연결하지 않는다.
 
 - [x] C1. 버전 1 계약을 정의한다: opaque 영상 handle, session/epoch, audio chunk, playback event, 원문/번역 별 revision, capability, status/reason, output. 기존 서버 프로토콜은 companion bridge에서 매핑하며 변경하지 않는다.
-- [ ] C2. 코어의 session controller·bounded queue·timeline·revision store를 분리한다. DOM/Chrome ambient type 없이 컴파일하고, 늦은 이벤트·준비 중 Stop·연속 Start·탐색 시 취소를 검증한다.
+- [x] C2. 코어의 session controller·bounded queue·timeline·revision store를 분리한다. DOM/Chrome ambient type 없이 컴파일하고, 늦은 이벤트·준비 중 Stop·연속 Start·탐색 시 취소를 검증한다.
 - [ ] C3. 교정 1초 간격, 첫 결과/최종 결과 즉시 반영, 긴 최종 번역 처음부터 순차 재표시, 250ms fade, 최근 300 발화 정책을 코어/renderer 경계로 분리한다. 화면 크기에 따른 line fitting은 renderer가 맡는다.
 - [ ] C4. 기존 companion을 combined interpretation adapter로 연결한다. 중복 VAD/ASR을 실행하지 않는다. 서버가 제공하지 않는 ASR-only 이벤트는 capability로 명시하고 원문/번역 짝과 기존 사용자 설정을 보존한다.
 - [ ] C5. `test:framework:core`와 코어용 타입/의존성 검증을 추가한다. `npm run verify`, 기존 correction browser 검사와 transcript browser 검사를 실제 실행하고 단계 보고서를 작성한다.
@@ -270,3 +270,57 @@ stage 완료는 주장하지 않는다.
 다음 미완료 항목 또는 차단 해제 조건: C2 session controller·bounded queue·timeline·revision store.
 runner PATH에 `uv`가 준비되면 `uv sync --locked` 후 `npm run verify`를 다시 실행하고
 진행한다. C2–C5 및 이후 stage 체크박스는 보존한다.
+
+### 2026-10-06 / core / iteration 1/5 — C2 (재개 run)
+
+관련 commit: 이 기록을 포함한 `feat: implement media framework core lifecycle`.
+
+수행한 변경: 다음 미완료 항목 C2만 구현했다. `packages/core`에 session
+controller, 제한된 비동기 PCM queue, clock/epoch timeline, 독립 원문/번역 revision
+store를 분리했다. Start마다 engine을 소유하고 Stop은 정리 대기 전에 세션을
+무효화한다. seek/rate/source/pause/resume/suspension은 epoch를 먼저 바꾸며,
+늦은 준비/input open/result를 차단하고 소유한 input/engine만 정리한다.
+queue 초과와 sample gap은 손실 시간을 보고하고 취소·pause하여 자동 재시도를
+하지 않는다. 원문 교정 때 번역을 pending으로 바꾸되 번역 revision/final
+watermark를 보존한다. 기존 extension 연결은 C4에 남겨 companion 프로토콜,
+v0.1.0 배포물과 사용자 설정은 변경하지 않았다.
+
+실행한 명령과 결과:
+
+- PASS: `npm run test:framework:core` (최종 exit 0, ES2022/no-DOM 타입 검사,
+  실제 core 5개 모듈의 의존성 검사 포함 14 passed/0 failed/0 skipped,
+  105.452542 ms).
+- PASS: `npm run verify` (최종 exit 0, Biome 58 files/24 ms/no findings,
+  Ruff 통과, extension typecheck/build 19 modules/21 ms,
+  JS 46 passed/0 failed/0 skipped/14372.083125 ms,
+  Python 222 passed/66.89 s). 이전 `uv` 부재 차단이 해제됐다.
+- PASS: `npm run test:captions-correction-browser` (exit 0, Chromium
+  153.0.8010.12, 1000 ms 교정, 즉시 첫/최종, burst/latest/in-place/clear/replacement).
+- PASS: `npm run test:transcript-browser` (exit 0, comparison/runtime 두 script,
+  generated caption의 source/translation/time/cadence/safe text/history/eviction,
+  stale rejection/reopen/Stop retention 및 실제 extension messaging/window).
+- FAIL → FIXED: `node --import tsx --test --test-name-pattern='overload and sample gaps' tests/framework-core.test.ts`
+  (수정 전 exit 1, 0 passed/1 failed/96.354958 ms, 자동 capture 재시도 2개가
+  기대값 1개와 달랐다). pause 후 명시적 resume 방식으로 수정했고 최종 core/JS
+  검사에 같은 회귀 검사를 포함해 통과했다.
+- PASS: `git diff --check` (exit 0, whitespace 오류 없음).
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15. 첫 verify가 worktree의 ignored `.venv`에 locked
+의존성 33개를 준비했다. 코어는 합성 100 ms/200 byte PCM과 생성된 caption을
+사용해 queue → engine port → revision store → callback 연결 및 동일 clock의
+9000–9200 ms 영상 시간 매핑을 확인했다. 실제 영상 음성/ASR/번역 품질 검증이
+아니다. 브라우저 검사는 기존 renderer/메시징만 확인했다. 모델 다운로드,
+앱 설치·게시·push 및 Safari/iPhone 검증 없음.
+
+실패·미검증과 증거 위치: [core 보고서](docs/verification/media-framework/core.md).
+로컬 `.ralph/media-framework/core-1-c2-{framework,verify,verify-final,correction-browser,transcript-browser,loss-regression}.log`
+는 커밋하지 않았다. 요청된 `2026-10-06T11-28-49-587Z-core-verification.txt`는
+없었다. transcript 재검증의 `closedWindowId`만 바뀌어 신선한 증거를 읽고
+해당 JSON을 복원했다. 기존 screenshot/UI JSON은 동일했다. 최종 필수 명령은
+모두 통과했지만 C3/C4 정책·companion 연결과 이를 포함한 C5 acceptance는
+미완료이므로 stage 완료는 주장하지 않는다.
+
+다음 미완료 항목: C3 교정 cadence, 즉시 첫/최종 반영, 긴 최종 번역의 처음부터
+순차 replay, 250 ms fade, 최근 300 발화를 core/renderer 경계로 분리한다.
+C3–C5 및 이후 stage 체크박스를 보존한다. 현재 C2 검증의 환경 차단은 없다.
