@@ -33,7 +33,8 @@
     "test:direct-live": "PYTHONPATH=. uv run --locked python tests/direct-live-smoke.py",
     "test:settings-browser": "npm run build && node tests/settings-browser.mjs",
     "test:youtube-browser": "npm run build && node tests/youtube-browser.mjs",
-    "test:framework:chrome:asr": "npm run typecheck && node --import tsx --test tests/framework-browser-model.test.ts tests/framework-browser-asr.test.ts && node tests/framework-chrome-asr.mjs"
+    "test:framework:chrome:asr": "npm run typecheck && node --import tsx --test tests/framework-browser-model.test.ts tests/framework-browser-asr.test.ts && node tests/framework-chrome-asr.mjs",
+    "test:framework:chrome:stream": "npm run typecheck && node --import tsx --test tests/framework-browser-speech.test.ts && node tests/framework-chrome-stream.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

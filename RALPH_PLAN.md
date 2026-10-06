@@ -1279,3 +1279,88 @@ architecture/prior report를 읽었다. Companion v0.1.0/설치/native messaging
 push/publish/app installation/browser permission·profile 우회 없음. Owned test browsers만
 정리하며 credentials/weights/user audio·transcripts/temporary `.ralph` state는 commit에서
 제외한다. Chrome stage/전체 framework/iPhone 완료를 주장하지 않는다.
+
+### 2026-10-07 / chrome / iteration 4/5 — B2 bounded streaming speech port
+
+Related commit: `feat: bound browser speech recognition streams`, containing
+this progress entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+
+Changes: implemented the existing SpeechRecognizer port around the prepared ASR
+host. Experimental 16 kHz mono Float32 input only, 200 ms/12,800-byte maximum
+chunk, 20 ms RMS energy frames (0.01), 500 ms silence endpoint, 30 s maximum
+segment, one active inference/two pending utterances, 30 s retained unrecognized
+input and two undelivered results. Gap/sequence/clock/identity/epoch changes and
+overload invalidate affected context, expose discarded duration and stop only the
+owned worker; cancel/input cleanup rejects late results. Added six fake-executor
+port checks and a distinct real `test:framework:chrome:stream` harness. Preserved
+all original candidates, fixture samples/hashes/tags, accuracy gates and failed
+baselines; no default, user setting or checkbox was changed.
+
+Commands and actual results:
+
+- FAIL then corrected: initial typecheck (six ES2022 Array.fromAsync type errors)
+  and initial port test (4 passed/1 failed, 88.672584 ms). Kept ES2022, added a
+  local collector and corrected the new arbitrary-frame expected length to
+  19,110 samples/1314.375 ms EOF. Later TS2352 on deliberately invalid shared
+  buffer test casting was corrected via unknown. No accuracy gate was weakened.
+- PASS: first `npm run test:framework:chrome:stream`, exit 0,
+  `chrome-4-stream-first.log`: typecheck/5 port tests (48.7225 ms)/build, six real
+  scored utterances, gap/overload/actual invocation-observed cancel/GPU loss,
+  pinned network/identity/range checks. Read-only Python assertions on all six
+  actual outputs passed the preserved meaning anchors.
+- PASS: final same streaming command, exit 0, `chrome-4-stream-final.log`:
+  typecheck/6 port tests (52.412334 ms)/production build and every real browser
+  assertion, now including semantic anchors and 2 s pure zero PCM (0 ASR calls,
+  0 transcripts/discarded audio). Final source also rejects shared buffers and
+  releases the owned input reference. Normal runs have 0 ms audio loss/backlog
+  after drain; deliberate overload discards 29,940 ms (pending peak 29,840 ms),
+  gap 100 ms, invoked cancel 7480 ms, actual device loss 7180 ms, each explicit
+  with no transcript revival/fallback. Page errors/visibility events/failures [].
+- PASS: initial `npm run verify`, exit 0, `chrome-4-verify.log`: Biome 103 files/
+  46 ms/no findings, Ruff/typecheck/companion build, 91 JS passed/0 failed/skipped/
+  cancelled (15133.193042 ms); 222 Python passed/66.97 s.
+- PASS: final `npm run verify`, exit 0, `chrome-4-verify-final.log`, after all
+  source/test edits: same lint/typecheck/build, 91 JS passed/0 failed/skipped/
+  cancelled (14579.564375 ms), 222 Python passed/66.93 s.
+- PASS: final standalone six port tests, exit 0, 73.611916 ms
+  (`chrome-4-speech-port-final.log`); final targeted Biome, 3 files/no findings,
+  exit 0 (`chrome-4-targeted-lint.log`); document-inclusive unstaged/staged
+  whitespace and clean committed worktree checks before delivery.
+- FAIL: required `npm run test:framework:chrome`, Missing script, initial
+  `chrome-4-stage-acceptance.log`; isolated confirming invocation exit 1,
+  `chrome-4-stage-acceptance-exit.log`. B5's full selected-video → ASR → Korean
+  translation → DOM harness is unimplemented. No further retry, placeholder or
+  ASR/preparation substitute was added.
+
+Real scope: owned headed Chromium 153.0.8010.12/Darwin arm64, Node v24.15.0/
+npm 11.12.1/uv 0.12.23/Python 3.12.15, unchanged Transformers.js 4.3.0/ORT and
+pinned small FP16 profile (487,960,440 model bytes). Both runs decode/resample
+existing synthetic video speech, retain the isolation tones, append explicit
+zero silence and pace 100 ms chunks: 22.8 s Japanese + 21.9 s English, **44.7 s**
+per invocation, not live selected-element capture or ten-minute acceptance.
+Final 3 trials each: Japanese CER 1/40=2.5%, English WER 1/22=4.54545%; 三/three
+→ 3 remains an edit. Meaning anchors pass. Endpoint-to-result ranges are
+Japanese 747.400–852.400 ms / English 664.800–816.000 ms, one document clock,
+not speech-to-first-caption latency/percentiles. Final model preparation
+53687.332208/1244.739875 ms; pending maxima 8180/7880 ms; mode baseline/peak
+browser-tree RSS KiB 1,286,528/3,521,872 and 2,678,640/3,766,784. RSS includes
+shared pages/allocator/browser/GPU process at 250 ms samples, not isolated GPU
+allocations, leaks or phone limits. Each invocation downloaded one FP16 inventory
+in an owned context and reused its cache for later workers; no weights/profile
+or temporary logs are committed. Detailed first/final measurements and exact
+fault/development evidence are in the Chrome report and ignored chrome-4 logs.
+
+Next unfinished item: **B2 stays unchecked; no default selected.** Qualify live
+selected-video normalization, natural silence/noise VAD and boundary-spanning
+speech, sustained queue/GPU recovery/memory and broader meaning accuracy; resolve
+conversion/distribution licensing before selection. Fake 30+1 s segmentation
+and the isolation-tagged speech do not establish long/natural speech quality.
+B3–B6 translation/revision/DOM/offline end-to-end/ten-minute acceptance and all
+Safari/iPhone work remain unverified. No required environment/device/permission
+blocker was observed. No stage/whole-framework/iPhone completion is claimed.
+No AGENTS.md/requested runner file exists; supplied instructions, plan, full
+architecture and prior report were read. Companion/published installation/native
+messaging/server/settings and unrelated files/apps/recordings/mounts preserved.
+No agents, runner edits, stage advance, push/publish/app installation or blocked
+browser-access bypass. Credentials, weights, user audio/transcripts and `.ralph`
+state are excluded from the commit.

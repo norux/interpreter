@@ -745,3 +745,206 @@ push/publish or app installation occurred. Only owned test browsers/profiles wer
 closed; credentials, weights, user audio/transcripts and temporary `.ralph` state
 are excluded from the commit. No Chrome stage, whole-framework or iPhone
 completion is claimed.
+
+## 2026-10-07 — B2 bounded streaming speech port (iteration 4/5)
+
+Commit: the `feat: bound browser speech recognition streams` commit containing
+this section. **B2 stays unchecked; no default is selected.** This extends only
+B2. The original comparison command, every q8/FP16 candidate, failed baseline,
+fixture hash/isolation tag, three-trial gate and lifecycle assertion are intact.
+The unchanged comparison was not rerun to repeat its known tiny/WASM failure.
+
+### Implementation and limits
+
+Added `createSpeechRecognizer`, implementing the existing `SpeechRecognizer`
+contract around the prepared utterance executor. One instance owns one identity,
+one language and one run. It accepts only selected-scope, exclusively owned,
+finite mono Float32 chunks already normalized to **16 kHz**, at most **12,800
+bytes / 200 ms** each. Non-normalized input is explicitly rejected; production
+selected-video resampling is still unfinished. This adapter does not prepare
+models, translate, persist transcripts or modify playback/settings.
+
+The experimental energy gate uses **20 ms frames, RMS >= 0.01**, a **500 ms
+silence endpoint**, no invented confidence or interim transcript, and a **30 s
+maximum segment**. It preserves frame continuity across arbitrary chunk sizes,
+flushes the real EOF remainder, and does not fabricate padding for sub-100 ms
+segments. Those short remainders are reported as discarded duration. This is
+an energy detector, not a learned VAD or proof of music/noise discrimination.
+There is no six-second forced boundary. Continuous speech crossing the 30 s
+model limit still needs real boundary-quality evaluation.
+
+One inference runs at a time, with at most **two pending utterances**, **30 s
+of unrecognized retained input** across segment/queue/inference, and **two
+undelivered transcript results**. Status reports pending/discarded audio duration.
+A chunk can exceed the retained-input limit by at most its bounded size before
+rejection and cleanup. Overload fails visibly, clears affected context and stops
+the owned worker; it does not pause the video or select a fallback. Sequence,
+audio-range, capture-clock continuity and identity/epoch discontinuities fail
+with `audio-gap`, never join surviving samples and require a fresh explicit
+session. Stop/cancel/consumer exit release the owned input iterator/reference,
+clear buffers and reject late inference. The existing media graph and model
+cache owners remain separate.
+
+Port tests use a fake executor and cover arbitrary frame alignment, silence/EOF,
+30 s segmentation, malformed/non-normalized/tab-mix/shared/nonfinite PCM,
+sequence/epoch/clock gaps, bounded overload, cancellation while input is waiting,
+and late results. They are **not recognition accuracy evidence**. The fake
+30+1-second split does not establish long-speech accuracy.
+
+### Real browser scope and first run
+
+New `npm run test:framework:chrome:stream` builds the production host/worker and
+speech adapter and runs actual small FP16 WebGPU inference in an owned headed
+Chromium 153.0.8010.12, Darwin arm64, Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, unchanged Transformers.js 4.3.0/locked ORT.
+Model ID, revision, seven files/487,960,440 bytes and hashes are unchanged from
+iteration 3. Native foreground visibility is checked; no focus emulation,
+permission/profile change or browser-access workaround is used.
+
+The hash-checked Japanese/English synthetic videos are decoded and resampled
+with OfflineAudioContext to 111,556/106,664 samples. Each speech period retains
+all original samples and its isolation tag, then adds at least 600 ms of
+explicit zero silence and is delivered in 100 ms packets at real-time cadence.
+Three repeats are 22.8 s Japanese / 21.9 s English, **44.7 s total paced input**,
+not one ten-minute session. Test chunks carry a synthetic selected-scope tag;
+this is **decoded fixture PCM, not the production selected-element route**.
+The isolation tone is above the energy threshold, so these runs exercise the
+explicit appended silence endpoint, not natural speech/noise VAD accuracy.
+
+First `npm run test:framework:chrome:stream`: **PASS, exit 0**, ignored
+`chrome-4-stream-first.log`. Typecheck, 5 initial port tests (0 failed/skipped/
+cancelled, 48.7225 ms), build and all six real scored utterances passed the
+unchanged <= 0.2 CER/WER gate. All Japanese trials were 1/40 = **2.5% CER**;
+English 1/22 = **4.54545% WER**. Numeric 三/three → 3 remains an edit.
+Read-only Python assertions on these six actual results additionally passed
+meeting negation, tomorrow/afternoon/station and reservation non-cancellation
+anchors; no mock supplied the recognized text.
+
+| First run / language | Preparation ms | Endpoint-to-result range ms | Host run ms | Maximum pending audio ms | Baseline / peak browser-tree RSS KiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Japanese, fresh download/load | 55541.456166 | 739.800–853.400 | 23442.200 | 8180 | 1,301,328 / 3,737,296 |
+| English, cached fresh worker | 1243.496625 | 669.700–752.300 | 22479.000 | 7780 | 2,988,752 / 3,885,824 |
+
+First overall RSS baseline was 1,287,168 KiB. Normal runs dropped **0 ms**,
+drained pending audio to zero and returned three ordered final source-revision-1
+results each, with original identity/language and ranges. Japanese ranges were
+0–7480, 7600–15080, 15200–22680 ms; English 0–7180, 7300–14480,
+14600–21780 ms. Endpoint-to-result uses the document's actual packet delivery
+and result clocks, including inference/transport after endpoint delivery. It
+excludes speech accumulation and up to 100 ms packet quantization; it is not
+first-caption latency or a percentile. RSS sums only the owned Chromium process
+tree every 250 ms, including browser/renderers/GPU process, shared-page double
+counting and allocator carryover. It is not isolated model/GPU allocation,
+a leak test, a hardware limit or phone qualification.
+
+First fault checks: unpaced overload returned `overloaded`, zero transcripts,
+29,940 ms discarded / 0 pending (observed pending peak 29,840 ms); a deliberate
+sequence gap discarded 100 ms and returned `audio-gap`. Cancel after observing
+actual pipeline invocation returned `cancelled`, zero transcripts and 7480 ms
+discarded. Destruction of the actual runtime-created GPUDevice returned
+`gpu-lost`, zero transcripts and 7180 ms discarded, with no fallback. Each check
+used a fresh cached prepared worker; these are explicit injected faults, not
+normal playback failures or cooperative kernel cancellation. First final page
+errors, visibility events and accuracy failures were `[]`; pinned artifact/network
+assertions passed. Only owned browser/profiles were cleaned up.
+
+### Development failures and remaining acceptance
+
+Initial typecheck failed on six `Array.fromAsync` uses with the repository's
+ES2022 library; kept ES2022 and used a local async collector. Initial port run
+returned exit 1, **4 passed/1 failed** (88.672584 ms): the new arbitrary-frame
+test expected 18,960 samples, but 30 × 701 source samples minus its 1920-sample
+start equals **19,110**, with real EOF **1314.375 ms**. Corrected that arithmetic
+and the first active sample index; the segmentation and accuracy gates were not
+relaxed. Later typecheck returned exit 1, TS2352, for the deliberately invalid
+SharedArrayBuffer fixture cast; corrected its explicit `unknown` coercion.
+Final port runs pass all six tests. These were development failures, not absent
+permissions or model accuracy failures.
+
+After the first real build, explicitly rejected shared buffers, released the
+owned input-iterator reference on cleanup, added the 30 s port check, removed an
+unused copied test helper, and promoted the observed meaning anchors into the
+browser assertions. The final browser run also independently checks two seconds
+of pure zero PCM: no ASR call or transcript, rather than inferring this from
+mock results. Final evidence below applies to these completed sources.
+
+Final `npm run test:framework:chrome:stream`: **PASS, exit 0**, ignored
+`chrome-4-stream-final.log`: typecheck, **6 port tests passed / 0 failed/skipped/
+cancelled** (52.412334 ms), production build and every real browser assertion.
+All six scored utterances again had Japanese CER **1/40 = 2.5%** and English
+WER **1/22 = 4.54545%**, identical text per language, with the semantic anchors
+now asserted inside the harness. Normal input dropped **0 ms**, returned three
+ordered results per language with the same ranges as the first run, and drained
+all pending audio. Final observations (min–max of three repeats, not percentiles):
+
+| Final run / language | Preparation ms | Endpoint-to-result range ms | Host run ms | Maximum pending audio ms | Baseline / peak browser-tree RSS KiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Japanese, fresh download/load | 53687.332208 | 747.400–852.400 | 23482.900 | 8180 | 1,286,528 / 3,521,872 |
+| English, cached fresh worker | 1244.739875 | 664.800–816.000 | 22466.700 | 7880 | 2,678,640 / 3,766,784 |
+
+Final overall RSS baseline: **1,277,968 KiB**. The same clock/packet/RSS caveats
+above apply. Pure zero PCM (2 s) made **0 actual host ASR calls**, emitted **0
+transcripts**, dropped **0 ms** and retained **0 ms**. Unpaced overload again
+reported peak pending **29,840 ms**, discarded **29,940 ms** and cleared all
+results; gap, invocation-observed cancellation and actual GPU loss again
+reported `audio-gap` / **100 ms**, `cancelled` / **7480 ms**, `gpu-lost` /
+**7180 ms**, respectively, all with zero transcripts/pending audio and no
+fallback. Final page errors, visibility events and accuracy failures were `[]`;
+pinned network assertions passed. Two stream invocations each downloaded this
+single FP16 inventory once in a fresh owned context, reused its cache for later
+workers, and cleaned only their owned browser/profile. Weights/runtime/profile
+bytes and local logs are excluded from the commit.
+
+Other checks:
+
+- PASS: initial `npm run verify`, exit 0, `chrome-4-verify.log`: Biome
+  103 files/46 ms/no findings, Ruff/typecheck/existing companion build,
+  **91 JS passed / 0 failed/skipped/cancelled**, 15133.193042 ms;
+  **222 Python passed**, 66.97 s. It preceded final cleanup/observation edits;
+  the final stream command typechecks/tests/builds those completed sources.
+- PASS: standalone final six port tests, exit 0, 73.611916 ms,
+  `chrome-4-speech-port-final.log`; final targeted Biome, exit 0,
+  3 files/no findings, `chrome-4-targeted-lint.log`.
+- FAIL: required `npm run test:framework:chrome`, `chrome-4-stage-acceptance.log`:
+  `Missing script: "test:framework:chrome"`. An isolated invocation confirming
+  its exit code returned **exit 1**, `chrome-4-stage-acceptance-exit.log`.
+  This is unfinished B5 implementation, not a missing external device/permission.
+  No further attempt was made, no placeholder added and no preparation/ASR-only
+  command substituted for full selected-video → ASR → Korean translation → DOM.
+- PASS: final `npm run verify`, **exit 0**, `chrome-4-verify-final.log`, after
+  all source/test edits: Biome **103 files / 46 ms / no findings**, Ruff,
+  typecheck, unchanged companion build, **91 JS passed / 0 failed/skipped/
+  cancelled** (14579.564375 ms), **222 Python passed** (66.93 s).
+  This is repository regression evidence, not full Chrome interpretation.
+- PASS: final document-inclusive unstaged/staged whitespace checks and committed
+  worktree cleanliness, checked before delivery.
+
+### Next unfinished item and boundaries
+
+**B2 remains next.** Qualify production selected-video normalization/streaming,
+natural silence/noise VAD and boundary-spanning speech, sustained queue/GPU
+recovery/memory limits and broader Japanese/English meaning accuracy, and resolve
+conversion/distribution licensing before selecting a default. The pinned FP16
+profile is still experimental; the known tiny/WASM numerical failure and other
+candidate semantic errors remain in the original comparison. No new license
+confirmation is claimed. No required environment/device/permission blocker was
+observed in either streaming invocation; no blocked terminal marker applies.
+
+Unverified: production live selected-video resampling/capture → ASR, actual
+long continuous speech at the 30 s boundary, learned VAD, physical storage/GPU
+memory limits and leaks, suspension during streaming, sustained GPU recovery,
+B3–B6 Korean translation/revision/DOM integration, offline full interpretation,
+first-download fault/ten-minute end-to-end backlog/loss, external-site extension
+installation, and all Safari/iPhone behavior. Existing B1 preparation fault tests
+and earlier WASM/accuracy evidence are preserved, not reclassified as these
+outcomes. Neither real model readiness nor mock port tests complete them.
+
+No root/nested AGENTS.md or requested independent runner file
+`2026-10-06T20-26-37-190Z-chrome-verification.txt` exists. Supplied instructions,
+plan, architecture and previous report were read. All changes stay in the
+requested worktree. Companion v0.1.0, published install/native messaging/server
+paths, user settings, unrelated files and user apps/recordings/mounted images
+remain unchanged. No agents, runner edits, checkbox completion, stage advance,
+push/publish, app installation or browser-access bypass occurred. Credentials,
+weights, user audio/transcripts and temporary `.ralph` state are not committed.
+No Chrome-stage, whole-framework or iPhone completion is claimed.
