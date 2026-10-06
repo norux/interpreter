@@ -14,6 +14,11 @@ selected and billed by their API provider separately from chat subscriptions.
 
 ## Setup
 
+The proposed [media framework architecture](docs/architecture/media-framework.md)
+defines selected-video interpretation across desktop Chrome, Safari and iPhone
+Safari. It is a design for future builds; the setup below describes the current
+companion implementation.
+
 ### macOS companion app (development build)
 
 Apple Silicon macOS 14+ can run the existing MLX/Ollama pipeline without terminal
