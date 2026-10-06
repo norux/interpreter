@@ -81,6 +81,44 @@ def test_speech_flushes_after_300ms_silence_without_waiting_for_more_audio():
     assert all(segments.push(frame(i)) is None for i in range(35, 100))
 
 
+def test_long_speech_uses_brief_pause_before_hard_limit_without_losing_audio():
+    segments = SpeechSegments()
+    segments.vad = SpeechDetector()
+    for i in range(195):
+        assert segments.push(frame(i, True)) is None
+    for i in range(195, 199):
+        assert segments.push(frame(i)) is None
+    first = segments.push(frame(199))
+    assert first is not None
+    assert (first.start_ms, first.end_ms) == (0, 3900)
+    assert [f.sequence for f in first.frames] == list(range(200))
+    for i in range(200, 240):
+        assert segments.push(frame(i, True)) is None
+    second = None
+    for i in range(240, 255):
+        second = segments.push(frame(i))
+    assert second is not None
+    assert (second.start_ms, second.end_ms) == (4000, 4800)
+    assert [f.sequence for f in second.frames] == list(range(200, 255))
+
+
+def test_long_speech_brief_pause_resets_on_voice_and_transport_gap():
+    segments = SpeechSegments()
+    segments.vad = SpeechDetector()
+    for i in range(195):
+        assert segments.push(frame(i, True)) is None
+    for i in range(195, 199):
+        assert segments.push(frame(i)) is None
+    assert segments.push(frame(199, True)) is None
+    assert segments.push(frame(210)) is None
+    assert all(segments.push(frame(i)) is None for i in range(211, 230))
+    for i in range(230, 250):
+        assert segments.push(frame(i, True)) is None
+    results = [u for i in range(250, 265) if (u := segments.push(frame(i)))]
+    assert len(results) == 1
+    assert results[0].start_ms >= 4200
+
+
 @pytest.mark.parametrize("pause_frames", [12, 14])
 def test_short_internal_pause_keeps_both_halves_of_speech_in_one_segment(pause_frames):
     segments = SpeechSegments()

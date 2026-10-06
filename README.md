@@ -211,8 +211,10 @@ the chosen source language.
 
 The worklet sends mono 24 kHz PCM16. Local VAD uses an 8 kHz decision stream,
 200 ms pre-roll, 300 ms silence boundary, at least 200 ms speech, and a six-second
-maximum segment. ASR resamples the segment to 16 kHz float32 in memory. Silence
-alone does not call either model. One dedicated ASR worker is shared across
+maximum segment. After four seconds, a 100 ms VAD pause can end the segment
+before the hard limit to avoid cutting a word. This is a quiet audio boundary,
+not a guarantee of a complete sentence. ASR resamples to 16 kHz float32 in memory.
+Silence alone does not call either model. One dedicated ASR worker is shared across
 sessions; translation processes finalized segments with up to three recent
 source/translation pairs. Waiting speech is limited to two segments and eight
 seconds of audio; incoming PCM waits at most two seconds. Older waiting data is
@@ -256,9 +258,29 @@ This prepares one shared local engine, excludes its first inference from the war
 comparison, rotates candidate order, and saves numeric session-event measurements
 to `docs/verification/latency/vad-events.json`. Generated text is printed only for
 meaning review; temporary generated audio is removed. The 300 ms local boundary
-reduced first-event latency in this sample. The longer fixture also exposes an
-existing six-second split/translation quality limitation; these measurements do
-not establish browser paint latency, cold-start improvement, or item 7a completion.
+reduced first-event latency in the recorded sample. That run also exposed a
+six-second split/translation defect, addressed by the later pause-boundary run.
+These measurements do not establish browser paint latency, cold-start improvement,
+or item 7a completion.
+
+To recheck the pause-boundary fix with the same generated English clips and real
+local models (Ollama must be running):
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-boundary-quality.py after
+```
+
+This checks source details, Korean output, the long clip's negation/reason/noon/
+umbrella/station/meeting time, revision ordering and bounded queues. Read the
+printed generated text to review meaning; keyword checks alone do not establish
+translation accuracy. Temporary audio is removed and only numeric/check evidence
+is saved in `docs/verification/latency/boundary-after.json`. Its PCM hashes must
+match the recorded baseline. `before` and `after` label the checked-out code;
+they do not switch implementations. Both reports include nine warm runs/twelve
+cues and a separate first inference. The revised pooled p50 is slightly slower
+for first output and slower for final output; this fix recovers missing meaning.
+See `docs/verification.md` for the baseline and remaining native Chrome checks.
 
 If ASR dependencies or cached weights are missing, the popup gives the setup
 command. Missing text weights ask for `ollama pull`; connection failure asks for

@@ -1077,3 +1077,69 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   교체 뒤 늦은 결과 거부를 함께 확인해야 checkbox를 바꿀 수 있다. 이번 300ms
   후보 비교/선택은 끝났으므로 다시 구현할 필요가 없다. 7b(Source Auto),
   8(TED 연속600초), 9/최종 완료는 남아 있고 외부 blocker는 없다.
+
+### Ralph iteration 4/30 — 2026-10-06 — 항목 7a 긴 구절 품질 수정
+
+- 지정 checkout만 사용했다. AGENTS.md는 없으며 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7a만 진행**, 큰 항목 분할 규칙에 따라 **checkbox는 미체크로 유지**한다.
+  다른 agent/worktree/push/runner/acceptance 변경/credential 파일/cloud inference는 없다.
+- 기존 긴 생성 clip의 6초 경계가 station을 자르고 ASR/번역에서 장소를 누락하며
+  일본어를 섞는 실패를 실제 두 모델로 재현했다. **warm 3회 모두 실패**했다.
+  local segment에서 4초 이후 100ms VAD pause를 우선 사용해 단어 중간 hard cut을
+  피한다. 기존 6초 hard cap/300ms 정상 silence/최소 speech/pre-roll/단일 worker/
+  큐 예산은 유지한다. 문장 분석기가 아니며 무중단 발화는 여전히 hard cut에 도달한다.
+  OpenAI live ASR는 이 local 경계를 끄고 기존 500ms commit/PCM protocol을 유지한다.
+- split만 바꾼 probe는 원문을 복구했으나 noon을 오후 시간으로 잘못 번역했다.
+  Ollama의 기존 system 지침에 절별 정확한 의미/명확한 시간/선택한 목표 언어만
+  사용하라는 작은 지침을 추가하고 실제 ASR/session에서 다시 검증했다.
+  원문당 단일 streaming 요청/final-only 문맥/Stop/모델/temperature/token/context는
+  동일하다. capture/model/output 계약/새 모델/provider framework는 추가하지 않았다.
+- 새 tests/local-boundary-quality.py의 변경 전후 실제 실행은 모두 exit0이다.
+  같은 Samantha 165wpm weather/park/긴 clip을 각3회, **phase당 warm9 runs/12 cues**,
+  별도 첫 weather inference1회로 측정했다. clip2의 추가 pause는240ms이다.
+  **모든 PCM SHA-256이 phase 사이 일치**한다. Apple M5/16GiB,
+  Python3.12.15/mlx-audio0.5.8/Ollama0.35.1, cached 0.6B8bit ASR/
+  qwen3:4b-instruct Q4_K_M, English→Korean,20ms paced PCM이다.
+  offline flags/loopback/Ollama cloud disabled이며 generated audio는 ignored
+  TemporaryDirectory 종료 시 제거했다. 생성 ASR/final text는 terminal에서만 검토했다.
+  docs/verification/latency/boundary-before.json과 boundary-after.json은 숫자/boolean/
+  모델 정보/파형 hash만 저장한다. 실제 사용자 audio/transcript는 사용하지 않았다.
+- 수정 후 **warm9회 전부 source/한국어/품질 checks 통과**했다. 긴3회 모두 부정/
+  이유/정오 전(오후12시 전 표현)/파란 우산/역/오후3시 의미가 유지되고 일본어가 없다.
+  첫 clip source 구간0–3880ms, 다음4000–7660ms이며 중간은 검출한 pause다.
+  날씨/점심 뒤 공원 산책 의미도 검토했다. 공원 번역은 직역 미래형 대신 “걷기로 했다”
+  표현이므로 모델 전반 정확도/모든 긴 발화 무손실을 보장하지 않는다. keyword check만으로
+  의미 성공을 주장하지 않는다. 기존 긴 clip regression 수정은 완료했으므로 재구현 불필요.
+- **session-event 실측, browser paint가 아니다**: warm pooled first p50/p95
+  535.211/590.043→542.207/643.179ms(n12), final780.227/1191.393→
+  944.816/1125.235ms이다. **pooled 지연 개선은 주장하지 않는다**. 긴 clip 시작→
+  첫 cue는6358.341/6361.030→4293.955/4296.307ms(n3)로 먼저 오지만 구간도 달라졌다.
+  더 많은 의미를 복구한 두 번째 cue의 번역량은 증가했다. 지침/경계를 함께 변경했으며
+  일부 after sample에 fixture/browser 검사도 겹쳐 고립된 속도 benchmark가 아니다.
+  첫 inference는 별도 기록하고 caches를 지우지 않아 cold 비교/개선은 주장하지 않는다.
+  warm queue peak6000→4000ms/drop0/pending-at-end0이며 장시간/transport drop은 아니다.
+- 변경 전 새 brief-pause regression은1 failed/1 passed/16 deselected/exit1이었다.
+  수정 후 focused local/live/prepare/stream **62 passed/60.78초/exit0**이다.
+  새 검사는 경계 양쪽 모든 frame/voice 재개/gap reset 및 live ASR 동일 pause의
+  265 PCM frame 단일 commit을 확인한다. 기존 hard cap/short pause/slow queue/Stop/
+  native 직렬화/늦은 결과/stream 오류/deadline 검사를 유지했다. Ruff line-length
+  실패(harness3/adapter2)를 수정했고 assertion을 약화하지 않았다.
+- `npm run test:captions-browser` exit0: Chrome for Testing153.0.8010.12의
+  normal/narrow/wrapper fullscreen/revision/긴 final 모든 문자/controls/expiry/Stop/
+  늦은 caption 거부 통과. generated caption fixture이며 실제 Chrome capture/paint/
+  청취 증거가 아니다. PNG는 기존 byte이고 새 시각 검토는 없다.
+- 최종 base `uv sync --locked` 후 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify`
+  exit0: lint/typecheck/build, **JS10+Python159**, failures/skips/warnings0,
+  Python66.04초. 최종 Ruff/py_compile/uv lock --check/git diff --check와
+  독립 numeric/hash/percentile/품질/queue 일관성 검사 통과. measured run 뒤 추가한
+  harness report/hash assertion도 실제 JSON으로 검증했으며 새 실측이라고 주장하지 않는다.
+  dependency/lock 변경 없음. model process/browser/Ollama 종료,8765/8766/11434
+  listener 없음. docs/verification.md와 README에 명령/실패/결과/한계를 보존했다.
+- **다음 iteration도 7a, 외부 blocker 없음**: 이제 native Chrome tabCapture의
+  revision-aware first/final **실제 paint**를 같은 음성/설정의 변경 전후로 측정해
+  p50/p95/sample/cold-warm/queue/drop을 기록한다. 기존 session-event baseline은
+  paint로 대체하지 않는다. 실제 원음 청취/streaming 긴 cue/partial-final/Stop 및
+  session 교체 뒤 늦은 결과 거부를 함께 확인해야 checkbox를 바꿀 수 있다.
+  tests/local-browser.mjs,tests/browser_metrics.py,기존 local-latency.py를 출발점으로
+  사용한다. 7b(Source Auto),8(TED연속600초),9/최종 완료는 남아 있다.

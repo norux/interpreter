@@ -150,6 +150,41 @@ def test_pcm_commit_partial_final_same_item_timing_and_close(monkeypatch):
     asyncio.run(fixture(monkeypatch, handler, check))
 
 
+def test_live_commit_keeps_short_pause_in_long_speech(monkeypatch):
+    async def handler(socket):
+        await configure(socket)
+        received = await turn(socket)
+        assert received == [
+            frame(i, i < 195 or 200 <= i < 240).pcm for i in range(265)
+        ]
+        await send(
+            socket,
+            {
+                "type": "conversation.item.input_audio_transcription.completed",
+                "item_id": "item-1",
+                "transcript": "Both halves of the same speech",
+            },
+        )
+        assert json.loads(await socket.recv()) == {
+            "type": "conversation.item.delete", "item_id": "item-1",
+        }
+        await send(socket, {"type": "conversation.item.deleted", "item_id": "item-1"})
+        await socket.wait_closed()
+
+    async def check():
+        async def long_audio():
+            for i in range(265):
+                yield frame(i, i < 195 or 200 <= i < 240)
+                await asyncio.sleep(0)
+
+        asr = LiveTranscriber("fixture-secret", "gpt-live-transcribe", "en")
+        transcripts = [t async for t in asr.transcribe(long_audio())]
+        assert len(transcripts) == 1
+        assert (transcripts[0].audio_start_ms, transcripts[0].audio_end_ms) == (0, 4800)
+
+    asyncio.run(fixture(monkeypatch, handler, check))
+
+
 @pytest.mark.parametrize("provider", ["luna", "anthropic", "local"])
 def test_live_asr_to_actual_text_adapter_final_only(monkeypatch, provider):
     calls = []

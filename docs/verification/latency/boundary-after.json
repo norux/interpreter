@@ -1,0 +1,268 @@
+{
+  "measurement": "paced PCM audio-end to session event; not browser paint",
+  "phase": "after",
+  "asrModel": "mlx-community/Qwen3-ASR-0.6B-8bit",
+  "textModel": "qwen3:4b-instruct",
+  "source": "English",
+  "target": "Korean",
+  "silenceMs": 300,
+  "speech": "macOS Samantha 165 wpm; clip 2 has added 240 ms pause",
+  "pcmSha256": [
+    "91b6ce735415f135e2abb6306a15fd37fb71c7660dedef7d414272e7e0277fa5",
+    "3f213e0313d608e42e03a120cd9842b2a5f23a5686938544f91593b8343ae005",
+    "c812c3a5e7d86444a7ce2147e6bc65328b9f33aba93736f939b2eaec09f5ddb1"
+  ],
+  "warmup": {
+    "clip": 0,
+    "repetition": -1,
+    "queuePeakMs": 1760.0,
+    "droppedUtterances": 0,
+    "pendingAudioMsAtEnd": 0,
+    "qualityChecks": {
+      "sourceDetails": true,
+      "koreanOnly": true
+    },
+    "cues": [
+      {
+        "firstEventMs": 1253.434,
+        "audioStartMs": 0,
+        "audioEndMs": 1460,
+        "revisions": 9,
+        "finalEventMs": 1487.802
+      }
+    ]
+  },
+  "warmupIncludingPreparationMs": 3949.661,
+  "coldComparison": "none; cached weights, first inference excluded from warm",
+  "samples": [
+    {
+      "clip": 0,
+      "repetition": 0,
+      "queuePeakMs": 1760.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 517.893,
+          "audioStartMs": 0,
+          "audioEndMs": 1460,
+          "revisions": 9,
+          "finalEventMs": 756.306
+        }
+      ]
+    },
+    {
+      "clip": 1,
+      "repetition": 0,
+      "queuePeakMs": 2300.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 639.983,
+          "audioStartMs": 0,
+          "audioEndMs": 2000,
+          "revisions": 14,
+          "finalEventMs": 997.173
+        }
+      ]
+    },
+    {
+      "clip": 2,
+      "repetition": 0,
+      "queuePeakMs": 4000.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true,
+        "negation": true,
+        "reason": true,
+        "beforeNoon": true,
+        "blueUmbrella": true,
+        "station": true,
+        "afternoonThree": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 391.368,
+          "audioStartMs": 0,
+          "audioEndMs": 3880,
+          "revisions": 24,
+          "finalEventMs": 944.816
+        },
+        {
+          "firstEventMs": 569.751,
+          "audioStartMs": 4000,
+          "audioEndMs": 7660,
+          "revisions": 20,
+          "finalEventMs": 1013.53
+        }
+      ]
+    },
+    {
+      "clip": 0,
+      "repetition": 1,
+      "queuePeakMs": 1760.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 542.207,
+          "audioStartMs": 0,
+          "audioEndMs": 1460,
+          "revisions": 9,
+          "finalEventMs": 763.559
+        }
+      ]
+    },
+    {
+      "clip": 1,
+      "repetition": 1,
+      "queuePeakMs": 2300.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 552.586,
+          "audioStartMs": 0,
+          "audioEndMs": 2000,
+          "revisions": 14,
+          "finalEventMs": 906.666
+        }
+      ]
+    },
+    {
+      "clip": 2,
+      "repetition": 1,
+      "queuePeakMs": 4000.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true,
+        "negation": true,
+        "reason": true,
+        "beforeNoon": true,
+        "blueUmbrella": true,
+        "station": true,
+        "afternoonThree": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 413.955,
+          "audioStartMs": 0,
+          "audioEndMs": 3880,
+          "revisions": 24,
+          "finalEventMs": 972.295
+        },
+        {
+          "firstEventMs": 575.309,
+          "audioStartMs": 4000,
+          "audioEndMs": 7660,
+          "revisions": 20,
+          "finalEventMs": 1017.341
+        }
+      ]
+    },
+    {
+      "clip": 0,
+      "repetition": 2,
+      "queuePeakMs": 1760.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 501.336,
+          "audioStartMs": 0,
+          "audioEndMs": 1460,
+          "revisions": 9,
+          "finalEventMs": 722.129
+        }
+      ]
+    },
+    {
+      "clip": 1,
+      "repetition": 2,
+      "queuePeakMs": 2300.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 557.052,
+          "audioStartMs": 0,
+          "audioEndMs": 2000,
+          "revisions": 14,
+          "finalEventMs": 912.463
+        }
+      ]
+    },
+    {
+      "clip": 2,
+      "repetition": 2,
+      "queuePeakMs": 4000.0,
+      "droppedUtterances": 0,
+      "pendingAudioMsAtEnd": 0,
+      "qualityChecks": {
+        "sourceDetails": true,
+        "koreanOnly": true,
+        "negation": true,
+        "reason": true,
+        "beforeNoon": true,
+        "blueUmbrella": true,
+        "station": true,
+        "afternoonThree": true
+      },
+      "cues": [
+        {
+          "firstEventMs": 416.307,
+          "audioStartMs": 0,
+          "audioEndMs": 3880,
+          "revisions": 24,
+          "finalEventMs": 971.412
+        },
+        {
+          "firstEventMs": 643.179,
+          "audioStartMs": 4000,
+          "audioEndMs": 7660,
+          "revisions": 20,
+          "finalEventMs": 1125.235
+        }
+      ]
+    }
+  ],
+  "firstEventMs": {
+    "n": 12,
+    "p50Ms": 542.207,
+    "p95Ms": 643.179
+  },
+  "finalEventMs": {
+    "n": 12,
+    "p50Ms": 944.816,
+    "p95Ms": 1125.235
+  }
+}
