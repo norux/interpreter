@@ -874,3 +874,104 @@ live unverified**. Missing credentials do not block this protocol acceptance.
 Next: item 6, Luna/Anthropic text adapters and ASR selection. Final project
 completion, actual YouTube translation, ten-minute behavior, and performance
 measurements have not been established by this iteration.
+
+## Ralph iteration 3/30 — 2026-10-06 — item 6 text providers / ASR selection
+
+Worked in `/Users/norux/orca/workspaces/interpreter/aspidochelone`; no repository
+AGENTS.md was present. Applied the supplied instructions and read the plan and
+`.ralph/verification.txt` (`No completion verification attempted in this run.`).
+Only item 6 was implemented. No other agent, browser, deployment, or paid inference
+was launched. No credentials were read from files.
+
+Checked the official [Luna model card](https://developers.openai.com/api/docs/models/gpt-6-luna),
+[Responses guide](https://developers.openai.com/api/docs/guides/text),
+[transcription guide](https://developers.openai.com/api/docs/guides/realtime-transcription),
+[Realtime events](https://developers.openai.com/api/reference/resources/realtime/server-events),
+[official transcription connection example](https://developers.openai.com/cookbook/examples/speech_transcription_methods),
+and [Anthropic Messages reference](https://platform.claude.com/docs/en/api/messages/create).
+The web tool could not fetch Markdown content and the attempted Responses
+`/methods/create` page failed; retrieved the official Markdown with curl and used
+the working Responses guide/reference. No unofficial technical source was used.
+
+Implemented feature-local `CloudTranslator`, `LiveTranscriber`, and a small
+session-selection function using the existing contracts and composed session.
+Luna uses the exact `gpt-6-luna` default with Responses and supported `none`
+reasoning. Anthropic requires a configured model ID; no current/latest ID or
+account access is assumed. Local remains the default text/ASR path. Settings are
+exported companion variables until popup item 7. ASR is independently local or
+OpenAI for each of the three text translators; direct translation is unchanged.
+
+OpenAI ASR uses client VAD, short phrase buffering, raw 24 kHz PCM appends, explicit
+commits, and one in-flight turn. It does not claim continuous word-by-word display.
+Partial/final transcripts keep their item ID and increasing revision; final text
+replaces partial text. Captured segment times provide approximate timing. Final
+items are deleted with acknowledgment so the remote conversation does not grow.
+Waiting speech is limited to two segments/eight seconds, and slow input drops old
+segments explicitly. Translation receives only finalized text and at most three
+recent pairs. Stop cancels HTTP requests/ASR reading and discards late responses.
+All API endpoints are fixed; environment proxies and automatic fallbacks are off.
+
+Commands actually run (repository-local uv on PATH):
+
+```sh
+uv run --locked ruff check server tests
+uv run --locked pytest tests/test_text.py tests/test_live.py -q
+uv run --locked pytest tests/test_live.py::test_live_delta_before_commit_ack_keeps_item_and_final -q
+npm run verify
+uv lock --check
+git diff --check
+python3 - <<'PY'
+import os
+for key in ('OPENAI_API_KEY', 'ANTHROPIC_API_KEY'):
+    print(key, 'available' if os.environ.get(key) else 'unavailable')
+PY
+```
+
+- Final `npm run verify` exit 0: lint/typecheck/production MV3 build, JS **7** tests
+  and Python **109** tests passed, failures/skips/warnings 0. Python took 35.87 s.
+  `uv lock --check` and `git diff --check` passed. No dependency/lockfile changes.
+- **61 new cases**: 41 text/selection/companion cases and 20 ASR protocol cases.
+  Local WebSocket fixtures exercise actual ASR socket I/O. HTTP fixtures exercise
+  each real text adapter; ASGI integration uses real authenticated extension PCM,
+  actual VAD/ASR worker scheduling with deterministic inference, and the selected
+  cloud adapter. These are fixtures, not real MLX/cloud inference evidence.
+- Verified exact Luna/Anthropic endpoint/auth/request shape, selected model IDs,
+  bounded context and text-only content, one request per final transcript, and the
+  same utterance/session/audio interval in normalized Korean caption events.
+  All three text adapters consume actual LiveTranscriber fixture outputs; partial
+  ASR text triggers no translation or caption. Existing real local evidence is
+  preserved; no new browser/audio-to-caption claim is made.
+- Two speech turns preserve ordered PCM bytes (960 bytes per append), pre-roll
+  timing, IDs/revisions, partial/final correction, item deletion, and socket/task
+  cleanup. Real silence creates no commit. A stalled turn exercises the actual
+  **30-second** deadline and releases its socket/reader/pending audio.
+- With 30 generated fixture turns and a deliberately blocked first response,
+  **27** old waiting utterances were dropped, pending audio remained within
+  eight seconds, and cancellation released the full queue/socket with no caption.
+  HTTP fixtures deliberately complete during cancellation; both cloud adapters
+  discard their late result and close their clients.
+- Covered missing key/model setup without network, 401/403/404 and 429 text errors,
+  timeout/disconnect/invalid/empty/truncated responses, ASR handshake 401/403/429,
+  ASR failure/model/rate events, invalid IDs/events/disconnect, model defaults and
+  explicit overrides. Errors hide keys/raw response text. Companion error paths
+  close capture and allow a replacement session token. No provider fallback occurs.
+- Failures were corrected: initial line-length lint issues; a fixture pre-roll
+  expected 1300 ms rather than the actual 1320 ms; deletion acknowledgment was
+  awaited to avoid socket-close races. A protocol review found early deltas were
+  incorrectly rejected before commit acknowledgment. Added the regression first
+  (exit 1, `OpenAI ASR returned an invalid protocol event.`), reconciled the first
+  delta's ID with commit acknowledgment, and reran it (exit 0), then the full suite.
+  Wrong-item events still fail. No test or acceptance requirement was bypassed.
+
+**Exact live limitation:** the process reported both `OPENAI_API_KEY unavailable`
+and `ANTHROPIC_API_KEY unavailable`. Live Luna/Anthropic/OpenAI ASR were not
+invoked. Account access, real output/meaning, latency, cloud browser appearance,
+and live protocol compatibility remain unverified. Fixtures do not establish
+these. The plan expressly permits keyless cloud fixture acceptance, so this is
+not an item-6 blocker. README records explicit server-key/configuration commands
+for later opt-in live verification. No keys, weights, user audio/transcripts, or
+temporary `.ralph` state are included in the commit.
+
+Item 6 acceptance passed; item 7 (popup settings and session/output replacement)
+is next. Actual YouTube translation, ten-minute processing/performance, and final
+completion checks remain in items 8–9.

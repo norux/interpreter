@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisco
 from server.capture.pcm import FRAME_SAMPLES, decode_frame
 from server.sessions.direct import direct_session
 from server.sessions.local import MlxEngine, local_session
+from server.sessions.selection import text_session
 
 
 def capture_router() -> APIRouter:
@@ -136,15 +137,32 @@ def capture_router() -> APIRouter:
             provider = os.environ.get("INTERPRETER_PROVIDER", "local")
             if provider == "openai-direct":
                 session = direct_session(session_id)
-            elif provider == "local":
+            elif (
+                provider == "local"
+                and os.environ.get("INTERPRETER_ASR", "local") == "local"
+            ):
                 session = local_session(session_id, engine)
+            elif provider in ("local", "luna", "anthropic"):
+                try:
+                    session = text_session(session_id, engine, provider)
+                except RuntimeError as error:
+                    await send(
+                        {
+                            "type": "error",
+                            "sessionId": session_id,
+                            "message": str(error),
+                        }
+                    )
+                    await websocket.close(code=1008, reason="Invalid ASR selection")
+                    return
             else:
                 await send(
                     {
                         "type": "error",
                         "sessionId": session_id,
                         "message": (
-                            "Unknown INTERPRETER_PROVIDER. Use local or openai-direct."
+                            "Unknown INTERPRETER_PROVIDER. "
+                            "Use local, openai-direct, luna or anthropic."
                         ),
                     }
                 )

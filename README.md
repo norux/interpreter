@@ -104,7 +104,7 @@ cleanup. Record actual observations in `docs/verification.md` before checking it
 
 Copy `.env.example` to `.env` as a settings reference.
 Keys belong exclusively to the companion; `.env` is ignored. The explicitly
-selected OpenAI direct adapter reads the exported server key. Never commit keys, model weights, recordings,
+selected cloud adapters read exported server keys. Never commit keys, model weights, recordings,
 or transcripts. See [verification evidence](docs/verification.md) for checks that
 actually ran and their limitations.
 
@@ -227,3 +227,83 @@ subtitle appearance. Live cloud verification has not run in this iteration
 because the process has no exported key. Protocol references:
 [translation guide](https://developers.openai.com/api/docs/guides/realtime-translation),
 [translation events](https://developers.openai.com/api/reference/resources/realtime/translation-server-events).
+
+## Luna / Anthropic text translation and ASR selection
+
+`INTERPRETER_PROVIDER=luna` uses OpenAI Responses with `gpt-6-luna` by default;
+`anthropic` uses Messages and requires an explicit `INTERPRETER_TEXT_MODEL`
+accessible to your account. Each translates finalized ASR text with at most three
+recent translation pairs. Audio never enters either text API. Partial ASR results
+revise the same internal transcript; only final text creates a translation request.
+The caption keeps its ASR utterance ID and captured audio interval. Empty, refused,
+truncated, access-denied, and rate-limited responses become status errors rather
+than subtitles. Requests have a 30-second limit and Stop cancels pending work.
+
+The [Luna model card](https://developers.openai.com/api/docs/models/gpt-6-luna)
+confirms `reasoning.effort=none`, used here to avoid extra reasoning latency.
+Responses requests use `store=false` and a 256-token output limit. See the
+[Responses guide](https://developers.openai.com/api/docs/guides/text) and
+[Anthropic Messages reference](https://platform.claude.com/docs/en/api/messages/create).
+No claim is made about your account's model access or live translation quality.
+These optional API paths require separate provider API billing.
+
+With local ASR prepared, export the appropriate server key, then run one of:
+
+```sh
+# OPENAI_API_KEY must already be exported. Local ASR keeps audio on this Mac.
+INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
+  INTERPRETER_PROVIDER=luna INTERPRETER_ASR=local \
+  INTERPRETER_ASR_MODEL=mlx-community/Qwen3-ASR-0.6B-8bit \
+  INTERPRETER_TEXT_MODEL=gpt-6-luna \
+  HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  uv run --locked --extra local uvicorn server.app:app --host 127.0.0.1 \
+  --port 8765 --ws-max-size 4096 --ws-max-queue 8
+
+# ANTHROPIC_API_KEY and a non-secret ANTHROPIC_MODEL_ID must already be exported.
+INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
+  INTERPRETER_PROVIDER=anthropic INTERPRETER_ASR=local \
+  INTERPRETER_ASR_MODEL=mlx-community/Qwen3-ASR-0.6B-8bit \
+  INTERPRETER_TEXT_MODEL="$ANTHROPIC_MODEL_ID" \
+  HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  uv run --locked --extra local uvicorn server.app:app --host 127.0.0.1 \
+  --port 8765 --ws-max-size 4096 --ws-max-queue 8
+```
+
+All three text translators (`local`, `luna`, `anthropic`) can instead use paid
+OpenAI ASR. This sends captured speech to OpenAI, needs `OPENAI_API_KEY`, and
+requires no MLX dependencies. Use `INTERPRETER_ASR=openai`,
+`INTERPRETER_ASR_MODEL=gpt-live-transcribe`, and `INTERPRETER_ASR_LANGUAGE=en`
+(or a supported source-language code). Prompt languages remain names such as
+`INTERPRETER_SOURCE_LANGUAGE=English` and `INTERPRETER_TARGET_LANGUAGE=Korean`.
+For example, OpenAI ASR plus Luna:
+
+```sh
+INTERPRETER_EXTENSION_ID=your_32_letter_extension_id \
+  INTERPRETER_PROVIDER=luna INTERPRETER_ASR=openai \
+  INTERPRETER_ASR_MODEL=gpt-live-transcribe INTERPRETER_ASR_LANGUAGE=en \
+  INTERPRETER_TEXT_MODEL=gpt-6-luna npm run dev:server
+```
+
+The [OpenAI transcription guide](https://developers.openai.com/api/docs/guides/realtime-transcription)
+requires client VAD and explicit commits for this model. The companion buffers
+short speech using the existing VAD boundaries (500 ms silence / six-second
+maximum), sends its raw 24 kHz PCM to a transcription WebSocket, and commits
+one turn at a time. This is phrase-buffered transcription, not continuous
+word-by-word display. Partial/final events reconcile by item ID, including deltas
+before commit acknowledgment. Completed items are deleted with acknowledgment;
+captured times provide approximate cue timing. Silence makes no commit. Waiting
+speech stays within two segments/eight seconds, with old data dropped and counted.
+Stalled turns terminate after 30 seconds; Stop closes the ASR socket directly.
+The direct translation path continues to use its separate close protocol.
+
+Stop capture before changing exported settings and restarting the companion.
+Defaults apply only when a variable is unset: if you exported the local model IDs
+from `.env.example`, explicitly change them for cloud paths. There is no automatic
+provider fallback. Popup selection remains plan item 7.
+
+Keyless `npm run verify` covers local WebSocket/HTTP fixtures and companion
+integration. Live Luna, Anthropic, and OpenAI ASR have **not** been verified here:
+neither provider key was exported. To check live behavior, explicitly select one
+of these configurations with authorized server keys, Start on non-sensitive tab
+speech, and inspect caption meaning/errors. Fixture success is not evidence of
+live model access, latency, quality, or browser appearance.

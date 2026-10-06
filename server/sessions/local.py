@@ -303,7 +303,7 @@ class LocalSession:
         context: list[tuple[str, str]] = []
         dropped = 0
         yield SessionEvent(
-            "status", self.session_id, message="Local speech translation ready."
+            "status", self.session_id, message="Speech translation session ready."
         )
         try:
             async for transcript in self.transcriber.transcribe(frames):
@@ -316,7 +316,7 @@ class LocalSession:
                         "status",
                         self.session_id,
                         message=(
-                            f"Local models are behind; dropped {dropped} "
+                            f"Speech processing is behind; dropped {dropped} "
                             "waiting speech segments."
                         ),
                     )

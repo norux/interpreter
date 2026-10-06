@@ -211,7 +211,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
     transcript delta의 cue 수정, session close/error를 확인한다. 키가 있을 때만
     명시적으로 선택한 live smoke를 실행한다. 모델 미접근 시 mock 성공으로 숨기지 않는다.
 
-- [ ] 6. Luna/Anthropic와 ASR 선택 구현
+- [x] 6. Luna/Anthropic와 ASR 선택 구현
   - TextTranslator에 OpenAI Responses Luna, Anthropic Messages, local Ollama를 연결한다.
   - ASR는 local 또는 OpenAI live transcription을 선택할 수 있게 한다.
   - Acceptance: provider contract/integration 테스트에서 ASR 결과가 각 번역 API에
@@ -654,3 +654,47 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   보존한다. 사용자 음성/전사문/키/가중치/임시 .ralph state는 커밋하지 않는다.
   다음 미완료 작업은 **항목 6 — Luna/Anthropic TextTranslator + ASR 선택**이다.
   항목 6–9, 실제 YouTube 번역/10분/성능/최종 완료 검증은 남아 있다.
+
+
+### Ralph iteration 3/30 — 2026-10-06 — 항목 6 구현/fixture 검증 완료, live 미검증
+
+- 지정 checkout 안에서 다음 미완료 항목 6만 진행했다. AGENTS.md는 없으며 사용자
+  지침을 적용했다. `.ralph/verification.txt`는 `No completion verification attempted
+  in this run.`이다. 다른 agent/browser/유료 inference를 실행하지 않았다.
+- 공식 Luna model card, Responses/transcription guide와 Realtime events,
+  Anthropic Messages reference를 확인했다. `gpt-6-luna`와 지원되는 reasoning none을
+  사용하며 Anthropic model ID는 접근 가능한 값을 명시하도록 요구한다. 최신 ID나
+  사용자 account의 접근 가능성을 추측하지 않는다. 키는 companion 환경 변수뿐이다.
+- 작은 feature-local CloudTranslator/LiveTranscriber/selection 함수로 기존 계약과
+  LocalSession 조합을 재사용했다. local/luna/anthropic 번역에 local/OpenAI ASR를
+  각각 선택한다. 기본은 local이며 direct 경로는 별도다. popup UI는 항목 7에 남긴다.
+- Luna Responses와 Anthropic Messages에는 audio 없이 final text와 최근 3쌍만
+  보낸다. ASR partial은 동일 utterance ID/revision으로 처리하며 final만 번역한다.
+  caption은 기존 session/utterance/audio interval을 유지한다. HTTP 취소/늦은 응답
+  거부/30초 제한/권한·quota·응답 오류를 처리하고 유료 fallback은 없다.
+- OpenAI ASR는 gpt-live-transcribe, 24 kHz PCM, client VAD/명시 commit이다.
+  기존 500 ms silence/6초 최대 구절을 먼저 모아 보내는 phrase-buffered 방식이며
+  연속 word-by-word display라고 주장하지 않는다. 한 turn씩 처리하고 early delta와
+  commit ack의 item ID를 일치시킨다. final item delete/ack, 2구절/8초 대기 제한,
+  오래된 segment drop/count, 실제 30초 stall 종료, Stop socket cleanup을 검증했다.
+- 신규 61 cases(텍스트/선택/companion 41 + ASR 20)는 실제 local fixture WebSocket,
+  HTTP adapter와 인증된 ASGI PCM을 사용한다. companion 통합의 MLX inference는
+  deterministic fixture다. 실제 cloud/MLX/Chrome 성공으로 대체 기록하지 않는다.
+  각 텍스트 API의 final-only 요청/모델 ID/문맥/동일 cue, partial/final/revision,
+  누락 설정/401/403/404/429/timeout/invalid response/cancel/late result를 검증했다.
+  30개 fixture turn 중 첫 응답을 지연시키면 27개 대기 구절을 버리고 큐를 제한한다.
+- 실패를 수정했다: line-length lint, pre-roll 기대값 1300→실측 1320 ms,
+  deletion ack 전에 닫는 race. early delta가 commit ack보다 먼저 오는 회귀를 먼저
+  exit 1로 재현하고 ID reconciliation 수정 후 해당 test와 전체 verify가 통과했다.
+  잘못된 item ID는 여전히 실패하며 acceptance/테스트/runner를 약화하지 않았다.
+- 최종 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 7 + Python 109 tests, failures/skips/warnings 0(Python 35.87초).
+  `uv lock --check`, `git diff --check` 통과. 새 의존성/lockfile 변경은 없다.
+- **정확한 live 한계**: process의 OPENAI_API_KEY/ANTHROPIC_API_KEY 모두 unavailable.
+  live Luna/Anthropic/OpenAI ASR 연결·모델 접근·품질·지연은 미검증이다. credential
+  파일을 찾거나 읽지 않았고 cloud call은 실행하지 않았다. README에 명시 선택과
+  서버 key 설정 후 live 재검증 방법을 보존했다. 플랜의 keyless fixture 규칙에 따라
+  항목 6 acceptance를 통과한 뒤 체크했으며 키 부재는 이 항목 blocker가 아니다.
+- 상세 명령/실패/한계는 docs/verification.md에 기록했다. 키/가중치/사용자 음성·전사문/
+  임시 .ralph state는 커밋하지 않는다. 다음 미완료 작업은 **항목 7 — popup 설정과
+  session/OutputSink 교체 검증**이다. 실제 YouTube 번역/10분/성능/최종 완료는 남았다.
