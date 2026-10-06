@@ -22,7 +22,7 @@ try {
     await chrome.storage.session.set({ captureStatus: { state: "capturing", tabId, sessionId: "generated-runtime", message: "Generated capture status" } });
   }, tabId);
   const created = context.waitForEvent("page");
-  const windowId = await worker.evaluate(async () => (await chrome.windows.create({ url: chrome.runtime.getURL("transcript.html"), type: "popup", width: 1100, height: 720 })).id);
+  await worker.evaluate(async () => chrome.windows.create({ url: chrome.runtime.getURL("transcript.html"), type: "popup", width: 1100, height: 720 }));
   const view = await created;
   await view.waitForURL(`${origin}/transcript.html`);
   await view.locator('#status[data-state="capturing"]').waitFor();
@@ -49,7 +49,7 @@ try {
   assert.equal(await view.locator("#sentences tr").count(), 1);
   await view.close();
   assert.equal((await worker.evaluate(() => chrome.storage.session.get("captureStatus"))).captureStatus.state, "idle");
-  await writeFile("docs/verification/transcript/runtime.json", `${JSON.stringify({ browser: context.browser().version(), realExtensionMessaging: true, realComparisonWindow: true, generatedOffscreenCaptions: true, realCapture: false, sourceAndTranslation: true, audioTime: true, sameRow: true, staleRejection: true, replay: true, stopRetention: true, closedWindowId: windowId }, null, 2)}\n`);
+  await writeFile("docs/verification/transcript/runtime.json", `${JSON.stringify({ browser: context.browser().version(), realExtensionMessaging: true, realComparisonWindow: true, generatedOffscreenCaptions: true, realCapture: false, sourceAndTranslation: true, audioTime: true, sameRow: true, staleRejection: true, replay: true, stopRetention: true }, null, 2)}\n`);
   console.log("Transcript runtime checks passed");
 } finally {
   await context?.close();

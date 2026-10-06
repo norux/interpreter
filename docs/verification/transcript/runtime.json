@@ -9,6 +9,5 @@
   "sameRow": true,
   "staleRejection": true,
   "replay": true,
-  "stopRetention": true,
-  "closedWindowId": 2092352814
+  "stopRetention": true
 }
