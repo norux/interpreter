@@ -3271,3 +3271,145 @@ companion or browser process was started for this iteration. `git diff --check`
 passed. Only the session fix, regression tests, README, this evidence and plan
 progress are intended for the Conventional Commit; no credentials, weights,
 audio/transcripts, build output or temporary `.ralph` state are included.
+
+### Ralph iteration 4/30 (resumed run): continuous provisional-model load
+
+Continued **7d**, leaving its checkbox unchecked. The specified checkout started
+clean, had no AGENTS.md, and `.ralph/verification.txt` still said
+`No completion verification attempted in this run.` The supplied instructions
+apply. Capture/model/output contracts, product prompt/model IDs, VAD/snapshot/
+queue settings, dependencies/locks, acceptance criteria and runner are unchanged.
+No agents, other checkouts, credentials, paid API, push or publication were used.
+
+Made **12 bounded text-only local requests** with generic English/Korean/Chinese
+translation instructions. They used the original construction sentence and the
+cached Qwen3:4b-instruct model, temperature0, context4096 and num_predict256.
+Eleven candidates substituted animals; one used the crane noun with the wrong
+Korean grammatical role. None was adopted. These are diagnostic requests, not
+ASR, tabCapture, browser Paint, or successful semantic correction evidence.
+
+Added `tests/local-interim-continuous.py`, a feature-local verification harness.
+It feeds ten rounds of the existing weather/construction and multi-clause
+trip/rain/umbrella/station fixture text into one local session, with a fixed
+400ms extra pause between clips and a two-second final silence tail. Input is
+scheduled every20ms without waiting for inference or subtitle expiry. Only
+snapshots are disabled in `before`; both phases use the current product prompt,
+models, 300ms silence/quality-pause/six-second cap, English→Korean settings,
+single MLX worker, preparation and identical ASR/text warmup. Generated audio
+is temporary under ignored `.ralph` and removed; generated text is reviewed in
+the terminal only. Durable reports contain numeric measurements, IDs and check
+flags, with no audio or transcript. Sampler errors propagate instead of leaving
+an apparently successful partial memory sample.
+
+Commands actually used, from this checkout:
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+uv sync --locked --extra local
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-continuous.py before
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-continuous.py after
+```
+
+Initial three-round/41.054-second smoke comparisons both exited1. They exposed
+a checker false negative: valid Korean prohibitive `취소하지 말` was classified
+as missing negation. Corrected this new harness's recognizer to accept that
+specific negative construction, while retaining affirmative rejection and all
+source-detail, crane/steel, time, queue, revision, finalization and timing checks.
+The initial temporary numeric reports remain ignored under `.ralph`; the final
+ten-round reports below use the corrected check. No product translation was
+rewritten and no original fixture or prior failed report was changed.
+
+Environment: Apple M5, **16GiB**, Python**3.12.15**, mlx-audio**0.5.8**,
+MLX**0.32.3**, NumPy**2.5.3**, Ollama**0.35.1**, cached
+Qwen3-ASR0.6B8bit and Qwen3:4b-instruct **4.0B/Q4_K_M**. Ollama cloud was
+disabled and Hugging Face/Transformers were offline. Product translation
+requests retain context4096, temperature0, num_predict256 and think:false.
+
+Final runs used identical PCM hashes and **132178.333ms of scheduled input**.
+Elapsed times were **132183.622/132182.118ms**, excluding identical warmup steps
+that took **2040.893/2114.537ms** including preparation. These are cached, warmed
+model runs with fresh Python/MLX engines; there is no cold-cache comparison.
+Both commands **exited1**, with `acceptancePassed:false`, preserving only
+`docs/verification/interim/continuous-before-failed.json` and
+`continuous-after-failed.json`. All30 fixture-source/detail/final/revision checks
+passed; **all ten construction translations in each phase failed crane meaning**.
+No passing report was created. Manual terminal review also found some longer
+translations changing the station meeting instruction into a future statement.
+Keyword-check success on those clips is not complete semantic correctness.
+
+Nearest-rank **p50/p95 in milliseconds**, **n10 clips per row per phase**:
+
+| Session-event measurement | Snapshots disabled | Snapshots enabled |
+| --- | ---: | ---: |
+| Weather voice start → first event | 2000.965 / 2042.790 | 713.435 / 789.468 |
+| Construction voice start → first event | 3841.208 / 3955.141 | 690.268 / 746.436 |
+| Long speech voice start → first event | 6336.758 / 6396.093 | 685.471 / 723.767 |
+| Weather voice end → last final event | 868.533 / 930.716 | 548.943 / 857.558 |
+| Construction voice end → last final event | 1179.322 / 1290.345 | 836.010 / 851.730 |
+| Long speech voice end → last final event | 853.533 / 914.083 | 1009.027 / 1158.642 |
+
+Across all30 clips, first-event p50/p95 was **3841.208/6359.569 →
+707.044/771.065ms**, and last-final p50/p95 was **902.719/1249.556 →
+829.434/1131.669ms**. Long-speech final latency worsened despite the aggregate
+improvement. Nonfinal-caption source-end→first event, deduplicated by
+`(utteranceId,audioEndMs)` rather than treating each token as an independent
+sample, was weather **n10,519.215/570.848 → n22,323.896/492.316ms**;
+construction **n10,584.749/659.183 → n39,604.701/750.368ms**; long speech
+**n20,451.010/652.827 → n69,540.550/831.605ms**. These include streamed
+nonfinal captions from confirmed ASR segments and are not exclusively provisional
+ASR events. The disabled-snapshot long clips also have captions while the overall
+clip continues, after the six-second segment boundary; that is not evidence of
+early provisional ASR. All of these measurements end at a **session event, not
+browser Paint, acoustic output, or a physical display**.
+
+Both phases emitted **40 final segments**, with monotonically increasing unique
+caption revisions and no displayed cue left without a final. ASR calls increased
+**40→252**, translator requests **40→212**, complete translator responses
+**40→150**; **62** enabled-phase requests were superseded/cancelled before
+completion. Total serial ASR worker time was **7266.918→59764.463ms**, about
+**5.5%→45.2%** of input duration. First-event improvements therefore have a real
+processing cost. Source-change counts were **0→110** (weather14, construction39,
+long57), including extensions of text rather than demonstrated improvements in
+meaning. Nonfinal events during clip speech were **358→281**, and total caption
+events **762→390**; token events are not independent translations/corrections.
+
+ASR/translation drops were **0/0** in both phases and snapshot coalescing0.
+Requested100ms samplers collected **1171/1224** queue/RSS observations through
+the end of processing. Sampled pending-audio peaks were **0→6000ms ASR** and
+**0→1360ms translation**; these measure queued audio duration, not wall-clock
+waiting time. Each enabled-phase20-second bin had an ASR peak6000ms, without
+increasing peaks; final queues were0. Scheduled-frame lag maxima were
+**23.184/28.219ms**, below this harness's100ms pacing check. This fixed,
+two-minute workload shows bounded bursts and preserved finals, not a general
+real-time guarantee or the required ten-minute advancing public-video test.
+
+Process-RSS peaks were **351223808/373768192bytes**, and last12-second sample
+ranges **282738688–287784960/276545536–282345472bytes**. Per-ASR MLX active
+peaks were **1034002226/1034233650bytes**, process-wide MLX peaks
+**1680168416/1680166368bytes**, including warmup. RSS and MLX are different
+measurements and are **not summed**; these are not whole-browser/Ollama memory.
+An independent numeric audit checked identical PCM/settings,30 trials/40 finals,
+per-cue monotonic revisions, all check flags/failing construction instances,
+sample coverage through the end, exact percentiles and the ASR-time sum.
+It exited0; failed reports remain failed.
+
+**7d remains unchecked.** No native browser/tabCapture, speaker listening,
+subtitle DOM/Paint, visible semantic correction/expiry, in-flight Stop or
+provider/session replacement was attempted in this iteration. No new native
+access or credential blocker was established. Next work remains the original
+construction and longer-sentence meaning, then the required native paired
+long/continuous/context/pause/silence, appearance/listening/lifecycle and
+sustained-load acceptance. The permitted models, original assertions and prior
+failed evidence remain intact; 7b/8/9 remain subsequent items.
+
+Final-source **`npm run verify` exited0**: lint/typecheck/build,
+**12 JavaScript + 172 Python tests**, zero failures/skips/warnings; Python
+**66.19seconds**. Ruff and `python3 -m py_compile` checked the new harness.
+`uv sync --locked` restored the base environment; `uv lock --check` and
+`git diff --check` passed. The owned Ollama server/runner stopped by SIGINT,
+exit0; there are no8765/8766/11434 listeners. No browser or companion was
+started. Only the harness, two failed numeric reports, README, this verification
+record and plan are intended for the Conventional Commit. Keys, weights,
+audio/transcripts, build output and temporary `.ralph` state are excluded.

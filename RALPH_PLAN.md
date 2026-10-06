@@ -2006,3 +2006,67 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   않았고 8765/8766/11434 listener없음을 확인했다. source/tests/README/docs/plan만
   Conventional Commit으로 보존하고 key/weights/audio·transcripts/.ralph/build는
   커밋하지 않는다. 체크박스/전체completion은 미완료다.
+
+### Ralph iteration 4/30 (resumed run) — 2026-10-06 — 7d 연속 로컬 모델 부하 실측
+
+- 다음 미완료 **7d만 진행했고 checkbox는 미체크 유지**다. 지정 checkout은 시작 시
+  clean이며 AGENTS.md는 없다. 사용자 지침을 적용했고 `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. agent/다른worktree/
+  credential/유료API/push/publish/runner/criteria/dependency/lock 변경은 없다.
+  제품 capture/model/output 계약, prompt/model/VAD/snapshot/queue 설정도 유지했다.
+- cached Ollama0.35.1/qwen3:4b-instruct4.0B Q4_K_M/context4096/temp0로 generic
+  English/Korean/Chinese prompt **12회 text-only** 진단했다. 11개는 animal 오역,
+  1개는 crane noun+잘못된 Korean grammatical role이었다. **채택하지 않았다**.
+  새 모델/추론 단계/fixture glossary/미리 만든 번역은 없다. ASR/capture/시각 성공이
+  아니며 원래 의미 assertion과 이전 failed 보고서는 유지했다.
+- **tests/local-interim-continuous.py**를 추가했다. before는 snapshots만 끄고
+  동일 generatedPCM/두모델/English→Korean/300ms VAD/quality pause/6초cap/
+  prompt/streaming/ASR·text warmup을 유지한다. weather/construction/기존 long
+  trip·rain·umbrella·station 문장을 **10round/30clip/단일session**으로 연속 공급한다.
+  추가쉼400ms/tail2초 외에 inference/자막expiry를 기다리지 않는다. 20ms scheduling,
+  cue event/revision/source변경/호출/cancel/queue/drop/RSS·MLX를 계측한다.
+  sampler 오류는 전파하고 report는 숫자/ID/checkflag만 보존한다. CLI 명령은 README와
+  docs/verification.md에 있다. 원문/번역은 terminal에서만 검토하고 temp음성은 삭제한다.
+- 최초3round **41.054초 before/after 모두 exit1**이다. 새 checker가 올바른
+  `취소하지 말`을 negation 누락으로 잘못 분류해 그 부정구문을 인식하도록 수정했다.
+  cancellation금지 의미/원래 crane·steel/source/time/revision/final/queue/지연 조건은
+  유지했다. 제품문장을 바꾸거나 기존 criteria/fixture를 약화하지 않았다. 초기숫자는
+  ignored.ralph, 최종10round 실패숫자는 docs/verification/interim에 보존한다.
+- **최종 before→after 각각132178.333ms input/40final**, 같은PCMhash다.
+  두명령 모두 construction10개씩의 crane 의미 실패로 **exit1/acceptancePassedfalse**다.
+  passing report는 없다. source details/같은ID증가revision/모든표시cue final/큐 bounds/
+  drain/원음시간pacedinput이 통과했고 finaldrop0/0이다. long의 station 지시가 미래
+  서술로 약해지는 실제 의미한계도 terminal에서 확인했다. keyword통과만으로 의미
+  성공을 주장하지 않는다. 생성PCM은 실제 tabCapture나 advancing video가 아니다.
+- **n30 session-event first p50/p95(ms)** **3841.208/6359.569→707.044/771.065**,
+  lastfinal **902.719/1249.556→829.434/1131.669**다. 각clip n10의 상세 percentile은
+  docs에 있다. **long final은853.533/914.083→1009.027/1158.642로 악화**했다.
+  준비+동일warmup **2040.893/2114.537ms**는 제외한다. cachedweights/freshPythonMLX/
+  warm측정이며 coldcache 비교/ChromePaint/physicaldisplay/청취 근거가 아니다.
+  partial의 source-end→event도 token독립sample로 부풀리지 않고 `(ID,audioEnd)`별
+  첫관측의 n/percentile을 기록했다. finalASR의 streamingpartial도 포함한다.
+- ASR **40→252**, 번역 **40→212**(완료150/취소62), source변경 **0→110**이며
+  단어연장도 포함해 실제 의미개선 횟수라고 주장하지 않는다. ASRworker **7.267→
+  59.764초/입력의5.5→45.2%**다. sampled ASR queue **0→6000ms audio**, 번역
+  **0→1360ms audio**, coalesced0/끝queue0이며 매20초bin의 peak가 커지지 않았다.
+  queue의audio시간은 wallclock대기가 아니다. frame lag max23.184/28.219ms다.
+  1171/1224 RSS·queue 관측은 처리끝까지 있다. RSSpeak351223808/373768192bytes,
+  MLXactive1034002226/1034233650, globalpeak1680168416/1680166368bytes(warmup포함)
+  이며 합산하지 않는다. browser/Ollama전체메모리는 미측정이다. 환경 M5/16GiB/
+  Python3.12.15/mlx-audio0.5.8/MLX0.32.3/HFoffline/Ollamaclouddisabled다.
+- 독립 숫자검사로 동일PCM/settings/n30/final40/revision/final순서/각crane실패/
+  exactpercentile/ASR시간합/끝까지sample/체크flag/passing파일없음을 확인해 exit0다.
+  **새 native/browser/실제capture/Paint/expiry/청취/Stop/provider/session 시도는 없다**.
+  실제보이는 문맥교정/긴·연속부하/appearance/lifecycle의 전체7d 성공이 아니다.
+  새 접근/credential 외부 blocker는 확인되지 않았다. 반복모델의 처리비용과
+  bounded burst는 실측했지만132초정해진부하를 일반보장/10분검증으로 확대하지 않는다.
+- **다음도7d**: 원래 construction 및 long 의미를 permitted모델로 해결하고 위 paired
+  명령/기존 nativeharness의 의미·지연 checks를 통과시킨다. 실제 long/continuous/
+  문맥/짧은쉼/무음/모든글자·expiry·시각/원음청취/inflightStop/provider/session/
+  sustainedqueue·memory acceptance가 남았다. 7b/8/9는 그 다음이다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python172**,
+  failures/skips/warnings0, Python**66.19초**다. Ruff/py_compile/uv lock --check/
+  git diff --check 통과, base uv sync --locked복원, ownedOllama SIGINT/exit0,
+  8765/8766/11434 listener없음이다. harness/failednumeric2개/README/docs/plan만
+  Conventional Commit으로 보존하고 key/weights/audio·transcripts/.ralph/build는
+  커밋하지 않는다. 체크박스와 전체completion은 미완료다.

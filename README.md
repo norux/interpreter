@@ -278,6 +278,32 @@ browser Paint. Its reported event times cannot stand in for browser appearance.
 Failed meaning checks remain failures and do not create passing reports. See
 `docs/verification.md` for current observations and remaining acceptance work.
 
+For continuous **model-only** load, the following paired check feeds ten rounds
+of weather, construction and longer multi-clause generated speech into one
+session. Each clip has a fixed extra 400 ms pause; it never waits for inference
+or subtitle expiry before feeding the next clip. Both phases use the same PCM,
+models, prompt, VAD and explicit ASR/text warmup; `before` disables only snapshots.
+Run the local Ollama server with cloud disabled, then:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-continuous.py before
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-continuous.py after
+```
+
+The check records per-cue event timing/revisions, source-change counts, ASR and
+translation calls, scheduled-frame lag, sampled queues and process RSS, and MLX
+allocations. It requires finalization, source details, translation meaning, no
+final drops, bounded/drained queues and improved first-event timing. Generated
+text is printed for review; reports contain numbers, IDs and check flags. Failed
+checks exit nonzero and write `continuous-*-failed.json`; the numeric comparison
+baseline stays under ignored `.ralph`. Current construction meaning still fails.
+Warmup is excluded from event timing, but MLX's process peak includes warmup;
+RSS and MLX are separate measurements and are not summed. This finite PCM run
+includes pauses and a final silence tail. It supplies no tabCapture, audible
+playback, Paint, subtitle appearance, or ten-minute public-video evidence.
+
 The pending 7d native comparison has a separate harness. Start the local Ollama
 server with cloud disabled, build, then run each phase in an interactive terminal
 (the harness waits for commands on stdin):
