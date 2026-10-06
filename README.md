@@ -234,6 +234,9 @@ Only confirmed source/translation pairs enter the three-pair recent context.
 If ASR yields no final text for a provisional utterance, a newer finalized
 utterance cancels its unfinished translation so finalized speech can proceed.
 The abandoned provisional text stays outside recent context.
+Retired local source revisions are rejected by audio position even after their
+IDs leave the bounded history. Active and waiting sentences remain correctable;
+an expired source cannot launch another translation or evict a waiting final.
 Local ASR with Luna/Anthropic and OpenAI ASR with text translators retain final-only
 translation requests. Waiting work in each local stage is limited to two segments
 and eight seconds of audio; incoming PCM waits at most two seconds. Waiting

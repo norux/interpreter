@@ -3930,3 +3930,120 @@ failures/skips/warnings0, Python **66.41s**. Ruff, `uv lock --check` and
 `git diff --check` pass. Product capture/model/output implementation remains at
 iteration6 behavior; only test-local timing/availability regressions and their
 failed native evidence/docs/plan are committed. **7d remains unchecked.**
+
+
+## Ralph iteration 8/30 — 2026-10-06 — sustained source retirement (7d remains open)
+
+The next unfinished item is still 7d. This iteration fixes a deterministic local
+session lifetime defect: after more than 128 retired utterances, a late source
+revision could leave the ID history and launch translation again. Under overload,
+a late dropped final could evict a valid waiting final. The sink rejecting that
+caption would not prevent wasted inference, queue loss, or context contamination.
+
+`LocalSession._revising` now records the highest retired audio start position in
+addition to the existing bounded ID history. Retirement covers completed,
+abandoned, and dropped source. Still-owned active/waiting cues can be revised
+even if newer queued work was dropped. Distinct new cues at the same timestamp
+remain supported. The watermark is session-local and resets with the run;
+there is no new capture/model/output contract, product option, or storage.
+Models, prompt, 500 ms cadence, VAD, queue limits, reading time, and paid-provider
+policy are unchanged.
+
+Regression verification:
+
+```sh
+uv run --locked pytest tests/test_local_interim.py \
+  -k 'retired_ids_age_out or aged_out_dropped' -q
+uv run --locked pytest tests/test_local_interim.py -q
+uv run --locked pytest tests/test_local_interim.py tests/test_ollama_stream.py \
+  tests/test_local_prepare.py tests/test_local.py tests/test_text.py tests/test_live.py -q
+```
+
+The first command against the original source failed **5 tests, 15 deselected,
+exit 1, 0.33 s**. Four combinations cover completed/abandoned provisional source
+and late partial/final source after 130 utterances. The overload case holds one
+translation while 140 finals arrive, drops exactly 138 waiting finals, and shows
+that stale work would increase that count. The fixed focused interim suite
+passes **20 tests, exit 0, 0.48 s**. It also verifies active correction after the
+drop watermark advances, the retained two finals, no stale model calls/context,
+bounded recent context, tied audio starts, drain, and existing Stop/late-output
+checks. The broader provider/local suite passes **125 tests, exit 0, 61.38 s**.
+Ruff line-length failures introduced while editing the regressions/guard were
+fixed; the focused lint check passes.
+
+Two small general prompt candidates were measured and rejected. The existing
+real-model probe first reproduced the construction meaning failure against the
+original product. Candidate 1 added these system instructions:
+
+> Resolve ambiguous words using the whole utterance and recent context.
+> Preserve negation, causal relations, requests, and commands.
+
+Candidate 2 restored the original system instruction and prefixed only the current
+user message with `Translate this {source} speech into {target}:` and a newline.
+Both still rendered the construction crane as an animal despite correct final
+ASR. Neither candidate remains in the product or introduces a fixture-specific
+translation, dictionary, model swap, paid fallback, or relaxed check.
+
+Each recorded run used:
+
+```sh
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-model.py after
+```
+
+[Numeric evidence](verification/interim/model-iteration8-prompt-and-retirement-failed.json)
+contains four complete numeric reports: original control, rejected context
+instruction, rejected user-task prefix, and the final retirement fix. All four
+commands exited **1**, `acceptancePassed:false`, solely from the three construction
+`craneMeaning` failures per run. Each completed six trials/finals with increasing
+caption revisions, identical generated WAV hashes, bounded queues and ASR/text
+drops **0**. Weather meaning and construction during-speech/source-change checks
+passed. These are paced **model-only** events, not tabCapture or browser Paint.
+The earlier intermediate watermark probe also exited 1 with the same failures;
+it is not the final product report.
+
+The probe excludes only the first `firstInference` trial from percentiles, giving
+weather **n2** and construction **n3**. Event latency p50/p95 in milliseconds:
+
+| Trial | Weather start→first | Construction start→first | Weather end→final | Construction end→final |
+| --- | --- | --- | --- | --- |
+| Control | 716.460 / 719.101 | 679.901 / 703.454 | 529.361 / 535.902 | 823.484 / 829.783 |
+| Context instruction (rejected) | 695.674 / 717.420 | 679.060 / 687.613 | 510.749 / 556.670 | 830.958 / 848.595 |
+| User task (rejected) | 713.392 / 723.658 | 685.050 / 695.714 | 519.384 / 523.735 | 825.414 / 826.740 |
+| Retirement fix | 716.527 / 721.311 | 669.938 / 687.464 | 527.977 / 535.779 | 801.337 / 826.004 |
+
+Each process had a fresh MLX engine and unloaded the selected Ollama model, while
+weights/OS/compiler caches remained. First prepare was **19141.793 / 1832.732 /
+1809.276 / 2099.823 ms**, excluded from event timing. This is not a cold-cache
+comparison or evidence of a preparation/latency fix. The final model probe
+also overlapped fixture unit tests; timings remain observations, not proof of
+performance improvement or sustained throughput. Each run made **30 ASR / 24
+translation** calls, completed **21 / 21 / 18 / 21** translations, and coalesced
+**0** snapshots. Companion RSS peaks were **163233792 / 1240498176 / 1247723520 /
+181157888 bytes**; per-trial memory sample counts and MLX allocations are in the
+report. RSS/MLX overlap and are not summed; browser/Ollama total RSS is unmeasured.
+
+An independent numeric audit checked identical PCM/settings, six trials/finals,
+monotone revisions, exact percentiles/sample counts, bounded queues/drop0, and
+exact failed checks. Its first summary failed with a TypeError by summing call
+lists; the corrected audit counts list lengths and exits **0**. This establishes
+report consistency, not 7d acceptance. Existing evidence files were restored
+byte-for-byte; numeric data only is added. Generated audio was automatically
+removed by the probe temporary-directory cleanup. The owned Ollama process was
+stopped with SIGINT/exit0 and `uv sync --locked` restored base dependencies.
+
+No native browser/caption-appearance or speaker-listening check was attempted in
+this iteration. No credential/browser-access blocker was diagnosed. Continuous
+short-speech first Paint, construction/long meaning, new narrow/fullscreen
+appearance, audible playback, inflight Stop/provider/session replacement, and
+sustained processing/queue/memory acceptance remain open. The new regression
+exercises many fixture utterances, not ten minutes of actual media.
+
+Next: continue 7d using the existing stage/native harness to reduce short-speech
+model/session waiting while preserving unread finals. The two prompt candidates
+are rejected; resolve original construction/long meaning with the permitted
+models and complete real-browser acceptance before checking 7d or moving to
+7b → 8 → 9.
+
+Final `npm run verify` exits **0**: lint/typecheck/build, **12 JavaScript + 185 Python tests**, no failures/skips/warnings; Python **66.52 s**. `uv lock --check` and `git diff --check` pass. All intended iteration changes are committed; no runner/criteria/dependency/lock changes, credentials, weights, generated audio/transcripts, build artifacts, or temporary `.ralph` state are included. Item 7d remains unchecked.

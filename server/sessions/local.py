@@ -546,10 +546,16 @@ class LocalSession:
         completed = None
         pending: list[Transcript] = []
         retired: deque[str] = deque(maxlen=128)
+        retired_through = -float("inf")
         context: list[tuple[str, str]] = []
         revision = 0
         dropped = (0, 0)
         correcting = False
+
+        def retire(transcript):
+            nonlocal retired_through
+            retired.append(transcript.utterance_id)
+            retired_through = max(retired_through, transcript.audio_start_ms)
 
         async def stop_stream():
             nonlocal translation_task, stream
@@ -571,7 +577,7 @@ class LocalSession:
                     pending.remove(old)
                 elif not old.final:
                     pending.remove(old)
-                    retired.append(old.utterance_id)
+                    retire(old)
             duration = transcript.audio_end_ms - transcript.audio_start_ms
             self.pending_translation_ms = sum(
                 t.audio_end_ms - t.audio_start_ms for t in pending
@@ -582,7 +588,7 @@ class LocalSession:
                 return
             while len(pending) >= 2 or self.pending_translation_ms + duration > 8000:
                 old = pending.pop(0)
-                retired.append(old.utterance_id)
+                retire(old)
                 self.pending_translation_ms -= old.audio_end_ms - old.audio_start_ms
                 self.dropped_translations += 1
             pending.append(transcript)
@@ -594,7 +600,7 @@ class LocalSession:
                     if current is not None:
                         # A missing/empty ASR final cannot turn provisional text
                         # into confirmed context or stall the following utterance.
-                        retired.append(current.utterance_id)
+                        retire(current)
                     current = pending.pop(0)
                     self.pending_translation_ms -= (
                         current.audio_end_ms - current.audio_start_ms
@@ -618,7 +624,22 @@ class LocalSession:
                         incoming = None
                     else:
                         incoming = asyncio.create_task(anext(transcripts))
-                        if transcript.utterance_id not in retired:
+                        # The bounded ID history must not let old source restart
+                        # inference after a sustained session ages those IDs out.
+                        if (
+                            transcript.utterance_id not in retired
+                            and (
+                                transcript.audio_start_ms >= retired_through
+                                or (
+                                    current
+                                    and current.utterance_id == transcript.utterance_id
+                                )
+                                or any(
+                                    t.utterance_id == transcript.utterance_id
+                                    for t in pending
+                                )
+                            )
+                        ):
                             if (
                                 current
                                 and transcript.utterance_id == current.utterance_id
@@ -648,7 +669,7 @@ class LocalSession:
                                     # A later final must not wait on provisional
                                     # translation whose ASR final was empty/dropped.
                                     await stop_stream()
-                                    retired.append(current.utterance_id)
+                                    retire(current)
                                     current = completed = None
                                 enqueue(transcript)
                     count = (
@@ -708,7 +729,7 @@ class LocalSession:
                     if final:
                         context.append((current.text[:1000], value.text[:1000]))
                         context = context[-3:]
-                        retired.append(current.utterance_id)
+                        retire(current)
                         current = completed = None
         finally:
             if incoming:

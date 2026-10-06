@@ -571,6 +571,166 @@ def test_slow_translation_bounds_finals_and_snapshots_cannot_evict_them():
     asyncio.run(check())
 
 
+@pytest.mark.parametrize("source_final", [False, True])
+@pytest.mark.parametrize("late_final", [False, True])
+def test_old_source_cannot_restart_translation_after_retired_ids_age_out(
+    source_final, late_final
+):
+    async def check():
+        incoming = asyncio.Queue()
+        output = asyncio.Queue()
+        calls = []
+
+        class ASR:
+            interim = True
+
+            async def transcribe(self, _frames):
+                while (value := await incoming.get()) is not None:
+                    yield value
+
+            async def close(self):
+                pass
+
+        class Translator:
+            async def translate(self, transcript, context):
+                calls.append((transcript.utterance_id, list(context)))
+                yield Translation(transcript.utterance_id, 1, "번역", True)
+
+            async def close(self):
+                pass
+
+        session = local.LocalSession("sustained", ASR(), Translator())
+
+        async def collect():
+            async for event in session.run(None):
+                if event.caption:
+                    output.put_nowait(event.caption)
+
+        task = asyncio.create_task(collect())
+        try:
+            # Exceed the bounded retired-ID history without relying on the sink
+            # to hide stale work or allowing it to contaminate model context.
+            for i in range(130):
+                incoming.put_nowait(
+                    Transcript(
+                        str(i), 1, f"Speech {i}", source_final, i * 1000,
+                        (i + 1) * 1000
+                    )
+                )
+                caption = await asyncio.wait_for(output.get(), 1)
+                assert caption.utterance_id == str(i)
+                assert caption.final == source_final
+            assert len(calls) == 130
+            incoming.put_nowait(Transcript("0", 2, "Late source", late_final, 0, 1000))
+            await asyncio.sleep(0.02)
+            assert output.empty(), "An expired utterance must not emit another caption"
+            assert len(calls) == 130, "Reject stale source before model inference"
+            incoming.put_nowait(Transcript("130", 1, "Next", True, 130000, 131000))
+            caption = await asyncio.wait_for(output.get(), 1)
+            assert caption.utterance_id == "130" and caption.final
+            assert len(calls) == 131
+            assert all(len(context) <= 3 for _, context in calls)
+            if not source_final:
+                assert calls[-1][1] == []
+            else:
+                assert len(calls[-1][1]) == 3
+            assert all(
+                source != "Late source" for _, context in calls
+                for source, _ in context
+            )
+            # Distinct cues can share an audio timestamp; the watermark is not
+            # a replacement for the bounded ID checks at that position.
+            incoming.put_nowait(
+                Transcript("131", 1, "Tied start", True, 130000, 132000)
+            )
+            caption = await asyncio.wait_for(output.get(), 1)
+            assert caption.utterance_id == "131" and caption.final
+            assert len(calls) == 132
+            incoming.put_nowait(None)
+            await asyncio.wait_for(task, 1)
+            assert output.empty()
+            assert session.pending_translation_ms == session.dropped_translations == 0
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(check())
+
+
+def test_aged_out_dropped_source_cannot_evict_finals_or_block_active_correction():
+    async def check():
+        incoming = asyncio.Queue()
+        output = asyncio.Queue()
+        started = asyncio.Event()
+        calls = []
+
+        class ASR:
+            interim = True
+
+            async def transcribe(self, _frames):
+                while (value := await incoming.get()) is not None:
+                    yield value
+
+            async def close(self):
+                pass
+
+        class Translator:
+            async def translate(self, transcript, _context):
+                calls.append((transcript.utterance_id, transcript.revision))
+                if transcript.utterance_id == "0" and transcript.revision == 1:
+                    started.set()
+                    await asyncio.Event().wait()
+                yield Translation(transcript.utterance_id, 1, "번역", True)
+
+            async def close(self):
+                pass
+
+        session = local.LocalSession("aged-drops", ASR(), Translator())
+
+        async def collect():
+            async for event in session.run(None):
+                if event.caption:
+                    output.put_nowait(event.caption)
+
+        task = asyncio.create_task(collect())
+        try:
+            incoming.put_nowait(Transcript("0", 1, "First", True, 0, 1000))
+            await asyncio.wait_for(started.wait(), 1)
+            for i in range(1, 141):
+                incoming.put_nowait(
+                    Transcript(str(i), 1, f"Speech {i}", True, i * 1000,
+                               (i + 1) * 1000)
+                )
+            for _ in range(100):
+                if session.dropped_translations == 138:
+                    break
+                await asyncio.sleep(0.001)
+            assert session.dropped_translations == 138
+            assert session.pending_translation_ms == 2000
+            incoming.put_nowait(Transcript("1", 2, "Expired final", True, 1000, 2000))
+            await asyncio.sleep(0.02)
+            assert session.dropped_translations == 138, (
+                "Stale work must not evict finals"
+            )
+            assert calls == [("0", 1)]
+            # The active cue predates the drop watermark but remains correctable.
+            incoming.put_nowait(Transcript("0", 2, "First corrected", True, 0, 1000))
+            captions = [await asyncio.wait_for(output.get(), 1) for _ in range(3)]
+            assert [c.utterance_id for c in captions] == ["0", "139", "140"]
+            assert captions[0].source == "First corrected"
+            assert all(c.final for c in captions)
+            assert calls == [("0", 1), ("0", 2), ("139", 1), ("140", 1)]
+            assert session.dropped_translations == 138
+            incoming.put_nowait(None)
+            await asyncio.wait_for(task, 1)
+            assert output.empty() and session.pending_translation_ms == 0
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(check())
+
+
 @pytest.mark.parametrize("stop", ["cancel", "close"])
 def test_stop_interim_translation_drains_tasks_and_suppresses_late_completion(stop):
     async def check():

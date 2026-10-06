@@ -2312,3 +2312,67 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   지연개선으로 재채택하지 않는다. 원래construction·long 의미와 실제appearance/청취/
   inflight수명/지속queue·memory acceptance도 남았다. 새외부접근/credentialblocker는 없다.
   이후7b→8→9이며 미완료 checkbox를 그대로 유지한다.
+
+
+### Ralph iteration 8/30 (resumed run) — 2026-10-06 — 7d sustained source retirement
+
+- 다음 미완료 **7d만 진행, checkbox는 미체크 유지**다. 시작 checkout은 clean,
+  AGENTS.md는 없고 `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. 작업은 이 checkout에만
+  남겼고 agent/다른worktree/credential/cloud/runner/criteria/모델교체/lock/
+  push/publish 변경은 없다. capture/model/output 계약/500ms cadence/VAD/queue/
+  읽기시간/유료 partial 정책도 그대로다.
+- **제품 bug fix**: `LocalSession._revising`의 128개 retired ID가 오래된 항목을
+  잊으면 늦은 원문이 새 번역/자막/문맥을 만들거나 대기 final을 밀어낼 수 있었다.
+  source의 audio start retirement watermark를 session-local scalar로 보관하고
+  completed/abandoned/dropped 원문을 모두 retire한다. active/pending cue 교정은
+  watermark보다 앞서도 허용하며 같은 timestamp의 다른 cue도 유지한다.
+  sink가 가리는 것으로 낭비된 inference/queue loss를 성공 처리하지 않는다.
+  local helper 한 개/공개 API나 설정/영속 transcript 저장은 없다.
+- failing regression부터 실행했다. 원래 source에서 **5fail/15deselected/
+  0.33초/exit1**이다(앞선 축소check도2fail/exit1). 130개 이후 aged-out 원문의
+  partial/final 및 확정/abandoned interim 조합4개, active 번역을 막은 상태로
+  140final 도착/138drop 뒤 오래된 final이 새 final을 밀어내는1개다.
+  최종 **interim20pass/0.48초/exit0**, broader local/provider **125pass/61.38초/
+  exit0**다. stale model 호출/문맥 오염 없음, active 교정/대기2final 보존,
+  tied timestamp/문맥3개 제한/queue drain와 기존 Stop·late output을 확인했다.
+  새 RuffE501은 source/test에서 고친 뒤 focused lint와 최종 verify가 통과했다.
+- 원래 model fixture/MLX/Ollama로 construction 의미실패를 재현하고 일반 prompt
+  후보2개를 비교했다. 전체 utterance 문맥으로 모호한 단어/부정/요청·명령을
+  보존하라는 system 추가, 원래 system + 현재 user message에 번역task prefix를
+  붙이는 후보다. **둘 다 기각/제품 prompt 완전 복원**했다. final ASR은 정확한데
+  construction crane을 animal로 번역한다. fixture 전용 사전/답/새모델/fallback/
+  의미조건 약화를 추가하지 않았다. 정확한 두 후보의 문구는 docs에 남겼다.
+- **동일 model probe4회**(control/context 후보/task 후보/최종retirementfix),
+  각3round/6trial/6final, 같은generated WAV hash/English→Korean/500ms다.
+  모두 **exit1/acceptancefalse**, 각construction3개의 craneMeaning만 실패다.
+  weather 의미/증가revision/발화중 construction event·sourcechange/boundedqueue/
+  ASR·textdrop0은 통과했다. 추가 중간 watermark probe도 같은 실패/exit1이며
+  final report와 혼동하지 않는다. **model-only, tabCapture/Paint/청취 근거 아니다**.
+  `docs/verification/interim/model-iteration8-prompt-and-retirement-failed.json`에
+  4개 complete numeric report/exitcode/한계만 보존하고 원래 evidence는 byte복원했다.
+- baseline→fix event p50/p95(ms)는 weather first **716.460/719.101→716.527/721.311**
+  (n2), construction first **679.901/703.454→669.938/687.464**(n3), weather final
+  **529.361/535.902→527.977/535.779**, construction final
+  **823.484/829.783→801.337/826.004**다. 최초 `firstInference`만 제외하는 model
+  harness의 정의이며 native warm정의와 다르다. 후보숫자/prepare/RSS/MLX는 docs와
+  numeric에 있다. freshengine/선택Ollamaunload/cachedweights·OS·compiler cache이며
+  coldcache가 아니다. final model probe는 fixture unit tests와 겹쳤으므로
+  속도개선이나 지속처리 throughput을 주장하지 않는다. 각ASR30/text24,
+  completed21/21/18/21, coalesced0/drop0다. RSS와 MLX는 합산하지 않는다.
+- 독립 numeric audit는 같은hash/설정/n/6final/증가revision/exactpercentile/
+  boundedqueue/drop0/정확한 실패flag를 확인해 **exit0**다. 최초 summary는 call
+  list를 숫자로 더해 TypeError/exit1이었고 `len`으로 고쳐 다시 전체 audit했다.
+  실제7d acceptance 성공은 아니다. generatedaudio는 probe tempdir 종료로 삭제,
+  ownedOllama SIGINT/exit0, base `uv sync --locked`복원,8765/8766/11434 listener없음이다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12 + Python185**,
+  failures/skips/warnings0, Python**66.52초**. `uv lock --check`/`git diff --check`
+  통과다. 모델/키/실제오디오·transcript/.ralph/build를 커밋하지 않고 제품fix/
+  regressions/README/docs/failednumeric/plan을 Conventional Commit으로 보존한다.
+- **다음도7d**: 기존 directstage/native harness로 warmshort model/session 대기와
+  sink 표시대기를 구분해 개선하고 unreadfinal/읽기시간은 보존한다. 두 prompt
+  후보를 의미fix로 재채택하지 않는다. originalconstruction·long의 의미와
+  실제narrow/fullscreen/원음청취/inflightStop/provider·session교체/장시간queue·memory
+  acceptance도 남았다. 이번 native/browseraccess/credential blocker는 진단하지
+  않았고 새 실제browser 검증을 시도하지 않았다. 130/140 fixture utterance는
+  실제10분media 근거가 아니다. checkbox/전체completion은 그대로이며 이후7b→8→9다.
