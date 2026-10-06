@@ -172,7 +172,9 @@ loads the built extension into headed Chrome, and starts a loopback companion
 with Hugging Face offline mode. Use the actual Extensions toolbar → Interpreter
 → Start, then close the popup. Enter `play` in the harness, followed by `accept`
 while the speech plays. The harness waits for a real Korean caption and records
-a screenshot; no test caption is injected. Enter `check` to inspect capture
+a screenshot; no test caption is injected. Use the native popup's Stop button,
+then enter `stopped` to verify capture, offscreen, and overlay cleanup. Exit 0
+requires both `accept` and `stopped` to pass. Enter `check` to inspect capture
 status or `exit` to stop the browser/listeners. The generated audio is ignored
 and must not be committed. The screenshots need visual and meaning review;
 a Hangul assertion alone is not evidence of accurate translation.

@@ -28,6 +28,7 @@ let companion;
 let input;
 let log = "";
 let passed = false;
+let stopped = false;
 try {
   await new Promise((ready) => fixture.listen(8766, "127.0.0.1", ready));
   const extension = resolve("extension/dist");
@@ -54,7 +55,7 @@ try {
   const page = context.pages()[0];
   await page.goto("http://127.0.0.1:8766/");
   console.log(JSON.stringify({ ready: true, browser: context.browser().version(), extensionId,
-    instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Enter play, check, or exit." }));
+    instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Enter play, check, accept, stopped, or exit." }));
   input = createInterface({ input: process.stdin });
   for await (const command of input) {
     try {
@@ -65,6 +66,17 @@ try {
         const captured = await worker.evaluate(() => chrome.tabCapture.getCapturedTabs());
         const text = await page.locator("#interpreter-captions .cue").textContent({ timeout: 1000 }).catch(() => "");
         console.log(JSON.stringify({ status, captured, text }));
+      }
+      if (command === "stopped") {
+        const status = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
+        const captured = await worker.evaluate(() => chrome.tabCapture.getCapturedTabs());
+        const offscreen = await worker.evaluate(() => chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] }));
+        assert.equal(status.captureStatus.state, "idle");
+        assert.equal(captured.some((tab) => tab.status === "active"), false);
+        assert.equal(offscreen.length, 0);
+        assert.equal(await page.locator("#interpreter-captions").count(), 0);
+        stopped = true;
+        console.log(JSON.stringify({ stopped: true, captionHosts: 0, offscreenContexts: 0, status, captured }));
       }
       if (command === "accept") {
         const cue = page.locator("#interpreter-captions .cue");
@@ -92,5 +104,5 @@ try {
     await exited;
   }
   await new Promise((closed) => fixture.close(closed));
-  if (!passed) process.exitCode = 1;
+  if (!passed || !stopped) process.exitCode = 1;
 }

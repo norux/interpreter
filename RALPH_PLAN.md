@@ -198,7 +198,7 @@ API 키는 companion의 환경 변수에만 둔다. 확장 저장소, 페이지 
     자막이 읽히고 컨트롤을 누를 수 있다. screenshot을 시각적으로 검토한다.
     테스트 caption 검증을 실제 음성 번역 성공으로 기록하지 않는다.
 
-- [ ] 4. 실제 local audio-to-caption 경로 구현
+- [x] 4. 실제 local audio-to-caption 경로 구현
   - MLX Qwen3-ASR 0.6B + Ollama Qwen3-4B-Instruct, VAD/구절/문맥/큐 제한을 연결한다.
   - Acceptance: 공개된 또는 직접 생성한 비민감 영어 음성을 Chrome 페이지에서
     재생해 실제 캡처 → 실제 두 모델 → 한국어 자막을 확인한다. 미리 만든 번역이나
@@ -570,3 +570,40 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   Stop clear를 확인하고 기록한다. 실제 acceptance 및 verify 후에만 항목 4를 체크한다.
   모델 cache는 준비돼 있다. 상세 명령/결과/정확한 한계는 docs/verification.md에 남긴다.
   다음 미완료 작업은 여전히 **항목 4 실제 browser acceptance**이며 완료가 아니다.
+
+### Ralph iteration 1/30 (local browser 재개) — 2026-10-06 — 항목 4 완료
+
+- 사용자 지정 checkout 안에서 다음 미완료 항목 4의 실제 browser acceptance만
+  재개했다. AGENTS.md는 없으며 사용자 제공 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+- 이전 native window blocker는 이번 실행에서 해소됐다. `cua_repl.getApp`이
+  headed 전용 Chrome for Testing 153.0.8010.12의 fixture 창을 찾았다.
+  실제 Extensions toolbar → Interpreter → Start를 클릭하고 Escape로 popup을
+  닫았다. 가짜 stream/테스트 caption/기존 YouTube 자막으로 대체하지 않았다.
+- `npm run test:local-browser`를 두 번 실행해 macOS say의 비민감 영어 음성을
+  실제 페이지에서 재생했다. 실제 tabCapture → PCM → cached MLX Qwen3-ASR
+  0.6B 8bit → Ollama qwen3:4b-instruct Q4_K_M → 한국어 DOM 자막이 성공했다.
+  두 실행 모두 capture active였으며 caption 순간 각각 1850 frames/888,000 samples,
+  700 frames/336,000 samples, peak 25093을 확인했다.
+- 한국어 의미는 맑은 날씨와 점심 뒤 공원 산책 계획을 전달했다. 마지막 실행의
+  `docs/verification/local/normal.png`를 실제 image viewer로 검토했다:
+  하단 중앙 한 줄, 흰 글자/검정 outline/작은 반투명 배경으로 읽히며 페이지의
+  audio controls를 가리지 않는다. 생성 speech의 실제 번역 증거다.
+- 기존 local harness에 `stopped` acceptance를 추가했다. 실제 native Stop 뒤
+  idle/capture stopped/offscreen contexts 0/caption hosts 0을 assertion으로 검증한다.
+  exit 0은 이제 caption acceptance와 Stop cleanup 둘 다 필요하다. 최종 harness
+  exit 0이며 README에 이 재현 순서를 기록했다. 제품 추상화/범위를 늘리지 않았다.
+- cloud API 없이 HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE=1, cached-only ASR,
+  고정 loopback Ollama를 사용했다. 실제 Ollama tags/digest와 두 /api/chat 200을
+  관측했다. 이전 actual missing-ASR 안내와 이번 verify의 missing-dependency/model/
+  stopped-Ollama fixture 검증을 유지했다. 사용자 키/음성/전사문을 읽지 않았다.
+- 마지막 `uv sync --locked`로 optional MLX를 제거한 뒤
+  `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` exit 0: lint/typecheck/build,
+  JS 7 + Python 29 tests, failures/skips/warnings 0. `git diff --check` 통과.
+  browser/companion/fixture와 직접 시작한 Ollama를 종료하고 8765/8766/11434
+  listeners 및 해당 harness/server/model processes가 없음을 확인했다.
+- 이번에는 새 실패나 blocker가 없다. 실제 자막 latency/p50/p95, YouTube 실제
+  번역과 10분 처리는 아직 측정하지 않았다(항목 8). live cloud도 미검증이다.
+  상세 evidence는 `docs/verification.md`의 이번 기록에 보존했다.
+  필수 항목 4 acceptance 통과 후 체크했다. 다음 미완료 작업은
+  **항목 5 — OpenAI direct 전용 realtime translations adapter/protocol 검증**이다.

@@ -704,3 +704,81 @@ API references consulted and installed implementation inspected:
 [MLX Qwen3-ASR usage](https://github.com/Blaizzy/mlx-audio/blob/main/mlx_audio/stt/models/qwen3_asr/README.md),
 [Ollama chat API](https://docs.ollama.com/api/chat), and
 [the default Ollama model](https://ollama.com/library/qwen3:4b-instruct).
+
+## Ralph iteration 1/30 — 2026-10-06 — real local browser acceptance passed
+
+Resumed item 4 in `/Users/norux/orca/workspaces/interpreter/aspidochelone`.
+No repository AGENTS.md was present; the supplied instructions applied.
+`.ralph/verification.txt` contained `No completion verification attempted in this run.`
+The previous native-window blocker did not recur: `cua_repl.getApp` selected
+the dedicated Chrome for Testing fixture window successfully.
+
+Commands actually run (uv added to PATH from the ignored repository tools):
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" npm run verify
+.tools/ollama/ollama serve
+curl --fail --silent http://127.0.0.1:11434/api/tags
+PATH="$PWD/.tools/uv/bin:$PATH" npm run test:local-browser
+# Native Extensions → Interpreter → Start; Escape; Play speech.
+# Harness: accept; native Stop; check; exit.
+# Strengthened harness to require Stop cleanup, then repeated:
+PATH="$PWD/.tools/uv/bin:$PATH" npm run test:local-browser
+# Native Extensions → Interpreter → Start; Escape; Play speech.
+# Harness: accept; native Stop; stopped; exit.
+# Stopped the Ollama daemon started above with SIGINT.
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked
+PATH="$PWD/.tools/uv/bin:$PATH" npm run verify
+git diff --check
+```
+
+- Chrome for Testing 153.0.8010.12, Playwright 1.63.0, Apple M5/16 GiB,
+  Python 3.12.15; the same locked local dependencies and model IDs as the
+  preceding item 4 implementation record. Ollama 0.35.1 `/api/tags` confirmed
+  `qwen3:4b-instruct`, Q4_K_M, digest
+  `0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0`.
+- Both runs used fresh ignored profiles and generated Samantha/165 English
+  weather/park speech. Native toolbar invocation and native Start granted
+  actual tabCapture. Escape closed the popup before native Play speech.
+  No microphone, fake stream, injected caption, or existing site subtitles
+  supplied the model input/output.
+- Both actual captures produced a Korean caption through real MLX ASR and real
+  Ollama. At acceptance, the first session reported 1850 frames/888,000 samples;
+  the final session reported 700 frames/336,000 samples. Both had peak 25093,
+  state `capturing`, and captured tab status `active`. These counters include
+  silence and are not a subtitle-latency measurement.
+- Reviewed the Korean meaning: sunny weather today and a park walk after lunch,
+  with conversational “decided to walk” phrasing. This verifies this synthetic
+  sentence only. It does not establish general translation accuracy.
+- Viewed the final [real local caption screenshot](verification/local/normal.png)
+  with `view_image` after the final run. At 1280×800, the complete caption is a
+  single readable line at bottom center, white with dark outline and a small
+  translucent background. Audio controls and Play speech remain unobstructed.
+  This is actual model output, unlike the item 3 injected-caption screenshots.
+- The first harness exited 0 after successful caption acceptance and native
+  Stop (idle/captured status stopped/no cue). Added a `stopped` command to the
+  feature-local test harness and repeated on a fresh profile. It asserted idle,
+  no active captured tabs, zero offscreen contexts, and zero overlay hosts after
+  native Stop. Final harness exit 0 requires both real caption acceptance and
+  that cleanup check. The final `stopped` assertions all passed.
+- The companion set `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`; ASR loads
+  cached weights only and the translator uses its fixed loopback HTTP client
+  with proxy discovery disabled. Ollama recorded two successful local
+  `/api/chat` calls. No external inference API/cloud provider was used. Previous
+  actual missing-ASR-model guidance evidence remains applicable; the verify
+  tests again passed missing dependency/model/stopped-Ollama/error checks.
+- No source correction was needed. The harness change strengthens acceptance;
+  README now documents `stopped` and the exit requirements. The final keyless
+  `npm run verify` ran after `uv sync --locked` removed optional MLX packages:
+  lint/typecheck/build, JS 7 and Python 29 tests passed, failures/skips/warnings 0.
+  `git diff --check` passed. Both browser harnesses exited 0 and closed their
+  browser/fixture/companion. The separately started Ollama daemon exited 0 after
+  SIGINT; `lsof` and process checks found no relevant listeners on 8765/8766/11434
+  or remaining local harness/server/model processes.
+
+Item 4 acceptance is now complete. No user audio, user transcripts, credentials,
+weights, generated speech files, profiles, or temporary `.ralph` state were
+committed. This iteration did not measure audio-end-to-caption p50/p95 or verify
+real YouTube translation, ten-minute queue behavior, or live cloud. Those remain
+for later items. The next unfinished item is 5, the OpenAI direct adapter and
+dedicated realtime translation protocol tests.
