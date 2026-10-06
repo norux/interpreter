@@ -19,8 +19,8 @@
               "id": "long-0",
               "height": 43,
               "line": 43.008,
-              "at": 10529.100000023842,
-              "hiddenAtMs": 14317.900000035763,
+              "at": 10527.5,
+              "hiddenAtMs": 14322.899999976158,
               "length": 42
             }
           ]
@@ -34,8 +34,8 @@
               "id": "long-1",
               "height": 43,
               "line": 43.008,
-              "at": 10531.400000035763,
-              "hiddenAtMs": 14317.900000035763,
+              "at": 10528.899999976158,
+              "hiddenAtMs": 14322.899999976158,
               "length": 38
             }
           ]
@@ -60,16 +60,16 @@
               "id": "long-0",
               "height": 50,
               "line": 25.2,
-              "at": 14339.600000023842,
-              "hiddenAtMs": 17041.600000023842,
+              "at": 14344.300000011921,
+              "hiddenAtMs": 17043.30000001192,
               "length": 30
             },
             {
               "id": "long-0",
               "height": 25,
               "line": 25.2,
-              "at": 17041.600000023842,
-              "hiddenAtMs": 19542.200000047684,
+              "at": 17043.30000001192,
+              "hiddenAtMs": 19545.19999998808,
               "length": 12
             }
           ]
@@ -83,16 +83,16 @@
               "id": "long-1",
               "height": 50,
               "line": 25.2,
-              "at": 14340.5,
-              "hiddenAtMs": 19542.200000047684,
+              "at": 14345.199999988079,
+              "hiddenAtMs": 19545.19999998808,
               "length": 30
             },
             {
               "id": "long-1",
               "height": 25,
               "line": 25.2,
-              "at": 19542.200000047684,
-              "hiddenAtMs": 22053,
+              "at": 19545.19999998808,
+              "hiddenAtMs": 22063.19999998808,
               "length": 8
             }
           ]
@@ -112,6 +112,9 @@
   "abandonedProvisionalRetired": true,
   "tiedAudioTimestamps": true,
   "resizeReadingPosition": true,
+  "correctedReadingPosition": true,
+  "rewrittenCurrentPart": true,
+  "suffixTraceVisibility": true,
   "fullscreen": true,
   "controls": true,
   "maxLines": 4,

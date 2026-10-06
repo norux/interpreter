@@ -143,6 +143,18 @@ export function createCaptionOverlay(): OutputSink {
       if (entry) {
         if (entry.caption.revision >= caption.revision || (entry.caption.final && !caption.final)) return;
         const changed = entry.caption.translation !== caption.translation || entry.caption.final !== caption.final;
+        if (entry.offset && entry.caption.translation !== caption.translation) {
+          const previous = Array.from(entry.caption.translation.trim());
+          const next = Array.from(caption.translation.trim());
+          let prefix = 0;
+          while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) prefix++;
+          let suffix = 0;
+          while (suffix < previous.length - prefix && suffix < next.length - prefix && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]) suffix++;
+          // Anchor an unread suffix across edits to the read prefix; show a changed
+          // current part from the edit boundary instead of skipping its new words.
+          if (entry.offset >= previous.length - suffix) entry.offset += next.length - previous.length;
+          else if (entry.offset > prefix) entry.offset = prefix;
+        }
         entry.caption = caption;
         // Only this sentence gets a new reading deadline; other sentences keep theirs.
         if (changed) entry.until = 0;

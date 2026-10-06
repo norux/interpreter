@@ -3116,3 +3116,90 @@ fullscreen, long-final character and cleanup assertions. Its PNGs are ignored
 remain on8765/8766/11434. All intended source, tests, failed numeric evidence,
 README, verification document and plan progress are committed together. No
 checklist checkbox or completion promise is warranted by these results.
+
+## Ralph iteration 2/30 (resumed run) — 2026-10-06 — correction reading position
+
+Continued the next unfinished item **7d** in the specified checkout. No repository
+AGENTS.md was present; the supplied instructions apply. The checkout started
+clean and `.ralph/verification.txt` contained
+`No completion verification attempted in this run.` No agents, other worktrees,
+credentials, paid inference, model replacements, runner/criteria changes, push or
+publication were used. The 7d checkbox remains unchecked.
+
+Investigated the existing construction translation failure with **31 bounded
+text-only local requests**, using the cached Qwen3-4B-Instruct-2507 Q4_K_M model
+and Ollama0.35.1, with cloud disabled and context4096/num_predict256. Six requests
+compared the current chat request, omitted `think`, raw standard chat-template
+input, an injected empty thinking block, and user-only instructions. The standard
+template and omitted flag preserved the animal mistranslation; the injected block
+returned untranslated English. Ten requests tested temperatures0.1/0.3/0.5/0.7/1
+at seeds42/123. Ten tested generic task wording/input wrappers, and five tested
+Korean/English terminology and grammatical-role instructions. None produced an
+acceptable construction translation: animal substitutions persisted, or a crane
+keyword appeared with an incorrect Korean role/steel-beam meaning. No candidate,
+seed, sampling setting, template change or extra inference stage was adopted.
+The [primary model card](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507)
+was checked for the template/mode/sampling context; its suggested settings do not
+constitute evidence of translation accuracy. Temporary diagnostic scripts stayed
+under ignored `.ralph`; no generated source/translation was added to a report.
+These requests are not ASR, paced model timing, tabCapture or browser evidence.
+
+The 7d correction requirement also exposed a separate built-sink regression.
+After a narrow-screen provisional caption advances past its first timed part,
+shortening the already-read prefix leaves the old numeric offset beyond the new
+text. The visible suffix becomes **empty**, even though it remains in the revised
+translation. Added the regression before changing the product:
+
+```sh
+npm run test:captions-overlap-browser
+```
+
+It **exited1**, with `Shortening a read prefix must preserve the visible suffix
+rather than skip its characters` and actual empty text. The overlay now rebases
+the reading offset using the unchanged prefix/suffix of the old and new Unicode
+character sequences. An unchanged unread suffix retains its position across
+prefix insertions/deletions; a replacement crossing the reading position is shown
+from its edit boundary. The sentence node is retained and only its own reading
+deadline is refreshed. Capture/model/output contracts, bounded display/queues,
+model prompts, VAD and snapshot timing remain unchanged; no shared abstraction
+was added.
+
+With the product fix, the same regression reached a second **exit1**:
+`Paint instrumentation must recognize the visible final suffix after the read
+prefix expires`. Its test-only visibility marker required the displayed text to
+be a prefix of the caption. Timed parts legitimately display a contiguous suffix.
+The marker now checks the nonempty rendered text within the same utterance's
+translation. Main-frame matching, covering Paint bounds and unsuperseded revision
+checks are unchanged. The added assertion verifies **visibility classification**;
+it does not claim a fresh covering Paint for text that remains identical.
+
+After both fixes, the same command **exited0**, Chrome153.0.8010.12. The added
+checks cover shortened/lengthened read prefixes, unchanged visible suffix/no
+prefix replay, retained DOM node, final reading time, old partial rejection, and
+a complete rewrite of the current part. Existing every-final-character, normal/
+270px narrow/fullscreen, four-line bounds, front expiry, controls, late responses,
+clear/session replacement and counted overload assertions also passed. Numeric
+generated-caption evidence is updated in `captions/rolling-fixture.json` with
+`correctedReadingPosition`, `rewrittenCurrentPart` and `suffixTraceVisibility`.
+The ignored `.ralph/reading-position-corrected.png` was visually reviewed: the
+two-line suffix is readable with outlined white text and a dark background above
+the controls at270×700. Existing generated fixture PNGs were unchanged.
+
+**No new native audio/browser attempt was made in this iteration.** There is no
+new access failure or external blocker. These headless generated-caption checks
+do not establish acoustic playback, real ASR/translation correction accuracy,
+continuous load, latency improvement or completion of 7d. The original failed
+model/native JSON reports are preserved and no passing audio report was created.
+Next iteration should continue **7d**: resolve the original construction meaning
+failure with the permitted models and unchanged assertions, then finish native
+paired long/continuous/context/pause/silence, all-character/expiry/appearance,
+speaker listening, in-flight Stop/provider/session and sustained queue/memory
+acceptance. 7b,8,9 remain subsequent work.
+
+Final-source **`npm run verify` exited0**: lint/typecheck/build, **JS12 + Python170**,
+zero failures/skips/warnings; Python **66.12seconds**. The owned Ollama process
+stopped via SIGINT/exit0. The fixture browser/server closed after each failed or
+passing run; no listeners remain on8765/8766/11434. `uv sync --locked` restored the
+base environment; `uv lock --check` and `git diff --check` passed. No audio/
+transcripts, credentials, weights, temporary `.ralph` state, dependency/lock
+changes or build output are intended for commit.

@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
+import { traceCaptionPaints } from "./caption-paint.mjs";
 
 await mkdir(".ralph", { recursive: true });
 const profile = await mkdtemp(resolve(".ralph/captions-rolling-"));
@@ -154,7 +155,48 @@ try {
   assert.equal(await page.locator(".sentence").textContent(), texts[0].slice(prefix.length));
   await send({ type: "clear", sessionId: base.sessionId });
 
+  // Context corrections can change the length of a prefix that has already been read.
+  await page.setViewportSize({ width: 270, height: 700 });
+  const finishCorrectionTrace = await traceCaptionPaints(context, page, worker, tabId);
+  await send({ type: "start", sessionId: base.sessionId });
+  const provisional = "여행을 준비하며 파란 우산과 따뜻한 코트를 챙기고 오후 세 시에 역에서 만나세요.";
+  await send({ type: "caption", caption: { ...base, translation: provisional, final: false } });
+  const readPrefix = await page.locator(".sentence").textContent();
+  assert.ok(readPrefix.length < provisional.length);
+  await page.waitForFunction((prefix) => document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".sentence")?.textContent !== prefix,
+    readPrefix, { timeout: 7000 });
+  const visibleSuffix = await page.locator(".sentence").textContent();
+  await page.locator(".sentence").evaluate((node) => { globalThis.correctedSentence = node; });
+  const unreadSuffix = provisional.slice(readPrefix.length);
+  await send({ type: "caption", caption: { ...base, revision: 2, translation: `준비하며 ${unreadSuffix}`, final: false } });
+  assert.equal(await page.locator(".sentence").textContent(), visibleSuffix,
+    "Shortening a read prefix must preserve the visible suffix rather than skip its characters");
+  await send({ type: "caption", caption: { ...base, revision: 3, translation: `여행 준비를 모두 마친 다음에는 ${unreadSuffix}` } });
+  assert.equal(await page.locator(".sentence").textContent(), visibleSuffix,
+    "Lengthening a read prefix must not replay its words into the visible suffix");
+  assert.equal(await page.locator(".sentence").evaluate((node) => node === globalThis.correctedSentence), true);
+  await page.screenshot({ path: ".ralph/reading-position-corrected.png" });
+  await page.waitForTimeout(1000);
+  assert.equal(await page.locator(".sentence").textContent(), visibleSuffix, "The final correction retains its reading time");
+  await send({ type: "caption", caption: { ...base, revision: 2, translation: "오래된 임시 응답", final: false } });
+  assert.equal(await page.locator(".sentence").textContent(), visibleSuffix);
+  await send({ type: "clear", sessionId: base.sessionId });
+  const correctionTrace = await finishCorrectionTrace();
+  assert.ok(correctionTrace.find((row) => row.revision === 3)?.visible,
+    "Paint instrumentation must recognize the visible final suffix after the read prefix expires");
+
+  // A replacement of the current part must show its corrected words from the edit.
+  await send({ type: "start", sessionId: base.sessionId });
+  await send({ type: "caption", caption: { ...base, translation: provisional, final: false } });
+  await page.waitForFunction((prefix) => document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".sentence")?.textContent !== prefix,
+    readPrefix, { timeout: 7000 });
+  await send({ type: "caption", caption: { ...base, revision: 2, translation: "내일 아침에 공원에서 만나요." } });
+  assert.equal(await page.locator(".sentence").textContent(), "내일 아침에 공원에서 만나요.",
+    "Rewriting the current part must display the new words without an offset from the obsolete text");
+  await send({ type: "clear", sessionId: base.sessionId });
+
   // Overload is visible, counted, and bounded separately from the active sentences.
+  await page.setViewportSize({ width: 1280, height: 800 });
   const warnings = [];
   page.on("console", (message) => { if (message.type() === "warning") warnings.push(message.text()); });
   await send({ type: "start", sessionId: base.sessionId });
@@ -189,7 +231,8 @@ try {
   const report = { passed: true, browser: context.browser().version(), generatedCaptions: true,
     audioTranslation: "not exercised", samples, readingTime: true, inPlaceCorrections: true, oldRevisionsRejected: true,
     expiredRevisionRejected: true, provisionalRetention: true, delayedFinalReadingTime: true, abandonedProvisionalRetired: true,
-    tiedAudioTimestamps: true, resizeReadingPosition: true, fullscreen: true, controls: true,
+    tiedAudioTimestamps: true, resizeReadingPosition: true, correctedReadingPosition: true, rewrittenCurrentPart: true,
+    suffixTraceVisibility: true, fullscreen: true, controls: true,
     maxLines: 4, maxWaitingCaptions: 4, maxWaitingAudioMs: 12000, overloadDropped: 4, audioBudgetDropped: 2, clear: true, replacement: true };
   await writeFile("docs/verification/captions/rolling-fixture.json", `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report));

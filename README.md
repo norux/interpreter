@@ -311,6 +311,11 @@ tabCapture/model/Paint runs produced failed reports: construction meaning remain
 incorrect. An initial run also found provisional expiry hiding the later final;
 the sink now retains the latest provisional ending for correction. See
 `docs/verification.md` for the regression, measured results and remaining checks.
+The built-sink regression also covers corrections that shorten or lengthen an
+already-read prefix, preserving the unchanged visible suffix and its reading
+position, and replacements of the current text. Paint tracing recognizes timed
+suffixes as well as initial parts. These generated-caption checks do not establish
+real-model translation accuracy or complete the pending native 7d acceptance.
 
 To repeat the older final-only model timing probe on paced, generated English PCM
 with fixed language settings (it deliberately leaves snapshots disabled), start

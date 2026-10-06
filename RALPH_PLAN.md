@@ -1923,3 +1923,49 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   실제nativepair를 구분했다. 8765/8766/11434 listener없음, git diff --check 통과다.
   구현/테스트/README/docs/failednumeric/plan 진척을 Conventional Commit으로 보존한다.
   7d 체크는 하지 않으며 정확도/나머지 실제 acceptance를 다음iteration에서 계속한다.
+
+### Ralph iteration 2/30 (resumed run) — 2026-10-06 — 7d 교정 후 읽기 위치 회귀 수정
+
+- 다음 미완료 **7d만 진행했고 checkbox는 미체크 유지**다. 지정 checkout은 시작 시
+  clean이며 AGENTS.md는 없다. 사용자 지침을 적용했고 `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. agent/다른worktree/runner/
+  criteria/모델교체/유료API/credential/push/publish 변경은 없다.
+- cached Ollama0.35.1/Qwen3-4B-Instruct-2507 Q4_K_M/context4096/num_predict256,
+  cloud disabled로 원래 construction 의미 실패를 **31회 text-only** 진단했다.
+  chat/think생략/rawtemplate/user-only6회, temperature0.1/0.3/0.5/0.7/1×seed42/123
+  10회, generic wording/wrapper10회, Korean/English terminology/role5회다.
+  animal 오역, untranslated English, crane keyword+잘못된격조사/steel 의미로 모두
+  채택하지 않았다. primary model card의 mode/template/sampling도 확인했지만
+  제품prompt/options/모델/추론단계 변경은 없다. ASR/capture/Paint 성공 근거가 아니다.
+- **긴 provisional의 앞부분을 읽은 뒤 그 prefix가 짧아지면 기존 offset이 새문장의
+  끝을 넘어 visible suffix가 빈문장이 되는 회귀**를 built-sink에서 재현했다.
+  `npm run test:captions-overlap-browser`는 수정 전 shortening assertion의
+  actual empty로 **exit1**이다. overlay는 동일 cue의 Unicode 공통prefix/suffix로
+  읽기위치를 보정한다. 변하지 않은 unread suffix는 유지하고 현재부분을 다시쓰면
+  edit경계부터 새내용을 표시한다. node/다른cue 시계/화면·대기limits는 유지한다.
+  계약/새 abstraction/VAD/queue/snapshot 변경은 없다.
+- 제품fix 뒤 같은명령은 test-only Paint marker의 suffix false로 **exit1**이었다.
+  marker가 prefix만 인정하던 오류를 같은utterance translation 안의 실제 nonempty
+  contiguous text로 고쳤다. main-frame/covering Paint bounds/unsuperseded revision
+  조건은 그대로다. 새 assertion은 visibility분류이며 동일글자의 새Paint 성공이 아니다.
+- 최종 같은 browser명령 **exit0/Chrome153.0.8010.12**다. prefix단축·연장/앞부분
+  반복없이 suffix유지/제자리DOM/최종readingtime/oldpartial거부/current rewrite,
+  기존 전체final문자/normal·270px narrow·fullscreen/4줄/앞부터expiry/controls/
+  과부하drop/clear/session교체 회귀를 통과했다. rolling-fixture.json의 numeric와
+  correctedReadingPosition/rewrittenCurrentPart/suffixTraceVisibility를 갱신했다.
+  ignored reading-position-corrected.png를 직접검토해 narrow270×700의 두줄suffix가
+  읽히고 controls 위에 놓이는 것을 확인했다. 기존 fixture PNG는 unchanged다.
+- **이번에는 새 native/audio 시도를 하지 않았다**. 접근불가/청취/실제교정/연속부하/
+  새p50·p95 근거가 없으며 이전 failed model/native JSON과 의미assertion을 보존했다.
+  passing audio report/7d 성공으로 바꾸지 않았다. 외부 blocker도 새로 확인되지 않았다.
+- **다음도7d**: permitted모델/원래fixture로 construction 의미를 해결하고 native
+  paired long/continuous/문맥/쉼/무음, 모든문자·expiry·appearance/원음청취,
+  inflightStop/provider/session교체, sustainedqueue·memory acceptance를 완료한다.
+  7b/8/9는 그 다음이다. 새 source fix와 generatedfixture를 실제음성 성공으로
+  표시하지 않는다. 사용자 입력/외부 상태 변경이 필요하다고 단정할 근거는 없다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python170**,
+  failures/skips/warnings0, Python**66.12초**다. uv sync --locked로 base를 복원했고
+  uv lock --check/git diff --check 통과다. ownedOllama SIGINT/exit0, fixture/browser
+  종료,8765/8766/11434 listener없음이다. source/test/README/docs/numericfixture/plan만
+  Conventional Commit으로 보존하며 key/weights/audio·transcripts/.ralph/build는
+  커밋하지 않는다. checkbox와 completion은 그대로 미완료다.

@@ -46,7 +46,8 @@ export async function traceCaptionPaints(context, page, worker, tabId) {
       const element = [...(shadow?.querySelectorAll(".sentence") ?? [])].find((node) => node.dataset.utteranceId === caption?.utteranceId);
       const box = element?.getBoundingClientRect();
       const text = element?.textContent ?? "";
-      const visible = !!box && !!text && caption?.translation.startsWith(text);
+      // Timed parts can show a contiguous suffix after the prefix has expired.
+      const visible = !!box && !!text && caption?.translation.includes(text);
       performance.mark(`interpreter-caption:${JSON.stringify({
         sessionId: caption?.sessionId ?? message.sessionId, utteranceId: caption?.utteranceId ?? null,
         revision: caption?.revision ?? null, final: caption?.final ?? null,
