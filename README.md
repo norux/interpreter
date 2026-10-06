@@ -271,6 +271,40 @@ browser Paint. Its reported event times cannot stand in for browser appearance.
 Failed meaning checks remain failures and do not create passing reports. See
 `docs/verification.md` for current observations and remaining acceptance work.
 
+The pending 7d native comparison has a separate harness. Start the local Ollama
+server with cloud disabled, build, then run each phase in an interactive terminal
+(the harness waits for commands on stdin):
+
+```sh
+OLLAMA_NO_CLOUD=1 ollama serve
+# In another terminal, from this checkout:
+npm run build
+node tests/local-interim-browser.mjs before
+node tests/local-interim-browser.mjs after
+```
+
+For each phase, use the dedicated Chrome window's native Extensions toolbar →
+Interpreter → Start, wait for listening, and close the popup. Enter `measure` in
+that phase's terminal. It plays the same generated weather/construction clips,
+with a separate first-inference sample and three warm repetitions. Afterwards,
+use native Stop, enter `stopped`, then `exit`, including when assertions fail.
+Run `before` immediately before `after`; the latter reads the numeric baseline
+from ignored `.ralph/interim-browser-before.json`. Only snapshots are disabled
+in `before`; both phases retain the same VAD, preparation, prompt and streaming.
+The companion loads cached local dependencies with `uv run --locked --extra local`.
+
+The harness records covering Chromium Paint, same-ID source changes, ASR and
+translation calls, bounded queue/drop samples, companion RSS and MLX allocations.
+Media start/end timing uses generated PCM bounds and observed media playback;
+audio-position timing estimates capture origin from the first PCM reception and
+includes local transport delay. Neither measures acoustic output or physical
+screen presentation. Generated text is printed for review but numeric reports
+contain no transcript. Any failed check produces only a `browser-*-failed.json`
+report and a nonzero exit. A passing subprobe still does not establish continuous
+load, all subtitle appearance checks, or the full 7d acceptance. Native window
+access failed in Ralph iteration 4, before Start; no new capture/Paint report was
+created. The construction translation also remains incorrect in text-only probes.
+
 To repeat the older final-only model timing probe on paced, generated English PCM
 with fixed language settings (it deliberately leaves snapshots disabled), start
 Ollama and run:

@@ -1795,3 +1795,59 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   uv lock --check/git diff --check 통과다. ownedOllama/runner 정상종료,8765/8766/11434
   listener 없음. source/tests/README/docs/plan/실패numeric 근거만 Conventional Commit으로
   보존한다. 키/weights/user audio·transcript/임시.ralph/build는 커밋하지 않는다.
+
+### Ralph iteration 4/30 — 2026-10-06 — 7d native 비교 harness, window 접근 blocker
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  **7d는 미체크 유지**다. product/model/prompt/VAD/queue/output,7b/8/9,criteria/runner/
+  dependency/lock 변경, agent/worktree/push/publish/credential/cloud 호출은 없다.
+- cached Ollama0.35.1/local qwen3:4b-instruct Q4_K_M/context4096/temp0에
+  original construction와 weather/bank/bird/long controls로 **66회 text-only**
+  진단했다. 원래 prompt는 duck, generic English/Korean/문맥/동작보존 후보는 animal
+  오역이었다. English 설명은 lifting machine을 맞췄다. think:true1회도 같은 오역이며
+  reasoning field가 없어 지원/속도 주장은 없다. equipment/loanword 후보는 crane
+  keyword를 만들었지만 Korean role/particle가 깨지고 bird도 machine으로 오역했다.
+  **채택하지 않았다**. ASR/tabCapture/Paint/paced/장시간/새 모델 성공은 아니다.
+  이전 failed JSON을 보존하고 probe assertion/fixture를 바꾸거나 passing report를
+  만들지 않았다. 추가 model 단계/fixture glossary/prewritten 번역은 없다.
+- **tests/local-interim-browser.mjs + interim_browser_metrics.py**를 추가했다.
+  before는 **snapshot만 끄고** 동일 생성WAV/2모델/준비/prompt/VAD300ms/quality pause/
+  6초cap/tokenstream을 유지한다. enginefirst1회와 warm3회×2clip, native toolbar
+  Start/Stop, sameID/revision/final/기존 weather·crane 의미/발화중 covering Paint,
+  원음시작→first/끝→final/현재PCM위치→Paint, 호출/교정/drop/coalescing/queue,
+  requested100ms companionRSS/perASR MLX allocations를 계측한다. RSS/MLX는 합산하지
+  않는다. translationUpdates는 token증가 포함이며 sourceCorrections도 의미개선
+  보장이 아니다. media시각은playing/currentTime+PCM abs>=100이며 audio-position의
+  origin은첫PCM수신−timestamp−20ms 추정이라 transport오차가 있다. 청취/physicaldisplay
+  측정이 아니다. latest before숫자는ignored.ralph, durable실패는failed파일로만 쓴다.
+  generatedtext는console/browser만이며 report는숫자/ID/boolean이다.
+- companion fixture regression은 missingmodule **2fail** 후 통과했다. 최초 testimport/
+  formatting/lint 오류는 수정했다. nativewrapper가 provider generator를 지연정리하는
+  closure 회귀도 **2fail**로 잡고 `await stream.aclose()`로 **2pass**했다. baseline는
+  snapshot외VAD유지/본문무변경forward/원문log없음/timing/queue를 확인한다.
+  이 fixture를 실제 capture/두모델/통과한 browserharness로 표시하지 않는다.
+- browser153.0.8010.12에서 **before READY**까지 갔다. 첫 nonTTY는stdin닫힘으로
+  cleanup/exit1, PTY재시도는정상 대기했다. 하지만 native `cua.getApp`의 Playwright
+  실제app path가 **-10005: cgWindowNotFound**다. appinventory에
+  **com.google.chrome.for.testing/running**을 확인한 뒤 bundleID도 **같은 오류**다.
+  macOS의 optional launch_app API도 `is not a function`으로 이용 불가였다.
+  **Start를 누르지 못했고 audio재생/실제capture/모델처리/caption/Paint/시각/청취가
+  없다. browser-before/after report도 없다.** harness는startup/구문/lint/companion
+  fixture외 실제동작 미검증이다. 이 실패를 성공 근거로 바꾸지 않는다.
+- **현재 외부 blocker: visible Chrome for Testing 창에 native computer-control 접근**.
+  접근을 복구하거나 README의interactive 명령에서 사람이 native toolbar Start/Stop을
+  수행해야 실제필수검증을 이어간다. 다음은 **7d그대로**: before→after동일PCM/설정의
+  original meaning 실패해결/coveringPaint/시각·청취/연속·long·pause·silence/expiry/
+  Stop·provider·session/queue·memory acceptance다. native접근이 필요한 부분을
+  우회하지 않고 이번iteration은blocked로 끝낸다. API credential/model다운로드
+  blocker가 아니며 기존7a/7c evidence를 새7d통과로 재사용하지 않는다.
+- PTY에exit를 보내 acceptance미실행으로 **exit1**했고 ownedbrowser/companion/fixture를
+  닫았다. nativeStop을 실제검증했다고 주장하지 않는다. ownedOllamaSIGINT/exit0,
+  8765/8766/11434 listener없음,base uv sync --locked복원이다. 임시.ralph/profile/audio/
+  generatedtranscript/weights/build는커밋하지 않는다. 상세진단/한계/명령은
+  docs/verification.md,재개명령은README에 보존했다. 전체verify결과는 아래에 기록한다.
+- **최종 source npm run verify exit0**: lint/typecheck/build, **JS12+Python170**,
+  failures/skips/warnings0,Python**66.14초**다. uv lock --check/git diff --check 통과다.
+  source/tests/README/docs/plan을 Conventional Commit으로 보존하고 7d는 미체크다.
+  native window 접근의 외부 변경이 필요하므로 INTERPRETER_BLOCKED로 끝낸다.

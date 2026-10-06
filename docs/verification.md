@@ -2845,3 +2845,122 @@ environment was restored before verification. `uv lock --check` and
 8765/8766/11434 listeners remain. Only source, tests, README, plan and failed
 numeric observations are intended for commit; `.ralph`, model weights, audio,
 transcripts, build outputs and credentials are excluded.
+
+## Ralph iteration 4/30 — 2026-10-06 — native interim harness; access blocked
+
+Continued **7d**, with its checkbox unchecked. Product capture/model/output
+contracts, model IDs, prompts, queue/VAD parameters and subtitle behavior are
+unchanged. No paid API, credentials, other checkout, agent, dependency/lock change,
+push, publication or runner modification was used.
+
+Started the existing cached Ollama **0.35.1** with
+`OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve` and installed the locked local group
+using `uv sync --locked --extra local`. Local `/api/show` reported
+**Qwen3-4B-Instruct-2507 / Q4_K_M**, the stored chat template and context parameters;
+no model files were replaced. Text-only requests used context4096, temperature0,
+num_predict256, English→Korean, the original generated construction sentence and
+short weather/bank/bird/long-subtitle controls. Four bounded diagnostic batches
+made **66 local chat requests** (30 + 7 + 5 + 24). They are not ASR, tabCapture,
+Paint, paced audio or continuous-processing tests.
+
+The original product prompt again mistranslated the construction crane as duck;
+generic English/Korean/literal/context/role-preservation prompts also produced
+animals. An English explanation correctly identified a heavy lifting machine,
+which isolates this observed failure to Korean generation rather than an absent
+source word. One `think:true` request returned the same incorrect translation,
+without a reasoning field; no reasoning-support claim or product change follows.
+Equipment/loanword instructions produced the crane keyword but used a broken
+Korean role/particle and incorrectly used the machine name for the flying-bird
+control. Rejected those candidates: a keyword alone is insufficient meaning
+acceptance. No fixture-specific glossary, prewritten correction, new model,
+extra inference stage or prompt change was adopted. These observations do not
+prove that a future generic prompt cannot improve this model. The prior failed
+paced model reports remain intact; no new passing model report exists.
+
+Added `tests/local-interim-browser.mjs` and its test-only companion
+`tests/interim_browser_metrics.py`. This comparison disables **only snapshots**
+in `before`, unlike the older 7a harness's changed silence/withheld-partial control.
+Both phases use fresh dedicated profiles/engines, the same generated WAVs and
+selected models, preparation, current VAD300ms/quality pause/6-second cap and
+streaming translator. The selected Ollama model is unloaded before preparation;
+weights and OS caches remain, so the separate first-inference trial is not cold
+cache. There are three warm repetitions of both original clips. Capture must
+start/stop through the native extension toolbar; the harness does not synthesize
+Start or substitute audio input.
+
+The harness checks unique same-ID revisions, finals, original Korean weather/
+construction meanings, source changes, during-speech Paint and sample counts via
+its fixed trials. It records first/final covering main-frame Chromium Paint,
+per-revision audio-position estimates, per-ASR durations/allocations, translator
+invocations/completion/cancellation, coalescing, drops and queue samples. It
+requests companion process RSS/pending samples every100ms through the session;
+these are sampled bounds, not exact peaks or total system memory. MLX active/
+peak allocations overlap RSS and are not summed. `translationUpdates` includes
+initial token growth; `sourceCorrections` counts changes to the recognized source,
+not proof that every change improves semantic accuracy. Generated text stays in
+console/browser memory; reports contain numeric/identity/boolean metadata.
+
+Speech start/end proxies use PCM abs>=100 and observed audio `playing`/currentTime.
+Capture-relative audio-position→Paint estimates use first PCM receipt minus its
+frame timestamp and20ms, so include local transport uncertainty. No acoustic or
+physical-display claim is made. Reports cannot replace full text/appearance/
+expiry, speaker listening, continuous load, lifecycle or paid-contract acceptance.
+Failed semantic reports are marked `acceptancePassed:false` with `-failed` names;
+Stop cleanup is required even after a failure. The `after` comparison reads the
+latest controlled `before` report from ignored `.ralph/interim-browser-before.json`.
+README contains the exact interactive commands and resumption steps.
+
+New instrumentation regressions first failed twice with the missing module after
+correcting a test import mistake. Both baseline/after cases now pass, checking
+unchanged VAD boundaries, snapshot selection, forwarding captions unchanged,
+raw source/translation exclusion, model timing/queue metadata and provider-stream
+closure. A strengthened closure check caught deferred inner-generator cleanup
+(**2 failures**) in the new wrapper; explicitly awaiting `stream.aclose()` fixed
+it (**2 passed**). Initial formatting/lint errors were fixed; none of the rules
+or acceptance assertions were disabled. These are fixture checks, not live models.
+
+Actual browser attempts:
+
+```sh
+npm run build
+node tests/local-interim-browser.mjs before
+# The runner's first invocation had closed stdin: READY, cleanup, exit1.
+# Retried with a PTY; READY in Chrome153.0.8010.12, dedicated ignored profile.
+```
+
+**Blocker:** native computer control could not obtain the dedicated browser's
+window. `cua.getApp` with the observed Playwright application path returned
+`Computer Use server error -10005: cgWindowNotFound`. Native app inventory then
+listed **Google Chrome for Testing / com.google.chrome.for.testing / running**;
+selecting that bundle ID returned the **same error**. The optional
+`cua.computer.launch_app` API was not available on this macOS runtime
+(`cua.computer.launch_app is not a function`). No app permission was changed or
+alternate automatic capture trigger used. The native Start button was never
+pressed, audio never played, and neither local model processed captured audio.
+**No new native caption, Paint, visual, speaker-listening, paired browser timing
+or continuous-load evidence exists.** No `browser-before*.json` or
+`browser-after*.json` report was created. The browser harness itself remains
+unverified beyond startup, syntax/lint and the companion fixture tests.
+
+Required external resumption: restore computer-control access to the visible
+Chrome for Testing window, or use the README's interactive harness manually with
+native toolbar Start/Stop. Run `before` and then `after` on the same source/settings,
+review the generated source/Korean captions, and keep semantic failures failed.
+The construction accuracy issue still needs implementation work. Afterwards,
+finish the remaining 7d continuous/long/pause/silence/appearance/expiry/lifecycle
+and memory acceptance before checking 7d; 7b,8,9 remain next in order. This native
+access blocker is not a model/API credential blocker and does not invalidate
+previous 7a/7c evidence.
+
+The PTY harness exited1 after `exit` because acceptance and native Stop were not
+run; it closed its owned browser/context, companion and fixture. No capture was
+started, so no Stop/cleanup success is asserted. The owned Ollama process was
+terminated with SIGINT and exited0. `uv sync --locked` restored the base group.
+8765/8766/11434 have no listeners. Temporary profiles/audio/probes, model weights,
+transcripts, build copies and `.ralph` state are excluded from the intended commit.
+
+Final-source **`npm run verify` exited0**: lint/typecheck/build, **JS12 + Python170**,
+zero failures/skips/warnings; Python **66.14seconds**. `uv lock --check` and
+`git diff --check` passed. This verifies the repository and companion fixtures,
+not the blocked native acceptance. All intended source/test/documentation changes
+are committed together; 7d remains unchecked and no completion promise applies.
