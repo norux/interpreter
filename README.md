@@ -19,6 +19,16 @@ defines selected-video interpretation across desktop Chrome, Safari and iPhone
 Safari. It is a design for future builds; the setup below describes the current
 companion implementation.
 
+<!-- ralph-plan:begin -->
+The [Ralph implementation plan](RALPH_PLAN.md) divides that framework into bounded
+stages. After `npm ci` and `uv sync --locked`, preview the first stage with
+`node scripts/ralph-loop.mjs core 5 --dry-run`, then start it with
+`node scripts/ralph-loop.mjs core 5` using a logged-in Codex CLI on a feature branch.
+It stops at the stage boundary and preserves the plan until all stages pass. After
+final verification it deletes the plan and commits cleanup. It does not automatically
+start another stage, push or publish. This new plan has not been started.
+<!-- ralph-plan:end -->
+
 ### macOS companion app (development build)
 
 Apple Silicon macOS 14+ can run the existing MLX/Ollama pipeline without terminal
