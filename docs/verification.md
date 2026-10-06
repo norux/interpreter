@@ -1402,3 +1402,111 @@ Final verification after the fixture fix:
   -iTCP:11434 -sTCP:LISTEN` returned no listeners (exit 1, expected for no match).
   No audio, user transcript, credentials, model weights, or temporary `.ralph`
   state is included in this commit.
+
+## Ralph iteration 2/30 — 2026-10-06 — item 7a explicit Start preparation
+
+Item 7a remains unchecked. This iteration implements its model preparation step;
+the 250–300 ms silence comparison and revision-aware browser latency comparison
+remain required. AGENTS.md is absent in this checkout; supplied instructions apply.
+`.ralph/verification.txt` still says `No completion verification attempted in this run.`
+Only this checkout and the dedicated local test browser were used. No agents,
+worktrees, credentials, cloud inference, push, or runner changes were used.
+
+Observable criterion for this step: explicit Start loads the selected cached local
+ASR and Ollama model before tab audio acquisition; Stop/settings/disconnect during
+preparation release the session without waiting for native MLX completion or
+allowing a late ready event to start recording. Preparation failure is actionable.
+Speech boundary remains 500 ms and maximum phrase remains six seconds.
+
+Implementation stays in the existing local adapters/session. Cached MLX loading
+runs on the existing single executor, retaining serialization across replacement
+sessions. Ollama receives an empty `messages` preload on its fixed loopback chat
+endpoint with the same 4096 context size as translation. This follows the official
+[Ollama API load-model documentation](https://github.com/ollama/ollama/blob/main/docs/api.md#load-a-model-1).
+It generates no fabricated speech/caption and makes no cloud preparation call.
+Loading does not execute synthetic ASR or remove first-inference compilation.
+
+The companion delays `ready` until preparation finishes, with a 60-second bound.
+The offscreen document waits up to 65 seconds, reports preparation, and propagates
+model errors before creating the audio source. It obtains a fresh stream ID through
+the existing worker after readiness. Stop aborts the pending fetch/handshake;
+worker generation checks and prompt popup Stop/configuration messages interrupt
+pending Start instead of sitting behind it. Native loading already running may
+finish in the shared worker after cancellation, without restarting capture.
+
+Regression and fixture evidence:
+
+- Before implementation, `uv run --locked pytest tests/test_local_prepare.py -q`
+  exited 1: all seven initial checks failed on missing preparation behavior.
+- After implementation, all ten preparation cases pass: selected-model preload
+  without text/audio, worker execution, five actionable Ollama failures,
+  native cancellation, transport ready/error ordering with restart, disconnect
+  and serialized replacement while old native loading continues.
+- New offscreen JS test gates ready and proves no stream ID/getUserMedia before
+  preparation, exact model-error display, Stop and ignored late-ready, then fresh
+  stream acquisition on successful readiness. It initially failed because the
+  cancelled Start returned transient `starting`; the cancellation result now
+  returns idle. Worker regression covers Stop and configure during pending Start.
+- `npm run test:settings-browser` final exit 0, Chrome for Testing
+  **153.0.8010.12** / Playwright **1.63.0**: built popup Stop/configure interrupt a
+  gated preparation fixture; persistence, validation cleanup, settings transport,
+  DOM/memory fan-out, injection rejection and old-session rejection still pass.
+  These are generated protocol/caption checks, not model inference.
+
+Native local check commands:
+
+```sh
+.tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" npm run test:local-browser
+# Native toolbar → Interpreter → Start; observe Preparing translation session…
+# Native Stop during preparation; harness: stopped
+# Native Start again, close popup; harness: play, accept
+# Replay once; harness: check (complete Korean sentence reviewed in memory)
+# Native Stop; harness: stopped, exit
+```
+
+The final interactive harness exited 0. Apple M5/16 GiB, Python **3.12.15**,
+mlx-audio **0.5.8**, Ollama **0.35.1**, cached Qwen3-ASR **0.6B 8bit** and
+qwen3:4b-instruct **Q4_K_M**, English → Korean, macOS Samantha **165 wpm**.
+Native Stop while popup displayed preparation visibly returned idle; harness
+asserted no captured tabs, no caption hosts and no offscreen contexts. The next
+native Start successfully acquired real tabCapture after model preparation.
+With popup closed, generated speech went through both actual local models;
+receipt at first partial: **900 frames / 432,000 samples / peak 25,160**.
+Replay check: **1750 frames / 840,000 samples**, active capture, Korean text
+conveying sunny weather and walking to the park after lunch. This was model output,
+not a seeded caption, microphone, existing site subtitle, or fake stream.
+
+[Prepared partial screenshot](verification/latency/prepared-partial.png) was viewed
+with `view_image`: a readable bottom-centered white/outlined Korean partial on a
+small dark background; controls remain above it. The old local normal screenshot
+was restored byte-for-byte. The new screenshot contains an unfinished weather cue,
+so it is not final-caption meaning or full subtitle appearance acceptance.
+Native Stop at the end passed idle/no active capture/offscreen 0/caption hosts 0.
+
+Limits: this short run has no measured preparation duration, first/final paint
+p50/p95, cold/warm sample comparison, queue peak, long-cue streaming comparison,
+or fresh audible-listening evidence. Media unmuted/PCM arrival and unchanged source
+playback wiring do not establish that a person heard the sound. The prior listening
+evidence remains prior evidence. No latency improvement is claimed for this step.
+There is no external blocker; 7a still needs those planned measurements before its
+checkbox can change. Auto, TED 600-second processing and final acceptance remain.
+
+Failures and corrections were preserved: one Python line-length lint was fixed;
+initial full verify exited 1 with 152 passes and an unknown-provider handshake
+fixture failure. Invalid selection now errors before ready; the fixture explicitly
+requires that ordering while preserving error text, secret sanitation, close and
+restart assertions. The two focused cases passed after correction. An initial
+noninteractive local-browser invocation reached ready then stdin EOF, exiting 1;
+the final invocation used a persistent PTY. An early settings-browser run while
+the local harness owned port 8766 exited 13 with unsettled listen; rerunning after
+closing that harness passed. No acceptance criterion or runner was weakened.
+
+Final verification: `PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked` restored
+the base environment (optional MLX removed), then `npm run verify` exited 0:
+lint/typecheck/build, **10 JS + 153 Python tests**, no failures/skips/warnings,
+Python **66.08 seconds**. `uv lock --check` and `git diff --check` passed.
+No dependency/lockfile changes. Dedicated browser, companion, fixture and Ollama
+were terminated; `lsof -nP -iTCP:8765 -iTCP:8766 -iTCP:11434 -sTCP:LISTEN`
+found no listeners. No model weights, secrets, generated audio, user transcript
+or temporary `.ralph` state is committed.

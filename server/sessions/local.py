@@ -90,13 +90,10 @@ class MlxEngine:
         self.model = None
         self.model_id = ""
 
-    def transcribe(self, utterance: Utterance, model_id: str, language: str) -> str:
+    def prepare(self, model_id: str):
         try:
-            import mlx.core as mx
-            import numpy as np
             from huggingface_hub import snapshot_download
             from mlx_audio.stt import load
-            from scipy.signal import resample_poly
         except ImportError as error:
             raise RuntimeError(
                 "Local ASR dependencies are missing. "
@@ -118,6 +115,13 @@ class MlxEngine:
                     "and Qwen3-ASR compatibility."
                 ) from error
             self.model_id = model_id
+
+    def transcribe(self, utterance: Utterance, model_id: str, language: str) -> str:
+        self.prepare(model_id)
+        import mlx.core as mx
+        import numpy as np
+        from scipy.signal import resample_poly
+
         pcm = b"".join(frame.pcm for frame in utterance.frames)
         samples = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768
         # Qwen3-ASR's in-memory input is 16 kHz float32, not the capture's 24 kHz.
@@ -143,6 +147,13 @@ class MlxTranscriber:
         self.pending_audio_ms = 0.0
         self.reader: asyncio.Task | None = None
         self.inference: asyncio.Future | None = None
+
+    async def prepare(self):
+        self.inference = asyncio.get_running_loop().run_in_executor(
+            self.engine.executor, self.engine.prepare, self.model_id
+        )
+        await self.inference
+        self.inference = None
 
     async def transcribe(self, frames: AsyncIterator[AudioFrame]):
         segments = SpeechSegments()
@@ -215,6 +226,44 @@ class OllamaTranslator:
         )
         self.request: asyncio.Task | None = None
         self.cancelled = False
+
+    async def prepare(self):
+        if self.cancelled:
+            return
+        self.request = asyncio.current_task()
+        try:
+            async with asyncio.timeout(30):
+                response = await self.client.post(
+                    "/api/chat",
+                    json={
+                        "model": self.model_id,
+                        "messages": [],
+                        "stream": False,
+                        "options": {"num_ctx": 4096},
+                    },
+                )
+                if response.status_code == 404:
+                    raise RuntimeError(
+                        "Ollama model is not installed. "
+                        f"Run ollama pull {self.model_id}."
+                    )
+                response.raise_for_status()
+                if response.json().get("done") is not True:
+                    raise ValueError("Incomplete Ollama model preparation")
+        except httpx.ConnectError as error:
+            raise RuntimeError(
+                "Ollama is not running. Start ollama serve, then Start again."
+            ) from error
+        except (httpx.TimeoutException, TimeoutError) as error:
+            raise RuntimeError(
+                "Ollama model preparation timed out. Check the local model."
+            ) from error
+        except (httpx.HTTPError, ValueError, AttributeError) as error:
+            raise RuntimeError(
+                "Ollama model preparation failed. Check its model and server."
+            ) from error
+        finally:
+            self.request = None
 
     async def translate(self, transcript: Transcript, context: list[tuple[str, str]]):
         if not transcript.final or self.cancelled:
@@ -327,6 +376,13 @@ class LocalSession:
         self.transcriber = transcriber
         self.translator = translator
         self.cancelled = False
+
+    async def prepare(self):
+        # Only local adapters load here; cloud preparation must not spend API calls.
+        if isinstance(self.transcriber, MlxTranscriber) and not self.cancelled:
+            await self.transcriber.prepare()
+        if isinstance(self.translator, OllamaTranslator) and not self.cancelled:
+            await self.translator.prepare()
 
     async def run(self, frames: AsyncIterator[AudioFrame]):
         context: list[tuple[str, str]] = []

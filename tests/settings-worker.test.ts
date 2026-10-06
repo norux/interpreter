@@ -9,6 +9,8 @@ test("popup configuration stops the old session, persists selection and routes o
   let documentOpen = false;
   let settings: SessionSettings | undefined;
   let count = 0;
+  let preparing = false;
+  let releasePreparation: ((status: CaptureStatus) => void) | undefined;
   const messages: unknown[] = [];
   const starts: SessionSettings[] = [];
   let listener: (message: CaptureCommand, sender: chrome.runtime.MessageSender, respond: (value: unknown) => void) => void = () => {};
@@ -20,9 +22,17 @@ test("popup configuration stops the old session, persists selection and routes o
       onMessage: { addListener: (callback: typeof listener) => { listener = callback; } },
       sendMessage: async (message: { type: string; settings: SessionSettings }) => {
         if (message.type === "start") {
+          if (preparing) {
+            status = { state: "starting", tabId: 1, message: "Preparing" };
+            return new Promise<CaptureStatus>((resolve) => { releasePreparation = resolve; });
+          }
           starts.push(message.settings);
           status = { state: "capturing", tabId: 1, sessionId: `session-${++count}`, message: "Listening" };
-        } else if (message.type === "stop") status = { state: "idle", message: "Stopped" };
+        } else if (message.type === "stop") {
+          status = { state: "idle", message: "Stopped" };
+          releasePreparation?.(status);
+          releasePreparation = undefined;
+        }
         return status;
       },
     },
@@ -62,4 +72,14 @@ test("popup configuration stops the old session, persists selection and routes o
   assert.equal((delivered[0] as { caption: { sessionId: string } }).caption.sessionId, "session-2");
   await popup({ target: "worker", type: "stop" });
   assert.equal(documentOpen, false);
+  preparing = true;
+  for (const type of ["stop", "configure"] as const) {
+    const starting = popup({ target: "worker", type: "start" });
+    await setImmediate();
+    assert.equal(status.state, "starting");
+    await popup(type === "stop" ? { target: "worker", type } : { target: "worker", type, settings: next });
+    await starting;
+    assert.equal(status.state, "idle", "Stop and provider changes must interrupt pending Start");
+    assert.equal(documentOpen, false);
+  }
 });

@@ -295,6 +295,7 @@ def test_companion_selected_local_asr_to_cloud_caption_and_error(
         )
 
     monkeypatch.setattr(local, "SpeechSegments", Segments)
+    monkeypatch.setattr(local.MlxEngine, "prepare", lambda *_: None)
     monkeypatch.setattr(local.MlxEngine, "transcribe", transcribe)
     monkeypatch.setattr(httpx.AsyncClient, "post", post)
     with TestClient(create_app(), base_url="http://127.0.0.1:8765") as client:

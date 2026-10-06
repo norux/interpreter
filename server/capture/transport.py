@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisco
 
 from server.capture.pcm import FRAME_SAMPLES, decode_frame
 from server.sessions.direct import DirectSession, direct_session
-from server.sessions.local import MlxEngine, local_session
+from server.sessions.local import LocalSession, MlxEngine, local_session
 from server.sessions.selection import text_session
 from server.sessions.settings import SessionSettings
 
@@ -82,6 +82,24 @@ def capture_router() -> APIRouter:
 
         async def captions():
             try:
+                if isinstance(session, LocalSession):
+                    try:
+                        async with asyncio.timeout(60):
+                            await session.prepare()
+                    except (RuntimeError, TimeoutError) as error:
+                        await send(
+                            {
+                                "type": "error",
+                                "sessionId": session_id,
+                                "message": str(error) or (
+                                    "Local model preparation timed out. "
+                                    "Check the models, then Start again."
+                                ),
+                            }
+                        )
+                        await websocket.close(code=1011, reason="Model unavailable")
+                        return
+                await send({"type": "ready", "sessionId": session_id})
                 async for event in session.run(audio_frames()):
                     if event.caption:
                         caption = event.caption
@@ -137,7 +155,6 @@ def capture_router() -> APIRouter:
             settings = pending[3]
             pending = None
             active = owns_session = True
-            await websocket.send_json({"type": "ready", "sessionId": session_id})
             provider = (
                 settings.provider
                 if settings
@@ -194,7 +211,10 @@ def capture_router() -> APIRouter:
             dropped_frames = 0
             peak = 0
             while True:
-                message = await asyncio.wait_for(websocket.receive(), timeout=5)
+                # Allow bounded preparation before the client starts its audio source.
+                message = await asyncio.wait_for(
+                    websocket.receive(), timeout=65 if frames == 0 else 5
+                )
                 if message["type"] == "websocket.disconnect":
                     return
                 packet = message.get("bytes")

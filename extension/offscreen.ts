@@ -7,6 +7,7 @@ let status: CaptureStatus = { state: "idle", message: "Ready to capture tab audi
 let socket: WebSocket | undefined;
 let source: ReturnType<typeof createTabAudioSource> | undefined;
 let generation = 0;
+let startup: AbortController | undefined;
 
 function report(next: CaptureStatus) {
   status = next;
@@ -15,6 +16,8 @@ function report(next: CaptureStatus) {
 
 async function stop(next: CaptureStatus = { state: "idle", message: "Capture stopped." }) {
   generation++;
+  startup?.abort();
+  startup = undefined;
   const oldSource = source;
   const oldSocket = socket;
   source = undefined;
@@ -35,15 +38,17 @@ async function stop(next: CaptureStatus = { state: "idle", message: "Capture sto
   report(next);
 }
 
-async function start(streamId: string, tabId: number, settings?: SessionSettings) {
+async function start(tabId: number, settings?: SessionSettings) {
   await stop();
   const started = ++generation;
+  const controller = new AbortController();
+  startup = controller;
   report({ state: "starting", tabId, message: "Connecting to companion…" });
   try {
     const response = await fetch(`${companion}/sessions`, {
       method: "POST",
       ...(settings ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) } : {}),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
     });
     if (!response.ok) {
       throw new Error(response.status === 403
@@ -56,18 +61,27 @@ async function start(streamId: string, tabId: number, settings?: SessionSettings
     if (started !== generation) return status;
     const connection = new WebSocket("ws://127.0.0.1:8765/audio");
     socket = connection;
+    report({ state: "starting", tabId, message: "Preparing translation session…" });
     await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Companion connection timed out.")), 5000);
+      const aborted = () => { clearTimeout(timeout); reject(new Error("Capture stopped during preparation.")); };
+      const timeout = setTimeout(() => reject(new Error("Companion model preparation timed out. Check the models, then Start again.")), 65000);
+      controller.signal.addEventListener("abort", aborted, { once: true });
       connection.onopen = () => connection.send(JSON.stringify({ sessionId, token }));
       connection.onerror = () => { clearTimeout(timeout); reject(new Error("Cannot connect to companion.")); };
       connection.onclose = () => { clearTimeout(timeout); reject(new Error("Companion rejected the capture session.")); };
       connection.onmessage = (event) => {
         const reply = JSON.parse(event.data);
         clearTimeout(timeout);
+        controller.signal.removeEventListener("abort", aborted);
         if (reply.type === "ready" && reply.sessionId === sessionId) resolve();
-        else reject(new Error("Companion did not accept the audio session."));
+        else reject(new Error(reply.type === "error" && reply.sessionId === sessionId
+          ? reply.message : "Companion did not accept the audio session."));
       };
     });
+    if (started !== generation || socket !== connection) return status;
+    const streamId = await chrome.runtime.sendMessage({ target: "worker", type: "stream-id", tabId }) as string;
+    if (started !== generation || socket !== connection) return status;
+    if (!streamId) throw new Error("Capture stopped before audio permission was acquired.");
     connection.onmessage = (event) => {
       const reply = JSON.parse(event.data);
       if (reply.sessionId !== sessionId || socket !== connection) return;
@@ -104,10 +118,13 @@ async function start(streamId: string, tabId: number, settings?: SessionSettings
       connection.send(packet);
     });
     if (started !== generation) { await audio.stop(); return status; }
+    startup = undefined;
     report({ state: "capturing", sessionId, tabId, message: "Speech translation is listening. Subtitles appear as speech is translated." });
   } catch (error) {
     if (started === generation) {
       await stop({ state: "error", message: error instanceof Error ? error.message : "Tab audio capture failed." });
+    } else {
+      return { state: "idle", message: "Capture stopped during startup." };
     }
   }
   return status;
@@ -117,7 +134,7 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
   if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL("service-worker.js")) return;
   if (message.target !== "offscreen") return;
   if (message.type === "status") { respond(status); return; }
-  const task = message.type === "start" ? start(message.streamId, message.tabId, message.settings) : stop().then(() => status);
+  const task = message.type === "start" ? start(message.tabId, message.settings) : stop().then(() => status);
   void task.then(respond);
   return true;
 });

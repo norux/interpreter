@@ -63,6 +63,39 @@ try {
   await popup.screenshot({ path: "docs/verification/settings/popup.png" });
   assert.deepEqual(errors, []);
 
+  // A pending Start must not queue popup Stop/configuration behind model loading.
+  const waitingPopup = await context.newPage();
+  await waitingPopup.addInitScript(() => {
+    let release;
+    const idle = { state: "idle", message: "Ready" };
+    const settings = { provider: "local", asr: "local", sourceLanguage: "en", targetLanguage: "ko", asrModel: "mlx-community/Qwen3-ASR-0.6B-8bit", textModel: "qwen3:4b-instruct" };
+    window.preparationCommands = [];
+    chrome.runtime.sendMessage = async (message) => {
+      window.preparationCommands.push(message.type);
+      if (message.type === "settings") return settings;
+      if (message.type === "start") {
+        const status = document.querySelector("#status");
+        status.dataset.state = "starting";
+        status.textContent = "Preparing fixture";
+        document.querySelector("#stop").disabled = false;
+        return new Promise((resolve) => { release = resolve; });
+      }
+      if (message.type === "stop" || message.type === "configure") release?.(idle);
+      return idle;
+    };
+  });
+  await waitingPopup.goto(popupUrl);
+  for (const action of ["stop", "configure"]) {
+    await waitingPopup.locator("#start:enabled").waitFor();
+    await waitingPopup.locator("#start").click();
+    await waitingPopup.locator('#status[data-state="starting"]').waitFor();
+    if (action === "stop") await waitingPopup.locator("#stop").click();
+    else await waitingPopup.locator('[name="sourceLanguage"]').selectOption("ja");
+    await waitingPopup.locator('#status[data-state="idle"]').waitFor();
+    assert.equal(await waitingPopup.evaluate(() => window.preparationCommands.at(-1)), action);
+  }
+  await waitingPopup.close();
+
   // Built offscreen sends only the selected settings and handles validation errors before capture.
   const settings = await popup.evaluate(async () => (await chrome.storage.local.get("sessionSettings")).sessionSettings);
   let requested;
@@ -76,7 +109,7 @@ try {
   await new Promise((ready) => companion.listen(8765, "127.0.0.1", ready));
   const rejected = await worker.evaluate(async (settings) => {
     await chrome.offscreen.createDocument({ url: "offscreen.html", reasons: [chrome.offscreen.Reason.USER_MEDIA], justification: "Verify selected settings transport and validation cleanup without recording." });
-    return chrome.runtime.sendMessage({ target: "offscreen", type: "start", streamId: "never-used", tabId: 1, settings });
+    return chrome.runtime.sendMessage({ target: "offscreen", type: "start", tabId: 1, settings });
   }, settings);
   assert.equal(rejected.state, "error");
   assert.equal(rejected.message, "Invalid language or model selection. Check the popup settings.");
@@ -138,7 +171,7 @@ try {
   await send({ type: "clear", sessionId: "new" });
   await send({ type: "caption", caption });
   assert.equal(await page.locator("#interpreter-captions").count(), 0);
-  console.log(JSON.stringify({ browser: context.browser().version(), settingsPersistence: true, offscreenSettingsTransport: true, validationCleanup: true, domMemoryFanOut: true, htmlInjectionRejected: true, replacedSessionRejected: true, singleOverlay: true, audioTranslation: "not exercised", passed: true }));
+  console.log(JSON.stringify({ browser: context.browser().version(), settingsPersistence: true, pendingStartInterrupted: true, offscreenSettingsTransport: true, validationCleanup: true, domMemoryFanOut: true, htmlInjectionRejected: true, replacedSessionRejected: true, singleOverlay: true, audioTranslation: "not exercised", passed: true }));
 } finally {
   await context?.close();
   if (companion) await new Promise((closed) => companion.close(closed));

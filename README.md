@@ -53,7 +53,13 @@ counts. Closing the popup is intended to leave the offscreen owner running;
 these capture lifetimes and recovery after companion shutdown. The code connects
 original tab audio to the audio destination to preserve playback; audible output
 was confirmed by the user in the capture checks. The local path displays Korean
-subtitles after each speech segment; model preparation is below.
+subtitles after each speech segment; model installation is below. Explicit Start
+first prepares the selected local models, then acquires the tab's audio stream.
+The popup displays “Preparing translation session…” during this bounded wait
+(up to 60 seconds on the companion). Stop and setting changes cancel preparation
+without starting recording. Native MLX loading already in progress may finish in
+the shared worker; its late completion cannot restart capture. This loads model
+files, but does not eliminate first-inference compilation or guarantee caption latency.
 
 The popup selects translation provider, speech recognizer, input/subtitle languages,
 and compatible model IDs. Defaults are local MLX/Ollama with English → Korean.

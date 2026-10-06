@@ -21,7 +21,8 @@ export type CaptureCommand =
   | { target: "worker"; type: "start" | "stop" | "status" }
   | { target: "worker"; type: "configure"; settings: SessionSettings }
   | { target: "worker"; type: "settings" }
-  | { target: "offscreen"; type: "start"; streamId: string; tabId: number; settings?: SessionSettings }
+  | { target: "offscreen"; type: "start"; tabId: number; settings?: SessionSettings }
+  | { target: "worker"; type: "stream-id"; tabId: number }
   | { target: "offscreen"; type: "stop" | "status" }
   | { target: "worker"; type: "caption"; caption: Caption }
   | { target: "worker"; type: "capture-status"; status: CaptureStatus };

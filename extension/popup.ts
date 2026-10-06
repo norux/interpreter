@@ -53,7 +53,7 @@ form.addEventListener("change", (event) => {
   visibility();
   const settings = selected();
   start.disabled = true;
-  pending = pending.then(() => send({ type: "configure", settings }));
+  pending = send({ type: "configure", settings });
 });
 start.addEventListener("click", () => {
   if (!form.reportValidity()) return;
@@ -64,7 +64,7 @@ start.addEventListener("click", () => {
     await send({ type: "start" });
   });
 });
-stop.addEventListener("click", () => { pending = pending.then(() => send({ type: "stop" })); });
+stop.addEventListener("click", () => { pending = send({ type: "stop" }); });
 chrome.runtime.onMessage.addListener((message) => {
   if (message.target === "worker" && message.type === "capture-status") render(message.status);
 });

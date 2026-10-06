@@ -9,6 +9,14 @@ async function readSettings(): Promise<SessionSettings> {
 
 const idle: CaptureStatus = { state: "idle", message: "Ready to capture tab audio." };
 let operations = Promise.resolve();
+let startGeneration = 0;
+
+async function interruptStart() {
+  startGeneration++;
+  if ((await readStatus()).state === "starting" && await hasOffscreen()) {
+    await chrome.runtime.sendMessage({ target: "offscreen", type: "stop" });
+  }
+}
 
 async function hasOffscreen() {
   return (await chrome.runtime.getContexts({ contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT] })).length > 0;
@@ -37,6 +45,7 @@ async function stopCapture(): Promise<CaptureStatus> {
 }
 
 async function startCapture(): Promise<CaptureStatus> {
+  const started = startGeneration;
   await stopCapture();
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || !tab.url || !/^https?:/.test(tab.url)) {
@@ -51,8 +60,10 @@ async function startCapture(): Promise<CaptureStatus> {
       reasons: [chrome.offscreen.Reason.USER_MEDIA],
       justification: "Capture user-selected tab audio and preserve its original playback.",
     });
-    const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
-    const next: CaptureStatus = await chrome.runtime.sendMessage({ target: "offscreen", type: "start", streamId, tabId: tab.id, settings: await readSettings() });
+    const settings = await readSettings();
+    if (started !== startGeneration) return stopCapture();
+    const next: CaptureStatus = await chrome.runtime.sendMessage({ target: "offscreen", type: "start", tabId: tab.id, settings });
+    if (started !== startGeneration) return stopCapture();
     if (next.state === "capturing" && next.sessionId) {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
       await chrome.tabs.sendMessage(tab.id, { target: "captions", type: "start", sessionId: next.sessionId });
@@ -76,6 +87,12 @@ function enqueue(task: () => Promise<CaptureStatus>): Promise<CaptureStatus> {
 
 chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) => {
   if (sender.id !== chrome.runtime.id || message.target !== "worker") return;
+  if (message.type === "stream-id") {
+    if (sender.url !== chrome.runtime.getURL("offscreen.html")) return;
+    void readStatus().then(async (current) => current.state === "starting" && current.tabId === message.tabId
+      ? chrome.tabCapture.getMediaStreamId({ targetTabId: message.tabId }) : "").then(respond, () => respond(""));
+    return true;
+  }
   if (message.type === "caption") {
     if (sender.url !== chrome.runtime.getURL("offscreen.html")) return;
     void enqueue(async () => {
@@ -116,23 +133,28 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
     return true;
   }
   if (message.type === "configure") {
-    void enqueue(async () => {
+    void interruptStart().then(() => enqueue(async () => {
       const next = await stopCapture();
       await chrome.storage.local.set({ sessionSettings: message.settings });
       return next;
-    }).then(respond);
+    })).then(respond);
     return true;
   }
-  const task = message.type === "status" ? readStatus() : enqueue(message.type === "start" ? startCapture : stopCapture);
+  const task = message.type === "status" ? readStatus() : message.type === "start"
+    ? enqueue(startCapture) : interruptStart().then(() => enqueue(stopCapture));
   void task.then(respond, (error) => respond({ state: "error", message: String(error) }));
   return true;
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  void enqueue(async () => (await readStatus()).tabId === tabId ? stopCapture() : readStatus());
+  void readStatus().then(async (current) => {
+    if (current.tabId === tabId) { await interruptStart(); await enqueue(stopCapture); }
+  });
 });
 
 chrome.tabs.onUpdated.addListener((tabId, change) => {
   if (change.status !== "loading" && !change.url) return;
-  void enqueue(async () => (await readStatus()).tabId === tabId ? stopCapture() : readStatus());
+  void readStatus().then(async (current) => {
+    if (current.tabId === tabId) { await interruptStart(); await enqueue(stopCapture); }
+  });
 });

@@ -950,3 +950,69 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   p50/p95/cold/warm/sample/queue/drop 및 audible 원음/의미/streaming 긴 cue/Stop/
   session 교체를 검증해야 한다. 현재 7a acceptance 전체는 미통과이며 외부 blocker는 없다.
   README 재현 명령과 docs/verification.md 상세 근거를 보존했다. 7b/8/9/최종 완료는 남았다.
+
+### Ralph iteration 2/30 — 2026-10-06 — 항목 7a Start 모델 준비 진척
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7a의 명시 Start 모델 준비 단계**를 구현했다. 큰 항목 분할 규칙을
+  적용하며 **7a checkbox는 미체크로 유지**한다. 다른 agent/worktree/push/runner 변경/
+  credential 파일/cloud inference/사용자 음성은 사용하지 않았다.
+- 기존 local adapter/session에서 cached MLX를 기존 단일 worker에 로드하고,
+  Ollama는 동일 4096 context의 빈 messages 요청으로 준비한다. 준비 중 caption/
+  합성 ASR 입력은 없으며 새 provider framework/공통 계약은 없다. cloud 모델에는
+  준비 API를 호출하지 않는다. 500ms silence와 최대 6초 구절은 아직 유지했다.
+- companion의 ready는 준비 완료 뒤 전송하며 준비 전체는 60초로 제한한다.
+  offscreen은 65초 한도에서 상태/실제 오류를 보여주고 완료 뒤에만 worker에서
+  새 stream ID를 얻어 audio source를 시작한다. token은 준비 전 인증에서 소비한다.
+  popup Stop/설정 변경, 탭 이동/닫기는 pending Start를 취소하며 queue 뒤에서 기다리지
+  않는다. MLX native loading은 취소 뒤 끝날 수 있으나 기존 executor 직렬화와 세션
+  generation 검증으로 늦은 ready가 녹음을 시작하지 못한다.
+- 구현 전 준비 regression 7개 모두 실패(exit 1)했다. 구현 후 준비 Python 10 cases는
+  모델 선택/빈 preload/worker 실행/5가지 Ollama 오류/취소/ready 순서와 오류 시 미준비/
+  restart/disconnect 중 native 직렬화를 검증한다. 새 JS offscreen test는 준비 전
+  stream/getUserMedia 0, model 오류 원문, Stop/late-ready 거부, ready 뒤 stream 획득을
+  확인한다. 기존 worker test에 준비 중 Stop/configure interruption을 추가했다.
+- `npm run test:settings-browser` 최종 exit 0: built popup의 gated 준비 중 Stop/설정
+  변경, 기존 persistence/POST/validation cleanup/DOM memory fan-out/HTML injection/
+  session 교체 checks 통과. Chrome for Testing 153.0.8010.12/Playwright 1.63.0.
+  fixture 검증이며 모델 inference 성공으로 기록하지 않았다.
+- 실제 native toolbar Start → “Preparing translation session…” → native Stop → idle을
+  확인했다. `test:local-browser`의 stopped는 active capture 없음/offscreen 0/host 0을
+  통과했다. 두 번째 native Start에서 모델 준비 뒤 실제 tabCapture가 성공했고 popup을
+  닫은 상태로 macOS Samantha 165 wpm 비민감 날씨/공원 음성이 실제 두 모델을 거쳐
+  한국어로 표시됐다. 첫 partial receipt 900 frames/432,000 samples/peak 25,160,
+  replay check 1750 frames/840,000 samples에서 맑은 날씨/점심 후 공원 산책 의미를
+  메모리의 실제 한국어 text로 검토했다. 마지막 native Stop의 cleanup도 통과했다.
+  final interactive harness exit 0. Apple M5/16 GiB, Python 3.12.15/mlx-audio 0.5.8/
+  Ollama 0.35.1, 기존 cached 0.6B 8bit ASR/Q4_K_M text, English→Korean이다.
+- docs/verification/latency/prepared-partial.png를 view_image로 검토했다. 읽히는 하단
+  중앙의 흰 outline 자막/작은 어두운 배경이며 control과 떨어져 있다. **미완성 날씨
+  partial screenshot**이므로 final 의미/전체 자막 appearance acceptance로 쓰지 않는다.
+  기존 local/normal.png는 원래 byte로 복원했다. 생성 오디오는 ignored profile 안이다.
+- 정확한 한계: 이번에는 준비 시간/first-final paint p50/p95/cold-warm 비교/queue peak/
+  긴 cue streaming 비교/새 원음 청취를 측정하지 않았다. unmuted/PCM 도착을 사람이
+  들은 증거로 대체하지 않는다. 준비 loading은 첫 inference compilation을 제거하지
+  않으며 이 단계의 지연 개선 수치는 주장하지 않는다. 기존 event 실측은 보존한다.
+- 실패 수정: Python line length, 취소된 Start가 transient starting을 반환하는 JS 회귀,
+  unknown provider의 ready-before-error를 가정한 fixture(이제 invalid 선택은 ready 없이
+  error/secret sanitation/close/restart를 확인)를 고쳤다. 첫 full verify는 1 failed/
+  152 passed/exit 1, 수정 후 focused 2 cases와 전체가 통과했다. 최초 noninteractive
+  local harness는 stdin EOF로 exit 1, PTY 재실행은 성공했다. local fixture가 8766을
+  사용 중인 settings-browser 실행은 exit 13; 종료 후 재실행 성공했다. tests/runner/
+  acceptance를 약화하지 않았다. 상세 명령/실패/한계는 docs/verification.md에 있다.
+- 최종 base `uv sync --locked` 후 `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify`
+  exit 0: lint/typecheck/build, **JS 10 + Python 153**, failures/skips/warnings 0,
+  Python 66.08초. `uv lock --check`, `git diff --check` 통과. dependency/lock 변경 없음.
+  dedicated browser/companion/fixture/Ollama를 종료했고 8765/8766/11434 listener 없음.
+  키/가중치/오디오/사용자 전사문/임시 .ralph는 커밋하지 않는다.
+- **다음 iteration도 7a, 외부 blocker 없음**: 같은 생성 음성으로 500ms와 250–300ms
+  silence 후보의 의미/구절 분할/ASR 품질을 비교하고 근거가 있을 때만 적용한다.
+  native Chrome tabCapture의 revision-aware first/final 실제 paint를 계측해 변경 전후
+  p50/p95/sample/cold-warm/queue-drop을 기록해야 한다. 이전 commit의 이벤트 baseline은
+  paint 측정이 아니므로 대신 쓰지 않는다. 긴 cue 무손실/partial-final 교체/Stop 및
+  provider 교체 후 늦은 결과/원음 청취/bounded queue acceptance도 완료해야 한다.
+  이 준비 단계는 끝났으므로 다시 구현하지 않는다. README의 local-browser 재현 명령,
+  기존 tests/local-latency.py와 numeric events, tests/browser_metrics.py를 출발점으로
+  사용한다. ASR 파일 token streaming을 live PCM ASR로 표현하지 않는다.
+  7b/8(TED 600초)/9와 최종 완료는 남아 있다.

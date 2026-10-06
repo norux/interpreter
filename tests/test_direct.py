@@ -301,8 +301,10 @@ def test_companion_rejects_missing_key_or_unknown_selection(
             "ws://127.0.0.1:8765/audio", headers={"origin": origin}
         ) as socket:
             socket.send_json(auth)
-            assert socket.receive_json()["type"] == "ready"
             event = socket.receive_json()
+            if provider == "openai-direct":
+                assert event["type"] == "ready"
+                event = socket.receive_json()
             assert event["type"] == "error" and expected in event["message"]
             assert "fixture-secret" not in repr(event)
             with pytest.raises(WebSocketDisconnect):
