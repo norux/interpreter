@@ -6,7 +6,12 @@ import struct
 import time
 import weakref
 
-from server.sessions.local import MlxEngine, MlxTranscriber, SpeechSegments
+from server.sessions.local import (
+    LocalSession,
+    MlxEngine,
+    MlxTranscriber,
+    SpeechSegments,
+)
 
 # Controlled display baseline only, never a product setting or historical build.
 baseline = os.environ.get("INTERPRETER_PAINT_BASELINE") == "1"
@@ -17,6 +22,34 @@ transcribers = weakref.WeakSet()
 original_init = MlxTranscriber.__init__
 original_transcribe = MlxEngine.transcribe
 model_metrics = {}
+lifecycle = os.environ.get("INTERPRETER_LIFECYCLE_METRICS") == "1"
+current_session = None
+
+
+def lifecycle_metric(name, session_id):
+    if lifecycle:
+        print(
+            json.dumps({
+                "metric": name, "sessionId": session_id,
+                "atMs": time.time() * 1000,
+            }),
+            flush=True,
+        )
+
+
+original_prepare = LocalSession.prepare
+
+
+async def prepare(self):
+    global current_session
+    current_session = self.session_id
+    lifecycle_metric("prepare.start", self.session_id)
+    await original_prepare(self)
+    lifecycle_metric("prepare.end", self.session_id)
+
+
+if lifecycle:
+    LocalSession.prepare = prepare
 
 
 def initialize(self, *args):
@@ -25,8 +58,13 @@ def initialize(self, *args):
 
 
 def transcribe(self, *args):
+    session_id = current_session
+    lifecycle_metric("asr.start", session_id)
     started = time.monotonic()
-    text = original_transcribe(self, *args)
+    try:
+        text = original_transcribe(self, *args)
+    finally:
+        lifecycle_metric("asr.end", session_id)
     import mlx.core as mx
 
     model_metrics.update(
@@ -45,10 +83,15 @@ from server.app import app as companion  # noqa: E402
 
 async def app(scope, receive, send):
     origin_ms = None
+    session_id = None
 
     async def measured_receive():
-        nonlocal origin_ms
+        nonlocal origin_ms, session_id
         message = await receive()
+        if lifecycle and scope["type"] == "websocket" and message.get("text"):
+            session_id = json.loads(message["text"]).get("sessionId")
+        if message["type"] == "websocket.disconnect":
+            lifecycle_metric("disconnect", session_id)
         packet = message.get("bytes")
         if origin_ms is None and packet and len(packet) >= 28:
             # Frame timestamps start at zero; reception includes that 20 ms frame.
@@ -60,6 +103,8 @@ async def app(scope, receive, send):
     async def measured_send(message):
         if message["type"] == "websocket.send" and message.get("text"):
             reply = json.loads(message["text"])
+            if reply.get("type") == "ready":
+                lifecycle_metric("ready", reply["sessionId"])
             if reply.get("type") in ("receipt", "caption"):
                 metric = {
                     "metric": reply["type"],
@@ -91,4 +136,8 @@ async def app(scope, receive, send):
                     return
         await send(message)
 
-    await companion(scope, measured_receive, measured_send)
+    try:
+        await companion(scope, measured_receive, measured_send)
+    finally:
+        if scope["type"] == "websocket":
+            lifecycle_metric("session.end", session_id)

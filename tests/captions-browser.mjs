@@ -82,10 +82,16 @@ try {
     await send({ type: "caption", caption: { ...caption, revision: 4, translation: long, final: true } });
     let displayed = "";
     let previous = "";
-    while (await page.locator("#interpreter-captions").count()) {
-      const text = await cue.textContent();
-      if (text !== previous) { displayed += text; previous = text; }
-      assert.ok(await cue.evaluate((element) => element.clientHeight <= Number.parseFloat(getComputedStyle(element).lineHeight) * 2 + 9));
+    while (true) {
+      // Read presence, text and layout together so expiry cannot detach the cue between checks.
+      const layout = await page.evaluate(() => {
+        const element = document.querySelector("#interpreter-captions")?.shadowRoot?.querySelector(".cue");
+        return element ? { text: element.textContent,
+          height: element.clientHeight, lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight) } : null;
+      });
+      if (!layout) break;
+      if (layout.text !== previous) { displayed += layout.text; previous = layout.text; }
+      assert.ok(layout.height <= layout.lineHeight * 2 + 9, `Long final exceeded two lines: ${JSON.stringify(layout)}`);
       await page.waitForTimeout(100);
     }
     assert.equal(displayed, long.trim(), "Every character of a long cue must appear");

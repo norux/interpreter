@@ -2030,3 +2030,157 @@ Ollama were stopped; no listeners remain on 8765/8766/11434 (`lsof` exits 1 for
 that empty result). Dependency/lockfiles and production capture/output contracts
 were not changed. No model weights, keys, generated audio, user transcripts or
 temporary `.ralph` state are committed.
+
+## Ralph iteration 7/30 — real local inference interruption and restart (2026-10-06)
+
+Worked on the next unfinished item, **7a**, keeping its checkbox open. No repository
+AGENTS.md exists; the supplied instructions apply. `.ralph/verification.txt` says
+`No completion verification attempted in this run.` No other agent, worktree,
+push, publication, runner modification or credential lookup was used.
+
+Added a `lifecycle` mode to the existing real-browser harness and opt-in numeric
+companion instrumentation. It wraps the existing model preparation and actual
+native MLX invocation, recording start/end, WebSocket disconnect and session end.
+The built capture, model and output code and their contracts are unchanged. All
+capture starts use the native Extensions toolbar → Interpreter → Start on the
+fixture. Stop and provider configuration run through the actual popup document
+opened in an inactive test tab, with Playwright operating its controls. The popup
+closes after the action. That automation does not initiate capture or impersonate
+an authorized sender. Each subsequent Start again uses the native toolbar.
+
+Commands (uv and Ollama are the existing ignored repository tools):
+
+```sh
+OLLAMA_NO_CLOUD=1 .tools/ollama/ollama serve
+PATH="$PWD/.tools/uv/bin:$PATH" npm run lint
+npm run typecheck
+npm run build
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-browser.mjs lifecycle
+npm run test:js
+npm run test:captions-browser
+PATH="$PWD/.tools/uv/bin:$PATH" uv sync --locked
+PATH="$PWD/.tools/uv/bin:$PATH" npm run verify
+PATH="$PWD/.tools/uv/bin:$PATH" uv lock --check
+git diff --check
+```
+
+The interactive sequence was native Start/close → `interrupt` → native Start/close
+→ `recover` → `replace` → native Start/close → `recover` → `lifecycle-report` →
+native Stop → `stopped` → `exit`. The corrected second browser run exited **0**.
+Environment matches the previous run: Chrome for Testing **153.0.8010.12**,
+Playwright **1.63.0**, Apple M5/16 GiB, Python **3.12.15**, mlx-audio **0.5.8**,
+Ollama **0.35.1**, cached MLX Qwen3-ASR 0.6B 8bit and
+qwen3:4b-instruct Q4_K_M/context4096, English → Korean, 300 ms silence/current
+quality boundary/6-second cap. HF offline flags and cloud-disabled Ollama were
+used. Generated Samantha 165 wpm weather/park WAV hashes match iteration 5's
+paint-after evidence. Temporary generated audio stays in the ignored profile;
+only numeric/identity/geometry/hash evidence is committed.
+
+### Failures and correction
+
+The first lint run failed on an assignment inside a while condition; it was
+rewritten as an ordinary assignment. The next lint run found the expanded Python
+import exceeding 88 columns; the import was split. Both checks then passed.
+The first actual browser run performed both interruptions and real recoveries,
+but its report failed `assert.ok(asrEnd)` and exited **1** after native Stop and
+cleanup. Its translation case incorrectly searched for ASR completion after the
+first translation partial, although ASR precedes translation. The correction
+selects the interrupted utterance's latest ASR start and matching end. Its
+no-final assertion likewise excludes earlier already-completed utterances in the
+same session. This retains the requirement to interrupt the current translation
+before final, and to Stop before native ASR completion. The full browser sequence
+was rerun; the failed run is not passing evidence.
+
+### Real model/capture evidence
+
+[Numeric report](verification/latency/lifecycle.json) records three distinct
+sessions and two interruptions:
+
+- Stop during actual first MLX inference: native inference lasted **1031.749 ms**;
+  Stop began **8.940 ms** after inference start, disconnect followed **32.933 ms**
+  after that action, and popup idle was observed **57 ms** after the action.
+  Native inference completed **989.876 ms after disconnect**, after the session
+  coroutine had ended. Its result produced no caption. Capture tracks were no
+  longer active; offscreen contexts and caption hosts were both **0**.
+- Provider change during the second session's actual weather translation: one
+  painted partial of utterance 2 preceded configuration. Luna selection began
+  **5.073 ms** after that partial's server emission; disconnect followed
+  **12.977 ms** later and idle was observed **34 ms** after the action. That
+  utterance produced no final and no caption after disconnect/cleanup. Earlier
+  utterance 1 was the already-completed park recovery. Saved settings were Luna,
+  then restored to Local; no cloud session was started and no cloud inference
+  is claimed.
+- Each native restart used a distinct session and actual generated park audio,
+  producing **13 partial revisions plus final revision 14**, all painted. The
+  final Korean sentence was reviewed in terminal: it preserves the park walk
+  after lunch, using the previously observed “decided to walk” wording. Keyword
+  checks supplement that review; general model accuracy is not asserted. Both
+  new-session finals had a matching covering main-frame Chromium Paint. There
+  were **29 painted caption revisions** overall (14 + one interrupted partial +
+  14), no cancelled-session delivery after cleanup or after the replacement Start.
+
+This demonstrates suppression of a real native result that completes after Stop,
+and cancellation during real Ollama streaming. It does not inject a fabricated
+late caption to claim a real race. The native restart clicks happened after the
+first native inference ended, so this run does not establish overlapping native
+inference/replacement preparation; the existing serialized-worker fixture checks
+remain separate evidence. Paint start is not GPU/display presentation; no new
+screenshot/OCR or visual-review claim is made.
+
+Preparation start → ready was **1597.402 ms** initially, then **7.000 ms** and
+**37.586 ms** in the same companion. The first duration includes cached-model
+loading, not model download or fresh OS caches. These three observations are
+not a p50/p95 benchmark, a controlled preparation-before/after comparison, or
+full native-click → capture timing: offscreen creation and the earlier click
+are excluded. Cancelled first inference is not a first-caption latency sample.
+Iteration 5's warm first/final Paint comparison remains the latency-improvement
+evidence; this iteration does not alter that baseline or claim additional speedup.
+
+Sampled pending-audio peak **0 ms**, frame/utterance drops **0**. Receipts sample
+once per 50 frames and these are short isolated clips, not long-media queue
+stability. An independent JSON check passed session identity, timing arithmetic,
+interruption ordering, cleanup zeros, absent late trace rows, recovery-final Paint
+identity, geometry/paint arithmetic, queue/drop values and matching waveform hashes.
+Both browser runs' final native Stops passed idle/no active capture/offscreen 0/
+host 0. Speaker listening remains **unverified** because these UI tools expose no
+speaker audio; unmuted controls or PCM are not treated as hearing confirmation.
+
+Remaining 7a work: successive real long utterances whose new captions arrive before
+the preceding final's timed parts finish, full native Start loading/first-inference
+versus prepared timing, and original-sound listening confirmation. Real inference
+Stop/restart and a provider configuration interruption now have passing evidence;
+do not redo the same harness work. Source Auto (7b), TED continuous advancing
+600 seconds (8), and final documentation/checks (9) remain. Independent remaining
+implementation/measurement can proceed without an external change; 7a completion
+still needs speaker listening confirmation. No completion promise is emitted.
+
+The first caption-fixture run failed the existing long-final two-line predicate
+and exited **1**. Adding actual layout values to its failure message and rerunning
+serially passed, so the first failure did not establish a reproducible third
+line. A separate deterministic probe against the actual built sink held a cue
+handle across its expiry: attached height **51**, line height **43.008 px**;
+after expiry it was detached, height **0**, computed line height empty, and the
+old two-line predicate was **false**. The old polling loop read host presence,
+text and layout in separate awaited calls; expiry could occur between them. This
+is the supported explanation for that intermittent failure, not measured geometry
+from the original failing run. Polling now reads all three in one DOM evaluation,
+retaining the two-line threshold, full final text equality and expiry checks.
+The corrected `npm run test:captions-browser` exited **0**: normal/narrow/wrapper
+fullscreen, all long-final characters, controls, revisions, expiry, Stop/clear
+and late-caption rejection passed. It is generated-caption evidence, not real
+model/audio or physical speaker evidence. Its PNG bytes are unchanged; no new
+visual review is claimed. The deterministic expiry probe exited **0** and stored
+only an ignored dedicated profile.
+
+The first complete `npm run verify` before the polling correction passed lint,
+typecheck/build and **11 JS + 160 Python tests**, Python **66.14 seconds**, with
+no failures/skips/warnings. The final check was rerun after correcting polling.
+
+Final `npm run verify` after the polling fix: **exit 0**, lint/typecheck/build,
+**11 JS + 160 Python tests**, failures/skips/warnings **0**, Python **65.99 seconds**.
+`uv lock --check`, `git diff --check` and the independent lifecycle numeric/hash
+checks passed. Dedicated browser/companion/fixture/probe processes and Ollama
+were stopped; no listeners remain on 8765/8766/11434 (`lsof` exits 1 for no
+listeners). No dependency/lockfile, production contract or runner changes;
+no secrets, weights, generated audio, user transcript or temporary `.ralph` state
+are committed. README and the durable plan retain the remaining acceptance work.

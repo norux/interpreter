@@ -11,11 +11,13 @@ import { chromium } from "playwright";
 import { traceCaptionPaints } from "./caption-paint.mjs";
 
 const mode = process.argv[2];
-assert.ok(mode === undefined || ["before", "after", "stream"].includes(mode));
+assert.ok(mode === undefined || ["before", "after", "stream", "lifecycle"].includes(mode));
+const lifecycle = mode === "lifecycle";
 const streaming = mode === "stream";
-const paintPhase = streaming ? undefined : mode;
-const instrumented = !!paintPhase || streaming;
+const paintPhase = streaming || lifecycle ? undefined : mode;
+const instrumented = !!paintPhase || streaming || lifecycle;
 const metrics = [];
+const interruptions = [];
 let finishTrace;
 let paintReport;
 let lineBuffer = "";
@@ -71,6 +73,7 @@ try {
     "--host", "127.0.0.1", "--port", "8765", "--ws-max-size", "4096", "--ws-max-queue", "8"], {
     env: { ...process.env, PYTHONPATH: ".", INTERPRETER_EXTENSION_ID: extensionId,
       INTERPRETER_PAINT_BASELINE: paintPhase === "before" ? "1" : "0",
+      INTERPRETER_LIFECYCLE_METRICS: lifecycle ? "1" : "0",
       HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -134,11 +137,140 @@ try {
     } }), tabId);
   }
   console.log(JSON.stringify({ ready: true, browser: context.browser().version(), extensionId,
-    mode, profile, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Enter long (stream mode), measure (paint mode), play, check, accept, stopped, or exit." }));
+    mode, profile, instructions: "Native Extensions toolbar → Interpreter → Start; close popup. Lifecycle: interrupt → native Start → recover → replace → native Start → recover → lifecycle-report → native Stop → stopped → exit. Other modes: long, measure, play, check, accept, stopped, exit." }));
   input = createInterface({ input: process.stdin });
   for await (const command of input) {
     try {
       if (command === "exit") break;
+      if (command === "interrupt" || command === "replace") {
+        assert.ok(lifecycle);
+        assert.equal(interruptions.length, command === "interrupt" ? 0 : 1);
+        if (command === "replace") assert.ok(interruptions[0].recovery);
+        const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
+        assert.equal(captureStatus.state, "capturing");
+        const popupUrl = `chrome-extension://${extensionId}/popup.html`;
+        // A real popup document handles Stop/configure; it never initiates capture.
+        const created = await worker.evaluate((url) => chrome.tabs.create({ url, active: false }), popupUrl);
+        let popup;
+        try {
+          const deadline = Date.now() + 90000;
+          popup = context.pages().find((p) => p.url() === popupUrl);
+          while (!popup) {
+            assert.ok(Date.now() < deadline, "No real popup document");
+            await page.waitForTimeout(20);
+            popup = context.pages().find((p) => p.url() === popupUrl);
+          }
+          await popup.locator("#stop:enabled").waitFor();
+          const start = metrics.length;
+          await page.locator("audio").evaluate(async (element) => { element.src = "/0.wav"; await element.play(); });
+          const underway = () => metrics.slice(start).find((m) => m.sessionId === captureStatus.sessionId
+            && (command === "interrupt" ? m.metric === "asr.start" : m.metric === "caption" && !m.final));
+          while (!underway()) {
+            assert.ok(Date.now() < deadline, "No actual inference in progress");
+            await page.waitForTimeout(10);
+          }
+          const actionAtMs = Date.now();
+          if (command === "interrupt") await popup.locator("#stop").click();
+          else await popup.locator('[name="provider"]').selectOption("luna");
+          await popup.locator('#status[data-state="idle"]').waitFor();
+          const idleAtMs = Date.now();
+          const captured = await worker.evaluate(() => chrome.tabCapture.getCapturedTabs());
+          const offscreen = await worker.evaluate(() => chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] }));
+          assert.ok(!captured.some((tab) => tab.status === "active"));
+          assert.equal(offscreen.length, 0);
+          assert.equal(await page.locator("#interpreter-captions").count(), 0);
+          if (command === "replace") {
+            const saved = await worker.evaluate(() => chrome.storage.local.get("sessionSettings"));
+            assert.equal(saved.sessionSettings.provider, "luna");
+            await popup.locator('[name="provider"]').selectOption("local");
+            await popup.waitForFunction(async () => (await chrome.storage.local.get("sessionSettings")).sessionSettings.provider === "local");
+          }
+          const sample = { action: command, sessionId: captureStatus.sessionId, underwayAtMs: underway().atMs,
+            actionAtMs, idleAtMs, offscreenContexts: 0, captionHosts: 0, activeCapturedTabs: 0 };
+          interruptions.push(sample);
+          console.log(JSON.stringify({ interrupted: sample, next: "Native toolbar Start, close popup, then recover" }));
+        } finally {
+          if (popup) await popup.close();
+          else await worker.evaluate((id) => chrome.tabs.remove(id), created.id);
+          await page.bringToFront();
+        }
+      }
+      if (command === "recover") {
+        assert.ok(lifecycle);
+        const sample = interruptions.at(-1);
+        assert.ok(sample && !sample.recovery);
+        const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));
+        assert.equal(captureStatus.state, "capturing");
+        assert.notEqual(captureStatus.sessionId, sample.sessionId);
+        const start = metrics.length;
+        await page.locator("audio").evaluate(async (element) => { element.src = "/1.wav"; await element.play(); });
+        const deadline = Date.now() + 90000;
+        while (!metrics.slice(start).some((m) => m.metric === "caption" && m.final && m.sessionId === captureStatus.sessionId)) {
+          assert.ok(Date.now() < deadline, "No replacement-session real final");
+          await page.waitForTimeout(20);
+        }
+        const translated = await page.locator("#interpreter-captions .cue").textContent();
+        console.log(JSON.stringify({ review: sample.action, translated }));
+        assert.match(translated, /점심/); assert.match(translated, /공원/); assert.match(translated, /(?:걷|산책|걸)/);
+        await page.waitForTimeout(100);
+        sample.recovery = { sessionId: captureStatus.sessionId, qualityChecks: true,
+          finalAtMs: metrics.slice(start).find((m) => m.metric === "caption" && m.final).atMs };
+        console.log(JSON.stringify({ recovered: sample.recovery }));
+      }
+      if (command === "lifecycle-report") {
+        assert.ok(lifecycle && finishTrace);
+        assert.equal(interruptions.length, 2);
+        assert.ok(interruptions.every((s) => s.recovery));
+        const rows = await finishTrace(); finishTrace = undefined;
+        for (const sample of interruptions) {
+          const old = metrics.filter((m) => m.sessionId === sample.sessionId);
+          const disconnect = old.find((m) => m.metric === "disconnect");
+          const end = old.find((m) => m.metric === "session.end");
+          assert.ok(disconnect && end);
+          const asrStart = old.filter((m) => m.metric === "asr.start" && m.atMs <= sample.underwayAtMs).at(-1);
+          assert.ok(asrStart);
+          const asrEnd = old.find((m) => m.metric === "asr.end" && m.atMs > asrStart.atMs);
+          assert.ok(asrEnd);
+          if (sample.action === "interrupt") assert.ok(asrEnd.atMs > disconnect.atMs,
+            "Stop must happen before actual native inference completes");
+          else assert.ok(!old.some((m) => m.metric === "caption" && m.final && m.atMs > asrStart.atMs),
+            "Provider change must interrupt translation before its final");
+          assert.ok(!old.some((m) => m.metric === "caption" && m.atMs >= disconnect.atMs));
+          assert.ok(!rows.some((r) => r.sessionId === sample.sessionId && r.type === "caption" && r.atMs >= sample.idleAtMs));
+          const nextStart = rows.find((r) => r.type === "start" && r.sessionId === sample.recovery.sessionId);
+          assert.ok(nextStart);
+          assert.ok(!rows.some((r) => r.type === "caption" && r.sessionId === sample.sessionId && r.atMs >= nextStart.atMs));
+          const final = rows.find((r) => r.type === "caption" && r.sessionId === sample.recovery.sessionId && r.final);
+          assert.ok(final?.paintAtMs !== null && final?.paintAtMs !== undefined);
+          Object.assign(sample, { disconnectAtMs: disconnect.atMs, sessionEndAtMs: end.atMs,
+            nativeAsrStartAtMs: asrStart.atMs, nativeAsrEndAtMs: asrEnd.atMs,
+            noLateCaption: true, recoveryFinalPaintAtMs: final.paintAtMs });
+        }
+        const preparations = metrics.filter((m) => m.metric === "prepare.start").map((start, index) => {
+          const end = metrics.find((m) => m.metric === "prepare.end" && m.sessionId === start.sessionId);
+          const ready = metrics.find((m) => m.metric === "ready" && m.sessionId === start.sessionId);
+          assert.ok(end && ready);
+          return { sessionId: start.sessionId, firstPreparation: index === 0,
+            startAtMs: start.atMs, endAtMs: end.atMs, readyAtMs: ready.atMs,
+            prepareMs: end.atMs - start.atMs, readyMs: ready.atMs - start.atMs };
+        });
+        assert.equal(preparations.length, 3);
+        const receipts = metrics.filter((m) => m.metric === "receipt");
+        const report = { browser: context.browser().version(), nativeCapture: true, realLocalModels: true,
+          captureStarts: "native toolbar Start on the fixture for each session; Stop/configure via real popup document automation",
+          speech: "macOS Samantha 165 wpm; weather then park after lunch", wavSha256: clips.map((c) => createHash("sha256").update(c).digest("hex")),
+          preparations, interruptions, trace: rows,
+          maxPendingAudioMs: Math.max(0, ...receipts.map((r) => r.pendingAudioMs)),
+          droppedFrames: Math.max(0, ...receipts.map((r) => r.droppedFrames)),
+          droppedUtterances: Math.max(0, ...receipts.map((r) => r.droppedUtterances)),
+          timingLimit: "cached weights; preparation-to-ready excludes native click/offscreen creation, no cold-cache comparison",
+          listening: "not verified; UI tools expose no speaker audio" };
+        assert.ok(report.maxPendingAudioMs <= 8000);
+        assert.equal(report.droppedFrames, 0); assert.equal(report.droppedUtterances, 0);
+        await writeFile("docs/verification/latency/lifecycle.json", `${JSON.stringify(report, null, 2)}\n`);
+        console.log(JSON.stringify(report));
+        measured = true; passed = true;
+      }
       if (command === "long") {
         assert.ok(streaming && finishTrace && tabId);
         const { captureStatus } = await worker.evaluate(() => chrome.storage.session.get("captureStatus"));

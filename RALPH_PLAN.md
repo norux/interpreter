@@ -1277,3 +1277,75 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   재구현하지 않는다. 다음 구현/브라우저 검증은 외부 변경 없이 진행 가능하며,
   전체 7a 완료에는 실제 원음 청취 확인이 필요하다. 7b(SourceAuto),8(TED600초),
   9/최종완료는 남아 있다.
+
+### Ralph iteration 7/30 — 2026-10-06 — 항목 7a 실제 inference 중단/재시작
+
+- 지정 checkout만 사용했다. AGENTS.md는 없고 사용자 지침을 적용했다.
+  `.ralph/verification.txt`는 `No completion verification attempted in this run.`이다.
+  다음 미완료 **7a만 진행**, 큰 항목 분할 규칙에 따라 **checkbox는 미체크 유지**다.
+  다른 agent/worktree/push/publish/runner/acceptance 변경/credential 조회/cloud 호출은 없다.
+- 기존 local-browser에 `lifecycle` 모드를 추가했다. test-local opt-in 계측이 실제
+  LocalSession 준비, native MLX transcribe 시작/종료, WS disconnect/session 종료를
+  기록한다. production capture/model/output 구현·계약/모델/의존성은 바꾸지 않았다.
+  **각3회 Start 모두 실제 native toolbar**에서 fixture를 대상으로 실행했고 popup을
+  닫았다. inference 시작/첫 translation partial을 감지한 뒤 자동 Stop/provider 변경은
+  inactive test tab의 **실제 popup document control**로 실행했다. 이 test tab은
+  Start/가짜 sender/가짜 audio/caption을 호출하지 않으며 종료 뒤 제거했다.
+- 첫 lint의 while-expression assignment와 Python import88열 실패를 수정했다.
+  첫 실제 browser run은 두 중단/복구를 실행했지만 report의 `assert.ok(asrEnd)`가
+  실패했다. 번역 partial 뒤에 ASR 종료가 온다는 잘못된 계측 조건을 고쳤다.
+  현재 중단 구절의 latest ASR start와 그 end를 짝짓고, 같은 session의 앞선
+  완료 구절 final을 제외해 **현재 구절은 final 전에 중단**하도록 확인한다.
+  native Stop/cleanup 뒤 첫 run exit1; 전체 revised sequence 재실행 exit0이다.
+  실패 run을 passing evidence로 기록하지 않는다.
+- 두 번째 실제 `node tests/local-browser.mjs lifecycle`의 native Start/close →
+  interrupt → native Start/close → recover → replace → native Start/close → recover →
+  lifecycle-report → native Stop/stopped/exit가 통과했다. Chrome153.0.8010.12/
+  Playwright1.63.0/AppleM5·16GiB/Python3.12.15/mlx-audio0.5.8/Ollama0.35.1,
+  cached0.6B8bit ASR/qwen3:4b-instruct Q4_K_M/context4096, English→Korean,
+  300ms silence/current quality boundary/6초 cap이다. HF offline/Ollama cloud disabled다.
+  Samantha165wpm 생성 날씨/공원 WAV hash는 iteration5 paint-after와 같다.
+- 실제 첫 ASR1031.749ms 중 시작8.940ms 뒤 Stop을 요청했다. WS disconnect는
+  요청32.933ms 뒤, idle57ms 뒤였고 **native ASR가 disconnect989.876ms 뒤 종료**했다.
+  session coroutine은 이미 종료했으며 해당 결과는 caption을 만들지 않았다.
+  inactive popup의 Luna 선택은 실제 weather utterance2의 첫 partial emission5.073ms
+  뒤였다. disconnect12.977ms/idle34ms 뒤이며 **현재 구절 final 및 이후 caption0**이다.
+  저장된 Luna 설정을 확인한 뒤 Local로 되돌렸고 cloud Start/추론은 하지 않았다.
+- 두 native restart는 각각 다른 session에서 실제 공원 음성 → 한국어 final을 만들었다.
+  각13partial+final revision14 모두 Paint가 있다. park/점심 뒤 걷기 의미를 terminal에서
+  검토했으며 기존의 “걷기로 했다” 표현/일반 모델 정확도 한계는 유지한다.
+  총29painted caption(14+중단partial1+14), cleanup/new Start 뒤 old-session caption0이다.
+  docs/verification/latency/lifecycle.json은 숫자/identity/geometry/hash만 보존한다.
+  독립 JSON검사의 시각 arithmetic/identity/cleanup/late trace/recovery Paint/queue/hash는
+  통과했다. native restart는 이전 native inference가 끝난 뒤였으므로 **실제 동시
+  native-inference/새 준비 대기 증거는 아니다**; 기존 직렬화 fixture는 별도다.
+- preparation.start→ready는 최초1597.402ms, 후속7.000/37.586ms(n3)다.
+  cached model loading이며 native click/offscreen 생성은 제외한다. full Start 시간/
+  cold-cache/통제된 준비 전후 비교/p50·p95/새 latency 개선 수치로 표현하지 않는다.
+  취소된 첫 inference를 첫-caption sample로 쓰지 않는다. iteration5 first/final
+  Paint 개선 실측은 유지한다. sampled pending peak0ms/frame·utterance drop0은
+  50frame receipt 간격의 짧은 isolated clips 근거이며 600초 안정성을 뜻하지 않는다.
+  두 run의 final native Stop은 idle/active capture없음/offscreen0/host0을 통과했다.
+- 별도 captions-browser 첫 run이 긴 final two-line assertion에서 실패/exit1했다.
+  diagnostic 추가 serial run은 통과했다. 실제 built sink의 deterministic expiry probe는
+  연결된 cue height51/lineHeight43.008px → 만료/분리 뒤 height0/lineHeight빈문자에서
+  old predicate=false를 확인했다. 첫 실패의 세부 geometry는 없으므로 expiry race가
+  원인이라는 것은 재현 probe와 기존 await 간격에 근거한 해석이다. polling에서
+  presence/text/layout을 한 DOM 평가로 읽도록 수정했다. two-line threshold/전체
+  문자/expiry assertion은 유지하며 layout 실패 메시지에 수치를 추가했다.
+- **다음 iteration도7a**: 연속 실제 긴 구절에서 새 caption이 이전 final timed part보다
+  먼저 올 때 모든 문자가 보이는지 먼저 검증/필요한 최소 수정을 진행한다.
+  full native Start loading/first-inference 대비 prepared timing과 **원음 청취**는 남아 있다.
+  UI tool은 speaker audio를 제공하지 않아 청취 미검증이며 unmuted/PCM을 청취 성공으로
+  대체하지 않는다. 실제 inference 중 Stop/streaming 중 provider configuration/restart/
+  늦은 native 결과 suppress 근거는 완료했으므로 다시 구현할 필요가 없다.
+  다음 independent 구현·계측은 외부 변경 없이 가능하다. 7b(SourceAuto),8(TED600초),
+  9/최종완료는 남아 있다. 키/weights/audio/사용자 전사문/임시 .ralph는 커밋하지 않는다.
+- 최종 base `uv sync --locked` 뒤 polling 수정 후 `npm run verify` exit0:
+  lint/typecheck/build, **JS11+Python160**, failures/skips/warnings0,Python65.99초다.
+  수정 전 첫 full verify도66.14초/exit0였다. 수정 후 captions-browser exit0이며
+  normal/narrow/wrapper fullscreen/긴 final전체문자/controls/revision/expiry/Stop/
+  늦은 caption 검사를 통과했다. fixture evidence이고 실제 capture·청취로 표현하지 않는다.
+  PNG byte변경/새 시각검토 없음. `uv lock --check`, `git diff --check`, 독립 numeric/
+  hash/paint 검사가 통과했고 browser/companion/fixture/probe/Ollama 종료 뒤
+  8765/8766/11434 listener는 없다. README 재현 명령/docs 실패·성공·한계를 보존했다.

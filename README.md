@@ -352,6 +352,26 @@ Use native Stop, enter `stopped`, then `exit`. Numeric evidence is saved in
 This isolated-phrase check does not establish continuous-media cue retention,
 in-flight inference cancellation, speaker listening or cold-start latency.
 
+To verify Stop during actual local ASR and a provider change during translation:
+
+```sh
+npm run test:local-browser -- lifecycle
+```
+
+Use native toolbar Start and close the popup. Enter `interrupt`; the harness plays
+generated weather speech and clicks Stop in a real popup document as actual MLX
+inference begins. Use native toolbar Start again, close the popup, and enter
+`recover`, then `replace`. The latter changes to Luna after a real translation
+partial, verifies cleanup, and restores Local before any new capture. It does not
+start a cloud session. Use native Start a third time, close the popup, enter
+`recover`, then `lifecycle-report`. Finally use native Stop, `stopped`, and `exit`.
+The report requires native ASR completion after the first disconnect, no cancelled
+session captions after cleanup/restart, and painted Korean finals from both new
+sessions. Numeric evidence goes to `docs/verification/latency/lifecycle.json`.
+Preparation-to-ready timings exclude the native click and offscreen creation;
+cached models, speaker listening and continuous long-cue retention remain separate
+checks. No caption or audio is substituted by this harness.
+
 ## OpenAI direct translation
 
 This optional paid path sends the selected tab's audio to OpenAI. It requires
