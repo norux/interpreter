@@ -16,6 +16,9 @@ from server.sessions.local import (
 
 phase = os.environ["INTERPRETER_INTERIM_PHASE"]
 assert phase in ("before", "after")
+trial = os.environ.get("INTERPRETER_INTERIM_TRIAL")
+assert trial in (None, "interval500", "interval1000")
+assert trial is None or phase == "after"
 sessions = weakref.WeakSet()
 current_session = None
 original_init = MlxTranscriber.__init__
@@ -43,6 +46,8 @@ def initialize(self, *args, **kwargs):
     if phase == "before":
         kwargs["interim"] = False
     original_init(self, *args, **kwargs)
+    if trial:
+        self.snapshot_frames = 25 if trial == "interval500" else 50
 
 
 def set_session(session):
@@ -55,7 +60,14 @@ async def prepare(self):
     set_session(self)
     started = time.monotonic()
     await original_prepare(self)
-    emit("prepare", self.session_id, prepareMs=(time.monotonic() - started) * 1000)
+    emit(
+        "prepare",
+        self.session_id,
+        prepareMs=(time.monotonic() - started) * 1000,
+        snapshotMs=self.transcriber.snapshot_frames * 20,
+        firstSnapshotMs=self.transcriber.first_snapshot_frames * 20,
+        snapshotsEnabled=self.transcriber.interim,
+    )
 
 
 def transcribe(self, utterance, *args):

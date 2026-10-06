@@ -347,6 +347,7 @@ async def main():
         "source": "English",
         "target": "Korean",
         "snapshotVoicedMs": MlxTranscriber.snapshot_frames * 20,
+        "firstSnapshotMs": MlxTranscriber.first_snapshot_frames * 20,
         "memorySampling": "100ms requested through session end; process RSS bytes",
         "acceptancePassed": all(all(r["checks"].values()) for r in results),
         "results": results,

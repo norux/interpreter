@@ -155,6 +155,7 @@ class MlxEngine:
 
 
 class MlxTranscriber:
+    first_snapshot_frames = 25
     snapshot_frames = 25
 
     def __init__(
@@ -218,13 +219,18 @@ class MlxTranscriber:
                     if segments.utterance_id != snapshot_id:
                         snapshot_id = segments.utterance_id
                         snapshot_voice = 0
-                    # One cumulative snapshot per new half-second of voiced PCM. The
-                    # installed model takes finite arrays, not native live PCM.
+                    # Keep the first snapshot early when comparing update cadences.
+                    # The installed model takes finite arrays, not native live PCM.
                     if (
                         self.interim
                         and segments.frames
                         and segments.silent == 0
-                        and segments.voiced - snapshot_voice >= self.snapshot_frames
+                        and segments.voiced - snapshot_voice
+                        >= (
+                            self.snapshot_frames
+                            if snapshot_voice
+                            else self.first_snapshot_frames
+                        )
                     ):
                         snapshot_voice = segments.voiced
                         enqueue(

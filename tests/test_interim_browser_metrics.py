@@ -11,11 +11,23 @@ from server.sessions.contracts import Transcript, Translation
 from tests.test_local import frame
 
 
-@pytest.mark.parametrize("phase,interim", [("before", False), ("after", True)])
+@pytest.mark.parametrize(
+    "phase,interim,trial,snapshot_frames",
+    [
+        ("before", False, None, 25),
+        ("after", True, None, 25),
+        ("after", True, "interval500", 25),
+        ("after", True, "interval1000", 50),
+    ],
+)
 def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text(
-    monkeypatch, capsys, phase, interim
+    monkeypatch, capsys, phase, interim, trial, snapshot_frames
 ):
     monkeypatch.setenv("INTERPRETER_INTERIM_PHASE", phase)
+    if trial:
+        monkeypatch.setenv("INTERPRETER_INTERIM_TRIAL", trial)
+    else:
+        monkeypatch.delenv("INTERPRETER_INTERIM_TRIAL", raising=False)
     silence, pause = (
         local.SpeechSegments.silence_frames,
         local.SpeechSegments.long_pause_frames,
@@ -52,6 +64,8 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
         translator = local.OllamaTranslator("fixture", "English", "Korean")
         session = local.LocalSession("measured", transcriber, translator)
         assert transcriber.interim is interim
+        assert transcriber.snapshot_frames == snapshot_frames
+        assert transcriber.first_snapshot_frames == 25
         assert (
             local.SpeechSegments.silence_frames,
             local.SpeechSegments.long_pause_frames,

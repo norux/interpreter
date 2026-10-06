@@ -12,6 +12,9 @@ import { traceCaptionPaints } from "./caption-paint.mjs";
 
 const phase = process.argv[2];
 assert.ok(["before", "after"].includes(phase));
+const trial = process.argv[3];
+assert.ok([undefined, "interval500", "interval1000"].includes(trial));
+assert.ok(!trial || phase === "after");
 await mkdir(".ralph", { recursive: true });
 const profile = await mkdtemp(resolve(".ralph/interim-browser-"));
 const clips = [];
@@ -80,7 +83,8 @@ try {
   companion = spawn("uv", ["run", "--locked", "--extra", "local", "uvicorn", "interim_browser_metrics:app", "--app-dir", "tests",
     "--host", "127.0.0.1", "--port", "8765", "--ws-max-size", "4096", "--ws-max-queue", "8"], {
     env: { ...process.env, PYTHONPATH: ".", INTERPRETER_EXTENSION_ID: extensionId,
-      INTERPRETER_INTERIM_PHASE: phase, HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" },
+      INTERPRETER_INTERIM_PHASE: phase, ...(trial ? { INTERPRETER_INTERIM_TRIAL: trial } : {}),
+      HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   companion.stdout.on("data", (chunk) => {
@@ -189,7 +193,9 @@ try {
           audioPositionOrigin: "first PCM receive minus frame timestamp and 20ms; estimate includes local transport delay",
           baseline: "before disables only cumulative snapshots; identical VAD300ms/quality boundary/6sec cap, models, prompt, preparation and token streaming",
           coldComparison: "cached weights and OS caches; fresh engine, selected Ollama model unloaded, separate first-inference sample repetition -1",
-          snapshotVoicedMs: 500, memorySampling: "100ms requested companion process RSS through session; per-ASR MLX active/peak; overlapping metrics are not added",
+          snapshotVoicedMs: metrics.find((m) => m.metric === "prepare")?.snapshotMs,
+          firstSnapshotMs: metrics.find((m) => m.metric === "prepare")?.firstSnapshotMs,
+          memorySampling: "100ms requested companion process RSS through session; per-ASR MLX active/peak; overlapping metrics are not added",
           wavSha256: clips.map((clip) => createHash("sha256").update(clip).digest("hex")), samples,
           prepareMs: metrics.find((m) => m.metric === "prepare")?.prepareMs,
           maxPendingAudioMs: Math.max(0, ...queueSamples.map((m) => m.pendingAudioMs)),
@@ -212,7 +218,7 @@ try {
         }
         report.acceptancePassed = Object.values(report.checks).every(Boolean);
         await mkdir("docs/verification/interim", { recursive: true });
-        await writeFile(`docs/verification/interim/browser-${phase}${report.acceptancePassed ? "" : "-failed"}.json`, `${JSON.stringify(report, null, 2)}\n`);
+        await writeFile(`docs/verification/interim/browser-${phase}${trial ? `-${trial}` : ""}${report.acceptancePassed ? "" : "-failed"}.json`, `${JSON.stringify(report, null, 2)}\n`);
         if (phase === "before") await writeFile(".ralph/interim-browser-before.json", `${JSON.stringify(report, null, 2)}\n`);
         measured = true;
         console.log(JSON.stringify({ report: report.checks, acceptancePassed: report.acceptancePassed }));
@@ -359,6 +365,9 @@ try {
           playback: "three rounds, nine advancing clips, 400ms added pause; no inference or subtitle expiry waits",
           coldWarm: "cached weights and OS caches, fresh engine, selected Ollama model unloaded; first sample includes first inference",
           baseline: "before disables only snapshots; models, prompt, VAD, preparation and token streaming identical",
+          snapshotVoicedMs: metrics.find((m) => m.metric === "prepare")?.snapshotMs,
+          firstSnapshotMs: metrics.find((m) => m.metric === "prepare")?.firstSnapshotMs,
+          snapshotsEnabled: metrics.find((m) => m.metric === "prepare")?.snapshotsEnabled,
           wavSha256: clips.map((clip) => createHash("sha256").update(clip).digest("hex")), trials, captions,
           asrCalls: observed().filter((m) => m.metric === "asr"), translationCalls: observed().filter((m) => m.metric === "translation"),
           queueAndRssSamples: queueSamples, prepareMs: metrics.find((m) => m.metric === "prepare")?.prepareMs,
@@ -383,7 +392,7 @@ try {
         }
         report.acceptancePassed = Object.values(report.checks).every(Boolean);
         await mkdir("docs/verification/interim", { recursive: true });
-        await writeFile(`docs/verification/interim/continuous-browser-${phase}${report.acceptancePassed ? "" : "-failed"}.json`, `${JSON.stringify(report, null, 2)}\n`);
+        await writeFile(`docs/verification/interim/continuous-browser-${phase}${trial ? `-${trial}` : ""}${report.acceptancePassed ? "" : "-failed"}.json`, `${JSON.stringify(report, null, 2)}\n`);
         if (phase === "before") await writeFile(".ralph/interim-continuous-browser-before.json", `${JSON.stringify(report, null, 2)}\n`);
         measured = true;
         console.log(JSON.stringify({ report: report.checks, acceptancePassed: report.acceptancePassed, screenshot: `${profile}/continuous-long.png` }));

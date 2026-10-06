@@ -2150,3 +2150,86 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   README/docs/plan만 Conventional Commit으로 보존하며 key/weights/audio·transcript/
   .ralph/build는 커밋하지 않는다. 이번은 실제 acceptance 측정 진척이며 구현완료나
   전체completion이 아니다. checkbox는 그대로 미완료다.
+
+### Ralph iteration 6/30 (resumed run) — 2026-10-06 — 7d snapshot 간격 비교와 후보 기각
+
+- 다음 미완료 **7d만 진행했고 checkbox는 미체크 유지**다. 시작 checkout은 clean,
+  AGENTS.md는 없고 `.ralph/verification.txt`는
+  `No completion verification attempted in this run.`이다. 다른 agent/worktree,
+  credential/유료API/모델·prompt/VAD/queue/계약/runner/criteria/dependency/lock/
+  push/publish 변경은 없다. capture/model/output abstraction도 그대로다.
+- feature-local `MlxTranscriber`의 첫 snapshot과 반복 threshold만 분리했다.
+  **제품은 둘 다25frame/500ms를 유지**한다. 기존 model/native harness의
+  test-only `interval500`/`interval1000`은 첫500ms를 유지하고 반복간격만 비교하며
+  실제 설정/numeric 보고서를 별도 파일에 기록한다. 제품 설정/새interface는 없다.
+  candidate checks는 기존 단일 threshold에서 **2fail/7deselected/exit1**이었다.
+  최종 두cadence의 첫500ms/다음구절reset/같은ID 증가revision/final우선/coalescing과
+  numeric wrapper tests는 **15pass/0.32초/exit0**, 그전 focused suite는
+  **114pass/61.09초/exit0**다. 의미/지연/큐/실제capture acceptance는 유지했다.
+- 최초 modelcontrol은 끝까지 처리했지만 추가CLI label과 기존loop의 `trial` 이름이
+  충돌해 **OSError errno63/File name too long/exit1**이었다. numeric보고서는 없다.
+  `trial_name`으로 고치고 **전체control을 다시 실행**했다. 최초시도는 비교근거가 아니다.
+- valid model **500→1000ms**는 동일PCM/132178.333ms/10round/30clip/40final이다.
+  둘 다 원래construction crane→animal **10회씩 의미실패/exit1/acceptancefalse**다.
+  모든 다른fixture/revision/final/queue/drain/원음시간pacedinput/drop0 checks는 통과했다.
+  `continuous-after-{interval500,interval1000}-failed.json`에 숫자만 보존했다.
+  새 final-only modelcontrol은 없고 비교flag는 iteration4의 savedcontrol을 사용한다.
+  실제tabCapture/Paint 근거가 아니다. warmup2070.877/2014.958ms는 제외했다.
+- model first-event **n30 p50/p95(ms) 694.236/747.950→701.279/923.699**,
+  lastfinal **854.780/1090.693→859.521/1248.013**로 candidate가 악화했다.
+  ASR **252→152**, worker **59965.212→28772.035ms**(input의45.4→21.8%),
+  번역 **212→148**, 완료 **149→136**, 미완료/취소 **63→12**다. queuepeak
+  ASR/text **6000/1340→500/560ms audio**, 끝0/drop0/coalesced0이다.
+  RSS1222/1212sample, peak614563840/459603968bytes; MLXactive1034231602/
+  1034002226, globalpeak1680168416/1680168416bytes(warmup포함)이며 합산하지 않는다.
+- **native는 fresh final-only→1000ms→500ms 순서로3회** 실행했다. Orca CLI의
+  AXmenu는 열렸지만 syntheticpopupclick은 capture상태가 없었다. CUA의 실제popup
+  Start→Preparing→listening을 확인하고 popup을 닫아 진행했다. 권한/Start우회가 없다.
+  실제Chrome153.0.8010.12 tabCapture→같은MLX/Ollama→built sink로 advancing
+  media9clip/3round/각12final이다. WAVhash가 같고 playback39048.021/38991.750/
+  39003.973ms, inference/expiry를 기다리지 않고 추가400ms쉼만 둔다.
+  final-only는 `continuous-browser-before-iteration6-failed.json`, 후보는
+  `continuous-browser-after-{interval1000,interval500}-failed.json`에 보존했다.
+  기존 before보고서는 유지했고 이번 freshcache로 두후보의 improvement를 계산했다.
+- native3회 모두 **exit1/acceptancefalse**다. 원래construction의 의미는 각3회씩
+  실패하고 두cadence의 warmweather/construction도 각2회 duringSpeechPaint실패다.
+  두firstPaintImprovedflag는 **false**다. 모든caption의 정확히1회배정/증가revision/
+  12final의 coveringmainframePaint/queuebounds/drain/frame·ASR·textdrop0은 통과했다.
+  passing파일은 없다. native p50/p95/n2, first-round, 부분audio-position→Paint와
+  정확한cold/warm설명은 docs/verification.md와 numeric파일에 있다.
+- fresh native **500→1000ms** ASR67→45, worker31900.469→17588.219ms
+  (playback의81.8→45.1%), 번역53→40(완료15→32/미완료·취소38→8),
+  coalesced8→0이다. 그러나 warmfirstPaint weather2013.475/2444.224→2083.269/
+  2568.646ms, construction4586.057/5040.760→4793.602/4990.026ms,
+  long1562.109/1678.150→1626.816/1689.692ms다. warmfinalPaint는 **모든clip의
+  p50/p95가 악화**(long2321.661/2346.871→2735.612/2836.703ms)했다.
+  **반복비용 절감만으로 latencyfix를 채택하지 않고 제품500ms를 유지**했다.
+  test-only 후보와 실패증거는 다음iteration이 같은실험을 반복하지 않게 보존한다.
+- 1000ms warmweather firstevent2080.342/2565.566ms는 이미 발화뒤다.
+  construction firstevent1387.446/1388.964ms는 발화중이지만 firstPaint4793.602/
+  4990.026ms이며 실제처음paint된revision도 event뒤813.459/1066.481ms에 보인다.
+  inference와 읽기/표시대기를 구분한다. 새source변경7→23은 단어연장도 포함하며
+  의미교정 성공횟수가 아니다. nativequeuepeak ASR/text6000/2460→6500/1980ms
+  audio이며 지속10분보장이나 wallclock대기가 아니다. memory는 docs에 전부 기록했다.
+- normal screenshot(final-only/1000ms)을 직접검토해 controls아래의 읽을수있는
+  자막/새provisional과이전cue공존을 확인했지만 crane 뜻은 틀렸다. long의 초기문장은
+  불완전하고 warmfinal의 station지시가 미래서술로 약해지는 한계도 검토했다.
+  새narrow/fullscreen/모든글자·readingtime/physicaldisplay/원음청취/inflightStop/
+  provider·session교체/공개10분 acceptance가 아니다. 외부접근blocker는 남지 않았다.
+- **native3회 Stop→idle/activecapture없음/offscreen0/host0**을 확인했다.
+  browser/companion/fixture종료, ownedOllama SIGINT/exit0, 생성browseraudio18개삭제,
+  modeltemp음성삭제, base uv sync --locked복원이다. 독립숫자audit는 동일audio/settings/
+  n/final/revision/배정/Paint좌표·시각/exactpercentile/ASR시간합/queue/drop/
+  falseacceptance·improvement를 확인해 **exit0**다. 실제7d 성공audit가 아니다.
+- **다음도7d**: 제품500ms를 유지하고 warmshort-event 지연을 final ASR/text 작업에서
+  추적하며 sink읽기대기도 별도로 측정한다. 단일worker/final우선/읽지않은final보관을
+  유지하는 작은fix를 failingcheck부터 만든다. permitted모델/원래fixture의
+  construction·long 의미실패도 해결해야 한다. 실제appearance/원음청취/수명/지속처리
+  acceptance 뒤7b/8/9로 간다. 기각한1초cadence를 latency개선으로 표시하지 않는다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python176**,
+  failures/skips/warnings0, Python**66.24초**다. 첫 fullverify도66.20초로 통과했고
+  이후format edit의 RuffE501은 고친뒤 fullverify를 다시 통과했다. node --check/
+  uv lock --check/git diff --check 통과,8765/8766/11434 listener없음이다.
+  feature-local cadence측정 seam/harness/regressions/failednumeric5개/README/docs/plan을
+  Conventional Commit으로 보존하며 key/weights/audio·transcript/.ralph/build는
+  커밋하지 않는다. 제품cadence/checkbox/전체completion은 바꾸지 않았다.

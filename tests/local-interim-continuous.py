@@ -85,6 +85,9 @@ def percentiles(values):
 async def main():
     phase = sys.argv[1]
     assert phase in ("before", "after")
+    trial_name = sys.argv[2] if len(sys.argv) > 2 else None
+    assert trial_name in (None, "interval500", "interval1000")
+    assert trial_name is None or phase == "after"
     Path(".ralph").mkdir(exist_ok=True)
     clips = []
     with tempfile.TemporaryDirectory(prefix="continuous-", dir=".ralph") as directory:
@@ -146,6 +149,8 @@ async def main():
     translator = MeasuredTranslator(TEXT_MODEL, "English", "Korean")
     translator.calls = []
     transcriber = MlxTranscriber(engine, ASR_MODEL, "English", interim=phase == "after")
+    if trial_name:
+        transcriber.snapshot_frames = 25 if trial_name == "interval500" else 50
     session = LocalSession(f"continuous-{phase}", transcriber, translator)
     samples, frame_lags, errors = [], [], []
     sources = [[] for _ in trials]
@@ -365,7 +370,8 @@ async def main():
         "textModel": TEXT_MODEL,
         "source": "English",
         "target": "Korean",
-        "snapshotMs": 500,
+        "snapshotMs": transcriber.snapshot_frames * 20,
+        "firstSnapshotMs": transcriber.first_snapshot_frames * 20,
         "snapshotsEnabled": phase == "after",
         "silenceMs": 300,
         "addedPauseMs": 400,
@@ -426,7 +432,8 @@ async def main():
     report["acceptancePassed"] = all(report["checks"].values())
     suffix = "" if report["acceptancePassed"] else "-failed"
     Path("docs/verification/interim").mkdir(parents=True, exist_ok=True)
-    Path(f"docs/verification/interim/continuous-{phase}{suffix}.json").write_text(
+    name = f"continuous-{phase}" + (f"-{trial_name}" if trial_name else "")
+    Path(f"docs/verification/interim/{name}{suffix}.json").write_text(
         json.dumps(report, indent=2) + "\n"
     )
     if phase == "before":

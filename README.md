@@ -253,9 +253,9 @@ Snapshot timing and contextual accuracy still require the pending 7d browser
 acceptance. Small audio windows can produce inaccurate provisional source/text.
 Model loading and the time needed for a complete translation remain measurable.
 Preparation also imports the PCM resampler before capture starts, so its first
-import does not consume the initial speech window. The 500 ms snapshot interval
-has model and short native Paint measurements; contextual accuracy and
-sustained-load acceptance remain incomplete.
+import does not consume the initial speech window. Snapshot cadence has model
+and native Paint measurements; contextual accuracy and sustained-load acceptance
+remain incomplete.
 
 The paced model-only probe below uses generated weather and an ambiguous
 construction sentence, three repetitions per phase, and identical PCM/settings.
@@ -341,6 +341,20 @@ The `after` phase reads `.ralph/interim-continuous-browser-before.json`, so run
 these phases together. A long-speech screenshot stays in the ignored profile.
 This roughly 39-second generated-speech check is separate from the required
 ten-minute public-video run, acoustic playback and complete appearance checks.
+
+For a bounded cadence comparison, add `interval500` or `interval1000` after
+`after` in `tests/local-interim-continuous.py` or `tests/local-interim-browser.mjs`.
+Both keep the first snapshot at 500 ms; only subsequent voiced-audio intervals
+change. The browser comparison uses `continuous` and native Start/Stop. These
+test-only controls write distinct numeric reports and retain all acceptance
+checks. Run a fresh `before` browser phase first; model-only `after` still reads
+the saved final-only control from `.ralph/interim-continuous-before.json`.
+They do not add a product setting or change VAD, models, prompt, queue limits,
+translation policy, or paid-provider behavior.
+Iteration 6 rejected the one-second default: it reduced ASR cost but worsened
+final Paint latency and did not fix warm short-speech Paint or construction
+meaning. The product retains 500 ms updates. See `docs/verification.md` for
+the paired failed reports and measurements.
 
 The harness records covering Chromium Paint, same-ID source changes, ASR and
 translation calls, bounded queue/drop samples, companion RSS and MLX allocations.
