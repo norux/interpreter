@@ -9,5 +9,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["extension/**/*.ts", "tests/**/*.ts", "vite.config.ts"]
+  "include": ["extension/**/*.ts", "tests/**/*.ts", "vite.config.ts"],
+  "exclude": ["tests/framework/types"]
 }

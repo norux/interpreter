@@ -148,7 +148,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 목표: 기존 동작을 보존하면서 큰 프레임워크의 공통 계약과 코어를 실제 코드로 분리한다.
 이 단계에서는 브라우저 모델과 새 영상 캡처를 아직 연결하지 않는다.
 
-- [ ] C1. 버전 1 계약을 정의한다: opaque 영상 handle, session/epoch, audio chunk, playback event, 원문/번역 별 revision, capability, status/reason, output. 기존 서버 프로토콜은 companion bridge에서 매핑하며 변경하지 않는다.
+- [x] C1. 버전 1 계약을 정의한다: opaque 영상 handle, session/epoch, audio chunk, playback event, 원문/번역 별 revision, capability, status/reason, output. 기존 서버 프로토콜은 companion bridge에서 매핑하며 변경하지 않는다.
 - [ ] C2. 코어의 session controller·bounded queue·timeline·revision store를 분리한다. DOM/Chrome ambient type 없이 컴파일하고, 늦은 이벤트·준비 중 Stop·연속 Start·탐색 시 취소를 검증한다.
 - [ ] C3. 교정 1초 간격, 첫 결과/최종 결과 즉시 반영, 긴 최종 번역 처음부터 순차 재표시, 250ms fade, 최근 300 발화 정책을 코어/renderer 경계로 분리한다. 화면 크기에 따른 line fitting은 renderer가 맡는다.
 - [ ] C4. 기존 companion을 combined interpretation adapter로 연결한다. 중복 VAD/ASR을 실행하지 않는다. 서버가 제공하지 않는 ASR-only 이벤트는 capability로 명시하고 원문/번역 짝과 기존 사용자 설정을 보존한다.
@@ -225,3 +225,48 @@ Chrome 실행이나 Safari 렌더러 smoke를 전체 Safari acceptance로 대체
 실패·미검증과 증거 위치:
 다음 미완료 항목 또는 차단 해제 조건:
 ```
+
+### 2026-10-06 / core / iteration 1/5
+
+관련 commit: 이 기록을 포함한 `feat: define media framework v1 contracts`.
+
+수행한 변경: C1의 ES2022 전용 version 1 계약과 media/engine/model/output 포트,
+독립 source/translation revision, pending/paired 상태, clock/epoch, 제한 및
+capability를 정의했다. 기존 Caption/PCM1 서버 프로토콜·companion v0.1.0·설정은
+변경하지 않았다. 실제 companion bridge 매핑은 C4에서 구현한다. standalone
+타입 fixture/의존성 검증과 `test:framework:core`를 추가했다. 현재 harness의 범위는
+C1이며 C2–C4의 수명주기/큐/정책 회귀는 구현 후 추가해야 하므로 C5는 미완료다.
+
+실행한 명령과 결과:
+
+- PASS: `npm run test:framework:core` (exit 0, ES2022/no-DOM 타입 검사,
+  의존성 검사 1 passed/0 failed, 최종 76.439792 ms).
+- PASS: `npm run typecheck && npm run build && npm run test:js` (exit 0,
+  19 modules build/271 ms, JS 33 passed/0 failed/0 skipped, 14479.204 ms).
+- PASS: `./node_modules/.bin/biome lint extension packages/contracts tests scripts/ralph-loop.mjs vite.config.ts`
+  (exit 0, 52 files, 최종 19 ms, no findings).
+- FAIL/BLOCKED: `npm run verify` (exit 127, JS lint 통과 후 `sh: uv: command not found`,
+  이후 verify 단계 실행 안 됨).
+- FAIL/BLOCKED: 독립 시도 `npm run test:python` (exit 127, 동일 `uv` 없음,
+  Python 테스트 0 실행). 같은 차단 원인 두 번 확인 후 재시도 중단.
+- PASS: `npm run test:captions-correction-browser` (exit 0, Chromium
+  153.0.8010.12, 1000 ms 교정·즉시 첫/최종·burst/latest·clear/replacement).
+- PASS: `npm run test:transcript-browser` (exit 0, 비교 UI와 실제 extension
+  messaging/window 두 script 통과, generated source/translation,
+  시간·cadence·safe text·eviction/reopen·stale rejection·Stop retention).
+- PASS: `git diff --check` (exit 0, whitespace 오류 없음).
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1; 타입/의존성 및
+합성 caption의 브라우저 표시/메시징만 확인했다. 실제 영상 PCM/모델/ASR 정확도,
+번역 품질, Safari/iPhone은 미검증. 설치·모델 다운로드·게시 없음.
+
+실패·미검증과 증거 위치: [core 보고서](docs/verification/media-framework/core.md)에
+정확한 결과 및 수정된 초기 harness 실패를 기록했다. 로컬 로그는
+`.ralph/media-framework/core-1-{contracts,js,verify,python,correction-browser,transcript-browser}.log`
+(커밋 제외). transcript 재검증의 nondeterministic runtime window ID만 복원하여
+기존 screenshot/JSON을 보존했다. 전체 verify/Python lint/tests 미검증으로
+stage 완료는 주장하지 않는다.
+
+다음 미완료 항목 또는 차단 해제 조건: C2 session controller·bounded queue·timeline·revision store.
+runner PATH에 `uv`가 준비되면 `uv sync --locked` 후 `npm run verify`를 다시 실행하고
+진행한다. C2–C5 및 이후 stage 체크박스는 보존한다.
