@@ -409,6 +409,28 @@ inference; warm samples are n=2 per clip. This finite test does not replace
 ten-minute public playback, listening or full appearance verification.
 Do not run other `uv` commands while a native phase owns the shared `.venv`.
 
+The separate native in-flight Stop/restart check uses the same local adapters:
+
+```sh
+npm run build
+node tests/local-interim-lifecycle.mjs
+```
+
+With Ollama running and local models cached, use the native toolbar **Start**.
+Keep the popup open with Stop visible, enter `play` in the harness, and click
+native **Stop** when it prints `nativeStopNow`. Enter `stopped`, then native
+**Start** again, `restarted`, native **Stop**, `stopped`, and `exit`.
+The check requires actual popup Start/Stop messages, non-silent tab PCM, a Stop
+inside a measured ASR or translation interval, complete cancellation/resource
+cleanup, and a new session's visible Korean final without old-session captions.
+A missed inference interval fails; rerun the workflow instead of calling it
+in-flight evidence. Numeric, text-free reports go to ignored
+`.ralph/interim-lifecycle.json` (or `-failed.json` with exit 1). Delete the printed
+owned profile after exit; it contains generated speech. This checks lifecycle
+only and does not replace the pending continuous meaning/Paint, provider-change,
+appearance, listening or ten-minute checks. Iteration 16's final native run
+passed this subset; 7d remains unfinished.
+
 Iteration 6 rejected the one-second default: it reduced ASR cost but worsened
 final Paint latency and did not fix warm short-speech Paint or construction
 meaning. The product retains 500 ms updates. See `docs/verification.md` for

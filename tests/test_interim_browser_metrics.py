@@ -55,6 +55,7 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
     for cls, name in (
         (local.MlxTranscriber, "__init__"),
         (local.LocalSession, "prepare"),
+        (local.LocalSession, "close"),
     ):
         monkeypatch.setattr(cls, name, getattr(cls, name))
     mx = ModuleType("mlx.core")
@@ -146,6 +147,7 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
                         "type": "receipt",
                         "sessionId": "measured",
                         "frames": 50,
+                        "peak": 1234,
                         "droppedFrames": 0,
                         "droppedUtterances": 0,
                     }
@@ -164,6 +166,9 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
         "translation",
         "caption",
         "receipt",
+        "asrStart",
+        "translationStart",
+        "closed",
     }
     assert all(m["sessionId"] == "measured" for m in metrics)
     assert "Private" not in json.dumps(metrics)
@@ -194,5 +199,19 @@ def test_native_interim_baseline_changes_only_snapshots_and_metrics_exclude_text
     assert translation["sourceRevision"] == 2 and translation["responseComplete"]
     assert not translation["sourceFinal"]
     receipt = next(m for m in metrics if m["metric"] == "receipt")
+    assert receipt["peak"] == 1234
     assert receipt["pendingAudioMs"] == receipt["pendingTranslationMs"] == 0
     assert receipt["droppedTranslations"] == receipt["coalescedSnapshots"] == 0
+    asr_start = next(m for m in metrics if m["metric"] == "asrStart")
+    assert asr_start["startedAtMs"] == asr["startedAtMs"]
+    assert asr_start["atMs"] <= asr["atMs"]
+    translation_start = next(m for m in metrics if m["metric"] == "translationStart")
+    assert translation_start["startedAtMs"] == translation["startedAtMs"]
+    assert translation_start["sourceRevision"] == translation["sourceRevision"]
+    cleanup = next(m for m in metrics if m["metric"] == "closed")
+    assert cleanup["cancelled"]
+    assert cleanup["pendingAudioMs"] == cleanup["pendingTranslationMs"] == 0
+    assert not any(
+        cleanup[key]
+        for key in ("readerActive", "inferenceAwaited", "translationActive")
+    )

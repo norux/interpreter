@@ -25,6 +25,7 @@ original_init = MlxTranscriber.__init__
 original_prepare = LocalSession.prepare
 original_transcribe = MlxEngine.transcribe
 original_translate = OllamaTranslator.translate
+original_close = LocalSession.close
 
 
 def emit(metric, session_id, **values):
@@ -88,6 +89,7 @@ def transcribe(self, utterance, *args):
     session_id = current_session
     started_at_ms = time.time() * 1000
     started = time.monotonic()
+    emit("asrStart", session_id, startedAtMs=started_at_ms)
     text = original_transcribe(self, utterance, *args)
     import mlx.core as mx
 
@@ -111,6 +113,14 @@ async def translate(self, transcript, context):
     first_output_at_ms = None
     started = time.monotonic()
     complete = False
+    emit(
+        "translationStart",
+        session_id,
+        startedAtMs=started_at_ms,
+        utteranceId=transcript.utterance_id,
+        sourceRevision=transcript.revision,
+        sourceFinal=transcript.final,
+    )
     stream = original_translate(self, transcript, context)
     try:
         async for value in stream:
@@ -133,10 +143,25 @@ async def translate(self, transcript, context):
         )
 
 
+async def close(self):
+    await original_close(self)
+    emit(
+        "closed",
+        self.session_id,
+        cancelled=self.cancelled,
+        pendingAudioMs=self.transcriber.pending_audio_ms,
+        pendingTranslationMs=self.pending_translation_ms,
+        readerActive=self.transcriber.reader is not None,
+        inferenceAwaited=self.transcriber.inference is not None,
+        translationActive=self.revision_task is not None,
+    )
+
+
 MlxTranscriber.__init__ = initialize
 LocalSession.prepare = prepare
 MlxEngine.transcribe = transcribe
 OllamaTranslator.translate = translate
+LocalSession.close = close
 
 from server.app import app as companion  # noqa: E402
 
@@ -184,6 +209,7 @@ async def app(scope, receive, send):
                     "receipt",
                     session_id,
                     frames=reply["frames"],
+                    peak=reply.get("peak", 0),
                     droppedFrames=reply.get("droppedFrames", 0),
                     droppedUtterances=reply.get("droppedUtterances", 0),
                     droppedTranslations=session.dropped_translations,

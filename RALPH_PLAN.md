@@ -2825,3 +2825,67 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   보이는 같은문장의 발화중 문맥교정/전체문자·읽기시간/narrow/fullscreen/원음청취/
   inflight 수명도 완료해야 한다. model-only속도로 native성공을 주장하지 않는다.
   이후7b→8→9이며 이번복원만으로7d/전체completion을 체크하지 않는다.
+
+### Ralph iteration 16/30 — 2026-10-06 — 7d native in-flight Stop/restart subset
+
+- 다음 미완료 **7d만 진행, checkbox 미체크 유지**다. 시작 worktree clean,
+  AGENTS.md 없음, `.ralph/verification.txt`는 `No completion verification attempted
+  in this run.`이다. 지정 checkout/일반 model cache/명시적 로컬 app 검증만 사용했다.
+  agent/다른 worktree/credentials/cloud inference/새 모델/runner/criteria/제품 source/
+  dependency·lock/push/publish 변경은 없다. 기존 작은 capture/model/output 계약 유지다.
+- 작은 feature-local **검증 구현**: `tests/local-interim-lifecycle.mjs`와 기존 test-only
+  metrics의 ASR/text start, close cleanup, receipt peak를 추가했다. native popup
+  Start/Stop 관측, active tabCapture/non-silent PCM, Stop과 실제 모델 구간 overlap,
+  취소/drain/DOM·offscreen 정리, 새 session의 실제 final/보이는 한국어/old caption
+  거부를 검증한다. Stop이 inference 밖이면 실패하며 조용한 Stop을 inflight로 세지 않는다.
+  기존 continuous/Paint/meaning checks를 대체하거나 약화하지 않는다. 제품 helper/config/
+  abstraction/prompt/모델/500ms/VAD/queue/paid final-only 정책 변경은 없다.
+- 최종 `PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-lifecycle.mjs`
+  **exit0/6개 lifecycle check pass**다. Chrome for Testing153.0.8010.12/native Start/
+  `play`→native Stop→`stopped`→native Start→`restarted`→native Stop→`stopped`→`exit`다.
+  첫 Stop은 ASR/text 시작 후 **635.866/634.919ms**, text 취소 종료는 Stop후
+  **5.564ms/responseComplete false**다. native MLX는 Stop후 **146.517ms**, session
+  cleanup후 **138.803ms**에 끝났다. 취소된 await 뒤 실제 native 추론은 끝나지만
+  old caption이나 새로운 old model call은 없다. 두 native cleanup에서 waiting ASR/text
+  **0/0**, reader/inference await/translation task **false/false/false**, captured tab/
+  caption host/offscreen **0/0/0**다. idempotent close 중복도 기록했다.
+- initial/restart ASR **8/3**, text **7/2**, caption **6/7**이다. initial partial은
+  Stop 때문에 final이 없고 restart는 다른 session ID에서 **1final/보이는 한국어**다.
+  content의 old caption **6→6**/cleanup 뒤 old event0이다. 실제 취소 관측이며 인위적인
+  late provider response 주입/provider 변경 검증은 아니다. 기존 late/out-of-order
+  fixture는 유지한다. long audio는 Stop까지 loop하는 취소 probe로, 지속throughput/
+  latency/청취/10분 증거가 아니다. cached weights/OS/compiler + warmed Ollama,
+  prepare **2109.585/4.094ms**는 session/cache 차이며 cold 비교/속도 주장이 아니다.
+- 실제 settings는 English→Korean/MLX Audio0.5.8/ASR0.6B8bit/Ollama0.35.1/Q4_K_M/
+  temp0/context4096/predict256/think false/HFoffline/Ollamaclouddisabled/AppleM5다.
+  numeric/실제exitcode/명령/미완료 범위/independent audit는
+  `docs/verification/interim/lifecycle-iteration16.json`이다. audit **exit0**:
+  model start/end pairing/native 메시지 순서/overlap·시각산술/settings/drain/old·new
+  배정/텍스트·auth·PCM 없는 기록을 확인했다. full7d acceptance는 **false**다.
+  report의 `mediaAfterStop`은 stopped 명령 시 cleanup 뒤 관측값이며 native click
+  순간의 미디어 위치가 아니다. 측정 후 잘못된 field 이름만 바로잡았고 값/assertion은 같다.
+- 사전 native exploratory run도 exit0이었다. 최종 재실행에는 실제 native Start 메시지/
+  active capture/non-silent receipt guard를 더했다. 첫 CUA binding은 새로 실행된
+  empty browser를 선택했지만 그 owned empty instance를 native Quit한 뒤 harness app
+  path를 선택해 해결했다. 외부 access blocker는 없다. narrow/fullscreen/appearance/
+  청취/provider 변경/continuous Paint/10분은 이번에 시도하지 않았다.
+- 의미 개선을 위한 text-only **20request/5조건**도 실행했다. baseline + generic
+  English/Korean/context/quoted-no-system 모든 construction이 animal 오류였고 일부는
+  spoken command 생략/recipe 실행도 있어 **전부기각**, 제품 prompt 변경없음이다.
+  process exit0은 응답 수집 성공일 뿐 quality acceptance가 아니며 baselinestream과
+  후보nonstream은 speed 비교도 아니다. 저장 evidence에는 source/output 없이 index/
+  heuristic/timing만 있고 기존 construction/noon/native duringSpeech 실패는 남는다.
+- 먼저 metrics 회귀 **6fail/0.22s/exit1**, 구현 후 **6pass/0.13s/exit0**, peak guard
+  포함 **6pass/0.20s/exit0**다. focused Ruff의 line-length1개는 수정했고 Ruff/Biome
+  pass다. README에 native 재현 명령/정확한 workflow/실패 규칙/한계를 적었다.
+- **다음도7d**: construction/noon 의미, warmcontinuous duringSpeech, 같은 문장의
+  보이는 발화중 문맥교정, paired native first/partial/finalPaint, 전체문자·읽기시간/
+  narrow/fullscreen/원음청취/inflight provider교체를 완료한다. 이번 Stop/restart만으로
+  checkbox/전체completion을 체크하지 않는다. 이후7b→8→9다.
+- **최종 npm run verify exit0**: lint/typecheck/build, **JS12+Python216**,
+  failures/skips/warnings0, Python **66.82s**다. field 이름 수정 뒤 focusedBiome도
+  재실행/pass, uv lock --check/git diff --check pass다. owned Ollama SIGINTexit0/
+  base uv sync --locked 복원, 8765/8766/11434 listener없음, 생성audio/owned profiles/
+  이번ignoreddiagnostic·auditstate 삭제다. runner/제품source/dependency·lock/이전evidence
+  diff없음이다. 검증harness/metrics회귀/README/docs/numeric/plan만 Conventional Commit으로
+  보존한다. secrets/weights/audio·transcript/.ralph/build는 커밋하지 않는다.

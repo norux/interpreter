@@ -4819,3 +4819,96 @@ No listeners remain on 8765/8766/11434. Runner, dependency/lock definitions and
 previous numeric evidence are unchanged. Commit contains the scalar restoration,
 feature-local verification controls/regressions, README/docs/plan and the paired
 failed numeric evidence; no keys, weights, audio/transcripts, profiles or `.ralph`.
+
+## Ralph iteration 16 — native in-flight Stop and restart (7d subset)
+
+The next unfinished item remains **7d**. Added the feature-local
+`tests/local-interim-lifecycle.mjs` probe and start/close/non-silent receipt
+instrumentation in the existing test-only metrics app. Product capture/model/
+output code, 500 ms snapshots, VAD/queues, translation prompt/model/options and
+paid-provider policies are unchanged. No shared helper, product setting or new
+abstraction was introduced.
+
+With repository-local Ollama **0.35.1**, `OLLAMA_NO_CLOUD=1`, cached MLX Audio
+**0.5.8** / Qwen3-ASR **0.6B 8bit** and Qwen3 **4B Instruct Q4_K_M** on Apple M5,
+the final command was:
+
+```sh
+PATH="$PWD/.tools/uv/bin:$PATH" node tests/local-interim-lifecycle.mjs
+```
+
+Chrome for Testing **153.0.8010.12** loaded the real extension in an owned profile.
+Native toolbar Start/Stop messages were observed, without synthesizing recording
+permission. Entered `play` → native Stop → `stopped` → native Start → `restarted`
+→ native Stop → `stopped` → `exit`. **Exit 0**, all six lifecycle checks pass.
+The tab was actively captured and delivered non-silent PCM. Generated long speech
+loops until Stop; this is a cancellation probe, **not** continuous-media throughput,
+latency, original-audio listening or ten-minute evidence.
+
+The first native Stop fell **635.866 ms** into an actual ASR call and
+**634.919 ms** into an actual translation request. The cancelled translation ended
+**5.564 ms** after Stop with `responseComplete:false`. Native MLX finished
+**146.517 ms** after Stop, **138.803 ms** after session cleanup. This directly
+observes native inference continuing after its cancelled await, without delivering
+another old-session caption or starting another old-session model call. Both
+cleanup reports have pending ASR/text **0/0**, reader/awaited inference/translation
+task **false/false/false**, and captured tabs/caption hosts/offscreen contexts
+**0/0/0**. Duplicate idempotent close calls are recorded rather than suppressed.
+
+Initial/restarted session ASR calls **8/3**, text requests **7/2**, caption events
+**6/7**. Initial displayed partials never finalize because Stop cancels that
+utterance. The new session produces **one** final and visible Korean text. Old
+content-side caption counts remain **6→6** across restart, with no old caption
+following cleanup. This observes real cancellation; it does not inject artificial
+late provider output or verify provider replacement. Existing fixture regressions
+continue to cover stale/out-of-order output. Preparation **2109.585/4.094 ms** is
+cache/session reuse, not a cold-cache comparison or claimed speed improvement.
+Full source-free numeric records and recomputed audit (**exit 0**) are in
+[lifecycle evidence](verification/interim/lifecycle-iteration16.json). The audit
+checks start/end pairing, native Start/Stop ordering, overlap and time arithmetic,
+settings, completed drain, old/new event attribution, and absence of text/auth/PCM
+payload fields. Audit success applies only to this lifecycle subset.
+
+An earlier exploratory native run also exited 0; the retained final run includes
+additional actual Start-message, active captured-tab and non-silent PCM guards.
+The final report's `mediaAfterStop` is sampled during the `stopped` command after
+resource cleanup, not at the instant of the native click; the field name was
+corrected after measurement without changing its observed value or assertions.
+An incidental empty browser instance initially captured the CUA app binding.
+Quitting that newly launched empty instance through its native menu and selecting
+the harness app path restored access. No external-access blocker remains.
+
+Before this probe, 20 text-only requests compared the current request with four
+generic prompt/input alternatives (concise English, Korean instructions, whole
+sentence context instructions, and quoted input without a system message).
+**Every construction translation still substituted an animal**. Some alternatives
+also omitted parts of the spoken command or executed it as a recipe. All were
+rejected; the product prompt is unchanged. The diagnostic process exited 0 because
+it collected responses, **not** because translation acceptance passed. Retained
+numeric indices/meaning heuristics and timings exclude text. Baseline uses the
+product stream; alternatives use nonstreaming requests, so timings are not a
+performance comparison or audio-to-caption evidence. These single observations
+are not general accuracy estimates and do not fix the prior continuous noon error.
+
+Instrumentation regressions first failed **6/6 (0.22 s)** for missing start/close
+records, then passed **6/6 (0.13 s)** after implementation and **6/6 (0.20 s)**
+with the receipt-peak check. One focused Ruff line-length failure was fixed;
+focused Ruff/Biome pass. Generated audio/owned profiles and this iteration's
+ignored probe/audit files are removed after recording evidence; Ollama stopped
+with SIGINT and the base locked environment is restored.
+
+**7d stays unchecked.** Next: repair construction/noon meaning and warm continuous
+native during-speech display, repeat paired Paint measurements, and finish visible
+context correction, full text/reading time, narrow/fullscreen, listening and
+in-flight provider replacement. Then 7b→8→9. This lifecycle result cannot substitute
+for those acceptance checks or complete the project.
+
+Final `PATH="$PWD/.tools/uv/bin:$PATH" npm run verify` **exit 0**: lint,
+typecheck, build, **12 JS + 216 Python tests**, zero failures/skips/warnings;
+Python **66.82 s**. Focused Biome reran after the observation-field rename.
+`uv lock --check` and `git diff --check` pass. No listeners remain on
+8765/8766/11434; owned Ollama SIGINT exit 0. Earlier evidence, runner, product
+source and dependency/lock files are unchanged. Commit contains only the local
+verification harness/instrumentation/regressions, source-free numeric evidence,
+README, verification documentation and plan. No weights, audio/transcripts,
+credentials, profiles, build outputs or `.ralph` state are included.
