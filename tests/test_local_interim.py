@@ -748,7 +748,89 @@ def test_rejecting_stale_completion_preserves_translation_errors(
     asyncio.run(check())
 
 
-def test_new_source_cancels_obsolete_translation_even_if_it_returns_late_bytes():
+def test_growing_speech_coalesces_updates_without_starving_translation():
+    async def check():
+        incoming = asyncio.Queue()
+        output = asyncio.Queue()
+        started = asyncio.Queue()
+        release = asyncio.Queue()
+        calls = []
+
+        class ASR:
+            interim = True
+
+            async def transcribe(self, _frames):
+                while (value := await incoming.get()) is not None:
+                    yield value
+
+            async def close(self):
+                pass
+
+        class Translator:
+            async def translate(self, transcript, _context):
+                calls.append(transcript.revision)
+                started.put_nowait(transcript.revision)
+                await release.get()
+                yield Translation("1", 1, f"번역 {transcript.revision}", True)
+
+            async def close(self):
+                pass
+
+        session = local.LocalSession("growing-speech", ASR(), Translator())
+
+        async def collect():
+            async for event in session.run(None):
+                if event.caption:
+                    output.put_nowait(event.caption)
+
+        task = asyncio.create_task(collect())
+        try:
+            incoming.put_nowait(Transcript("1", 1, "We should", False, 0, 500))
+            assert await asyncio.wait_for(started.get(), 1) == 1
+            for revision, text in [(2, "We should not"), (3, "We should not cancel")]:
+                incoming.put_nowait(
+                    Transcript("1", revision, text, False, 0, revision * 500)
+                )
+            await asyncio.sleep(0.02)
+            assert calls == [1], "Growing speech must not restart translation"
+            release.put_nowait(None)
+            first = await asyncio.wait_for(output.get(), 1)
+            assert first.translation == "번역 1" and not first.final
+            assert await asyncio.wait_for(started.get(), 1) == 3
+            incoming.put_nowait(
+                Transcript("1", 4, "We should not cancel the trip", False, 0, 2000)
+            )
+            await asyncio.sleep(0.02)
+            release.put_nowait(None)
+            correction = await asyncio.wait_for(output.get(), 1)
+            assert correction.translation == "번역 3" and not correction.final
+            assert correction.utterance_id == first.utterance_id
+            assert correction.revision > first.revision
+            assert await asyncio.wait_for(started.get(), 1) == 4
+            incoming.put_nowait(
+                Transcript("1", 5, "We should not cancel the trip.", True, 0, 2100)
+            )
+            assert await asyncio.wait_for(started.get(), 1) == 5
+            release.put_nowait(None)
+            final = await asyncio.wait_for(output.get(), 1)
+            assert final.final and final.translation == "번역 5"
+            assert final.revision > correction.revision
+            assert calls == [1, 3, 4, 5]
+            assert session.pending_translation_ms == 0
+            incoming.put_nowait(None)
+            await asyncio.wait_for(task, 1)
+            assert output.empty()
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize("queued_continuation", [False, True])
+def test_new_source_cancels_obsolete_translation_even_if_it_returns_late_bytes(
+    queued_continuation,
+):
     async def check():
         incoming = asyncio.Queue()
         output = asyncio.Queue()
@@ -802,7 +884,12 @@ def test_new_source_cancels_obsolete_translation_even_if_it_returns_late_bytes()
             incoming.put_nowait(Transcript("1", 1, "bank", False, 0, 1000))
             first = await asyncio.wait_for(output.get(), 1)
             await asyncio.wait_for(waiting.wait(), 1)
-            incoming.put_nowait(Transcript("1", 2, "bank account", True, 0, 2000))
+            if queued_continuation:
+                incoming.put_nowait(
+                    Transcript("1", 2, "bank by the river", False, 0, 1500)
+                )
+                await asyncio.sleep(0.02)
+            incoming.put_nowait(Transcript("1", 3, "bank account", True, 0, 2000))
             corrected = await asyncio.wait_for(output.get(), 1)
             assert corrected.final and corrected.translation == "은행"
             assert corrected.revision > first.revision

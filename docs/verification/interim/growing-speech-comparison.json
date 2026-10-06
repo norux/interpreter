@@ -1,0 +1,435 @@
+{
+  "date": "2026-10-06",
+  "baselineCommit": "9171640",
+  "realTabCapture": true,
+  "realLocalModels": true,
+  "nativeStartAndStopVerified": true,
+  "browser": "153.0.8010.12",
+  "modelSettings": {
+    "asrModel": "mlx-community/Qwen3-ASR-0.6B-8bit",
+    "textModel": "qwen3:4b-instruct",
+    "source": "English",
+    "target": "Korean",
+    "translationOptions": {
+      "temperature": 0,
+      "num_ctx": 4096,
+      "num_predict": 256,
+      "think": false
+    }
+  },
+  "sameAudio": true,
+  "wavSha256": [
+    "f60cd64de3e4629052a881f6e6c10f0a934fd4a75b2d3330656e820ce7f80de3",
+    "4bc0b17358a1565630c92675487f5eb29690b30ff96dcc4d249f715778799315",
+    "88a094c9623e5fdb7a2cfaa513ea37e5a2e1c9f3a57e54e73e0463094b77f741"
+  ],
+  "before": {
+    "prepareMs": 20231.74045799533,
+    "translationRequests": 54,
+    "incompleteTranslationRequests": 40,
+    "asrCalls": 68,
+    "maxPendingAudioMs": 6500,
+    "maxPendingTranslationMs": 2460,
+    "droppedFrames": 0,
+    "droppedUtterances": 0,
+    "droppedTranslations": 0,
+    "checks": {
+      "sampleChecks": false,
+      "allCaptionsAssigned": true,
+      "boundedQueues": true,
+      "queuesDrained": true,
+      "noDrops": true,
+      "sameAudio": true,
+      "firstPaintImproved": false
+    },
+    "trials": [
+      {
+        "repetition": 0,
+        "clip": 0,
+        "firstPaintFromVoiceStartMs": 1232.2002766927083,
+        "lastFinalPaintFromVoiceEndMs": 722.1443684895833,
+        "duringSpeechPaints": 3,
+        "sourceCorrections": 1,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true,
+          "duringSpeech": true
+        }
+      },
+      {
+        "repetition": 0,
+        "clip": 1,
+        "firstPaintFromVoiceStartMs": 867.8992513020834,
+        "lastFinalPaintFromVoiceEndMs": 1868.8326822916665,
+        "duringSpeechPaints": 7,
+        "sourceCorrections": 1,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 0,
+        "clip": 2,
+        "firstPaintFromVoiceStartMs": 1704.155029296875,
+        "lastFinalPaintFromVoiceEndMs": 3205.547770182292,
+        "duringSpeechPaints": 5,
+        "sourceCorrections": 1,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "negation": true,
+          "beforeNoon": false,
+          "blueUmbrella": true,
+          "station": true,
+          "afternoonThree": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 1,
+        "clip": 0,
+        "firstPaintFromVoiceStartMs": 3028.4495442708335,
+        "lastFinalPaintFromVoiceEndMs": 2194.048421223958,
+        "duringSpeechPaints": 0,
+        "sourceCorrections": 0,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true,
+          "duringSpeech": false
+        }
+      },
+      {
+        "repetition": 1,
+        "clip": 1,
+        "firstPaintFromVoiceStartMs": 5490.091389973958,
+        "lastFinalPaintFromVoiceEndMs": 2309.6747233072915,
+        "duringSpeechPaints": 0,
+        "sourceCorrections": 1,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": false,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 1,
+        "clip": 2,
+        "firstPaintFromVoiceStartMs": 1825.593017578125,
+        "lastFinalPaintFromVoiceEndMs": 3090.135660807292,
+        "duringSpeechPaints": 3,
+        "sourceCorrections": 1,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "negation": true,
+          "beforeNoon": false,
+          "blueUmbrella": true,
+          "station": true,
+          "afternoonThree": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 2,
+        "clip": 0,
+        "firstPaintFromVoiceStartMs": 2782.8372395833335,
+        "lastFinalPaintFromVoiceEndMs": 1928.5132649739583,
+        "duringSpeechPaints": 0,
+        "sourceCorrections": 0,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true,
+          "duringSpeech": false
+        }
+      },
+      {
+        "repetition": 2,
+        "clip": 1,
+        "firstPaintFromVoiceStartMs": 5009.955403645833,
+        "lastFinalPaintFromVoiceEndMs": 1950.4396158854165,
+        "duringSpeechPaints": 0,
+        "sourceCorrections": 1,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": false,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 2,
+        "clip": 2,
+        "firstPaintFromVoiceStartMs": 1568.972900390625,
+        "lastFinalPaintFromVoiceEndMs": 2268.845621744792,
+        "duringSpeechPaints": 7,
+        "sourceCorrections": 1,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "negation": true,
+          "beforeNoon": false,
+          "blueUmbrella": true,
+          "station": true,
+          "afternoonThree": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        }
+      }
+    ]
+  },
+  "after": {
+    "prepareMs": 3429.1269590030424,
+    "translationRequests": 43,
+    "incompleteTranslationRequests": 10,
+    "asrCalls": 69,
+    "maxPendingAudioMs": 6500,
+    "maxPendingTranslationMs": 5780,
+    "droppedFrames": 0,
+    "droppedUtterances": 0,
+    "droppedTranslations": 0,
+    "checks": {
+      "sampleChecks": false,
+      "allCaptionsAssigned": true,
+      "boundedQueues": true,
+      "queuesDrained": true,
+      "noDrops": true,
+      "sameAudio": true,
+      "firstPaintImproved": false
+    },
+    "trials": [
+      {
+        "repetition": 0,
+        "clip": 0,
+        "firstPaintFromVoiceStartMs": 1162.2403157552083,
+        "lastFinalPaintFromVoiceEndMs": 674.8223470052083,
+        "duringSpeechPaints": 4,
+        "sourceCorrections": 1,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true,
+          "duringSpeech": true
+        }
+      },
+      {
+        "repetition": 0,
+        "clip": 1,
+        "firstPaintFromVoiceStartMs": 852.3413899739584,
+        "lastFinalPaintFromVoiceEndMs": 2131.1796061197915,
+        "duringSpeechPaints": 8,
+        "sourceCorrections": 3,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 0,
+        "clip": 2,
+        "firstPaintFromVoiceStartMs": 1826.279052734375,
+        "lastFinalPaintFromVoiceEndMs": 2555.643717447917,
+        "duringSpeechPaints": 13,
+        "sourceCorrections": 4,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "negation": true,
+          "beforeNoon": false,
+          "blueUmbrella": true,
+          "station": true,
+          "afternoonThree": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 1,
+        "clip": 0,
+        "firstPaintFromVoiceStartMs": 2400.7342122395835,
+        "lastFinalPaintFromVoiceEndMs": 1541.2163899739583,
+        "duringSpeechPaints": 0,
+        "sourceCorrections": 0,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true,
+          "duringSpeech": false
+        }
+      },
+      {
+        "repetition": 1,
+        "clip": 1,
+        "firstPaintFromVoiceStartMs": 4859.227132161458,
+        "lastFinalPaintFromVoiceEndMs": 2065.6595865885415,
+        "duringSpeechPaints": 0,
+        "sourceCorrections": 3,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": false,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 1,
+        "clip": 2,
+        "firstPaintFromVoiceStartMs": 1808.4521484375,
+        "lastFinalPaintFromVoiceEndMs": 2957.342692057292,
+        "duringSpeechPaints": 13,
+        "sourceCorrections": 4,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "negation": true,
+          "beforeNoon": false,
+          "blueUmbrella": true,
+          "station": true,
+          "afternoonThree": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 2,
+        "clip": 0,
+        "firstPaintFromVoiceStartMs": 2664.7144368489585,
+        "lastFinalPaintFromVoiceEndMs": 1806.9334309895833,
+        "duringSpeechPaints": 0,
+        "sourceCorrections": 0,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "todayMeaning": true,
+          "sunnyMeaning": true,
+          "duringSpeech": false
+        }
+      },
+      {
+        "repetition": 2,
+        "clip": 1,
+        "firstPaintFromVoiceStartMs": 4877.809163411458,
+        "lastFinalPaintFromVoiceEndMs": 2272.0829264322915,
+        "duringSpeechPaints": 0,
+        "sourceCorrections": 2,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "craneMeaning": false,
+          "steelMeaning": true,
+          "duringSpeech": false,
+          "sourceCorrection": true
+        }
+      },
+      {
+        "repetition": 2,
+        "clip": 2,
+        "firstPaintFromVoiceStartMs": 1924.443115234375,
+        "lastFinalPaintFromVoiceEndMs": 2492.792643229167,
+        "duringSpeechPaints": 13,
+        "sourceCorrections": 4,
+        "checks": {
+          "korean": true,
+          "allDisplayedCuesFinalize": true,
+          "increasingRevisions": true,
+          "everyFinalPaint": true,
+          "sourceDetails": true,
+          "negation": true,
+          "beforeNoon": false,
+          "blueUmbrella": true,
+          "station": true,
+          "afternoonThree": true,
+          "duringSpeech": true,
+          "sourceCorrection": true
+        }
+      }
+    ]
+  },
+  "measurement": "continuous browser audio to covering main-frame Paint; estimated PCM origin; not acoustic timing",
+  "playback": "three rounds, nine advancing clips, 400ms added pause; no inference or subtitle expiry waits",
+  "coldWarm": "cached weights and OS caches, fresh engine, selected Ollama model unloaded; first sample includes first inference",
+  "full7dAcceptancePassed": false,
+  "limitations": [
+    "One paired run; three repetitions per clip, two warm samples. No statistical significance or cold-cache claim.",
+    "Long-clip source revisions are growth/context updates; this does not prove ambiguous-word meaning is corrected.",
+    "First-Paint improvement was not demonstrated. Construction and noon meaning checks still fail.",
+    "No ten-minute, original-audio listening or narrow/fullscreen appearance acceptance."
+  ],
+  "nativeWindowRecovery": "Fresh owned Chrome context accessible through CUA and Orca; native toolbar Start/Stop and cleanup verified. No permission change. For a toolbar AX click with no visible effect, fresh screenshot-coordinate click opened the menu."
+}

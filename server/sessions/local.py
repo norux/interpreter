@@ -598,7 +598,11 @@ class LocalSession:
         try:
             while not self.cancelled:
                 if pending and (current is None or completed is not None):
-                    if current is not None:
+                    same_utterance = (
+                        current is not None
+                        and pending[0].utterance_id == current.utterance_id
+                    )
+                    if current is not None and not same_utterance:
                         # A missing/empty ASR final cannot turn provisional text
                         # into confirmed context or stall the following utterance.
                         retire(current)
@@ -607,8 +611,9 @@ class LocalSession:
                         current.audio_end_ms - current.audio_start_ms
                     )
                     completed = None
-                    revision = 0
-                    correcting = False
+                    if not same_utterance:
+                        revision = 0
+                    correcting = same_utterance and revision > 0
                 if current is not None and stream is None and completed is None:
                     stream = self.translator.translate(current, context)
                     translation_revision = -1
@@ -646,18 +651,44 @@ class LocalSession:
                                 current
                                 and transcript.utterance_id == current.utterance_id
                             ):
-                                if transcript.revision > current.revision and not (
-                                    current.final and not transcript.final
+                                latest = next(
+                                    (
+                                        t
+                                        for t in pending
+                                        if t.utterance_id == current.utterance_id
+                                    ),
+                                    current,
+                                )
+                                if transcript.revision > latest.revision and not (
+                                    latest.final and not transcript.final
                                 ):
                                     source = " ".join(transcript.text.split())
                                     previous = " ".join(current.text.split())
-                                    if source != previous:
-                                        await stop_stream()
-                                        completed = None
-                                        correcting = revision > 0
-                                    current = transcript
-                                    if current.final and completed:
-                                        value = completed
+                                    if (
+                                        stream is not None
+                                        and not transcript.final
+                                        and source.startswith(
+                                            previous.rstrip(".!?,") + " "
+                                        )
+                                    ):
+                                        # Finish the prefix; coalesce continuations
+                                        # so frequent ASR cannot starve translation.
+                                        enqueue(transcript)
+                                    else:
+                                        for old in list(pending):
+                                            if old.utterance_id == current.utterance_id:
+                                                pending.remove(old)
+                                                self.pending_translation_ms -= (
+                                                    old.audio_end_ms
+                                                    - old.audio_start_ms
+                                                )
+                                        if source != previous:
+                                            await stop_stream()
+                                            completed = None
+                                            correcting = revision > 0
+                                        current = transcript
+                                        if current.final and completed:
+                                            value = completed
                             else:
                                 if (
                                     current
