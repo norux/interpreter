@@ -86,7 +86,7 @@ async def main():
     phase = sys.argv[1]
     assert phase in ("before", "after")
     trial_name = sys.argv[2] if len(sys.argv) > 2 else None
-    assert trial_name in (None, "interval500", "interval1000")
+    assert trial_name in (None, "interval500", "interval1000", "first500", "first300")
     assert trial_name is None or phase == "after"
     Path(".ralph").mkdir(exist_ok=True)
     clips = []
@@ -149,8 +149,10 @@ async def main():
     translator = MeasuredTranslator(TEXT_MODEL, "English", "Korean")
     translator.calls = []
     transcriber = MlxTranscriber(engine, ASR_MODEL, "English", interim=phase == "after")
-    if trial_name:
+    if trial_name in ("interval500", "interval1000"):
         transcriber.snapshot_frames = 25 if trial_name == "interval500" else 50
+    if trial_name == "first500":
+        transcriber.first_snapshot_frames = 25
     session = LocalSession(f"continuous-{phase}", transcriber, translator)
     samples, frame_lags, errors = [], [], []
     sources = [[] for _ in trials]
@@ -370,6 +372,12 @@ async def main():
         "textModel": TEXT_MODEL,
         "source": "English",
         "target": "Korean",
+        "translationOptions": {
+            "temperature": 0,
+            "num_ctx": 4096,
+            "num_predict": 256,
+            "think": False,
+        },
         "snapshotMs": transcriber.snapshot_frames * 20,
         "firstSnapshotMs": transcriber.first_snapshot_frames * 20,
         "snapshotsEnabled": phase == "after",
@@ -420,9 +428,54 @@ async def main():
             "fixtureChecks": all(all(t["checks"].values()) for t in trials),
         },
     }
-    if phase == "after":
-        before = json.loads(Path(".ralph/interim-continuous-before.json").read_text())
+    for clip in range(len(CLIPS)):
+        report[f"clip{clip}.firstEventFromVoiceStartMs"] = percentiles(
+            t["firstEventFromVoiceStartMs"]
+            for t in trials
+            if t["clip"] == clip and t["firstEventFromVoiceStartMs"] is not None
+        )
+        report[f"clip{clip}.lastFinalFromVoiceEndMs"] = percentiles(
+            t["lastFinalFromVoiceEndMs"]
+            for t in trials
+            if t["clip"] == clip and t["lastFinalFromVoiceEndMs"] is not None
+        )
+    if phase == "after" and trial_name != "first500":
+        baseline = (
+            ".ralph/interim-continuous-first500.json"
+            if trial_name == "first300"
+            else ".ralph/interim-continuous-before.json"
+        )
+        before = json.loads(Path(baseline).read_text())
+        report["comparisonBaseline"] = baseline
         report["checks"]["identicalPcm"] = report["pcmSha256"] == before["pcmSha256"]
+        if trial_name == "first300":
+            report["checks"]["sameSettingsExceptFirstSnapshot"] = all(
+                report[key] == before[key]
+                for key in (
+                    "asrModel",
+                    "textModel",
+                    "source",
+                    "target",
+                    "translationOptions",
+                    "snapshotMs",
+                    "snapshotsEnabled",
+                    "silenceMs",
+                    "addedPauseMs",
+                    "repetitions",
+                    "speech",
+                    "coldWarm",
+                    "inputMs",
+                )
+            ) and (before["firstSnapshotMs"], report["firstSnapshotMs"]) == (500, 300)
+            report["checks"]["eachClipFirstEventImproves"] = all(
+                report[f"clip{clip}.firstEventFromVoiceStartMs"]["n"]
+                == before[f"clip{clip}.firstEventFromVoiceStartMs"]["n"]
+                == repetitions
+                and report[f"clip{clip}.firstEventFromVoiceStartMs"][p]
+                < before[f"clip{clip}.firstEventFromVoiceStartMs"][p]
+                for clip in range(len(CLIPS))
+                for p in ("p50Ms", "p95Ms")
+            )
         report["checks"]["firstEventImproves"] = all(
             report["firstEventFromVoiceStartMs"][p] is not None
             and report["firstEventFromVoiceStartMs"][p]
@@ -438,6 +491,8 @@ async def main():
     )
     if phase == "before":
         Path(".ralph/interim-continuous-before.json").write_text(json.dumps(report))
+    if trial_name == "first500":
+        Path(".ralph/interim-continuous-first500.json").write_text(json.dumps(report))
     print(
         json.dumps(
             {

@@ -2686,3 +2686,62 @@ runner를 속이는 completion line은 출력하지 않는다. 루프는 한도 
   source/regressions/README/docs/numeric failed evidence/plan을 Conventional Commit으로
   보존한다. secret/weights/audio·transcript/.ralph/build는 커밋하지 않고 7d/전체 완료는
   체크하지 않는다.
+
+### Ralph iteration 14/30 — 2026-10-06 — 7d continuous first500/first300 comparison
+
+- 다음 미완료 **7d만 진행, checkbox는 미체크 유지**다. 시작 worktree clean,
+  AGENTS.md 없음, `.ralph/verification.txt`는 `No completion verification attempted
+  in this run.`이다. 지정 저장소/일반 model cache만 사용했다. agent/다른 worktree/
+  credentials/cloud inference/runner/criteria/제품 source/model/prompt/VAD/queue/
+  dependency/lock/push/publish 변경은 없다. 작은 기존 feature-local 계약을 유지했다.
+- 이전 iteration의 다음 작업인 **anchored300 추가 추론의 지속 처리 검증**을 진행했다.
+  기존 `tests/local-interim-continuous.py`에 test-only `after first500`/`after first300`
+  직접 비교를 추가했다. first500은 첫 voiced threshold만 25 frames로 바꾸며 후속
+  500 ms cadence는 같다. first300은 현재 제품 기본이다. 별도 ignored baseline/
+  report 이름, per-clip percentile, 동일 PCM/settings/정확한 500→300 및 각 clip
+  first p50/p95 개선 guard를 추가했다. 기존 meaning/final/queue check는 모두 유지한다.
+  새 제품 설정/추상화는 없고 README에 실제 순차 명령을 남겼다.
+- HF offline/owned Ollama cloud disabled에서 두 명령을 순차 실행했다. 각 **exit 1,
+  acceptance false**, 동일 PCM **132178.333 ms**, 10 rounds/30 clips/40 finals이다.
+  고정 400 ms 추가 pause/마지막 silence 포함이며 inference/읽기 만료를 기다리지 않는다.
+  **craneMeaning 10 + beforeNoon 10**만 실패한다. 실제 final ASR/번역을 console에서
+  검토했고 construction의 animal 오역/정오→오후 의미 오류를 확인했다. keyword는
+  heuristic이며 이 실제 실패를 완화하거나 mock으로 바꾸지 않는다. source details,
+  Korean/각 cue final/증가 revision/발화 중 event/source 변경/queue/drain/drop은 통과다.
+- first event p50/p95, first500→300 (각 clip n10, ms): weather
+  **684.429/828.020→509.520/785.492**, construction
+  **684.374/808.306→499.782/565.731**, long
+  **666.622/723.842→514.183/590.085**다. aggregate n30
+  **681.662/808.306→514.183/775.564**, last final
+  **822.274/1051.550→842.879/1006.457**이다. 모든 직접 비교 guard는 통과하지만
+  final 지연은 일률적으로 개선되지 않았다. **model event이며 native Paint/청취 근거 아니다**.
+- ASR/text **252/212→282/232**, text 완료/미완료 **159/53→168/64**,
+  ASR busy **59225.270→63219.110 ms**(input 대비 wall time **44.807→47.829%**,
+  GPU utilization 아님), text request 합 **102069.660→105678.519 ms**다.
+  source 변경119→139(단어 연장 포함)/snapshot coalescing0→10/최종 drop0.
+  ASR peak는 모든 round **6000 ms**, text peak1340→1360 ms, 최종 drain이다.
+  이 유한 workload에 backlog 증가가 없으며 일반 성능/다른 음성/10분 보장은 아니다.
+- fresh engine/동일 explicit ASR·text warmup 제외/cached weights·OS·compiler cache다.
+  preparation/warmup **19746.174→2270.181 ms**는 별도이며 cold 비교/개선 주장이 아니다.
+  Ollama0.35.1/MLX Audio0.5.8/Apple M5/ASR0.6B8bit/Qwen3 4B Q4_K_M/
+  English→Korean/temp0/context4096/predict256/think false다. RSS sample1223→1226/
+  peak184074240→352157696 bytes, MLX active1034231602→1034213162/global
+  1680166368→1680166360 bytes(warmup 포함)다. 합산하지 않고 전체 browser/Ollama
+  memory는 미측정이다. memory 감소/일반 품질 향상 주장도 없다.
+- full numeric/실제 exit code/paired independent audit summary는
+  `docs/verification/interim/continuous-iteration14-first-snapshot-failed.json`이다.
+  audit **exit 0**: 배정/hash/settings/정확한 실패/final/revision/시각 산술/exact n·
+  percentile/호출·busy합/queue/drop/프레임 수를 확인했다. acceptance pass 아니다.
+  기존 failed report는 수정하지 않았고 생성 audio는 tempdir cleanup으로 삭제했다.
+  owned Ollama SIGINT/exit0, base uv sync --locked 복원/uv lock --check 통과,
+  8765/8766/11434 listener없음이다.
+- native/browser/appearance/청취/inflight Stop/provider·session/10분은 이번에 시도하지
+  않았고 새 외부 blocker를 진단하지 않았다. **다음도7d**: 원래 construction/long의
+  정오 문맥 의미를 해결하고 native first500→first300의 지속 first/partial/final Paint,
+  전체 문자/읽기시간/narrow/fullscreen/청취/inflight 수명을 검증한다. 모델만의 추가
+  추론 비용 측정으로 checkbox/전체 완료를 체크하지 않는다. 이후7b→8→9다.
+- **최종 npm run verify exit 0**: lint/typecheck/build, **JS12 + Python214**,
+  failures/skips/warnings0, Python **66.84초**다. uv lock --check/git diff --check
+  통과이며 runner/제품 source/기존 evidence diff없음이다. 새 test-only 직접 비교,
+  README/docs/numeric failed evidence/plan을 Conventional Commit으로 보존한다.
+  secret/weights/audio·transcript/.ralph/build는 커밋하지 않으며 7d/전체 완료는 미체크다.

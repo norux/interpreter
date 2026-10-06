@@ -4607,3 +4607,80 @@ Python tests**, no failures/skips/warnings; Python **66.73 s**. `uv lock --check
 and `git diff --check` pass. Ports **8765/8766/11434** have no listeners; runner
 and prior evidence have no diff. The plan and all intended repository changes
 are committed. Item 7d and overall completion remain unchecked.
+
+## Ralph iteration 14 — direct first-snapshot comparison under continuous load
+
+Item **7d remains unchecked**. This iteration extends the existing model-only
+continuous harness with `after first500` and `after first300`. The control changes
+only the first voiced deadline to 500 ms; the product retains 300 ms followed by
+500/1000/1500… ms. The new comparison checks identical PCM/settings, aggregate
+and per-clip first-event p50/p95, and all existing meaning/finalization/queue
+checks. It adds no product settings or capture/model/output abstractions.
+README contains the exact sequential commands. No product source, prompt, model,
+VAD, queue limits, cloud policy, dependency/lock, runner or acceptance was changed.
+
+Both real two-model commands ran with HF offline and an owned Ollama server with
+`OLLAMA_NO_CLOUD=1`, and both exited **1**. Each feeds ten rounds/30 clips in one
+session, **132178.333 ms** of identical PCM including fixed 400 ms added pauses
+and final silence; it never waits for inference or subtitle expiry between clips.
+Each produces **40 finals** (the long clip spans two VAD segments), increasing
+revisions, Korean output, zero ASR/translation drops, bounded/drained queues and
+paced input. Exactly **10 craneMeaning + 10 beforeNoon** checks fail in each run.
+Final source/translation text was reviewed in console: construction becomes an
+animal, and the noon deadline becomes afternoon. Keyword checks are heuristics;
+these reviewed meaning failures remain failures. No text/audio is in the report.
+
+| Continuous model-only events, n=10 per clip | First500 p50/p95, ms | Anchored300 p50/p95, ms |
+| --- | --- | --- |
+| Weather start → first event | 684.429/828.020 | 509.520/785.492 |
+| Construction start → first event | 684.374/808.306 | 499.782/565.731 |
+| Long speech start → first event | 666.622/723.842 | 514.183/590.085 |
+| Weather end → last final event | 564.621/835.160 | 556.913/886.128 |
+| Construction end → last final event | 830.032/890.683 | 868.365/907.407 |
+| Long speech end → last final event | 827.354/1150.077 | 815.750/1089.144 |
+
+Aggregate first p50/p95 (n=30) improves **681.662/808.306 → 514.183/775.564 ms**;
+aggregate last final is **822.274/1051.550 → 842.879/1006.457 ms**. All direct
+comparison guards pass. Final latency does not uniformly improve. These are
+session events, not browser Paint or acoustic timings. Both have explicit ASR/text
+warmup excluded; fresh engines and cached weights/OS/compiler caches, not cold
+caches. Preparation/warmup **19746.174 → 2270.181 ms** is separate and reflects
+sequential cache conditions. Ollama **0.35.1**, MLX Audio **0.5.8**, Apple **M5**,
+Qwen3-ASR 0.6B 8bit and Qwen3 4B **Q4_K_M** use English→Korean, temperature 0,
+context 4096, 256 output tokens, thinking disabled.
+
+The earlier snapshot costs more: ASR/text calls **252/212 → 282/232**, text
+completed/incomplete **159/53 → 168/64**, ASR busy **59225.270 → 63219.110 ms**
+(**44.807% → 47.829%** of input duration; wall time, not GPU utilization).
+Text request wall-time sum **102069.660 → 105678.519 ms** overlaps ASR and is not
+added to it. Source-change captions **119 → 139** include word extensions and
+are not proof of correct semantic correction. Coalesced snapshots **0 → 10**;
+final drops remain zero. Sampled ASR queue peak is **6000 ms in every round** in
+both runs; translation peaks **1340 → 1360 ms**, and the final round in both
+returns to a 1000 ms maximum before drain. These sampled rounds show no sustained
+upward trend. This is not a guarantee for other speech.
+
+RSS sample counts **1223 → 1226**, peaks **184074240 → 352157696 bytes**;
+MLX active peaks **1034231602 → 1034213162**, process-global peaks including
+warmup **1680166368 → 1680166360 bytes**. RSS and MLX overlap and are not summed.
+Browser/Ollama total memory is not measured. Numeric evidence, exact exit codes,
+full calls/cues/samples and independent audit summaries are preserved in
+`interim/continuous-iteration14-first-snapshot-failed.json`. The audit exits **0**:
+30 clip assignments, exact failure counts, 40 finals, increasing revisions,
+timestamp arithmetic, exact percentile sample counts/values, matching PCM/settings,
+calls/busy sums, sampled queue bounds/drain/drop and frame counts. It does not
+turn either failed model probe into acceptance.
+
+No native browser/appearance/acoustic/in-flight Stop/provider/session or ten-minute
+public-video check ran this iteration; no new external access blocker was diagnosed.
+Generated audio was removed by the harness temporary-directory cleanup. Owned
+Ollama exits **0**, base `uv sync --locked` is restored, `uv lock --check` passes,
+and ports 8765/8766/11434 have no listeners. The next task is still **7d**: resolve
+the original construction/noon meaning errors and perform the direct native
+500→300 ms sustained Paint comparison, reading/appearance/audio/lifetime checks.
+
+Final `npm run verify` passes **exit 0**: lint/typecheck/build, **12 JS + 214
+Python tests**, no failures/skips/warnings; Python **66.84 s**. `uv lock --check`
+and `git diff --check` pass. Runner, product source and prior evidence have no
+diff. All intended changes are committed; item 7d and overall completion remain
+unchecked.

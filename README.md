@@ -369,6 +369,25 @@ checks. Run a fresh `before` browser phase first; model-only `after` still reads
 the saved final-only control from `.ralph/interim-continuous-before.json`.
 They do not add a product setting or change VAD, models, prompt, queue limits,
 translation policy, or paid-provider behavior.
+
+To compare the previous 500 ms first snapshot directly with the current anchored
+300 ms first snapshot under continuous **model-only** load, run:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-continuous.py after first500
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=. \
+  uv run --locked --extra local python tests/local-interim-continuous.py after first300
+```
+
+Both retain 500 ms subsequent deadlines and identical warmup. `first500` saves
+its numeric baseline to ignored `.ralph/interim-continuous-first500.json`;
+`first300` checks matching PCM/settings and both first-event percentiles against
+that baseline. Reports use distinct `continuous-after-first500/first300` names,
+include per-clip percentiles, and retain every meaning/finalization/queue check.
+Run these sequentially with the same Ollama instance and no competing model work.
+This comparison does not measure browser Paint or establish native appearance.
+
 Iteration 6 rejected the one-second default: it reduced ASR cost but worsened
 final Paint latency and did not fix warm short-speech Paint or construction
 meaning. The product retains 500 ms updates. See `docs/verification.md` for
