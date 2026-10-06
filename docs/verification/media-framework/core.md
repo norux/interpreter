@@ -448,3 +448,89 @@ No current C4 environment/device/permission blocker was observed. Actual compani
 inference/ASR or translation accuracy, real selected-video samples, browser model
 loading, Safari and physical iPhone acceptance were not tested in this iteration.
 Stage core and whole-framework/iPhone completion are not claimed.
+
+
+## 2026-10-06 — core iteration 4/5 (C5)
+
+Result: C5 completed; C1–C5 and all four required Stage core acceptance commands
+pass. Stage core is complete for its extraction/compatibility scope. Commit: the
+`test: finalize media framework core acceptance` commit containing this report.
+No repository AGENTS.md or requested independent runner failure file
+`.ralph/media-framework/2026-10-06T11-28-49-587Z-core-verification.txt` exists.
+The supplied standing instructions apply. No later stage was advanced.
+
+### Acceptance harness and coverage audit
+
+The existing core acceptance already exercised the implemented lifecycle, bounded
+queue, timeline, revision store, presentation policy and combined companion
+adapter. C5 strengthens two uncovered acceptance boundaries:
+
+- `tsconfig.contracts.json` extends the ES2022/no-DOM/no-ambient core config but
+  compiles contracts and their conformance fixture independently. The compiler's
+  actual file graph must stay within contracts/fixtures; a contracts → core import
+  now fails acceptance. The separate core graph still permits contracts/core and
+  requires all six implemented core modules. Both reject adapters/providers,
+  browser/worker libraries and Node ambient dependencies.
+- `test:framework:core` now includes the existing offscreen-host integration
+  regression, so the stage command checks the actual legacy host's settings
+  snapshot, omitted-settings request, byte-identical PCM1, versioned normalized
+  caption envelope, original wire fields and Stop cleanup/late-event fencing.
+  Negative type fixtures additionally reject Node, WebSocket and GPU ambient
+  types. No assertion or required browser check was removed or weakened.
+
+| Core checklist | Acceptance evidence and limits |
+| --- | --- |
+| C1 contracts | Positive/negative v1 envelope, opaque target, epoch/clock and separate revision fixtures; independent contracts/core compiler graphs |
+| C2 lifecycle/queue/timeline/store | 13 controlled tests: late probe/preparation/open, synchronous Stop, consecutive Start/settings isolation, seek/rate/source/pause/suspension epoch cancellation, rejected late results, cleanup failure ownership, exact revision pairing, bounded history, pressure/gaps and common-clock mapping |
+| C3 presentation | 7 controlled-clock tests: immediate first/source/translation/final, 1000 ms correction coalescing, final paired replay from part zero, acknowledged sequential parts, 2.5–6 s reading, exactly 250 ms fade/remove, visibility/deadline handling, recent-300/epoch/disposal/Clear; required browser checks independently exercise built renderers |
+| C4 companion compatibility | 8 adapter tests and 1 actual offscreen-module fixture: observed independent revisions, atomic pairs, malformed/foreign/stale/final-regression rejection, bounded queues/history, unchanged PCM1/auth/ready/buffer budget, cancellation/close and settings preservation; media/socket APIs are mocks |
+| C5 acceptance | Both no-DOM compiler configs, 2 dependency tests and all 4 required commands actually pass below; intentional forbidden-import experiment independently demonstrates non-success on a violated dependency boundary |
+
+C5 changes only acceptance configuration/tests and these records. No runtime,
+server protocol, published companion v0.1.0, installation path, settings UI,
+storage key/default or user setting was changed. The legacy capture route remains
+explicitly tab-mix. It does not establish selected-video input. No second VAD/ASR,
+new model or inference implementation was introduced.
+
+### Environment and exact acceptance evidence
+
+Executed only in the requested worktree on Darwin arm64; Node v24.15.0,
+npm 11.12.1, uv 0.12.23, Python 3.12.15, TypeScript 7.0.2, Biome 2.5.15,
+Vite 8.3.2 and existing Playwright Chromium 153.0.8010.12. Existing locked Python
+dependencies and browser caches were used. No dependencies, models or apps were
+installed/downloaded. Each required command exited 0 on the completed code.
+
+| Command | Actual result | Evidence |
+| --- | --- | --- |
+| `npm run test:framework:core` (initial expanded harness) | PASS, exit 0: two ES2022/no-DOM compilations, 31 passed/0 failed/0 skipped; 156.680125 ms | `.ralph/media-framework/core-4-c5-framework.log` |
+| `node --import tsx --test tests/framework-contracts.test.ts` with temporary prohibited contracts → core export | EXPECTED FAIL, child exit 1: 1 passed/1 failed/0 skipped; 103.98 ms; contracts graph rejected `packages/core/identity.ts` as `Forbidden dependency`. Experiment wrapper exit 0 asserted that rejection and removed the fixture in `finally` | `.ralph/media-framework/core-4-c5-boundary-rejection.log`; temporary `packages/contracts/core-dependency-fixture.ts` removed, not committed |
+| `npm run test:framework:core` (after removing prohibited fixture) | PASS, final exit 0: both ES2022/no-DOM compilations and compiler graphs, 31 passed/0 failed/0 skipped/0 cancelled; 118.048041 ms | `.ralph/media-framework/core-4-c5-framework-final.log` |
+| `npm run verify` | PASS, exit 0: Biome 67 files/38 ms/no findings, Ruff passed, extension typecheck, Vite main 28 modules/30 ms and content IIFE 10 modules/6 ms; JS 64 passed/0 failed/0 skipped/15141.718583 ms, Python 222 passed/66.91 s | `.ralph/media-framework/core-4-c5-verify.log` |
+| `npm run test:captions-correction-browser` | PASS, exit 0: Chromium 153.0.8010.12, 1000 ms cadence, immediate first/final, burst/latest/in-place/clear/replacement; emitted `passed: true`, `realAudioOrModels: false` | `.ralph/media-framework/core-4-c5-correction-browser.log` |
+| `npm run test:transcript-browser` | PASS, exit 0: both comparison/runtime scripts; source/translation/audio-time/cadence/safe text/same-row correction/history eviction/session replacement/reopen/stale rejection/Stop retention, actual extension messaging/window; UI page errors `[]`, runtime `realCapture: false` | `.ralph/media-framework/core-4-c5-transcript-browser.log`; regenerated UI/runtime JSON inspected |
+| `git diff --check` | PASS, exit 0, no whitespace errors, including final report/plan changes | CLI output before commit |
+
+No unexpected acceptance failures or required core environment/permission blockers
+occurred. The negative dependency experiment is intentional harness evidence,
+not a passing application run or an unresolved regression. The final core run
+confirms restored sources. Browser screenshots and UI JSON matched committed
+artifacts; runtime JSON changed only nondeterministic `closedWindowId`
+(2092352814 → 747130818). Fresh evidence was inspected and that generated file
+restored. Local `.ralph` logs/state remain ignored and excluded from the commit.
+No credentials, model weights, user audio/transcripts or unrelated files are
+committed. Active recordings, mounted images, settings and running user apps were
+preserved; only test-owned browser contexts were opened and closed.
+
+### Unverified scope and next item
+
+Core acceptance establishes contracts, orchestration, policy and legacy host
+compatibility using generated PCM/captions and mock transport/media APIs, plus
+actual built DOM rendering/extension messaging. It does not establish real
+selected-video samples, companion or browser ASR accuracy, translation quality,
+model loading, standalone inference, Safari or physical iPhone support. These
+remain unverified and belong to later stages; no whole-framework/iPhone
+completion is claimed. There is no remaining core blocker or resume condition.
+
+C1–C5 are checked only after the four required commands passed. The next plan
+item is V1 selected-video discovery/selection, left unchecked and unstarted.
+The independent runner will rerun core acceptance against this commit.

@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.framework.json",
+  "include": ["packages/contracts/**/*.ts", "tests/framework/types/contracts.ts"]
+}

@@ -152,7 +152,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 - [x] C2. 코어의 session controller·bounded queue·timeline·revision store를 분리한다. DOM/Chrome ambient type 없이 컴파일하고, 늦은 이벤트·준비 중 Stop·연속 Start·탐색 시 취소를 검증한다.
 - [x] C3. 교정 1초 간격, 첫 결과/최종 결과 즉시 반영, 긴 최종 번역 처음부터 순차 재표시, 250ms fade, 최근 300 발화 정책을 코어/renderer 경계로 분리한다. 화면 크기에 따른 line fitting은 renderer가 맡는다.
 - [x] C4. 기존 companion을 combined interpretation adapter로 연결한다. 중복 VAD/ASR을 실행하지 않는다. 서버가 제공하지 않는 ASR-only 이벤트는 capability로 명시하고 원문/번역 짝과 기존 사용자 설정을 보존한다.
-- [ ] C5. `test:framework:core`와 코어용 타입/의존성 검증을 추가한다. `npm run verify`, 기존 correction browser 검사와 transcript browser 검사를 실제 실행하고 단계 보고서를 작성한다.
+- [x] C5. `test:framework:core`와 코어용 타입/의존성 검증을 추가한다. `npm run verify`, 기존 correction browser 검사와 transcript browser 검사를 실제 실행하고 단계 보고서를 작성한다.
 
 완료 검증: `npm run verify`, `npm run test:framework:core`,
 `npm run test:captions-correction-browser`, `npm run test:transcript-browser`.
@@ -459,3 +459,61 @@ credentials/model weights/user audio/transcripts/temporary runner state는 커�
 타입/의존성 경계를 audit하고 필수 네 명령을 다시 실행하여 stage report를 마무리한다.
 C5와 이후 stage checkbox는 보존한다. 현재 C4 환경 차단은 없으며 stage 또는 전체
 framework/iPhone 완료를 주장하지 않는다.
+
+
+### 2026-10-06 / core / iteration 4/5 — C5
+
+관련 commit: 이 기록을 포함한 `test: finalize media framework core acceptance`.
+
+수행한 변경: 다음 미완료 항목 C5의 acceptance coverage와 타입/의존성 경계를
+검토했다. `tsconfig.contracts.json`으로 contracts를 core와 별도로 ES2022/no-DOM/
+no-ambient compile하고 실제 compiler graph가 core를 역참조하면 실패하도록 했다.
+기존 core graph는 6개 core module과 contracts만 허용한다. Node/WebSocket/GPU
+ambient negative fixture를 추가했다. 기존 offscreen host integration 검사를
+`test:framework:core`에 포함하여 설정 snapshot/설정 생략/PCM1 byte/envelope/wire
+caption/Stop ownership 보존도 runner의 stage command가 확인하도록 했다.
+기존 acceptance를 제거·약화하지 않았다. runtime/서버/companion v0.1.0/설치 경로/
+사용자 설정은 변경하지 않았다. C1–C5와 네 필수 명령 통과 후 C5를 체크했다.
+
+실행한 명령과 결과:
+
+- PASS: 첫 expanded `npm run test:framework:core` (exit 0, 두 ES2022/no-DOM
+  compile, 31 passed/0 failed/0 skipped, 156.680125 ms).
+- EXPECTED FAIL: 임시 contracts → core export를 추가한
+  `node --import tsx --test tests/framework-contracts.test.ts` (child exit 1,
+  1 passed/1 failed/0 skipped, 103.98 ms, `packages/core/identity.ts`의
+  `Forbidden dependency`). wrapper는 실패를 확인하고 `finally`에서 임시 파일을
+  제거해 exit 0. 이 실험은 boundary 위반을 검출하는 증거이며 미해결 오류가 아니다.
+- PASS: 임시 위반 제거 후 최종 `npm run test:framework:core` (exit 0, 두 no-DOM
+  compile/compiler graph, 31 passed/0 failed/0 skipped/0 cancelled, 118.048041 ms).
+- PASS: `npm run verify` (exit 0, Biome 67 files/38 ms/no findings, Ruff,
+  extension typecheck, Vite main 28 modules/30 ms + content IIFE 10 modules/6 ms,
+  JS 64 passed/0 failed/0 skipped/15141.718583 ms, Python 222 passed/66.91 s).
+- PASS: `npm run test:captions-correction-browser` (exit 0, Chromium
+  153.0.8010.12, 1000 ms cadence, 즉시 첫/최종, burst/latest/in-place/clear/replacement,
+  `passed: true`, `realAudioOrModels: false`).
+- PASS: `npm run test:transcript-browser` (exit 0, comparison/runtime 두 script,
+  source/translation/audio-time/cadence/safe text/same-row/history eviction/session
+  replacement/reopen/stale rejection/Stop retention, 실제 extension messaging/window,
+  UI page errors `[]`, runtime `realCapture: false`).
+- PASS: `git diff --check` (exit 0, 최종 문서 포함 whitespace 오류 없음).
+
+실제 검증 범위: Darwin arm64, Node v24.15.0/npm 11.12.1,
+uv 0.12.23/Python 3.12.15, existing Chromium 153.0.8010.12. core/adapter/mock host의
+생성된 PCM/caption 수명주기·정책·설정/프로토콜 호환과 실제 built DOM/extension
+messaging만 검증했다. 실제 selected-video PCM, ASR 정확도/번역 품질, 모델 로드,
+standalone inference, Safari/iPhone은 미검증이다. dependency/model/app 설치,
+push/publish/위임·다음 stage 진행 없음.
+
+실패·미검증과 증거 위치: [core 보고서](docs/verification/media-framework/core.md)의
+coverage 표와 정확한 명령 결과. `.ralph/media-framework/core-4-c5-*.log`는 local
+진단만으로 커밋하지 않는다. 요청된 independent runner failure 파일과 AGENTS.md는
+없었다. 실제 acceptance의 예상 밖 실패/환경 차단 없음. Browser screenshots/UI JSON은
+기존과 동일했고 runtime window ID만 변경(2092352814 → 747130818)되어 새 증거를
+읽고 원래 파일로 복원했다. 임시 dependency 위반 파일, credentials/model weights/
+user audio/transcripts/runner state는 커밋하지 않는다. 사용자 앱/녹화/마운트/설정 보존.
+
+다음 미완료 항목 또는 차단 해제 조건: Stage core C1–C5 및 필수 네 명령 모두
+통과했고 core 차단은 없다. 다음 plan 항목은 V1 영상 선택/MediaCatalog지만 이번
+iteration에서 시작하지 않았다. 이후 stage checkbox와 plan은 보존한다.
+선택한 core만 완료이며 전체 framework/iPhone 완료를 주장하지 않는다.

@@ -56,6 +56,12 @@ const invalidTarget: MediaTarget = { id: "raw-video", documentId: "d", frameId: 
 export type ForbiddenElement = HTMLElement;
 // @ts-expect-error A DOM-free compile must not expose chrome ambient types.
 export type ForbiddenChrome = chrome.tabs.Tab;
+// @ts-expect-error Core contracts cannot use Node ambient types.
+export type ForbiddenNode = NodeJS.Process;
+// @ts-expect-error Socket transport belongs to an adapter.
+export type ForbiddenSocket = WebSocket;
+// @ts-expect-error GPU execution belongs to an engine adapter.
+export type ForbiddenGPU = GPUDevice;
 // @ts-expect-error Unsupported protocol version.
 const invalidVersion: FrameworkEnvelope = { version: 2, message: { type: "audio", chunk } };
 // @ts-expect-error Epoch is mandatory for all session events.
