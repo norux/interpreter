@@ -26,11 +26,12 @@ def run(arguments):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ollama-dir", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, default=REPO / "dist/companion")
     options = parser.parse_args()
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise SystemExit("Build on an Apple Silicon Mac.")
     uv = shutil.which("uv") or str(REPO / ".tools/uv/bin/uv")
-    output = REPO / "dist/companion"
+    output = options.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     app = output / "Interpreter Companion.app"
     if app.exists():

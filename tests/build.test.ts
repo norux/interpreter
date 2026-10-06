@@ -17,12 +17,14 @@ test("MV3 build contains its declared pages and reserved capture/sink entries", 
     manifest.action.default_popup,
     "offscreen.html",
     "offscreen.js",
+    "transcript.html",
+    "transcript.js",
     "content.js",
     "worklet.js",
   ]) {
     assert.ok((await stat(new URL(file, dist))).isFile(), `Missing build entry: ${file}`);
   }
-  for (const page of [manifest.action.default_popup, "offscreen.html"]) {
+  for (const page of [manifest.action.default_popup, "offscreen.html", "transcript.html"]) {
     const html = await readFile(new URL(page, dist), "utf8");
     const scripts = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)];
     assert.ok(scripts.length > 0, `No bundled script in ${page}`);

@@ -20,6 +20,7 @@
     "test:captions-browser": "npm run build && node tests/captions-browser.mjs",
     "test:captions-overlap-browser": "npm run build && node tests/captions-overlap-browser.mjs",
     "test:captions-correction-browser": "npm run build && node tests/captions-correction-browser.mjs",
+    "test:transcript-browser": "npm run build && node tests/transcript-browser.mjs && node tests/transcript-runtime.mjs",
     "build:companion": "npm run build && uv run --locked python companion/build.py --ollama-dir .tools/ollama",
     "test:companion-browser": "npm run build && node tests/companion-browser.mjs",
     "test:local-browser": "npm run build && node tests/local-browser.mjs",

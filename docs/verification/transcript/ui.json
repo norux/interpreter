@@ -1,0 +1,17 @@
+{
+  "browser": "153.0.8010.12",
+  "generatedPairs": true,
+  "realCapture": false,
+  "columns": true,
+  "audioTime": true,
+  "correctionIntervalMs": 1000,
+  "sameRow": true,
+  "immediateFinal": true,
+  "plainSource": true,
+  "stopRetention": true,
+  "eviction": true,
+  "sessionReplacement": true,
+  "replay": true,
+  "normalDarkNarrow": true,
+  "pageErrors": []
+}

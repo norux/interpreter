@@ -5420,3 +5420,74 @@ for that check to avoid changing the active installation's registration. A fresh
 GUI button-click/visual check was not run. The installed active app is retained.
 The additional request to transcribe heard audio awaits clarification between the
 current Chrome tab and whole-computer audio; no capture behavior changed here.
+
+## Original/time/translation comparison window (2026-10-06)
+
+The user clarified that the source is the selected Chrome tab. Start now opens a
+separate extension comparison window, with original speech on the left, elapsed
+capture audio start/end times in the center and translation on the right. The
+popup's **원문 · 번역** button reopens/focuses that window. Closing it leaves capture
+running. The video keeps its existing subtitle overlay/final replay/fade behavior.
+The ASR original is taken from the exact caption source snapshot, so it arrives
+alongside translation output; no separate earlier ASR-only event is added.
+
+The worker keeps the latest source/translation pair per utterance, rejects stale
+revisions and final-to-partial regressions, and routes data only from the active
+offscreen session. A maximum of 300 rows is retained in memory; eviction IDs and
+counts keep the view aligned and disclose loss. No transcript is persisted in
+storage or to disk. Window identity alone is in `chrome.storage.session`.
+An open view retains text after Stop. A new Start resets it. Reopening during
+capture restores the worker buffer, which can be lost on worker restart or
+extension reload. This is a bounded live comparison, not a durable transcript log.
+
+The view displays complete wrapped text and paced in-place source/translation
+corrections at most once per 1000ms, with immediate first/final updates. The center
+shows millisecond audio ranges and whether each row is still being corrected or
+final. Rendering uses plain text, including recognized markup. Auto-follow runs
+only while the reader is at the bottom. Narrow windows preserve separate columns
+with horizontal scrolling; light and dark themes are implemented.
+
+`npm run test:transcript-browser` **exits 0** on Chrome 153.0.8010.12. Its built-UI
+check uses generated pairs and controlled time: ordered columns, audio time,
+same-row paired corrections, burst coalescing, immediate final, pending-partial
+cancellation, literal markup rendering, retention after Stop, eviction, session
+replacement and snapshot replay. A new narrow-window assertion first **failed**
+when millisecond time values wrapped; center padding/minimum table width and
+non-wrapping time spans now make the same check pass. Screenshots cover normal,
+dark and narrow layouts, with a separate generated preview
+[transcript/preview.png](verification/transcript/preview.png). Compact results are
+[transcript/ui.json](verification/transcript/ui.json).
+
+The same command then exercises actual Chrome extension messaging and a real
+comparison popup window in an isolated profile. Generated captions are sent from
+the built offscreen page to the production worker and view; the source, translated
+text, center times, same-row final correction, stale/session rejection, view reload
+replay and Stop retention all pass. Capture status is generated for this test;
+there are no PCM frames, ASR/translation calls, audio permission or model-quality
+claims. It does not access the active user's settings page. Evidence is
+[transcript/runtime.json](verification/transcript/runtime.json).
+
+All **13 JS tests**, lint, typecheck and the extension build pass. The extended
+worker tests cover popup-only window control, Start reuse, reopening a closed
+window, source/final replay, 300-row eviction, Stop retention and cancelled-Start
+reset. A late terminal-status regression first **failed** because the comparison
+could show stopped while a replacement capture was active. The viewer now receives
+the current status already read by the queued cleanup guard; the same test passes.
+`node tests/captions-correction-browser.mjs` also **exits 0** for the existing video
+subtitle pacing/final/clear behavior. The Python engine is unchanged, so its full
+suite was not repeated for this presentation feature.
+
+Read-only process/disk-image inspection found the active app running from
+`/Volumes/Interpreter Companion 1`, with two older mounts of the default DMG.
+Build output selection therefore uses `dist/companion-transcript` to preserve
+those active mounted images. The app and existing recordings are not replaced,
+stopped or unmounted. The new DMG must be installed and the extension reloaded
+to use this view. This remains a development build without public release signing
+or notarization; a new real-video/native full-capture acceptance run is pending.
+
+The final alternate-output `npm run build:companion` **exits 0**. Strict app
+signature verification and the DMG's `SHA256SUMS` check both **exit 0**, and the
+bundled `transcript.html`, `transcript.js` and service worker exactly match the
+verified extension build. The **4 focused companion Python tests pass** after
+adding the build-output argument; a new full model smoke was not repeated because
+models, engines and locked bundled dependencies did not change.

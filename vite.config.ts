@@ -14,6 +14,7 @@ export default defineConfig({
       input: {
         popup: `${extension}/popup.html`,
         offscreen: `${extension}/offscreen.html`,
+        transcript: `${extension}/transcript.html`,
         "service-worker": `${extension}/service-worker.ts`,
         content: `${extension}/content.ts`,
         worklet: `${extension}/worklet.ts`,

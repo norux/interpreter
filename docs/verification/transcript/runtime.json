@@ -1,0 +1,14 @@
+{
+  "browser": "153.0.8010.12",
+  "realExtensionMessaging": true,
+  "realComparisonWindow": true,
+  "generatedOffscreenCaptions": true,
+  "realCapture": false,
+  "sourceAndTranslation": true,
+  "audioTime": true,
+  "sameRow": true,
+  "staleRejection": true,
+  "replay": true,
+  "stopRetention": true,
+  "closedWindowId": 2092352814
+}

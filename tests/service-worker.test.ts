@@ -9,6 +9,7 @@ test("terminal offscreen reports release its document without clearing errors or
   let saved: CaptureStatus | undefined;
   const cleared: string[] = [];
   const delivered: string[] = [];
+  const transcriptStatuses: CaptureStatus[] = [];
   let listener: (message: CaptureCommand, sender: chrome.runtime.MessageSender, respond: () => void) => void = () => {};
   const original = Object.getOwnPropertyDescriptor(globalThis, "chrome");
   Object.defineProperty(globalThis, "chrome", { configurable: true, value: {
@@ -17,7 +18,10 @@ test("terminal offscreen reports release its document without clearing errors or
       getURL: (path: string) => `chrome-extension://test-extension/${path}`,
       ContextType: { OFFSCREEN_DOCUMENT: "OFFSCREEN_DOCUMENT" },
       getContexts: async () => documentOpen ? [{}] : [],
-      sendMessage: async () => status,
+      sendMessage: async (message: { target: string; type: string; status: CaptureStatus }) => {
+        if (message.target === "transcript" && message.type === "status") transcriptStatuses.push(message.status);
+        return status;
+      },
       onMessage: { addListener: (callback: typeof listener) => { listener = callback; } },
     },
     storage: { session: {
@@ -70,4 +74,5 @@ test("terminal offscreen reports release its document without clearing errors or
   assert.deepEqual(delivered, ["new-session"], "Only the active offscreen session may deliver captions");
   assert.equal(documentOpen, true, "Queued terminal report must not close a new capture");
   assert.deepEqual(cleared, ["disconnected-session"], "Late terminal report must not clear the new caption session");
+  assert.equal(transcriptStatuses.at(-1)?.state, "capturing", "A late terminal report must not mark the new comparison session as stopped");
 });

@@ -38,6 +38,17 @@ caches. It does not switch models or send inference to the cloud.
    running Ollama is reused and not terminated. Manually running companions
    remain available for development, using the exact extension ID below.
 
+Start also opens a separate comparison window with **original speech | elapsed
+audio time | translation** columns. The original is the ASR result for the same
+speech snapshot used for translation. Corrections update the existing row at most
+once per second; final output updates immediately and long text wraps in full.
+The video keeps its existing translated subtitle overlay. Closing the comparison
+window leaves capture running; **원문 · 번역** in the popup reopens it.
+Recent pairs are bounded to 300 utterances in memory, retained in an open view
+after Stop and cleared on the next Start. No transcript is written to disk.
+Reopening during capture restores the worker's recent pairs; that replay buffer
+can be lost if Chrome restarts the worker or the extension is reloaded.
+
 The extension now pins its development ID to
 `kclhipphbdcaemaceceplhocjeccadne`; existing unpacked installations may need removing
 and loading again to adopt the ID/new permissions. Before Chrome Web Store
@@ -63,6 +74,8 @@ uv python install 3.12
 # Place the official Ollama v0.35.1 macOS archive contents in .tools/ollama.
 npm run build:companion
 # Includes the app, DMG and SHA256SUMS. This build needs no model downloads.
+# Choose another output directory while an older DMG is mounted:
+npm run build:companion -- --output-dir dist/companion-transcript
 INTERPRETER_COMPANION_APP="$HOME/Applications/Interpreter Companion.app" \
   npm run test:companion-browser
 ```

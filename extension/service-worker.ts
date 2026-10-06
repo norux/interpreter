@@ -2,6 +2,8 @@ import type { CaptureCommand, CaptureStatus } from "./capture/contracts";
 
 import { defaultSettings, type SessionSettings } from "./capture/settings";
 import { createCompanionConnection } from "./companion";
+import type { Caption } from "./captions/contracts";
+import type { TranscriptMessage } from "./transcript/contracts";
 
 async function readSettings(): Promise<SessionSettings> {
   const saved = await chrome.storage.local.get("sessionSettings") as { sessionSettings?: SessionSettings };
@@ -11,11 +13,58 @@ async function readSettings(): Promise<SessionSettings> {
 const idle: CaptureStatus = { state: "idle", message: "Ready to capture tab audio." };
 let operations = Promise.resolve();
 let startGeneration = 0;
+let transcriptSessionId: string | undefined;
+const transcriptCaptions: Caption[] = [];
+let transcriptDropped = 0;
+
+function transcriptSnapshot(): TranscriptMessage {
+  return { target: "transcript", type: "snapshot", sessionId: transcriptSessionId, captions: [...transcriptCaptions], dropped: transcriptDropped };
+}
+
+function showTranscript(message: TranscriptMessage) {
+  void chrome.runtime.sendMessage(message).catch(() => {});
+}
+
+function resetTranscript(sessionId?: string) {
+  transcriptSessionId = sessionId;
+  transcriptCaptions.length = 0;
+  transcriptDropped = 0;
+  showTranscript(transcriptSnapshot());
+}
+
+function recordTranscript(caption: Caption) {
+  if (transcriptSessionId !== caption.sessionId) resetTranscript(caption.sessionId);
+  const index = transcriptCaptions.findIndex((item) => item.utteranceId === caption.utteranceId);
+  let removedId: string | undefined;
+  if (index >= 0) {
+    const previous = transcriptCaptions[index];
+    if (previous.revision >= caption.revision || (previous.final && !caption.final)) return;
+    transcriptCaptions[index] = caption;
+  } else {
+    transcriptCaptions.push(caption);
+    if (transcriptCaptions.length > 300) {
+      removedId = transcriptCaptions.shift()?.utteranceId;
+      transcriptDropped++;
+    }
+  }
+  showTranscript({ target: "transcript", type: "caption", caption, dropped: transcriptDropped, removedId });
+}
+
+async function openTranscript() {
+  const saved = await chrome.storage.session.get<{ transcriptWindowId?: number }>("transcriptWindowId");
+  if (saved.transcriptWindowId !== undefined) {
+    try { await chrome.windows.update(saved.transcriptWindowId, { focused: true }); return; }
+    catch { /* The user can close the comparison window while capture continues. */ }
+  }
+  const window = await chrome.windows.create({ url: chrome.runtime.getURL("transcript.html"), type: "popup", width: 1100, height: 720 });
+  if (window?.id !== undefined) await chrome.storage.session.set({ transcriptWindowId: window.id });
+}
 const companion = createCompanionConnection((message) => {
   void interruptStart().then(() => enqueue(async () => {
     await stopCapture();
     const next: CaptureStatus = { state: "error", message };
     await chrome.storage.session.set({ captureStatus: next });
+    showTranscript({ target: "transcript", type: "status", status: next });
     return next;
   }));
 });
@@ -52,6 +101,7 @@ async function stopCapture(): Promise<CaptureStatus> {
   }
   await companion.stop();
   await chrome.storage.session.set({ captureStatus: idle });
+  showTranscript({ target: "transcript", type: "status", status: idle });
   return idle;
 }
 
@@ -62,9 +112,12 @@ async function startCapture(): Promise<CaptureStatus> {
   if (!tab?.id || !tab.url || !/^https?:/.test(tab.url)) {
     const next: CaptureStatus = { state: "error", message: "Open an ordinary HTTP/HTTPS page with audio. Chrome internal pages cannot be captured." };
     await chrome.storage.session.set({ captureStatus: next });
+    showTranscript({ target: "transcript", type: "status", status: next });
     return next;
   }
   await chrome.storage.session.set({ captureStatus: { state: "starting", tabId: tab.id, message: "Starting tab capture…" } });
+  resetTranscript();
+  showTranscript({ target: "transcript", type: "status", status: { state: "starting", message: "Starting tab capture…" } });
   try {
     const settings = await readSettings();
     await chrome.storage.session.set({ captureStatus: { state: "starting", tabId: tab.id, message: "Starting Interpreter Companion…" } });
@@ -81,9 +134,13 @@ async function startCapture(): Promise<CaptureStatus> {
     if (next.state === "capturing" && next.sessionId) {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
       await chrome.tabs.sendMessage(tab.id, { target: "captions", type: "start", sessionId: next.sessionId });
+      resetTranscript(next.sessionId);
+      try { await openTranscript(); }
+      catch { next.message += " Open the source/translation view from the popup to try again."; }
     }
     if (next.state === "error") { await chrome.offscreen.closeDocument(); await companion.stop(); }
     await chrome.storage.session.set({ captureStatus: next });
+    showTranscript({ target: "transcript", type: "status", status: next });
     return next;
   } catch (error) {
     await stopCapture();
@@ -91,6 +148,7 @@ async function startCapture(): Promise<CaptureStatus> {
     const next: CaptureStatus = { state: "error", message: error instanceof Error ? error.message : "Tab capture failed." };
     if (error instanceof Error && "installRequired" in error && error.installRequired) next.installRequired = true;
     await chrome.storage.session.set({ captureStatus: next });
+    showTranscript({ target: "transcript", type: "status", status: next });
     return next;
   }
 }
@@ -103,6 +161,11 @@ function enqueue(task: () => Promise<CaptureStatus>): Promise<CaptureStatus> {
 
 chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) => {
   if (sender.id !== chrome.runtime.id || message.target !== "worker") return;
+  if (message.type === "transcript-snapshot") {
+    if (sender.url !== chrome.runtime.getURL("transcript.html")) return;
+    void readStatus().then((status) => respond({ ...transcriptSnapshot(), status }));
+    return true;
+  }
   if (message.type === "stream-id") {
     if (sender.url !== chrome.runtime.getURL("offscreen.html")) return;
     void readStatus().then(async (current) => current.state === "starting" && current.tabId === message.tabId
@@ -114,6 +177,7 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
     void enqueue(async () => {
       const current = await readStatus();
       if (current.state === "capturing" && current.sessionId === message.caption.sessionId && current.tabId) {
+        recordTranscript(message.caption);
         await chrome.tabs.sendMessage(current.tabId, { target: "captions", type: "caption", caption: message.caption }).catch(() => {});
       }
       return current;
@@ -130,6 +194,7 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
         void enqueue(async () => {
           // A terminal report can race with tab removal or a new Start operation.
           const current = await readStatus();
+          showTranscript({ target: "transcript", type: "status", status: current });
           if (current.state === "idle" || current.state === "error") {
             const saved = await previous;
             if (saved?.captureStatus) await clearCaptions(saved.captureStatus);
@@ -139,12 +204,18 @@ chrome.runtime.onMessage.addListener((message: CaptureCommand, sender, respond) 
           }
           return current;
         });
+      } else {
+        showTranscript({ target: "transcript", type: "status", status: message.status });
       }
     }
     return;
   }
   // Only the extension popup can initiate recording; page/content messages cannot.
   if (sender.url !== chrome.runtime.getURL("popup.html")) return;
+  if (message.type === "open-transcript") {
+    void openTranscript().then(readStatus).then(respond, () => respond({ state: "error", message: "Could not open the source/translation window. Try again." }));
+    return true;
+  }
   if (message.type === "install-companion") {
     void chrome.downloads.download({
       url: "https://github.com/norux/interpreter/releases/latest/download/Interpreter-Companion-macos-arm64.dmg",

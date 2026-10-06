@@ -8,7 +8,8 @@ const start = document.querySelector<HTMLButtonElement>("#start");
 const stop = document.querySelector<HTMLButtonElement>("#stop");
 const form = document.querySelector<HTMLFormElement>("#settings");
 const install = document.querySelector<HTMLButtonElement>("#install-companion");
-if (!status || !metrics || !start || !stop || !form || !install) throw new Error("Popup controls are missing.");
+const transcript = document.querySelector<HTMLButtonElement>("#open-transcript");
+if (!status || !metrics || !start || !stop || !form || !install || !transcript) throw new Error("Popup controls are missing.");
 const provider = form.elements.namedItem("provider") as HTMLSelectElement;
 const asr = form.elements.namedItem("asr") as HTMLSelectElement;
 const asrModel = form.elements.namedItem("asrModel") as HTMLInputElement;
@@ -68,6 +69,7 @@ start.addEventListener("click", () => {
 });
 stop.addEventListener("click", () => { pending = send({ type: "stop" }); });
 install.addEventListener("click", () => { void send({ type: "install-companion" }); });
+transcript.addEventListener("click", () => { void send({ type: "open-transcript" }); });
 chrome.runtime.onMessage.addListener((message) => {
   if (message.target === "worker" && message.type === "capture-status") render(message.status);
 });
