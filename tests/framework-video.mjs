@@ -1,4 +1,4 @@
-// V1 real DOM/catalog acceptance. Audio acquisition and V2–V5 gates are still unverified.
+// V1 real DOM/catalog acceptance, followed by V2 real audio acceptance. V3–V5 remain unfinished.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -177,3 +177,5 @@ try {
   if (browser) await browser.close();
   await new Promise((done) => server.close(done));
 }
+
+await import("./framework-video-audio.mjs");

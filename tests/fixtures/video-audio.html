@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Video audio acceptance</title>
+<video id="video" src="/tone.webm" controls preload="auto">
+  <track kind="captions" srclang="en" label="Synthetic tone" src="data:text/vtt,WEBVTT%0A%0A">
+</video>
+<button type="button" id="play">Play and observe output</button>
+<button type="button" id="start">Start selected capture</button>
+<button type="button" id="stop">Stop selected capture</button>
+<button type="button" id="slow">Start slow capture</button>
+<script type="module">
+  import { createMediaCatalog } from '/catalog.js';
+  import { createVideoInput } from '/input.js';
+  const video = document.querySelector('video');
+  const catalog = createMediaCatalog(document, 'audio-fixture');
+  const input = createVideoInput(catalog, '/pcm-worklet.js', { maxChunkBytes: 8192, maxAudioQueueMs: 1000 });
+  let handle, round = 0, observer, outputStream, outputContext, siteContext;
+  await new Promise((done) => { if (video.readyState >= 2) done(); else video.addEventListener('loadeddata', done, { once: true }); });
+  const target = (await catalog.discover())[0].target;
+  globalThis.ready = true;
+  document.querySelector('#play').onclick = async () => {
+    try {
+      if (new URLSearchParams(location.search).get('owned') === 'true') {
+        siteContext = new AudioContext();
+        siteContext.createMediaElementSource(video).connect(siteContext.destination);
+        await siteContext.resume();
+      }
+      video.volume = 0.4; await video.play();
+      outputStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { suppressLocalAudioPlayback: false, echoCancellation: false, noiseSuppression: false, autoGainControl: false }, preferCurrentTab: true });
+      if (outputStream.getAudioTracks().length !== 1) throw new Error('Tab output audio track missing');
+      globalThis.outputSettings = outputStream.getAudioTracks()[0].getSettings();
+      outputContext = new AudioContext();
+      observer = outputContext.createAnalyser(); observer.fftSize = 4096;
+      outputContext.createMediaStreamSource(outputStream).connect(observer);
+      await outputContext.resume();
+      globalThis.outputReady = true;
+    } catch (error) { globalThis.outputError = error.message; }
+  };
+  globalThis.measureOutput = async () => {
+    await new Promise((done) => setTimeout(done, 250));
+    const samples = new Float32Array(observer.fftSize); observer.getFloatTimeDomainData(samples);
+    return { rms: Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length) };
+  };
+  document.querySelector('#start').onclick = async () => {
+    globalThis.captured = []; globalThis.captureError = undefined; globalThis.captureClosed = false;
+    try {
+      handle = await input.open(target, { sessionId: `round-${++round}`, targetId: target.id, epoch: 0 });
+      try { await input.open(target, { sessionId: 'duplicate', targetId: target.id, epoch: 0 }); }
+      catch (error) { globalThis.doubleStart = error.message; }
+      for await (const chunk of handle.events) globalThis.captured.push(chunk);
+      globalThis.captureClosed = true;
+    } catch (error) { globalThis.captureError = error.message; }
+  };
+  document.querySelector('#stop').onclick = async () => { await handle.close(); await handle.close(); };
+  globalThis.captureSummary = () => {
+    const chunks = globalThis.captured, first = chunks[0], samples = new Float32Array(chunks.at(-1).pcm);
+    const crossings = []; for (let i = 1; i < samples.length; i++) if (samples[i-1] <= 0 && samples[i] > 0) crossings.push(i);
+    return { doubleStart: globalThis.doubleStart, chunks: chunks.length, scope: first.scope, identity: first.identity, sampleRate: first.sampleRate,
+      channels: first.channels, format: first.sampleFormat, byteLengths: chunks.map((chunk) => chunk.pcm.byteLength),
+      sequence: chunks.map((chunk) => chunk.sequence), peak: Math.max(...samples.map(Math.abs)), frequency: (crossings.length - 1) / (crossings.at(-1) - crossings[0]) * first.sampleRate };
+  };
+  document.querySelector('#slow').onclick = async () => {
+    const slowInput = createVideoInput(catalog, '/pcm-worklet.js', { maxChunkBytes: 8192, maxAudioQueueMs: 100 });
+    globalThis.slow = await slowInput.open(target, { sessionId: 'slow', targetId: target.id, epoch: 0 });
+    globalThis.slowReady = true;
+  };
+  window.addEventListener('pagehide', () => {
+    for (const track of outputStream?.getTracks() ?? []) track.stop();
+    void outputContext?.close(); void siteContext?.close(); catalog.dispose();
+  });
+</script>
+</html>

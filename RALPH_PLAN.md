@@ -163,7 +163,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 목표: 일반 영상 하나에서 실제 음성을 가져오는 플랫폼 공통 입력을 구현한다.
 
 - [x] V1. 선택 UI와 MediaCatalog를 구현한다. 영상/문서/frame identity를 갖고, 여러 영상·광고·SPA/iframe에서 자동으로 다른 영상으로 바뀌지 않는다.
-- [ ] V2. 같은 출처 일반 영상의 Web Audio 입력을 구현한다. 영상이 이미 소유한 graph와 충돌을 처리하고, Stop·repeat Start 후 원래 재생/볼륨이 유지되는지 실제 소리를 확인한다.
+- [x] V2. 같은 출처 일반 영상의 Web Audio 입력을 구현한다. 영상이 이미 소유한 graph와 충돌을 처리하고, Stop·repeat Start 후 원래 재생/볼륨이 유지되는지 실제 소리를 확인한다.
 - [ ] V3. playback anchor로 영상 시간과 PCM 시간을 연결한다. seek·pause/resume·rate/source 변경 시 epoch를 바꾸고 이전 작업 결과를 버린다. 서로 다른 context의 performance.now를 직접 빼지 않는다.
 - [ ] V4. CORS 허용/미허용, 실제 무음, muted video, 교차 출처 iframe, blob/MSE·보호 영상 경로를 구분한다. 접근을 입증하지 못하면 원래 재생을 건드리지 않고 명시적으로 미지원 처리한다. crossOrigin 재설정/reload로 우회하지 않는다.
 - [ ] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
@@ -581,3 +581,73 @@ transcripts/temporary runner state는 커밋하지 않는다. 사용자 앱·녹
 다음 미완료 항목: V2 같은 출처 Web Audio 입력, 기존 graph 충돌 처리와 실제 소리로
 Stop/repeat Start 후 원래 재생·볼륨 유지 검증. V1만 체크했고 이후 stage를 시작하지
 않았다. Stage video/전체 framework/iPhone 완료는 주장하지 않는다.
+
+### 2026-10-06 / video / iteration 2/5 — V2
+
+관련 commit: 이 기록을 포함한 `feat: capture selected video audio without rerouting playback`.
+
+수행한 변경: 다음 미완료 V2의 `VideoInput`과 mono float32 PCM worklet을 추가했다.
+선택한 element의 `captureStream()` → session-owned Web Audio 경로를 사용해 기존
+site-owned `MediaElementAudioSourceNode`를 다시 만들거나 playback graph를 바꾸지
+않는다. user activation/target identity/ordinary same-origin route를 확인하고 Stop은
+captured tracks/context/PCM queue/subscriptions만 닫는다. duplicate Start 거부,
+repeat Start/Stop, bounded queue overflow의 명시적 audio-gap, 준비 중 invalidation과
+cleanup을 구현했다. 현재 playback discontinuity는 capture를 종료하고 재시작을
+요구한다. V3 anchor/epoch 처리는 다음 항목이며 구현했다고 표시하지 않는다.
+companion v0.1.0·설치 경로·기존 capture/프로토콜·사용자 설정을 보존했다.
+
+실행한 명령과 결과:
+
+- PASS: 최종 `npm run test:framework:video` (exit 0), DOM/no-extension-ambient
+  typecheck와 기존 V1 assertion 모두 유지, Chromium 153.0.8010.12의 실제 encoded
+  160×90 VP8/Opus video/440 Hz tone → selected stream → 48 kHz mono/8192-byte
+  PCM 검증. ordinary/site-owned graph 각각 3회 Start/Stop 후 실제 browser output
+  RMS가 baseline의 0.6% 이내로 유지됐다. duplicate Start 거부/반복 Stop/Stop 이후
+  PCM 없음/재생 진행/volume=0.4·muted=false·rate=1 보존/100 ms queue overflow 시
+  128 ms discarded audio-gap/page errors `[]` 검증.
+- PASS: raw-output-oracle video run (exit 0), 같은 두 실제 audio 경로/3회 재시작.
+- FAIL → FIXED: 최초 video run (exit 1), queued initial `addtrack`을 변경으로
+  오인해 capture 종료. initial track과 새 audio track을 구분한 뒤 같은 검사 통과.
+- FAIL → FIXED: track fix 뒤 run (exit 1), startup silence가 있는 첫 batch의
+  crossing count로 234.375 Hz 측정. steady batch의 crossing 간격 측정으로 수정;
+  peak/frequency 기준은 유지했다.
+- FAIL → FIXED: steady-tone run 및 diagnostic run (각 exit 1), output level
+  assertion; 진단 baseline 0.0926495353/during 0.0187868360. test-only loopback의
+  AGC/echo cancellation/noise suppression을 끄고 실제 설정/expected baseline
+  assertion을 추가한 뒤 같은 level 유지 기준 통과. acceptance를 약화하지 않았다.
+- FAIL → FIXED: 첫 targeted Biome (exit 1, 5 errors/1 warning, 6 files/22 ms).
+  button type/forEach callback/unused import 수정. 최종 targeted Biome PASS
+  (exit 0, 7 files/16 ms/no findings).
+
+- PASS: 최종 `npm run verify` (exit 0), Biome 75 files/25 ms/no findings,
+  Ruff/typecheck/build (main 28 modules/41 ms, content 10 modules/6 ms),
+  JS 64 passed/0 failed/0 skipped/0 cancelled/14398.072792 ms,
+  Python 222 passed/66.92 s.
+- PASS: 최종 expanded harness 전 `npm run verify` (exit 0), Biome 75 files/41 ms,
+  JS 64 passed/0 failed/0 skipped/0 cancelled/15082.3175 ms,
+  Python 222 passed/66.94 s. 위 final run이 마지막 코드/검사를 검증했다.
+- PASS: 최종 문서 포함 `git diff --check`/staged whitespace check (exit 0, 오류 없음).
+
+실제 검증 범위: 원래 재생은 mock이나 연결된 graph만 검사한 것이 아니라 독립
+Chromium tab-output loopback의 실제 44.1 kHz stereo PCM으로 측정했다. output
+AGC/echo cancellation/noise suppression/local-playback suppression이 실제 false인
+것도 검사했다. 이 tab mix는 test oracle로만 사용하며 production selected-video
+input으로 사용하지 않는다. 선택 input은 실제 encoded video에서만 온다. 다른
+사용자 탭·mic·system audio는 수집하지 않았고 사용자 앱·녹화·마운트·설정은
+건드리지 않았다. 실제 hardware speaker/listener 청취는 미검증이다. PCM 성공을
+ASR/번역 정확도로 표시하지 않는다. timeline/epoch mapping(V3), CORS/redirect/
+silence/mute/iframe/blob/MSE/DRM matrix(V4), 일본어/영어와 두 audible 영상 fixture(V5),
+standalone Chrome/Safari/iPhone은 미검증이며 체크박스를 그대로 남긴다.
+
+실패·미검증과 증거 위치: [video 보고서](docs/verification/media-framework/video.md)의
+V2 상세 table/실패 기록과 committed production modules/fixture/harness. 임시
+`.ralph/media-framework/video-2-v2-*.log`/bundle과 생성 media는 커밋하지 않는다.
+root AGENTS.md 및 요청된 independent runner failure 파일은 없었다. secure local
+browser 접근은 허용됐고 blocked access/profile 우회는 없었다. about:blank의 API-only
+smoke는 mediaDevices 없음 TypeError로 끝났지만 실제 loopback fixture의 두 output
+track/sound 경로가 정상 검증됐다. credentials/weights/user audio/transcripts 없음.
+
+다음 미완료 항목: V3 playback anchor로 영상과 PCM 시간을 매핑하고 seek·pause/resume·
+rate/source 변경의 epoch/cancel/late-result 거부를 검증한다. V2만 이번에 체크했고
+V3–V5 및 이후 stage는 시작하지 않았다. V2 browser scope의 환경 차단은 없다.
+Stage video/전체 framework/iPhone 완료 marker를 내지 않는다.

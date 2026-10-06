@@ -132,3 +132,150 @@ original playback/volume checks after Stop and repeated Start. Preserve V2–V5
 checkboxes until their acceptance actually passes. No later stage was advanced.
 Temporary test bundles/logs under `.ralph` are ignored and never committed;
 credentials, model weights and user audio/transcripts are not part of this commit.
+
+## 2026-10-06 — video iteration 2/5 (V2)
+
+Result: V2's selected-element Web Audio input and original **browser playback
+output** acceptance pass in Chromium. V3–V5 remain unchecked; Stage video is
+incomplete. Commit: `feat: capture selected video audio without rerouting playback`
+containing this report. Physical speaker/listener audibility is unverified; the
+sound evidence below is actual browser output PCM, measured independently of
+the adapter's captured PCM, rather than a hardware/listening test.
+
+### Implementation and boundaries
+
+`packages/media-web/audio-input.ts` implements the existing `VideoInput` port.
+It resolves only the confirmed catalog handle and checks session target identity,
+user activation, loaded ordinary same-origin HTTP(S) media and active playback.
+The selected element's `captureStream()` feeds a session-owned Web Audio
+`MediaStreamAudioSourceNode` and `pcm-worklet.js`. The worklet transfers 2048-frame
+mono float32 batches (8192 bytes) at the actual context rate, with session/epoch,
+sequence, audio range and a unique **audio-context clock** identity. No raw
+`performance.now()` values from different contexts are subtracted. These capture
+ranges are not video-time mappings; no playback anchors/epoch transitions are
+claimed here.
+
+The simpler selected-stream route avoids taking irreversible ownership of a
+`MediaElementAudioSourceNode`. It neither duplicates a site's source node nor
+closes/suspends the site's context. Only the capture worklet's silent output
+reaches the session context's destination; original playback is left on its
+existing path. This route is consistent with the architecture's Web Audio input
+boundary and is capability-gated rather than selected by browser name.
+[The element-capture specification](https://www.w3.org/TR/mediacapture-fromelement/#html-media-element-media-capture-extensions)
+defines streams consumable by Web Audio, independently of the element's mute and
+volume. Browsers lacking element capture are unavailable; no destructive graph
+fallback, tab-mix fallback, `crossOrigin` rewrite or resource reload is used.
+Actual Safari/iPhone execution remains unverified.
+
+Stop clears queued PCM, resolves the waiting consumer, disconnects/closes the
+worklet and session context, removes owned subscriptions and stops captured
+tracks. It never stops website-owned source tracks. Repeated Stop is safe, and
+new Start creates a fresh session-owned stream/context. Duplicate Start on the
+same adapter is rejected. Startup failure also cleans up; invalidation listeners
+are installed before async preparation. Catalog retirement/pagehide and playback
+discontinuities terminate input rather than silently joining incompatible audio.
+V3 must replace that conservative restart behavior with playback events, anchors
+and actual epoch cancellation. Queue limits come from the composing host; overflow
+clears input and rejects consumption with `audio-gap` and discarded duration.
+
+The route guard is conservative about unloaded media, `srcObject`, non-HTTP/blob
+resources, explicit cross-origin resources and `mediaKeys`; it does not complete
+V4's access/silence/mute/redirect/CORS/MSE/DRM classification. `probe` reports
+route eligibility; the controlled fixture's actual samples establish access for
+that resource, not every same-origin-looking URL or external site's player.
+The adapter is not connected to the published companion or standalone host.
+Contracts/core, existing tab capture, companion v0.1.0, server/install paths,
+settings/defaults and persistence remain unchanged.
+
+### Real audio acceptance
+
+`npm run test:framework:video` preserves every V1 assertion and then runs
+`tests/framework-video-audio.mjs`. The second harness bundles production modules
+independently and creates a synthetic 8-second 160×90 VP8/Opus WebM (132920 bytes
+in the final run) with a 440 Hz, amplitude 0.15 tone. That encoded video is served
+via loopback HTTP and actually decoded/played in a video element. The adapter
+receives that selected video's captured audio, not an oscillator wired directly
+into the production input, injected PCM, user media or model output.
+
+The independent output oracle is Chromium `getDisplayMedia` tab loopback from
+**only the test-owned tab**, selected by the unique fixture title. This is test
+instrumentation, not a production input route. It does not capture another user's
+tab, microphone or system audio. The owned test browser omits its default
+`--mute-audio` flag. Output settings explicitly disable AGC, echo cancellation,
+noise suppression and local-playback suppression; assertions require those actual
+settings. The oracle receives stereo 44.1 kHz browser output, while the adapter
+produces mono 48 kHz input. No blocked browser/profile access was encountered or
+bypassed; no existing user browser was controlled.
+
+Two fresh fixture pages exercise ordinary playback and a real pre-existing
+site-owned `MediaElementAudioSourceNode -> destination` graph. Each runs three
+Start/Stop/repeat Start cycles and a slow-consumer overflow check.
+
+| Final observed quantity | Ordinary playback | Site-owned graph |
+| --- | --- | --- |
+| Baseline browser-output RMS, video volume 0.4 | 0.0424504604 | 0.0424298507 |
+| Output RMS during three captures | 0.0424359863, 0.0423800114, 0.0424406988 | 0.0423582886, 0.0423427098, 0.0423522249 |
+| Output RMS after three Stops | 0.0422993116, 0.0423715646, 0.0422526045 | 0.0423275278, 0.0423699237, 0.0422400332 |
+| Decoded selected-tone peaks | 0.1497109532–0.1508632004 | 0.1509743333–0.1510555446 |
+| Decoded tone frequency | 439.918534–440.142639 Hz | 439.918534 Hz |
+| PCM/session checks | At least 5 batches/round, 8192 bytes/batch, mono float32/48 kHz, sequences start at 0, fresh round session IDs | Same |
+| Duplicate Start and queue overflow | Rejected duplicate; `audio-gap: Video input queue overflow (128 ms discarded)` with 100 ms queue limit | Same |
+| Playback and cleanup | No PCM after Stop; repeated Stop succeeds; playback advances >1 second; paused=false, volume=0.4, muted=false, rate=1; page errors `[]` | Same |
+
+Acceptance requires nonzero real output, baseline within 12% of the encoded tone's
+expected RMS `0.15 * 0.4 / sqrt(2)`, each during/after level within 12% of baseline,
+PCM peak 0.12–0.18 and frequency within 12 Hz of 440. Measured output deviations
+are below 0.6%. Neither selected PCM alone nor graph connectivity substitutes for
+this independent original-output measurement. Human hearing/physical speakers,
+speech content and transcription/translation accuracy were not tested.
+
+### Commands, failures and exact evidence
+
+Requested worktree on Darwin arm64; Node v24.15.0/npm 11.12.1, uv 0.12.23,
+Python 3.12.15, existing Chromium 153.0.8010.12. AGENTS.md and the requested
+independent runner failure file were absent. Existing dependencies were used;
+no dependency/model/app installation, delegation, push, publish or later stage.
+Temporary logs/bundles stay in ignored `.ralph`; generated media stays in memory.
+
+| Command/run | Actual result | Local diagnostic evidence |
+| --- | --- | --- |
+| First `npm run test:framework:video` | FAIL, exit 1 after V1/typecheck; capture rejected with `target-invalidated: Restart capture after a playback discontinuity` at audio harness line 71 | `.ralph/media-framework/video-2-v2-first.log` |
+| Video check after track-event fix | FAIL, exit 1; first batch's startup silence biased tone estimate to 234.375 Hz at line 75 | `.ralph/media-framework/video-2-v2-track-fix.log` |
+| Video check after steady-tone measurement | FAIL, exit 1; original-output level assertion at line 79 | `.ralph/media-framework/video-2-v2-steady-tone.log` |
+| Video check with output diagnostic | FAIL, exit 1; baseline RMS 0.0926495353 vs during 0.0187868360, showing processed oracle audio | `.ralph/media-framework/video-2-v2-output-diagnostic.log` |
+| Video check with raw output oracle | PASS, exit 0; V1 and both V2 audio cases, real PCM/output, three restarts each, overflow errors expected, page errors `[]` | `.ralph/media-framework/video-2-v2-output-raw.log` |
+| Final expanded `npm run test:framework:video` | PASS, exit 0; standalone DOM/no-extension-ambient typecheck, unchanged V1 assertions and final V2 checks/numbers above, including duplicate Start, actual raw settings, expected baseline and advancing playback | `.ralph/media-framework/video-2-v2-final-acceptance.log` |
+| First targeted Biome | FAIL, exit 1: 5 errors (4 button types and returning `forEach` callback), 1 unused import warning, 6 files/22 ms; all corrected | CLI output |
+| Final targeted Biome | PASS, exit 0: 7 files/16 ms, no findings | CLI output |
+| `npm run verify` before final expanded harness checks | PASS, exit 0: Biome 75 files/41 ms, Ruff/typecheck/build (28 main modules/43 ms, 10 content modules/6 ms), JS 64 passed/0 failed/0 skipped/0 cancelled/15082.3175 ms, Python 222 passed/66.94 s | `.ralph/media-framework/video-2-v2-verify.log` |
+| Final `npm run verify` | PASS, exit 0: Biome 75 files/25 ms/no findings, Ruff/typecheck/build (28 main modules/41 ms, 10 content modules/6 ms), JS 64 passed/0 failed/0 skipped/0 cancelled/14398.072792 ms, Python 222 passed/66.92 s | `.ralph/media-framework/video-2-v2-final-verify.log` |
+| `git diff --check` and staged whitespace check | PASS, exit 0; no whitespace errors | CLI output, rerun before commit |
+
+The preliminary API-only smoke on `about:blank` returned a TypeError because
+`navigator.mediaDevices` was undefined there; that was not a media acceptance
+result. The actual harness uses the secure loopback origin and obtained real
+output tracks on both owned pages. A separate preliminary actual-WAV/video
+experiment with an existing site source node yielded a captured audio track and
+peak 0.15259254; the encoded VP8/Opus acceptance above supersedes that smoke.
+
+Fixed causes without relaxing assertions: ignore queued initial capture-track
+events belonging to the same track while rejecting later replacement audio;
+measure steady decoded PCM with crossing intervals rather than a startup-silence
+biased first-batch crossing count; disable processing in the test-only output
+oracle and assert its actual settings/expected tone level. The original V1
+assertions and V2 level/peak/frequency/cleanup thresholds were preserved.
+
+### Remaining acceptance and next item
+
+No environment/device/permission blocker was encountered for this V2 browser
+scope. Real browser-output audio is verified; physical speaker/listener audibility
+is unverified. This iteration does not establish speech accuracy, ASR/translation,
+source-time mapping, the complete CORS/redirect/silence/mute/iframe/blob/MSE/DRM
+matrix, simultaneous two-audible-video isolation, Japanese/English speech fixtures,
+standalone Chrome host integration, Safari or physical iPhone support. V3–V5 and
+all later stage checkboxes remain unfinished. No whole-framework claim is made.
+
+Next unfinished item: V3 playback anchors, video/PCM time mapping and epoch
+invalidation/cancellation for seek, pause/resume, rate and source changes. The
+current conservative input termination at a discontinuity is not completion of
+that item. No next item or stage was implemented during this iteration.
