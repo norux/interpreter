@@ -1833,3 +1833,178 @@ runner edits, stage advance, push/publish/app installation or browser access/pro
 permission bypass. Only test-owned browser/profile resources are cleaned up.
 Credentials, model/runtime weights, user audio/transcripts and ignored `.ralph`
 logs/state are excluded from the commit.
+
+## 2026-10-07 — B2 sustained decoded-input qualification (iteration 5/5)
+
+Related commit: `test: measure sustained browser ASR processing`, containing
+this report. **B2 remains unchecked; no default is selected.** Only B2 advances.
+
+### Change and observable acceptance
+
+Retained the existing five-period continuous regression and added **at least
+600 seconds per language** to the same real streaming harness. Each longer run
+repeats complete original, hash-checked speech periods: **87 Japanese / 91
+English**. OfflineAudioContext decodes/resamples the original videos to 16 kHz;
+the harness concatenates every sample, including the isolation tags, without
+appended silence, gain changes, removed sentences or expected text in ASR input.
+It delivers 100 ms packets at real-time cadence to the production speech port,
+ASR host and actual small FP16 WebGPU worker. This is **paced decoded synthetic
+PCM, not a ten-minute live selected-video session or Korean-caption pipeline**.
+
+All original short/live/fault/recovery trials and candidate/fixture/accuracy
+failures remain. The sustained runs require <=20% aggregate CER/WER, each aggregate
+meaning-anchor count >= the repeat count, complete contiguous EOF coverage,
+10–20 s non-final ranges, exact actual invocation/sample correspondence,
+zero discarded audio, <=30 s pending input and a drained final queue. Every
+sustained segment must additionally meet the existing long-live **<2000 ms
+endpoint-to-text** limit. Actual input runtime must cover the supplied duration.
+Per-minute queue maxima/final pending/loss and minute RSS snapshots are recorded;
+no unevaluated memory ceiling or leak-free claim is introduced.
+
+Only the test harness changes. Model/backend/profile/defaults, production
+segmentation/normalization, companion/settings, dependency lock, fixture bytes,
+package scripts and later stages are unchanged. The loop requires about twenty
+additional minutes for the two sustained runs; it does not accelerate or pause
+a user's video to hide inference backlog.
+
+### Actual command ledger and measurements
+
+- **FAIL:** `caffeinate -disu npm run test:framework:chrome:stream`, **exit 1**,
+  one real browser invocation, `chrome-20261007-5-sustained-stream.log` under
+  ignored `.ralph/media-framework/`. Typecheck, **14 port/normalizer tests /
+  0 failed/skipped/cancelled / 94.436583 ms**, build and every original browser
+  regression pass. Both new sustained trials complete. The sole final failure
+  is `en/continuous-91: missing repeated meaning anchors`. No retry of this
+  unchanged quality failure, no sentence/candidate deletion or threshold change.
+- **FAIL:** required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261007-5-stage-acceptance.log`: `Missing script:
+  "test:framework:chrome"`. B5's selected-video → ASR → Korean translation →
+  caption DOM acceptance is still unimplemented. No B2 substitute/placeholder.
+- **PASS:** local Python recorded-result equality check: the sustained English
+  text is exactly **83 complete normalized fixture periods**, each with
+  `three` → `3`, rather than 91. **8 × 22 missing words + 83 numeric
+  substitutions = 259 edits**. This analyzes the actual returned text; it is
+  not another inference run, acoustic diagnosis or proof of a segmentation cause.
+- **PASS:** final `npm run verify`, **exit 0**,
+  `chrome-20261007-5-verify.log`: Biome **106 files / 46 ms / no findings**,
+  Ruff/typecheck/unchanged companion build, **100 JS passed / 0 failed/skipped/
+  cancelled / 21502.833291 ms**, **222 Python passed / 66.96 s**. All source/
+  test changes are covered; subsequent edits only finish Markdown evidence.
+- **PASS:** `node --check tests/framework-chrome-stream.mjs`, targeted Biome
+  **1 file / 9 ms / no findings**, preliminary whitespace checks, all exit 0.
+  Final document-inclusive/staged whitespace and committed cleanliness are
+  checked before delivery.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, locked test Python
+**3.12.15** (system `python3` used for result analysis is **3.9.6**). Unchanged
+Transformers.js **4.3.0** and locked ORT, small FP16 WebGPU,
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven
+files / **487960440 bytes**. This invocation prepares one inventory in a fresh
+owned context and reuses its cache. No new model/dependency/default. Repository
+verification starts after the browser invocation; it does not overlap inference.
+
+| Sustained decoded input | Periods / samples / packets | Input / host duration ms | Segments; non-final min–max / final duration ms | CER/WER | Endpoint-to-text min–max ms | Actual host-call min–max ms | Peak pending ms | Baseline / peak / final RSS KiB |
+| --- | --- | --- | --- | --- | --- | --- | ---: | --- |
+| Japanese | 87 / 9705372 / 6066 | 606585.750 / 607531.700 | 53; 10000–12560 / 9145.750 | **93/3480 = 2.672414% CER** | 944.300–1226.100 | 944.100–1225.900 | 13840 | 1669936 / 3759536 / 1491888 |
+| English | 91 / 9706424 / 6067 | 606651.500 / 607591.600 | 46; 10220–13340 / 11971.500 | **259/2002 = 12.937063% WER** | 659.000–1092.600 | 658.900–1092.000 | 14420 | 1679552 / 3599072 / 1471600 |
+
+Japanese passes all sustained assertions, with each meaning-anchor count
+**exactly 87**. English passes aggregate <=20% WER but **fails meaning**: each
+of `not meet today`, `station tomorrow`, `in the afternoon` and
+`not cancel the reservation` occurs **83**, below required **91**. The complete
+PCM was delivered and accounted for by contiguous actual jobs through exact EOF;
+this is missing recognized speech, not reported input loss. Zero discarded
+samples or fast inference cannot make it successful transcription. Its causal
+relationship to segmentation/model behavior is **unverified**. Japanese's 93
+edits are retained too; they are not all asserted to be numeric substitutions.
+
+Both languages have **0 ms reported audio loss / 0 final pending**, authoritative
+session/epoch/utterance/source-revision/final identity, exact actual invocation
+samples/ranges and every segment below 2000 ms endpoint-to-text. Both full-band
+quiet maxima are **0 ms**, below the unchanged 500 ms endpoint gate: this remains
+carrier-tagged synthetic speech, not natural silence/noise qualification. Fresh
+worker preparation for these sustained runs is **1339.427459 / 1345.693541 ms**,
+not transcription latency.
+
+| Completed minute | Japanese max / last pending ms | English max / last pending ms | Japanese RSS snapshot KiB | English RSS snapshot KiB |
+| --- | --- | --- | ---: | ---: |
+| 1 | 13160 / 2100 | 14400 / 11960 | 2515568 | 2552128 |
+| 2 | 13140 / 3640 | 14400 / 5300 | 2383088 | 2486160 |
+| 3 | 13720 / 4960 | 14400 / 11960 | 2356784 | 2440832 |
+| 4 | 13760 / 7800 | 14400 / 5300 | 2211712 | 2436336 |
+| 5 | 13800 / 9340 | 14400 / 11980 | 2239152 | 2370576 |
+| 6 | 13660 / 2300 | 14400 / 5300 | 2224592 | 2403472 |
+| 7 | 13840 / 3740 | 14400 / 11960 | 1498896 | 2357904 |
+| 8 | 13660 / 8060 | 14400 / 5200 | 1416832 | 2058400 |
+| 9 | 13700 / 12280 | 14400 / 11980 | 1440800 | 2065392 |
+| 10 | 13820 / 2560 | 14420 / 5320 | 1460016 | 1434128 |
+
+Every minute reports **0 discarded ms**. The final partial minute peaks at
+**9145.750 / 11971.500 ms**, then drains to zero. Initial RSS snapshots are
+**2787536 / 2814928 KiB**; minute snapshots occur within **0.244 / 0.239 s**
+after their nominal boundaries. RSS is sampled every 250 ms for only the owned
+browser process tree; the table is one snapshot per minute, not minute peaks.
+The overall peaks include preparation. Shared-page double counting, retained
+allocators, browser/renderers/GPU process and harness-owned combined/packet PCM
+copies contribute. These observations do not isolate GPU/model memory, establish
+leak freedom or impose a hardware-pressure/mobile limit. Queue/latency use the
+document clock; RSS uses the Node clock, with no cross-clock subtraction.
+Latency excludes speech accumulation and translation/display; ranges are observed
+extrema across 53/46 jobs, not population percentiles.
+
+The original regressions pass in this same invocation:
+
+- Six short paced decoded trials: **2.5% CER / 4.54545% WER**, every meaning
+  anchor, zero loss/drained, peak pending **8180 / 7780 ms**. Initial preparation
+  **52652.379792 / 1237.573917 ms**; endpoint-to-text **772.000–839.600 /
+  666.000–747.900 ms**.
+- Five completed live selected-video rounds: short Japanese twice/English once
+  **2.5% CER / 4.54545% WER**, last-packet-to-text **843.800 / 842.700 /
+  779.500 ms**; raw/normalized samples **337920/112640** twice,
+  **323584/107861**. Three-period Japanese/English retain every anchor 3 times,
+  **3/120 CER / 3/66 WER**, **971.000 / 782.500 ms** final-packet-to-text,
+  samples **1007616/335872 / 962560/320853**. All completed rounds have zero
+  loss/drained; maximum mapping error across all six rounds **51.270 ms**.
+  Pre-filter isolation, both videos' playback state, capture detach/repeat Start
+  pass. Stop emits `cancelled`, no text, **920.6875 ms discarded / 0 pending**.
+- Original five-period decoded regressions: three segments each, **5/200 CER /
+  5/110 WER**, all anchor counts exactly 5, zero loss/drained, peak pending
+  **12900 / 12200 ms**, input **34861.250 / 33332.500 ms**, host run
+  **36036.600 / 34289.200 ms**. These stay independent of the longer failure.
+- Injected overload/gap/invocation-observed cancel/idle actual GPU loss discard
+  **29940 / 100 / 7480 / 7180 ms**, no text/pending or fallback. Pure zero PCM
+  makes zero actual ASR calls/text/loss. Active actual GPU loss discards
+  **7480 / 7180 ms**; same-host explicit cached Prepare **1234.995416 /
+  1241.883750 ms**, **0 HTTPS requests**, three fresh-epoch trials per language
+  retain **2.5% CER / 4.54545% WER**, all anchors, zero loss/drained.
+  Interrupted-job accuracy and sustained pressure recovery remain unverified.
+- Page errors, native visibility events are `[]`; original pre-live pinned
+  model/network assertion passes. Final failure list contains only the
+  sustained English meaning failure above. Only owned test resources close.
+
+
+### Remaining scope and preservation
+
+Next unfinished item remains **B2**, first the sustained English missing-speech
+quality failure above, then broader natural speech/noise/boundary recognition,
+sustained live acquisition and recovery under pressure, storage/GPU
+memory limits, conversion/distribution licensing and evidence-based default
+selection. Historical failed tiny/WASM and candidate semantic outcomes remain;
+they are not rerun without new evidence. Learned VAD, leak freedom, hardware
+pressure, complete offline interpretation, ten-minute live PCM → ASR → Korean
+translation → caption DOM, external installation, B3–B6 and Safari/iPhone remain
+**unverified**. No required environment/device/permission was absent in this
+invocation. This is a quality failure/incomplete implementation, so neither
+blocked nor stage-complete marker applies. No checkbox or stage/whole-framework/
+iPhone completion claim.
+
+No root/nested AGENTS.md or requested independent runner file
+`2026-10-07T12-30-44-825Z-chrome-verification.txt` exists. Supplied instructions,
+plan, architecture and previous report were read. Work stays in this worktree.
+Published companion v0.1.0/install/native messaging/server paths, user settings,
+unrelated files/apps/recordings/mounted images are preserved. No agents, runner
+edits, stage advance, push/publish/app installation or browser access/profile/
+permission bypass. Only test-owned browser/profile resources are cleaned up.
+Credentials, model/runtime weights, user audio/transcripts and ignored `.ralph`
+logs/state are excluded from the commit.

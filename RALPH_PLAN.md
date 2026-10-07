@@ -1837,3 +1837,105 @@ apps/recordings/mounts preserved. No agents, runner edit, stage advance, push/
 publish/install or browser access/profile/permission bypass. Logs/state/weights/
 credentials/user audio/transcripts excluded from commit; only owned test resources
 are cleaned up.
+
+### 2026-10-07 / chrome / iteration 5/5 — B2 sustained decoded-input qualification
+
+Related commit: `test: measure sustained browser ASR processing`, containing
+this entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no default is selected.** Only B2 advances.
+
+Changes: preserved the original five-period continuous regressions and all
+short/live/fault/recovery/candidate/fixture/quality gates. Added at least ten
+minutes per language of actual FP16 WebGPU ASR over real-time paced decoded
+synthetic fixture PCM: 87 complete Japanese periods / 91 English. Every original
+sample/isolation tag/sentence remains, without silence padding, gain change or
+expected text in inference input. Require aggregate <=20% CER/WER, aggregate
+meaning-anchor counts >= repeats, complete contiguous bounded ranges/exact EOF,
+actual invocation/sample correspondence, <=30 s pending audio, zero loss and
+final drain. Sustained segments also require the existing <2000 ms endpoint-to-
+text limit and measured input runtime. Added minute queue/RSS measurements.
+Production/model/default/settings/dependencies/fixtures/package scripts and
+later-stage implementation are unchanged. This is decoded synthetic ASR,
+**not ten-minute live selected-video → Korean captions or leak qualification**.
+
+Commands and actual results (ignored `.ralph/media-framework/` logs):
+
+- **FAIL:** `caffeinate -disu npm run test:framework:chrome:stream`, **exit 1**,
+  one invocation, `chrome-20261007-5-sustained-stream.log`. Typecheck, **14
+  port/normalizer tests / 0 failed/skipped/cancelled / 94.436583 ms**, build,
+  all original short/live/fault/recovery and five-period regressions pass. Both
+  sustained trials complete; sole final failure is **English missing repeated
+  meaning anchors (83 < 91)**. No retry of this unchanged quality failure.
+- **PASS:** final `npm run verify`, **exit 0**, `chrome-20261007-5-verify.log`:
+  Biome **106 files / 46 ms / no findings**, Ruff/typecheck/unchanged companion
+  build, **100 JS passed / 0 failed/skipped/cancelled / 21502.833291 ms**,
+  **222 Python passed / 66.96 s**. Verification follows the browser run, with
+  no concurrent repository-test workload during inference.
+- **FAIL:** required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261007-5-stage-acceptance.log`: missing script. B5 full selected-
+  video → ASR → Korean translation → DOM acceptance is still unimplemented.
+  No placeholder or ASR-only stage-command substitute is added.
+- **PASS:** local Python recorded-result equality check: English returned
+  exactly **83 complete normalized fixture periods**, each `three` → `3`.
+  **8 × 22 missing words + 83 numeric substitutions = 259 edits**. This is
+  actual-result analysis, not another model run or a causal acoustic diagnosis.
+- **PASS:** `node --check tests/framework-chrome-stream.mjs`, targeted Biome
+  **1 file / 9 ms / no findings**, exit 0. Final document-inclusive unstaged/
+  staged whitespace, intended commit and clean-worktree checks before delivery.
+
+Real scope: owned headed Chromium **153.0.8010.12**, macOS **26.6.2/25G83
+arm64**, Node **v24.15.0**/npm **11.12.1**/uv **0.12.23**, locked test Python
+**3.12.15**; unchanged Transformers.js/ORT and pinned small FP16 WebGPU model
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven files/**487960440 bytes**.
+One fresh inventory, cached later workers. Japanese sustained input **9705372
+samples / 606585.750 ms**, host **607531.700 ms**, 53 segments, **93/3480 =
+2.672414% CER**, every meaning-anchor count exactly **87**, endpoint-to-text
+**944.300–1226.100 ms**, pending peak **13840 ms**: all sustained gates pass.
+English **9706424 samples / 606651.500 ms**, host **607591.600 ms**, 46 segments,
+**259/2002 = 12.937063% WER**, endpoint-to-text **659.000–1092.600 ms**, pending
+peak **14420 ms**: numerical/range/queue/latency gates pass, **meaning fails**.
+Every required English anchor occurs **83**, below **91**. Actual PCM jobs still
+cover every sample/range through EOF. Zero reported ASR audio loss and final
+pending **0** in both languages do not imply successful recognition of every
+spoken period; the missing English speech's segmentation/model cause remains
+unverified. No gate or failed sentence is removed.
+
+Owned browser-tree RSS baseline/peak/final KiB: Japanese
+**1669936/3759536/1491888**, English **1679552/3599072/1471600**. All ten minute
+windows report zero loss and bounded queues; final partial minute drains. Exact
+minute queue/RSS tables, job/capture/sample/fault numbers and timings are in the
+Chrome report. RSS is sampled at 250 ms, with one snapshot per minute, and includes
+shared-page double counting, allocator/browser/GPU-process residency and harness
+PCM copies. This is not isolated model/GPU allocation, leak freedom, pressure
+qualification or phone evidence. Latency uses the document clock after endpoint
+packet delivery, excludes speech accumulation/translation/display, and is an
+observed range, not population percentiles. RSS uses a separate Node clock with
+no cross-clock subtraction. No audio/transcripts/weights/profile/logs are committed.
+
+All original short decoded/live checks pass at **2.5% CER / 4.54545% WER**,
+including three-period live meaning counts 3 and capture/inference overlap.
+Original five-period decoded tests retain all anchors 5 times and zero loss.
+Live maximum mapping error **51.270 ms**; Stop emits cancelled/no text,
+**920.6875 ms discarded / 0 pending**. Actual active GPU loss and explicit
+same-host cached recovery still pass (zero remote recovery requests). Page errors
+and native visibility events are `[]`; final accuracy failure list has only the
+sustained English meaning failure. Original candidate failures are preserved.
+
+Next unfinished item remains **B2**, first the sustained English missing-speech
+quality failure, then broader natural speech/noise/boundary quality, sustained
+live acquisition/recovery/pressure, storage/GPU memory limits,
+conversion/distribution licensing and evidence-based default selection. Failed
+baselines remain; no unchanged failure is retried without new evidence. B3–B6,
+full offline/Korean translation/revisions/DOM, ten-minute live end-to-end,
+external installation and Safari/iPhone remain unverified. No checkbox or
+stage/whole-framework/iPhone completion claim. No required environment/device/
+permission was absent; this is quality failure/incomplete implementation, so no
+blocked or stage-complete marker applies.
+
+No root/nested AGENTS.md/requested runner failure file exists; instructions,
+plan, architecture and prior report read. Work stays in this worktree. Published
+companion/install/native messaging/server/settings and unrelated files/apps/
+recordings/mounts preserved. No agents, runner edits, stage advance, push/publish/
+app installation or browser access/profile/permission bypass. Logs/state/weights/
+credentials/user audio/transcripts excluded from the commit; only owned test
+browser/profile resources are cleaned up.

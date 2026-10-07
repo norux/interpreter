@@ -96,6 +96,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const observations = { scope: "B2 experimental streaming ASR: paced decoded synthetic PCM and separately asserted live selected-video normalization; no translation/caption DOM", runs: [], checks: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page;
 let peakRssKiB = 0;
+let continuousMemory;
 const execute = promisify(execFile);
 async function sampleRss() {
   // Sum RSS only for this test browser's process tree. Shared pages can be counted
@@ -108,7 +109,16 @@ async function sampleRss() {
     for (const [pid, parent] of processes) if (owned.has(parent) && !owned.has(pid)) { owned.add(pid); added = true; }
   }
   const rss = processes.filter(([pid]) => owned.has(pid)).reduce((sum, [, , memory]) => sum + memory, 0);
-  peakRssKiB = Math.max(peakRssKiB, rss); return rss;
+  peakRssKiB = Math.max(peakRssKiB, rss);
+  if (continuousMemory) {
+    const elapsedMs = performance.now() - continuousMemory.start;
+    if (Math.floor(elapsedMs / 60000) >= continuousMemory.samples.length) {
+      const sample = { elapsedMs, rssKiB: rss };
+      continuousMemory.samples.push(sample);
+      console.log(JSON.stringify({ continuousMemory: { language: continuousMemory.language, repeats: continuousMemory.repeats, ...sample } }));
+    }
+  }
+  return rss;
 }
 function errors(reference, hypothesis, language) {
   const normalize = text => text.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, " ").trim();
@@ -464,19 +474,20 @@ try {
   }
   assert.deepEqual(pageErrors, []);
   await page.evaluate(() => host.dispose());
-  // Unlike the short endpoint trials, preserve five complete speech periods
-  // with no appended silence so actual inference overlaps ongoing input and
-  // continues beyond the model's 30 s per-job bound.
+  // Preserve the five-period regression and add at least ten minutes per
+  // language, with no appended silence. These are paced decoded samples,
+  // not ten-minute live selected-video or translated-caption acceptance.
   observations.continuousRuns = [];
   await page.goto(origin); await page.waitForFunction(() => globalThis.makeHost);
-  for (const clip of manifest.clips) {
-    const continuous = { language: clip.language, repeats: 5, baselineRssKiB: await sampleRss() };
+  for (const { clip, repeats } of manifest.clips.flatMap(clip => [5, Math.ceil(600 / clip.speechDurationSeconds)].map(repeats => ({ clip, repeats })))) {
+    const continuous = { language: clip.language, repeats, baselineRssKiB: await sampleRss() };
     peakRssKiB = continuous.baselineRssKiB;
     Object.assign(continuous, await prepare(clip.language));
-    Object.assign(continuous, await page.evaluate(async clip => {
+    continuousMemory = { language: clip.language, repeats, start: performance.now(), samples: [] };
+    Object.assign(continuous, await page.evaluate(async ({ clip, repeats }) => {
       const pcm = await readClip(clip);
-      const combined = new Float32Array(pcm.length * 5);
-      for (let i = 0; i < 5; i++) combined.set(pcm, i * pcm.length);
+      const combined = new Float32Array(pcm.length * repeats);
+      for (let i = 0; i < repeats; i++) combined.set(pcm, i * pcm.length);
       const input = [];
       for (let offset = 0; offset < combined.length; offset += 1600)
         input.push(chunk(combined.slice(offset, offset + 1600), input.length, offset / 16));
@@ -500,21 +511,24 @@ try {
         intendedDurationMs: combined.length / 16, maxQuietMs: maxQuietSamples / 16,
         hostDurationMs: performance.now() - start, invocations, transcripts, deliveryTimes,
         statuses: queueStatuses, visibilityEvents };
-    }, clip), { peakRssKiB });
+    }, { clip, repeats }), { peakRssKiB });
+    continuous.memorySamples = continuousMemory.samples;
+    continuousMemory = undefined;
+    continuous.finalRssKiB = await sampleRss();
     continuous.maxPendingAudioMs = Math.max(...continuous.statuses.map(status => status.queue.pendingAudioMs));
     continuous.last = continuous.statuses.at(-1);
     // Do not score missing text as successful accuracy or accept an overload as
     // normal continuous playback. Still collect both languages before failing.
     if (continuous.outcome !== "completed") failures.push(`${clip.language}/continuous: ${continuous.outcome}`);
     else {
-      continuous.accuracy = errors(Array(5).fill(clip.text).join(" "), continuous.transcripts.map(revision => revision.text).join(" "), clip.language);
+      continuous.accuracy = errors(Array(repeats).fill(clip.text).join(" "), continuous.transcripts.map(revision => revision.text).join(" "), clip.language);
       if (continuous.accuracy.rate > 0.2) failures.push(`${clip.language}/continuous: ${continuous.accuracy.metric} ${continuous.accuracy.rate} exceeds preserved 0.2 gate`);
       const anchors = clip.language === "ja" ? ["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
         : ["not meet today", "station tomorrow", "in the afternoon", "not cancel the reservation"];
       const text = continuous.transcripts.map(revision => revision.text).join(" ").normalize("NFKC").toLowerCase()
         .replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, clip.language === "ja" ? "" : " ");
       continuous.meaningCounts = Object.fromEntries(anchors.map(anchor => [anchor, text.split(anchor).length - 1]));
-      if (Object.values(continuous.meaningCounts).some(count => count < 5)) failures.push(`${clip.language}/continuous: missing repeated meaning anchors`);
+      if (Object.values(continuous.meaningCounts).some(count => count < repeats)) failures.push(`${clip.language}/continuous-${repeats}: missing repeated meaning anchors`);
       if (continuous.transcripts.length < Math.ceil(continuous.intendedDurationMs / 20000)
         || continuous.transcripts.length > Math.ceil(continuous.intendedDurationMs / 10000))
         failures.push(`${clip.language}/continuous: segment count must respect the 10–20 s boundary window`);
@@ -526,8 +540,29 @@ try {
         const durationMs = revision.audioRange.endMs - revision.audioRange.startMs;
         assert.ok(durationMs <= 20000);
         if (i < continuous.transcripts.length - 1) assert.ok(durationMs >= 10000);
+        assert.deepEqual(continuous.invocations[i].audioRange, revision.audioRange);
+        assert.equal(continuous.invocations[i].samples, Math.round(durationMs * 16));
       }
       assert.equal(continuous.transcripts.at(-1)?.audioRange.endMs, continuous.intendedDurationMs);
+      assert.equal(continuous.invocations.length, continuous.transcripts.length);
+      if (repeats > 5) {
+        assert.ok(continuous.intendedDurationMs >= 600000);
+        assert.equal(continuous.deliveryTimes.at(-1).endMs, continuous.intendedDurationMs);
+        assert.ok(continuous.hostDurationMs >= continuous.intendedDurationMs - 1, "Sustained input must actually run at real-time cadence");
+        continuous.segmentLatenciesMs = continuous.transcripts.map(revision => {
+          const delivered = continuous.deliveryTimes.find(packet => packet.endMs >= revision.audioRange.endMs);
+          return revision.observedAtMs - delivered.atMs;
+        });
+        if (continuous.segmentLatenciesMs.some(latency => latency < 0 || latency >= 2000))
+          failures.push(`${clip.language}/continuous-${repeats}: endpoint-to-text exceeds the existing 2000 ms long-input gate`);
+        continuous.minuteQueues = Array.from({ length: Math.ceil(continuous.intendedDurationMs / 60000) }, (_, minute) => {
+          const start = continuous.deliveryTimes[0].atMs - 100 + minute * 60000;
+          const statuses = continuous.statuses.filter(status => status.atMs >= start && status.atMs < start + 60000);
+          assert.ok(statuses.length, "Every sustained minute must report actual queue observations");
+          return { minute: minute + 1, maxPendingAudioMs: Math.max(...statuses.map(status => status.queue.pendingAudioMs)),
+            lastPendingAudioMs: statuses.at(-1).queue.pendingAudioMs, droppedAudioMs: statuses.at(-1).queue.droppedAudioMs };
+        });
+      }
     }
     if (continuous.statuses.some(status => status.queue.droppedAudioMs !== 0)) failures.push(`${clip.language}/continuous: discarded audio`);
     observations.continuousRuns.push(continuous); console.log(JSON.stringify({ continuous }));
@@ -545,6 +580,7 @@ try {
   observations.checks.push("Live selected-element 48 kHz PCM → streaming 16 kHz normalization → real ASR, two audible videos, repeat Start, preserved accuracy/meaning, capture-clock/video mapping and playback state");
   observations.checks.push("Three live speech periods per language retain every meaning anchor and the aggregate CER/WER gate; Japanese capture continues during ASR across a speech-band pause boundary without loss");
   observations.checks.push("Five preserved speech periods per language cross 30 s at real-time cadence without loss and pass the unchanged aggregate CER/WER gate");
+  observations.checks.push("At least ten minutes of paced decoded synthetic speech per language preserve every repeated meaning anchor and CER/WER <= 0.2, contiguous sample/range coverage, zero loss, bounded/drained queues and endpoint-to-text < 2000 ms; minute RSS/queue measurements are diagnostic, not live translation or leak qualification");
   observations.checks.push("Actual GPU loss during observed inference discards pending audio/text; same-host explicit cached Prepare and fresh-epoch Japanese/English recognition preserve accuracy without remote downloads or fallback");
   console.log(JSON.stringify({ passed: true, ...observations }));
 } catch (error) {
