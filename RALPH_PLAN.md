@@ -1573,3 +1573,69 @@ AGENTS.md/requested independent runner file were absent; instructions/plan/
 architecture/report read. Published companion/settings/unrelated files/user apps/
 recordings/mounts preserved. No agents/runner edits/stage advance/push/publish/
 app installation/browser-access bypass. No whole-framework/iPhone completion.
+
+### 2026-10-07 / chrome / iteration 2/5 — B2 active GPU loss and recovery
+
+Related commit: `test: verify browser ASR recovery after GPU loss`, containing
+this entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no default is selected.** Only B2 qualification advances.
+
+Changes: extended the existing real streaming harness with an observed actual
+recognition invocation followed by destruction of its actual runtime GPUDevice,
+for both Japanese and English. Assert explicit `gpu-lost`, audio discard, no text,
+no automatic replacement and rejected retry with retained caller PCM. A real
+Prepare-button click must reload the same model from cache on the same host,
+create exactly one replacement worker and permit fresh-epoch recognition.
+Three complete paced utterances per language must pass every existing numerical/
+meaning/identity/range/queue gate without loss or remote downloads. Production
+host/worker/model/profile, existing fixtures, failed baselines and gates are
+unchanged; the idle GPU-loss check is preserved. No production bug was observed.
+
+Commands and evidence (ignored `.ralph/media-framework/` logs):
+
+- PASS: `caffeinate -disu npm run test:framework:chrome:stream`, **exit 0**, one
+  browser invocation, `chrome-20261007-2-gpu-recovery-stream.log`. Typecheck,
+  thirteen port/normalizer tests (98.194250 ms), build and all original/new
+  real assertions pass. No retry or lowered threshold.
+- PASS: final `npm run verify`, **exit 0**, `chrome-20261007-2-verify.log`:
+  Biome 106 files/49 ms/no findings, Ruff/typecheck/unchanged companion build,
+  **99 JS passed / 0 failed/skipped/cancelled** (21628.020917 ms),
+  **222 Python passed** (66.87 s). Repository regression scope only.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**,
+  `chrome-20261007-2-stage-acceptance-exit.log`, missing script. The first shell
+  wrapper also printed this same npm failure and returned 0 after `cat`; that
+  wrapper return is not a pass. B5 full interpretation acceptance is unimplemented.
+- PASS: targeted Biome one file/no findings, final document-inclusive unstaged/
+  staged whitespace, exit 0; intended commit and clean worktree checked.
+
+Real scope: owned headed Chromium 153.0.8010.12, macOS 26.6.2/25G83 arm64,
+Node v24.15.0/npm 11.12.1/uv 0.12.23, unchanged small FP16 WebGPU profile at
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven files/487960440 bytes.
+One inventory was downloaded in the fresh context, subsequent prepares cached.
+Active Japanese/English jobs 0–7480 ms/119680 samples and 0–7180/114880 were
+observed and interrupted; loss **7480 / 7180 ms**, **0 pending / 0 text**, no
+automatic worker replacement. Interrupted-job accuracy is unverified. Explicit
+same-host cached recovery took **1235.679125 / 1232.231791 ms**; fresh epoch 4
+trials all scored **2.5% CER / 4.54545% WER**, every meaning anchor, **0 loss /
+0 pending**, max pending **8180 / 7680 ms**, **0 HTTPS requests**. Endpoint-to-text
+ranges **764.400–854.900 / 645.800–678.700 ms**, input **22.8 / 21.9 s**.
+Recovery RSS baseline/peak KiB **1938016/3547248 / 1529408/3732448**; process-tree
+sampling caveats in the report, not leak/hardware-pressure/mobile evidence.
+
+All earlier six decoded trials, overload/gap/Stop/idle GPU-loss/pure silence,
+four live selected-video rounds and both five-copy continuous trials pass.
+Live final-packet-to-text **925.700/864.300/769.800 ms**, maximum mapping error
+**48.513 ms**, playback/isolation preserved. Continuous CER/WER **3.5%/4.54545%**,
+every meaning anchor count 5, max pending **21700/21500 ms**, zero loss/drained.
+Full numbers, original signal/sample counts and timing boundaries are in the report.
+
+Next remains **B2**: broader natural speech/noise/boundary quality, sustained
+queue/recovery/memory limits, licensing and default selection. Two finite loss
+cycles with short decoded recovery are not long live speech, a ten-minute run,
+natural VAD, storage/GPU pressure, full offline interpretation or Korean captions.
+B3–B6/Safari/iPhone remain unverified. No absent environment/device/permission
+blocker was observed, so no terminal marker or checkbox change applies.
+Published companion/settings and unrelated state preserved; no agents, runner
+edits, stage advance, push/publish/install or browser-access bypass. No AGENTS.md/
+requested runner failure file exists. Logs/weights/profile/user audio/transcripts
+are excluded from commit. Work stays in this worktree.

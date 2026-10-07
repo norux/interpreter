@@ -33,9 +33,9 @@ const server = createServer(async (request, response) => {
     response.end(`<button id="prepare">Prepare</button><script type="module">
       import {createAsrHost} from '/asr.js';
       import {createSpeechRecognizer} from '/speech.js';
-      globalThis.makeRecognizer = (language) => {
+      globalThis.makeRecognizer = (language, epoch = 3) => {
         globalThis.queueStatuses = []; globalThis.transcripts = [];
-        globalThis.identity = {sessionId: 'fixture-stream', targetId: 'fixture-'+language, epoch: 3};
+        globalThis.identity = {sessionId: 'fixture-stream', targetId: 'fixture-'+language, epoch};
         globalThis.recognizer = createSpeechRecognizer(identity, language, host, status => queueStatuses.push({...status, atMs: performance.now()}));
       };
       globalThis.collect = async (audio) => {
@@ -136,9 +136,9 @@ try {
   observations.browser = browser.version(); observations.platform = `${process.platform}/${process.arch}`;
   observations.memoryMetric = "Owned browser process-tree RSS KiB, 250ms sampling; shared pages/allocator/browser/GPU process included, not isolated allocations or leak evidence";
   page = browser.contexts()[0].pages()[0]; page.setDefaultTimeout(10000);
-  const pageErrors = []; const remotePaths = new Set();
+  const pageErrors = []; const remotePaths = new Set(); let remoteRequests = 0;
   page.on("pageerror", error => pageErrors.push(error.message));
-  page.on("request", request => { if (request.url().startsWith("https://")) { const url = new URL(request.url()); remotePaths.add(url.origin + url.pathname); } });
+  page.on("request", request => { if (request.url().startsWith("https://")) { remoteRequests++; const url = new URL(request.url()); remotePaths.add(url.origin + url.pathname); } });
   let latestWorker; let instrumentation;
   page.on("worker", worker => {
     latestWorker = worker;
@@ -269,6 +269,104 @@ try {
   }, manifest.clips[1]);
   assert.equal(loss.result, "gpu-lost"); assert.deepEqual(loss.transcripts, []); observations.gpuLoss = loss;
   await page.evaluate(() => { host.dispose(); });
+  // Destroy the actual runtime device only after the production handler has
+  // entered recognition. Recovery must be an explicit Prepare on the same host,
+  // with a fresh recognizer/epoch, never a retry or a backend/model fallback.
+  observations.gpuRecoveryRuns = [];
+  for (const clip of manifest.clips) {
+    const recovery = { language: clip.language, baselineRssKiB: await sampleRss() };
+    observations.gpuRecoveryRuns.push(recovery);
+    peakRssKiB = recovery.baselineRssKiB;
+    Object.assign(recovery, await prepare(clip.language));
+    await latestWorker.evaluate(() => {
+      let probePort; const original = globalThis.onmessage;
+      globalThis.onmessage = function (event) {
+        if (event.data?.fixtureLossProbe) { probePort = event.data.port; return; }
+        const result = original.call(this, event);
+        if (event.data?.type === "recognize") {
+          probePort.postMessage({ audioRange: event.data.job.audioRange, samples: event.data.job.pcm.length });
+          globalThis.testRuntimeDevice.destroy();
+        }
+        return result;
+      };
+    });
+    recovery.loss = await page.evaluate(async clip => {
+      globalThis.recoveryHost = host;
+      const workersBeforeLoss = ownedWorkers.length;
+      const channel = new MessageChannel(); let invocation;
+      channel.port1.onmessage = event => { invocation = event.data; channel.port1.close(); };
+      ownedWorkers.at(-1).postMessage({ fixtureLossProbe: true, port: channel.port2 }, [channel.port2]);
+      const start = performance.now();
+      const result = await collect((async function* () { yield* packets(await readClip(clip), 1); })())
+        .then(() => "unexpected success", error => error.message);
+      await new Promise(done => setTimeout(done, 200));
+      const job = { identity, language: clip.language, utteranceId: "must-not-retry",
+        audioRange: { startMs: 0, endMs: 100 }, pcm: new Float32Array(1600) };
+      const withoutPrepare = await host.recognize(job).then(() => "unexpected success", error => error.message);
+      return { result, invocation, withoutPrepare, retainedCallerBytes: job.pcm.byteLength,
+        transcripts, statuses: queueStatuses, workersBeforeLoss, workers: ownedWorkers.length, hostDurationMs: performance.now() - start };
+    }, clip);
+    assert.equal(recovery.loss.result, "gpu-lost");
+    assert.ok(recovery.loss.invocation.samples > 1600, "Loss must interrupt an actual speech job");
+    assert.equal(recovery.loss.withoutPrepare, "gpu-lost");
+    assert.equal(recovery.loss.workers, recovery.loss.workersBeforeLoss, "GPU loss must not create an automatic replacement");
+    assert.equal(recovery.loss.retainedCallerBytes, 6400, "Rejected retry must not transfer input");
+    assert.deepEqual(recovery.loss.transcripts, []);
+    assert.equal(recovery.loss.statuses.at(-1).reason, "gpu-lost");
+    assert.equal(recovery.loss.statuses.at(-1).queue.pendingAudioMs, 0);
+    assert.ok(recovery.loss.statuses.at(-1).queue.droppedAudioMs > 0);
+    assert.ok(recovery.loss.statuses.every(status => status.queue.pendingAudioMs <= 30000));
+    await page.evaluate(language => {
+      globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
+      makeRecognizer(language, 4);
+    }, clip.language);
+    const requestsBefore = remoteRequests, begin = performance.now();
+    await page.locator("#prepare").click();
+    await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 120000, polling: 100 });
+    recovery.repreparationMs = performance.now() - begin;
+    await instrumentation;
+    recovery.preparation = await page.evaluate(() => ({ sameHost: host === recoveryHost, failure: prepareError,
+      statuses, workers: ownedWorkers.length }));
+    assert.equal(recovery.preparation.sameHost, true); assert.equal(recovery.preparation.failure, undefined);
+    assert.equal(recovery.preparation.workers, recovery.loss.workers + 1, "Only explicit Prepare creates a replacement worker");
+    assert.ok(recovery.preparation.statuses.some(status => status.state === "cached"));
+    assert.ok(recovery.preparation.statuses.every(status => status.state !== "downloading"));
+    assert.equal(recovery.preparation.statuses.at(-1).state, "ready");
+    assert.equal(recovery.preparation.statuses.at(-1).requiredBytes, 487960440);
+    assert.equal(await latestWorker.evaluate(() => !!globalThis.testRuntimeDevice), true);
+    recovery.recovered = await page.evaluate(async clip => {
+      const input = packets(await readClip(clip), 3); const start = performance.now();
+      await collect(paced(input));
+      return { transcripts, statuses: queueStatuses, deliveryTimes, visibilityEvents,
+        hostDurationMs: performance.now() - start, inputDurationMs: input.at(-1).audioRange.endMs };
+    }, clip);
+    recovery.remoteRequests = remoteRequests - requestsBefore;
+    assert.equal(recovery.remoteRequests, 0, "Cached recovery must not fetch remote model artifacts");
+    assert.equal(recovery.recovered.transcripts.length, 3);
+    assert.ok(recovery.recovered.statuses.every(status => !status.reason && status.queue.droppedAudioMs === 0 && status.queue.pendingAudioMs <= 30000));
+    assert.equal(recovery.recovered.statuses.at(-1).queue.pendingAudioMs, 0);
+    assert.deepEqual(recovery.recovered.visibilityEvents, []);
+    recovery.results = recovery.recovered.transcripts.map((revision, i) => {
+      assert.deepEqual(revision.identity, { sessionId: "fixture-stream", targetId: `fixture-${clip.language}`, epoch: 4 });
+      assert.equal(revision.utteranceId, `speech-${i + 1}`); assert.equal(revision.sourceRevision, 1);
+      assert.equal(revision.final, true); assert.equal(revision.language, clip.language);
+      assert.equal(revision.audioRange.startMs, i * recovery.recovered.inputDurationMs / 3);
+      assert.equal(revision.audioRange.endMs, recovery.loss.invocation.audioRange.endMs + revision.audioRange.startMs);
+      const delivered = recovery.recovered.deliveryTimes.find(packet => packet.endMs >= revision.audioRange.endMs);
+      const endpointToResultMs = revision.observedAtMs - delivered.atMs;
+      assert.ok(endpointToResultMs >= 0 && endpointToResultMs < recovery.recovered.inputDurationMs / 3);
+      const accuracy = errors(clip.text, revision.text, clip.language);
+      if (accuracy.rate > 0.2) failures.push(`${clip.language}/GPU-recovery-${i + 1}: ${accuracy.metric} ${accuracy.rate} exceeds preserved 0.2 gate`);
+      const anchors = clip.language === "ja" ? ["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
+        : ["not meet today", "station tomorrow", "in the afternoon", "not cancel the reservation"];
+      assert.ok(anchors.every(anchor => revision.text.includes(anchor)), "GPU recovery must preserve every existing meaning anchor");
+      return { trial: i + 1, accuracy, endpointToResultMs };
+    });
+    recovery.peakRssKiB = peakRssKiB;
+    recovery.maxPendingAudioMs = Math.max(...recovery.recovered.statuses.map(status => status.queue.pendingAudioMs));
+    console.log(JSON.stringify({ recovery }));
+    await page.evaluate(() => host.dispose());
+  }
   observations.remotePaths = [...remotePaths]; observations.pageErrors = pageErrors; observations.failures = failures;
   observations.visibilityEvents = await page.evaluate(() => visibilityEvents);
   assert.ok([...remotePaths].every(path => /^https:\/\/huggingface.co\/(onnx-community\/whisper-small\/resolve\/36050c46d777d46dc4b5f43f6d90574fc38f8732\/|api\/resolve-cache\/models\/onnx-community\/whisper-small\/36050c46d777d46dc4b5f43f6d90574fc38f8732\/)/.test(path)
@@ -407,6 +505,7 @@ try {
   observations.checks.push("Three paced utterances per language, bounded queue, semantic anchors and preserved CER/WER <= 0.2", "Silence-only input makes no ASR call; endpoints create no extra utterances", "Explicit unpaced overload/audio gap with discarded-duration status", "Real invocation-observed cancel and actual GPUDevice loss, no fallback");
   observations.checks.push("Live selected-element 48 kHz PCM → streaming 16 kHz normalization → real ASR, two audible videos, repeat Start, preserved accuracy/meaning, capture-clock/video mapping and playback state");
   observations.checks.push("Five preserved speech periods per language cross 30 s at real-time cadence without loss and pass the unchanged aggregate CER/WER gate");
+  observations.checks.push("Actual GPU loss during observed inference discards pending audio/text; same-host explicit cached Prepare and fresh-epoch Japanese/English recognition preserve accuracy without remote downloads or fallback");
   console.log(JSON.stringify({ passed: true, ...observations }));
 } catch (error) {
   observations.documentState = await page?.evaluate(() => ({ visibility: document.visibilityState, visibilityEvents,

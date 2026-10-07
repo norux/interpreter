@@ -1325,3 +1325,132 @@ No agents, runner edit, stage advance, push/publish, app installation or browser
 access/profile/permission bypass occurred. Only owned test browser/profile
 resources were closed; credentials, weights and user audio/transcripts are not
 committed. No whole-framework, Chrome-stage or iPhone completion is claimed.
+
+## 2026-10-07 — B2 active GPU loss and explicit recovery (iteration 2/5)
+
+Related commit: `test: verify browser ASR recovery after GPU loss`, containing
+this report. **B2 remains unchecked; no default is selected.** This iteration
+qualifies one missing B2 lifecycle case. B3–B6 and Safari/iPhone remain unfinished.
+
+### Change and observable acceptance
+
+Extended only `tests/framework-chrome-stream.mjs`. The production ASR host,
+worker, model inventory, bounded profile, existing fixtures and all prior gates
+are unchanged. The simpler existing idle-device-loss check could not establish
+what happens during inference or whether the same host can recover; it is kept
+alongside the new checks. No production defect was observed in the new checks.
+
+For each language, a worker-local observer first invokes the **production**
+recognition message handler, records the actual job range/sample count through a
+separate MessageChannel, then destroys the actual runtime GPUDevice. This is
+explicit fault injection into actual FP16 WebGPU inference, not a fake ASR result
+or evidence of naturally occurring device loss. The stream must fail `gpu-lost`,
+release pending audio, produce no text and create no automatic replacement worker.
+A direct recognition attempt before Prepare must still fail `gpu-lost`, retaining
+its caller-owned 6,400-byte PCM buffer.
+
+A real document-button click then calls Prepare on the **same host object**.
+Acceptance requires exactly one replacement worker, cached/loading/ready states,
+no downloading state, the same 487,960,440-byte profile and an actual new runtime
+device. A fresh recognizer uses epoch 4 instead of the failed epoch 3. Each of its
+three complete paced utterances must preserve authoritative identities/ranges,
+final revision 1, all original meaning anchors, <=0.2 CER/WER, bounded pending
+audio and zero loss. Recovery preparation and recognition made **zero HTTPS
+requests**; this is cached model recovery, not a full offline interpretation test.
+The observer never supplies source text or replacement PCM to inference.
+
+### Passing real browser evidence
+
+`caffeinate -disu npm run test:framework:chrome:stream`: **PASS, exit 0**, one
+browser invocation, `chrome-20261007-2-gpu-recovery-stream.log`. Typecheck,
+**13 port/normalizer tests** (98.194250 ms), build and every original/new real
+browser assertion pass. Owned headed Chromium **153.0.8010.12**, macOS **26.6.2 /
+25G83 arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**. Same locked
+Transformers.js 4.3.0 / ORT and small FP16 WebGPU model:
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven
+files / **487,960,440 bytes**. One fresh model inventory was downloaded in the
+owned context; subsequent preparations reused its cache. No new model/dependency.
+
+| Recovery language | Interrupted job ms / samples | Discarded ms / pending ms | Same-host cached reprepare ms | Recovered input / host run ms | Endpoint-to-result range ms | Recovered CER/WER (all three trials) | Peak pending ms | Baseline / peak RSS KiB |
+| --- | --- | --- | ---: | --- | --- | --- | ---: | --- |
+| Japanese | 0–7480 / 119680 | 7480 / 0 | 1235.679125 | 22800 / 23464.600 | 764.400–854.900 | 1/40 = **2.5% CER** | 8180 | 1938016 / 3547248 |
+| English | 0–7180 / 114880 | 7180 / 0 | 1232.231791 | 21900 / 22452.600 | 645.800–678.700 | 1/22 = **4.54545% WER** | 7680 | 1529408 / 3732448 |
+
+Loss phases took 321.500 / 326.200 ms including file decoding, unpaced delivery
+and a deliberate 200 ms post-failure observation. These are **not GPU-loss
+notification latencies**. Worker counts stayed 8 / 10 through loss and the
+rejected retry, then became 9 / 11 only after explicit Prepare. Both interrupted
+jobs returned **zero transcripts**; their accuracy is unverified. Both recovered
+streams drained to **0 ms pending / 0 ms discarded**, without old-epoch text.
+
+Original checks also pass:
+
+- Six original decoded trials: Japanese **1/40 = 2.5% CER**, English
+  **1/22 = 4.54545% WER**, every meaning anchor. Preparation 53510.363833 /
+  1243.239750 ms; endpoint-to-result 772.200–895.500 / 656.000–813.400 ms;
+  peak pending 8180 / 7880 ms; zero loss/drained queues.
+- Actual live selected-video rounds: Japanese twice and English once retain
+  the same accuracy and meaning anchors. Raw 48 kHz samples **337920 / 337920 /
+  323584**, normalized **112640 / 112640 / 107861**. Final-packet-to-text
+  **925.700 / 864.300 / 769.800 ms**; maximum mapping error **48.513 ms**.
+  Stop reports `cancelled`, no text, **963.375 ms discarded / 0 pending**;
+  capture detaches, repeat Start, original two-video playback and isolation pass.
+- Five-copy continuous decoded input: Japanese **34861.25 ms**, English
+  **33332.5 ms**; two contiguous segments split at 20000 ms, no deleted source
+  samples or appended silence. Japanese **7/200 = 3.5% CER**, English
+  **5/110 = 4.54545% WER**; every meaning anchor count **5**. Peak pending
+  **21700 / 21500 ms**, host run **36169.800 / 34392.500 ms**; **0 loss / 0 pending**.
+  The previously recorded Japanese join imperfection remains in the score.
+- Existing injected unpaced overload: **29940 ms discarded / 29840 ms peak
+  pending**; gap **100 ms**; invocation-observed Stop **7480 ms**; idle actual
+  GPU loss **7180 ms**, all with zero text and no fallback. Pure zero PCM:
+  **0 actual ASR calls / 0 transcripts / 0 loss**. Page errors, native visibility
+  events and accuracy failures are `[]`; pinned network-path assertions pass.
+
+Overall browser-tree RSS baseline **1286640 KiB**. RSS is sampled every 250 ms
+for the owned process tree, including browser/renderers/GPU process, shared-page
+double counting and allocator retention. These two finite loss/recovery cycles
+and short post-recovery utterances do **not** establish leak freedom, sustained
+memory limits, hardware pressure recovery or phone suitability. Timings use a
+single document clock after endpoint-packet delivery, exclude speech accumulation
+and translation, and are observed ranges of three trials, not percentiles.
+
+### Command ledger, remaining scope and preservation
+
+- PASS: targeted `./node_modules/.bin/biome lint tests/framework-chrome-stream.mjs`
+  (one file / 26 ms / no findings) and initial `git diff --check`, exit 0.
+- PASS: the streaming command above, **exit 0**; no browser retry was needed.
+- PASS: final `npm run verify`, **exit 0**, `chrome-20261007-2-verify.log`:
+  Biome **106 files / 49 ms / no findings**, Ruff/typecheck/unchanged companion
+  build, **99 JS passed / 0 failed/skipped/cancelled** (21628.020917 ms),
+  **222 Python passed** (66.87 s). This is repository regression evidence,
+  separate from real ASR and unfinished full interpretation acceptance.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**,
+  `chrome-20261007-2-stage-acceptance-exit.log`: `Missing script:
+  "test:framework:chrome"`. The earlier identical command's shell wrapper
+  subsequently printed the log and returned 0; that wrapper return is not an
+  npm pass. B5's full video → ASR → Korean translation → DOM harness remains
+  unimplemented. No placeholder, substitution or acceptance weakening.
+
+- PASS: final document-inclusive unstaged/staged `git diff --check`, exit 0;
+  intended changes committed and post-commit worktree cleanliness checked.
+
+**Next unfinished item remains B2:** broader natural speech/noise and boundary
+quality, sustained queue/recovery/memory limits, conversion/distribution licensing
+and evidence-based default selection. The failed tiny/WASM baseline and other
+candidate semantic errors remain recorded and have not been rerun without new
+evidence. Natural VAD, long live speech, storage/GPU pressure, complete offline
+interpretation, ten-minute backlog/loss, Korean translation/revision/DOM,
+external-site installation and all Safari/iPhone behavior remain **unverified**.
+There is no observed missing environment/device/permission blocker in this run.
+No checklist item or stage-complete/blocked marker is warranted.
+
+No root/nested AGENTS.md or requested independent runner evidence file exists.
+Supplied instructions, plan, architecture and prior Chrome report were read.
+Only this worktree is changed. Published companion v0.1.0/install/native messaging/
+server paths, settings and unrelated files/apps/recordings/mounted images remain
+unchanged. No agents, runner edit, stage advance, push, publish, app installation
+or browser-access/profile/permission bypass. Only test-owned browser resources
+were closed. All named logs/builds/profiles are ignored `.ralph/media-framework/`
+evidence; credentials, weights, user audio/transcripts and temporary state are
+excluded from the commit. No whole-framework, Chrome-stage or iPhone completion.
