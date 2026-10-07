@@ -1493,3 +1493,83 @@ Production media/ASR/model/fixture/acceptance는 변경하지 않았다. 실제 
 default qualification은 아직 미완료이므로 B2 checkbox는 유지한다. 다음 항목은
 B2의 남은 비교·자격 검증이다. B3–B6/Safari/iPhone 및 full Chrome acceptance는 미완료.
 자동 loop 재시작/push/publish/앱 설치 없이 수정과 증거만 커밋한다.
+
+### 2026-10-07 / chrome / iteration 1/5 — resumed B2 continuous-input headroom
+
+Related commit: `fix: reserve browser ASR queue headroom`, containing this entry
+and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no default is selected.** Only B2 was extended.
+
+Changes: added five-copy Japanese/English decoded-fixture trials with no appended
+silence, preserving every source sample, original isolation tone, hash, prior
+candidate failure and acceptance gate. The new real check first failed in both
+languages at 30.1 s: a full 30 s inference job occupied the entire 30 s retained
+audio budget, so the next 100 ms packet caused overload and discarded 30100 ms.
+Both runs had zero completed transcripts. This is a queue/profile defect,
+not the historical native-clock blocker or successful ASR accuracy.
+
+Reduced only the experimental segment maximum to 20 s, leaving 10 s headroom
+within the unchanged 30 s queue budget/model job bound. Kept one active job,
+two pending jobs/two undelivered results, explicit loss and late-result rejection.
+Added a stalled-inference regression and asserted contiguous 20+11 s segmentation.
+No playback, model/backend/default, settings or companion protocol was changed.
+Continuous acceptance requires full input, zero loss, contiguous bounded final
+results, unchanged <=0.2 CER/WER and every existing meaning anchor five times.
+
+Commands and actual results (ignored evidence under `.ralph/media-framework/`):
+
+- FAIL → PASS: `caffeinate -disu npm run test:framework:chrome:stream`,
+  **exit 1 then 0**, `chrome-20261007-1-{boundary,headroom-stream}.log`.
+  Before fix: twelve port tests and all six short ASR/fault/four live rounds
+  passed; both continuous trials failed `overloaded` at 30100 ms with no text.
+  After fix: thirteen tests (96.437416 ms), build and every real assertion pass.
+  No third browser run or acceptance weakening.
+- PASS: final source/harness `npm run verify`, **exit 0**,
+  `chrome-20261007-1-headroom-verify.log`: Biome 106 files/39 ms/no findings,
+  Ruff/typecheck/unchanged companion build, **99 JS passed / 0 failed/skipped/
+  cancelled** (20698.714041 ms), **222 Python passed** (66.83 s).
+  Earlier pre-fix verifies also passed: 98 JS/222 Python (21920.786917 ms/66.85 s)
+  and 99 JS/222 Python (23866.759542 ms/66.93 s); not real continuous acceptance.
+- PASS: pre-fix eight speech-port tests (408.528375 ms), post-fix typecheck /
+  thirteen port-normalizer tests (105.021542 ms), targeted Biome three files.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, unchanged
+  `Missing script: "test:framework:chrome"`, `chrome-20261007-1-stage-acceptance.log`.
+  B5's real selected-video → ASR → Korean translation → DOM harness remains
+  unimplemented. No placeholder or B2-command substitute was added.
+- PASS: document-inclusive unstaged/staged whitespace and post-commit worktree
+  cleanliness checked before delivery.
+
+Real measured scope: owned headed Chromium 153.0.8010.12 / Darwin 25.6.0 arm64,
+Node v24.15.0/npm 11.12.1/uv 0.12.23/Python 3.12.15. Unchanged small FP16 WebGPU
+profile, revision `36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven files /
+487960440 bytes, one fresh inventory per invocation and cached subsequent loads.
+Five complete synthetic periods now deliver Japanese 557780 samples/34861.25 ms,
+English 533320/33332.5 ms. Each returns two contiguous final ranges split at
+20000 ms, **0 ms loss / 0 pending**, max pending **21800 / 21500 ms**. Japanese
+CER **7/200 = 3.5%** includes five 三→3 edits plus duplicated ない at the join;
+English WER **5/110 = 4.54545%**. Every meaning anchor count is **5**.
+Actual host job round trips: Japanese 1816.900/1305.500 ms; English
+1510.800/1044.100 ms. RSS baseline/peak KiB: 1645568/3813840 and
+2355744/3698976. These process-tree samples/round trips are not isolated GPU
+allocation, leaks, physical limits, percentiles or caption latency.
+
+Existing short trials and four live rounds also pass. Live Japanese twice CER
+2.5%, English WER 4.54545%, zero normal loss, max mapping 46.111334 ms,
+last-packet-to-text 881.700/942.600/822.600 ms. Stop reports cancelled/no text;
+capture detaches, repeat Start and original playback/isolation assertions pass.
+Pure zero PCM, overload/gap/invocation-observed cancellation/actual GPU loss
+remain explicit passing fault checks. Exact initial/final numbers, limits,
+commands and evidence paths are in the Chrome report; no user transcripts,
+weights/profile bytes or temporary `.ralph` state are committed.
+
+Next unfinished item: **B2**, broader natural speech/noise/boundary quality,
+sustained queue/GPU recovery/memory and licensing/default qualification. The
+20 s segment is experimental, with finite headroom; passing repeated synthetic
+decoded input is not natural VAD, long live speech or ten-minute acceptance.
+B3–B6/Korean translation/revision/DOM/offline interpretation/Safari/iPhone and
+external installation remain unfinished. No required environment/device/permission
+blocker was observed; no blocked/stage-complete marker applies. No checkbox changed.
+AGENTS.md/requested independent runner file were absent; instructions/plan/
+architecture/report read. Published companion/settings/unrelated files/user apps/
+recordings/mounts preserved. No agents/runner edits/stage advance/push/publish/
+app installation/browser-access bypass. No whole-framework/iPhone completion.

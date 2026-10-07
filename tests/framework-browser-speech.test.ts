@@ -73,13 +73,35 @@ test("speech boundary rejects tab mixes, non-normalized, oversized and nonfinite
   }
 });
 
-test("continuous input reaches the 30 second model bound, then a separate final segment", async () => {
+test("continuous input reserves queue headroom and stays within the 30 second model bound", async () => {
   const fixture = setup();
   const results = await collect(fixture.recognizer.run(source(Array.from({ length: 310 }, (_, i) => chunk(i)))));
   assert.equal(results.length, 2);
-  assert.deepEqual(fixture.jobs.map(job => job.audioRange), [{ startMs: 0, endMs: 30000 }, { startMs: 30000, endMs: 31000 }]);
-  assert.deepEqual(fixture.jobs.map(job => job.pcm.length), [480000, 16000]);
+  assert.deepEqual(fixture.jobs.map(job => job.audioRange), [{ startMs: 0, endMs: 20000 }, { startMs: 20000, endMs: 31000 }]);
+  assert.deepEqual(fixture.jobs.map(job => job.pcm.length), [320000, 176000]);
   assert.ok(fixture.statuses.every(status => (status.queue?.pendingAudioMs ?? 0) <= 30000));
+});
+
+test("continuous input still reports loss when inference exhausts the retained audio budget", async () => {
+  const statuses: SessionStatus[] = []; const jobs: AsrJob[] = [];
+  let resolveJob: (value: never) => void = () => {}; let stops = 0;
+  const recognizer = createSpeechRecognizer(identity, "ja", {
+    recognize(job) { jobs.push(job); return new Promise(resolve => { resolveJob = resolve; }); },
+    stop() { stops++; },
+  }, status => statuses.push(status));
+  // Headroom is bounded: stalled inference still fails visibly without joining
+  // surviving audio or reviving a late result.
+  await assert.rejects(collect(recognizer.run(source(Array.from({ length: 301 }, (_, i) => chunk(i))))), /overloaded/);
+  assert.equal(jobs.length, 1); assert.equal(jobs[0].pcm.length, 320000);
+  assert.deepEqual(jobs[0].audioRange, { startMs: 0, endMs: 20000 });
+  assert.equal(stops, 1); assert.equal(statuses.at(-1)?.reason, "overloaded");
+  assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 30100);
+  assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+  assert.ok(statuses.every(status => (status.queue?.pendingAudioMs ?? 0) <= 30000));
+  const before = statuses.length;
+  resolveJob({ revision: { ...jobs[0], sourceRevision: 1, final: true, text: "late" }, inferenceMs: 100 } as never);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(statuses.length, before);
 });
 
 test("bounded pending work fails visibly and cancels a stalled job, rejecting its late result", async () => {

@@ -5,7 +5,8 @@ import type { createAsrHost } from "./asr-host";
 import type { AsrJob } from "./asr-protocol";
 
 // Experimental 16 kHz profile: energy gating, 20 ms frames, 500 ms silence
-// endpoint, 30 s maximum segment. This is not a learned speech detector.
+// endpoint, 20 s maximum segment with 10 s queue headroom during inference.
+// This is not a learned speech detector.
 export function createSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
   receive: (status: SessionStatus) => void): SpeechRecognizer {
@@ -47,7 +48,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       let clockId: string | undefined;
       let captureEndMs: number | undefined;
       let utterance = 0;
-      let segment = new Float32Array(16000 * 30);
+      let segment = new Float32Array(16000 * 20);
       let segmentLength = 0;
       let segmentStartMs = 0;
       let quietSamples = 0;

@@ -331,8 +331,82 @@ try {
   }
   assert.deepEqual(pageErrors, []);
   await page.evaluate(() => host.dispose());
+  // Unlike the short endpoint trials, preserve five complete speech periods
+  // with no appended silence so actual inference overlaps ongoing input and
+  // continues beyond the model's 30 s per-job bound.
+  observations.continuousRuns = [];
+  await page.goto(origin); await page.waitForFunction(() => globalThis.makeHost);
+  for (const clip of manifest.clips) {
+    const continuous = { language: clip.language, repeats: 5, baselineRssKiB: await sampleRss() };
+    peakRssKiB = continuous.baselineRssKiB;
+    Object.assign(continuous, await prepare(clip.language));
+    Object.assign(continuous, await page.evaluate(async clip => {
+      const pcm = await readClip(clip);
+      const combined = new Float32Array(pcm.length * 5);
+      for (let i = 0; i < 5; i++) combined.set(pcm, i * pcm.length);
+      const input = [];
+      for (let offset = 0; offset < combined.length; offset += 1600)
+        input.push(chunk(combined.slice(offset, offset + 1600), input.length, offset / 16));
+      let quietSamples = 0, maxQuietSamples = 0;
+      for (let offset = 0; offset < combined.length; offset += 320) {
+        const frame = combined.subarray(offset, offset + 320);
+        const rms = Math.sqrt(frame.reduce((sum, sample) => sum + sample * sample, 0) / frame.length);
+        quietSamples = rms >= 0.01 ? 0 : quietSamples + frame.length;
+        maxQuietSamples = Math.max(maxQuietSamples, quietSamples);
+      }
+      const invocations = []; const original = host.recognize;
+      host.recognize = async job => {
+        const invocation = { audioRange: { ...job.audioRange }, samples: job.pcm.length, atMs: performance.now() };
+        invocations.push(invocation);
+        try { return await original(job); }
+        finally { invocation.settledAtMs = performance.now(); }
+      };
+      const start = performance.now();
+      const outcome = await collect(paced(input)).then(() => "completed", error => error.message);
+      return { outcome, inputSamplesPerSpeech: pcm.length, intendedSamples: combined.length,
+        intendedDurationMs: combined.length / 16, maxQuietMs: maxQuietSamples / 16,
+        hostDurationMs: performance.now() - start, invocations, transcripts, deliveryTimes,
+        statuses: queueStatuses, visibilityEvents };
+    }, clip), { peakRssKiB });
+    continuous.maxPendingAudioMs = Math.max(...continuous.statuses.map(status => status.queue.pendingAudioMs));
+    continuous.last = continuous.statuses.at(-1);
+    // Do not score missing text as successful accuracy or accept an overload as
+    // normal continuous playback. Still collect both languages before failing.
+    if (continuous.outcome !== "completed") failures.push(`${clip.language}/continuous: ${continuous.outcome}`);
+    else {
+      continuous.accuracy = errors(Array(5).fill(clip.text).join(" "), continuous.transcripts.map(revision => revision.text).join(" "), clip.language);
+      if (continuous.accuracy.rate > 0.2) failures.push(`${clip.language}/continuous: ${continuous.accuracy.metric} ${continuous.accuracy.rate} exceeds preserved 0.2 gate`);
+      const anchors = clip.language === "ja" ? ["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
+        : ["not meet today", "station tomorrow", "in the afternoon", "not cancel the reservation"];
+      const text = continuous.transcripts.map(revision => revision.text).join(" ").normalize("NFKC").toLowerCase()
+        .replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, clip.language === "ja" ? "" : " ");
+      continuous.meaningCounts = Object.fromEntries(anchors.map(anchor => [anchor, text.split(anchor).length - 1]));
+      if (Object.values(continuous.meaningCounts).some(count => count < 5)) failures.push(`${clip.language}/continuous: missing repeated meaning anchors`);
+      if (continuous.transcripts.length !== 2) failures.push(`${clip.language}/continuous: expected two bounded segments`);
+      for (const [i, revision] of continuous.transcripts.entries()) {
+        assert.deepEqual(revision.identity, { sessionId: "fixture-stream", targetId: `fixture-${clip.language}`, epoch: 3 });
+        assert.equal(revision.utteranceId, `speech-${i + 1}`); assert.equal(revision.final, true);
+        assert.equal(revision.sourceRevision, 1); assert.equal(revision.language, clip.language);
+        assert.equal(revision.audioRange.startMs, i ? continuous.transcripts[i - 1].audioRange.endMs : 0);
+        assert.ok(revision.audioRange.endMs - revision.audioRange.startMs <= 30000);
+      }
+      assert.equal(continuous.transcripts.at(-1)?.audioRange.endMs, continuous.intendedDurationMs);
+    }
+    if (continuous.statuses.some(status => status.queue.droppedAudioMs !== 0)) failures.push(`${clip.language}/continuous: discarded audio`);
+    observations.continuousRuns.push(continuous); console.log(JSON.stringify({ continuous }));
+    assert.ok(continuous.intendedDurationMs > 30000);
+    assert.ok(continuous.maxQuietMs < 500, "Fixture must exercise the model bound rather than a silence endpoint");
+    assert.ok(continuous.maxPendingAudioMs <= 30000);
+    assert.equal(continuous.last.queue.pendingAudioMs, 0);
+    assert.deepEqual(continuous.visibilityEvents, []);
+    await page.evaluate(() => host.dispose());
+  }
+  observations.failures = failures;
+  assert.deepEqual(pageErrors, []);
+  assert.deepEqual(failures, [], "Continuous input must cross the model boundary without loss and preserve accuracy");
   observations.checks.push("Three paced utterances per language, bounded queue, semantic anchors and preserved CER/WER <= 0.2", "Silence-only input makes no ASR call; endpoints create no extra utterances", "Explicit unpaced overload/audio gap with discarded-duration status", "Real invocation-observed cancel and actual GPUDevice loss, no fallback");
   observations.checks.push("Live selected-element 48 kHz PCM → streaming 16 kHz normalization → real ASR, two audible videos, repeat Start, preserved accuracy/meaning, capture-clock/video mapping and playback state");
+  observations.checks.push("Five preserved speech periods per language cross 30 s at real-time cadence without loss and pass the unchanged aggregate CER/WER gate");
   console.log(JSON.stringify({ passed: true, ...observations }));
 } catch (error) {
   observations.documentState = await page?.evaluate(() => ({ visibility: document.visibilityState, visibilityEvents,
