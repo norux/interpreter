@@ -39,6 +39,10 @@ const cp = require('node:child_process');
 const prompt = fs.readFileSync(0, 'utf8');
 const stage = prompt.match(/Ralph stage ([a-z]+),/)[1];
 fs.mkdirSync('.ralph', {recursive:true});
+if (fs.existsSync('.ralph/sleep-guard-pid')) {
+  process.kill(Number(fs.readFileSync('.ralph/sleep-guard-pid', 'utf8')), 0);
+  fs.appendFileSync('.ralph/guard-stage-calls', stage + '\\n');
+}
 fs.appendFileSync('.ralph/codex-calls', 'call\\n');
 fs.appendFileSync('.ralph/stage-calls', stage + '\\n');
 const action = stage === process.env.RALPH_TEST_STOP_STAGE ? process.env.RALPH_TEST_STOP_ACTION : process.env.RALPH_TEST_ACTION;
@@ -69,7 +73,17 @@ fs.appendFileSync('.ralph/npm-calls', script + '\\n');
 console.log('Runner test fixture command: ' + script);
 if (script === process.env.RALPH_TEST_FAIL_SCRIPT) process.exit(1);
 `;
-  for (const [name, source] of [['codex', fakeCodex], ['npm', fakeNpm]]) {
+  const fakeCaffeinate = `#!/usr/bin/env node
+const fs = require('node:fs');
+const cp = require('node:child_process');
+fs.mkdirSync('.ralph', {recursive:true});
+fs.appendFileSync('.ralph/caffeinate-calls', process.argv.slice(2).join(' ') + '\\n');
+fs.writeFileSync('.ralph/sleep-guard-pid', String(process.pid));
+const result = cp.spawnSync(process.argv[3], process.argv.slice(4), {stdio:'inherit'});
+fs.writeFileSync('.ralph/sleep-guard-ended', String(result.status));
+process.exit(result.status ?? 1);
+`;
+  for (const [name, source] of [['codex', fakeCodex], ['npm', fakeNpm], ['caffeinate', fakeCaffeinate]]) {
     const path = join(root, 'bin', name);
     writeFileSync(path, source);
     chmodSync(path, 0o755);
@@ -79,7 +93,7 @@ if (script === process.env.RALPH_TEST_FAIL_SCRIPT) process.exit(1);
     run(args = ['core', '5'], env = {}) {
       return spawnSync(process.execPath, ['scripts/ralph-loop.mjs', ...args], {
         cwd: root, encoding: 'utf8', timeout: 20_000,
-        env: { ...process.env, PATH: `${join(root, 'bin')}:${process.env.PATH}`, ...env },
+        env: { ...process.env, RALPH_CAFFEINATED: '', PATH: `${join(root, 'bin')}:${process.env.PATH}`, ...env },
       });
     },
     calls(name) {
@@ -105,6 +119,16 @@ test('all dry-run previews every stage in order without tools or state', (t) => 
   assert.deepEqual([...result.stdout.matchAll(/Ralph stage ([a-z]+), iteration 1\/5/g)].map((match) => match[1]), stages);
   assert.equal(existsSync(join(f.root, '.ralph')), false);
   assert.equal(f.git('status', '--porcelain'), '');
+});
+
+test('macOS holds one sleep assertion across every stage and releases it on exit', { skip: process.platform !== 'darwin' }, (t) => {
+  const f = fixture(t);
+  const result = f.run(['all', '1'], { RALPH_TEST_ACTION: 'complete' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(f.calls('caffeinate').length, 1);
+  assert.match(f.calls('caffeinate')[0], /^-disu /);
+  assert.deepEqual(f.calls('guard-stage'), stages);
+  assert.equal(readFileSync(join(f.root, '.ralph/sleep-guard-ended'), 'utf8'), '0');
 });
 
 test('all runs stages in order with a separate iteration budget and final cleanup', (t) => {

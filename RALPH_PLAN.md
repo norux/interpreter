@@ -63,6 +63,9 @@ node scripts/ralph-loop.mjs iphone 5
 `Ctrl+C`로 중단할 수 있다. 중단 후에는 Git 상태와 `.ralph/media-framework/` 로그를
 검토하고, 미완료 변경을 정리한 뒤 같은 명령으로 재개한다. 동시에 두 루프를 돌리지 않는다.
 실행 중인 runner 파일을 수정하지 않는다.
+macOS에서는 runner 전체 수명 동안 화면·시스템 절전 방지 assertion을 유지한다.
+iteration 및 stage 사이에도 해제하지 않으며 runner 종료 시 자동으로 해제한다.
+시스템의 영구 전원 설정은 변경하지 않는다.
 
 iteration은 미완료 체크리스트 항목 하나를 구현·검증·기록·커밋하는 한 번의 작업이다.
 큰 항목은 여러 iteration으로 나누며, 체크리스트 항목 수가 필요한 iteration 수를
@@ -1456,3 +1459,37 @@ plan, architecture/report read. Published companion/install/native/server paths,
 settings, unrelated files/apps/recordings/mounts preserved. No agents, runner edit,
 stage advance, push/publish/app install or browser-access bypass. Credentials,
 weights, user audio/transcripts and temporary `.ralph` state excluded from commit.
+
+### 2026-10-07 / Chrome B2 live-input 중단 해결 — runner 절전 방지
+
+관련 commit: `fix: keep Ralph awake across iterations`.
+
+실패 시간의 macOS power log에서 06:17:51 iteration 소유 caffeinate 종료 → Idle
+Sleep → 06:17:54 DarkWake 651초를 확인했다. 두 실제 영상 검증 실패가 이 구간에
+발생했다. 다음 iteration의 system-sleep guard는 이미 DarkWake가 시작된 후 생성돼
+실제 화면/미디어 clock 복귀를 보장하지 못했다. 현재 깨어 있는 상태에서 동일한
+fixture/model/production input/normalizer와 모든 기존 수치·timeout 기준이 통과했다.
+
+runner는 macOS에서 전체 invocation을 `caffeinate -disu`로 감싼다. 내부 inherited
+marker로 중복 guard를 피하고 모든 iteration/stage 전환 사이에도 assertion을
+유지한다. command 종료 시 해제하고 dry-run/영구 전원 설정은 보존한다.
+
+- FAIL → PASS: outer guard 없음 회귀를 먼저 확인한 뒤 수정. Runner 20 tests 통과.
+- PASS: 실제 macOS `pmset`으로 owned display/system/user-active assertion을 확인하고
+  종료 후 모두 해제됨을 검증. 이 lifecycle 검사만의 npm commands는 stubs였다.
+- PASS: 진단 instrumentation 없는 `caffeinate -disu npm run test:framework:chrome:stream`,
+  exit 0. 12 port tests, 6 decoded ASR trials, fault gates 및 실제 영상 4 rounds 통과.
+  일본어 완료 2회 CER 2.5%, 영어 WER 4.54545%, Stop은 cancelled/text 없음.
+  최대 실제 영상 mapping 오차 51.233334 ms, 최종 packet→text 943.7/881.4/794.7 ms.
+  두 audible 영상 재생 상태/입력 분리/normalization/Stop·repeat Start 및 zero-loss
+  기준을 유지했다. 실제 samples/수치/명령은 Chrome 보고서에 기록했다.
+- PASS: `npm run verify`, exit 0, lint/typecheck/build, JS 98 passed,
+  Python 222 passed/66.90 s; 최종 whitespace 검사 통과.
+
+증거는 Chrome 보고서와 ignored `.ralph/media-framework/chrome-{sleep,live}-*.log`.
+Production media/ASR/model/fixture/acceptance는 변경하지 않았다. 실제 sleep/lid-close를
+강제로 만들지 않았고 사용자 앱/profile/settings/녹화/mount는 보존했다. 실제 입력
+차단은 해제됐지만 B2의 broader quality/noise/boundary/sustained-memory/licensing/
+default qualification은 아직 미완료이므로 B2 checkbox는 유지한다. 다음 항목은
+B2의 남은 비교·자격 검증이다. B3–B6/Safari/iPhone 및 full Chrome acceptance는 미완료.
+자동 loop 재시작/push/publish/앱 설치 없이 수정과 증거만 커밋한다.

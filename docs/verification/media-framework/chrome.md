@@ -951,6 +951,10 @@ No Chrome-stage, whole-framework or iPhone completion is claimed.
 
 ## 2026-10-07 — B2 selected-video normalization (iteration 5/5, blocked)
 
+This is the historical failure. The wake-state investigation and live-input
+recovery recorded below supersede its environment blocker; B2 qualification
+still remains unfinished.
+
 Commit: `feat: normalize selected-video audio for browser ASR`, containing this
 section. **B2 remains unchecked and no default is selected.** Only B2 was
 extended. The candidate comparison, failed tiny/WASM baseline, fixture hashes,
@@ -1096,7 +1100,7 @@ These fault checks do not prove live normalized-stream cancellation or recovery.
 - PASS: final targeted Biome on all six edited source/test files, **exit 0**,
   6 files/5 ms/no findings.
 - PASS: final document-inclusive unstaged/staged `git diff --check`, **exit 0**;
-  intended changes committed and worktree status checked before delivery.
+intended changes committed and worktree status checked before delivery.
 
 Physical speaker output, independent tab-output amplitude, real clock progress,
 natural VAD, actual 30 s boundary speech and live normalized-stream loss/recovery
@@ -1111,3 +1115,56 @@ mounted images remain unchanged. No agents, runner edits, stage advance, push,
 publish, app installation or browser-access bypass occurred. Credentials,
 weights, user audio/transcripts and temporary `.ralph` state are excluded from
 the commit. No Chrome-stage, whole-framework or iPhone completion is claimed.
+
+## 2026-10-07 — live playback recovered; runner wake assertion fixed
+
+The macOS power log supplies new evidence for the previously unknown stall.
+At 06:17:51 the iteration-owned `caffeinate` assertions ended and the machine
+entered Idle Sleep. It entered **DarkWake at 06:17:54 for 651 seconds**, covering
+both failing live attempts. A new iteration-owned guard started at 06:17:56,
+after DarkWake had already begun, and held only system/idle-sleep assertions.
+It ended at 06:28:45, followed by Maintenance Sleep. This explains why keeping
+one iteration's CPU awake was insufficient for native real-time media playback.
+Generic CoreAudio `object is not valid` messages also occur during passing runs;
+they do not independently identify an audio-device failure.
+
+The same live fixture, original media hashes, model, capture graph, normalization,
+accuracy/isolation/mapping thresholds and timeouts passed while fully awake.
+The runner now wraps the entire macOS invocation in `caffeinate -disu`, with an
+internal inherited marker preventing nested stage guards. The display/system
+assertions span all iterations and stage transitions; user-activity assertion
+wakes the display at startup. They end with the utility. Dry-runs remain inert,
+and persistent power settings are unchanged. No production media/ASR code or
+acceptance threshold was changed to make this pass.
+
+Verification:
+
+- FAIL → PASS: the new runner regression initially observed zero outer guards;
+  after the fix one guard remains alive across all five fixture stages and ends
+  with the command. All **20 runner tests passed**.
+- PASS: a separate actual macOS lifecycle check observed owned
+  `PreventUserIdleSystemSleep`, `PreventUserIdleDisplaySleep`, `PreventSystemSleep`
+  and `UserIsActive` assertions via `pmset`; all were released after exit. Its
+  npm commands were stubs, so it proves wake assertion lifecycle only.
+- PASS: `caffeinate -disu npm run test:framework:chrome:stream`, **exit 0**, with
+  no diagnostic instrumentation. Twelve port tests, six decoded ASR trials,
+  existing overload/gap/cancel/GPU-loss faults and all four live rounds passed.
+  Japanese live CER was **1/40 = 2.5%** on both completed rounds; English live
+  WER was **1/22 = 4.54545%**. The Stop round reported `cancelled` and no text.
+  Maximum live mapping error was **51.233334 ms** (<150 ms); final-packet-to-text
+  times were **943.7 / 881.4 / 794.7 ms** (<2000 ms). Two audible videos kept
+  their original playback state and the existing isolation/zero-loss checks
+  passed. Japanese captures each supplied 337,920 real 48 kHz samples normalized
+  to 112,640; English supplied 323,584 normalized to 107,861.
+- PASS: `npm run verify`, **exit 0**, lint/typecheck/build, **98 JS tests** and
+  **222 Python tests** (66.90 s); final whitespace checks pass.
+
+Ignored evidence: `chrome-sleep-state.log`, `chrome-sleep-guard-regression.log`,
+`chrome-sleep-guard-runner.log`, `chrome-sleep-guard-native.log`,
+`chrome-live-fix-final.log`, and `chrome-sleep-guard-verify.log`. The first full
+recovery run also passed with read-only media/context observations; the final
+run above had none. Manual sleep/lid-close behavior was not forced on the user's
+machine. This resolves the recorded live-input blocker, not all B2 qualification:
+broader speech/noise/boundary, sustained recovery/memory, licensing/default
+selection and B3–B6/Safari/iPhone remain unfinished. B2 stays unchecked; no loop
+restart, push, publish or app installation was performed.

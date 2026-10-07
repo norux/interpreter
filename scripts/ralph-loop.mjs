@@ -199,5 +199,15 @@ function main() {
   throw new Error(`Reached ${limit} iterations for ${stage}; review the plan/logs and rerun the same command to continue.`);
 }
 
-try { main(); }
+try {
+  // Keep the display and system awake across iterations and stage transitions;
+  // a guard owned by one Codex iteration leaves a sleep gap when it exits.
+  if (process.platform === 'darwin' && option !== '--dry-run' && process.env.RALPH_CAFFEINATED !== '1') {
+    console.log('Ralph: keeping macOS awake for this run.');
+    const result = run('caffeinate', ['-disu', process.execPath, runnerPath, ...process.argv.slice(2)], {
+      env: { ...process.env, RALPH_CAFFEINATED: '1' },
+    });
+    process.exitCode = result.status ?? 1;
+  } else main();
+}
 catch (error) { console.error(error.message); process.exitCode = 1; }

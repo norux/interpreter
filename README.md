@@ -25,6 +25,8 @@ stages. After `npm ci` and `uv sync --locked`, preview all stages with
 `node scripts/ralph-loop.mjs all 5 --dry-run`, then start them with
 `node scripts/ralph-loop.mjs all 5` using a logged-in Codex CLI on a feature branch.
 The limit is per stage; each stage must pass acceptance before the next starts.
+On macOS, the runner keeps the display and system awake for the entire run,
+including iteration and stage transitions, and releases that assertion on exit.
 It stops on a blocker, failure or iteration limit. Rerun the same command to recheck
 completed stages and resume unfinished work. Use a stage name instead of `all` to
 run only that stage. After final verification it deletes the plan and commits
