@@ -1454,3 +1454,171 @@ or browser-access/profile/permission bypass. Only test-owned browser resources
 were closed. All named logs/builds/profiles are ignored `.ralph/media-framework/`
 evidence; credentials, weights, user audio/transcripts and temporary state are
 excluded from the commit. No whole-framework, Chrome-stage or iPhone completion.
+
+## 2026-10-07 — B2 live multi-period boundary qualification (iteration 3/5)
+
+Related commit: `test: expose live browser ASR boundary quality failure`,
+containing this report. **B2 remains unchecked; no default is selected.** Only
+the next unfinished Chrome item, B2, was extended. The new trial exposes a
+repeatable **46.66667% Japanese CER failure**, despite successful acquisition,
+inference and zero reported audio loss. It does not establish Chrome completion.
+
+### Change and observable acceptance
+
+Extended `tests/framework-chrome-stream.mjs` and its existing live fixture with
+three complete speech periods per language, using the original hash-checked
+24-second videos. This simpler extension avoids generating or replacing media.
+Production catalog/input, normalizer, recognizer, host/worker, model inventory,
+profile, all prior trials/failed baselines and acceptance thresholds are unchanged.
+No expected text or decoded reference PCM supplies the live inference path.
+
+The fixture records actual production host invocations, input samples delivered
+at invocation/settlement, authoritative ranges and one document's timestamps.
+The added trials retain <=0.2 CER/WER, every meaning anchor at least three times,
+<2000 ms final-packet-to-text, bounded queues, zero reported discard, identity/
+revision/mapping, raw pre-filter isolation and original playback checks. Japanese
+must return two contiguous segments and deliver >100 ms more real captured PCM
+while the first job is pending. Existing single-period result count, accuracy,
+latency and explicit Stop/restart assertions remain. Extended accuracy/meaning/
+latency failures are collected and rejected at the final assertion; collecting
+English after Japanese failure does not make that failure a pass.
+
+### Actual runs and test-assertion corrections
+
+All browser commands below were `caffeinate -disu npm run test:framework:chrome:stream`.
+All three returned **exit 1**, with successful typecheck, thirteen port/normalizer
+tests and build. Logs are ignored `.ralph/media-framework/` evidence:
+
+1. `chrome-20261007-3-live-boundary-stream.log`, port tests **94.776750 ms**:
+   failed a new, incorrect first-range assertion, `60 !== 0`, in the original
+   short Japanese round. The energy gate legitimately skipped 60 ms of initial
+   quiet PCM. Recognition returned text, but the new scoring code and extended
+   trials were not reached. This was a test assumption error, not an environment
+   or recognition-quality blocker. Corrected the new assertion to allow a bounded
+   <=100 ms quiet prefix, retaining contiguous subsequent speech ranges.
+2. `chrome-20261007-3-live-boundary-stream-second.log`, port tests
+   **105.335500 ms**: all original short live/Stop/restart and earlier decoded/
+   fault/recovery checks passed. Extended Japanese returned **56/120 = 46.66667%
+   CER**, failing the unchanged 20% gate. English extension and later continuous
+   checks were not reached. Acquisition delivered **1,007,616 raw 48 kHz samples /
+   335,872 normalized samples**, ranges **80–20080 / 20080–20992 ms**, with
+   **0 discard / 0 pending**, peak pending **20912 ms**, mapping error
+   **51.287667 ms**. Actual host calls took **2518.500 / 306.100 ms**. During
+   the first call, delivered normalized input advanced **20095.375→20992 ms**.
+   The first result repeated extra time/meeting/reservation phrases; this was
+   not merely the known 三→3 numeric edit. Baseline/peak RSS **3746240/3746240 KiB**.
+3. `chrome-20261007-3-live-boundary-stream-final.log`, port tests
+   **101.378583 ms**: retained the Japanese failure while collecting English.
+   Japanese independently reproduced **56/120 CER**. English acquired real PCM
+   and returned all three utterances, then failed the new inferred segment-count
+   assertion, **1 !== 2**. Its final **13.3125 ms** input remainder followed a
+   full segment and was classified quiet by the existing energy gate, with
+   **0 reported discard**. This is distinct from a short speech remainder,
+   which the existing port reports as discarded. The zero-discard gate stays.
+
+After the third command, corrected only the new range assertions: infer segment
+count from the returned speech span and allow **0–<20 ms** trailing quiet PCM
+(one energy frame), still requiring zero reported discard. No original assertion
+or numerical/meaning/latency gate was relaxed. A local Python check against the
+third run's recorded results returned **exit 0** for both languages' corrected
+prefix/tail, contiguous ranges, final revisions/identity, bounded pending and zero
+discard/drained queue. Independent NFKC/punctuation/whitespace edit-distance
+recomputation returned the CER/WER below. This checks recorded real results,
+**not a fresh browser run or a passing full acceptance command**. Final targeted
+Biome and `node --check tests/framework-chrome-stream.mjs` passed. The revised
+browser assertions and later continuous checks remain **unverified in a fresh
+run of the final harness**. No further browser invocation was made after the
+second independent Japanese quality failure.
+
+### Third-run measured live evidence
+
+Owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**,
+Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**. Unchanged Transformers.js
+4.3.0/locked ORT, small FP16 WebGPU,
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`,
+seven files / **487,960,440 bytes**. Each invocation prepared one fresh inventory
+in its owned context and reused that cache. No new dependency/model/fixture.
+
+| Extended live language | Raw 48 kHz samples / chunks | Normalized samples | Returned ranges ms | Actual host call ms | Peak pending ms | CER/WER | Final-packet-to-text ms | Max mapping error ms | Baseline / peak RSS KiB |
+| --- | --- | ---: | --- | --- | ---: | --- | ---: | ---: | --- |
+| Japanese | 1007616 / 492 | 335872 | 60–20060; 20060–20992 | 2573.400; 306.200 | 20932 | **56/120 = 46.66667% FAIL** | 1985.200 | 42.713000 | 3819232 / 3819408 |
+| English | 962560 / 470 | 320853 | 40–20040 | 1557.500 | 20013.3125 | **3/66 = 4.54545%**, recomputed from recorded result | 1557.800 | 44.759667 | 3509136 / 3509136 |
+
+Both ended with **0 ms pending / 0 ms reported discarded audio**. Japanese
+capture advanced **20095.375→20992 ms** during its first pending invocation,
+proving capture/inference overlap on this finite trial. Its meaning counts were
+meeting/negation **3**, tomorrow/afternoon/station **5**, reservation/non-cancellation
+**4**: extra repeated phrases explain why minimum anchor counts alone cannot
+establish quality. English's returned text contains every meaning anchor three
+times; its post-count-failure accuracy/latency/meaning assertions were not reached
+inside the browser harness. English's initial quiet prefix was **40 ms**, trailing
+quiet **13.3125 ms**; Japanese prefix **60 ms**, trailing quiet **0 ms**. No
+independent acoustic labeling of those quiet frames was added.
+
+The four original live rounds pass in the third run: two completed Japanese
+rounds **1/40 = 2.5% CER**, English **1/22 = 4.54545% WER**, final-packet-to-text
+**836.100 / 836.300 / 772.500 ms**. Short raw samples **337920 / 337920 / 323584**,
+normalized **112640 / 112640 / 107861**. Stop returned `cancelled`, no transcript,
+**900.6875 ms discarded / 0 pending**; capture detached and repeat Start passed.
+Every collected live round retained both videos' playback/volume/mute/rate/source
+state. All four original rounds and extended Japanese passed pre-filter isolation;
+extended English's subsequent isolation/normalization/mapping gates were not
+reached after its count assertion failed. Its range/queue checks were validated
+only by the recorded-result analysis above. No independent speaker/output-level
+measurement was performed here.
+
+All six original decoded trials passed **2.5% CER / 4.54545% WER**, zero loss;
+endpoint-to-result ranges **776.200–831.800 / 643.500–758.200 ms**, preparation
+**53061.130916 / 1442.777500 ms**. Earlier fault gates passed: overload
+**29940 ms discarded / 29840 ms peak pending**, gap **100 ms**, invocation-observed
+cancel **7480 ms**, idle actual GPU loss **7180 ms**, all with zero transcripts/
+pending and no fallback. Pure zero PCM made **0 ASR calls / 0 transcripts / 0 loss**.
+Active loss/recovery passed for both languages; explicit cached Prepare took
+**1235.211000 / 1231.740375 ms**, zero HTTPS requests, and all recovered trials
+retained **2.5% CER / 4.54545% WER**. The later five-copy decoded continuous
+trials were **not reached in any of these three invocations**, not revalidated
+by their historical passes. Final page errors and native visibility events were
+`[]`; the original pre-live pinned-network assertion passed.
+
+Overall third-run RSS baseline **1299968 KiB**. RSS sums only the owned browser
+process tree every 250 ms, includes shared-page double counting, allocator
+retention and browser/renderers/GPU process, and is not isolated GPU allocation,
+leak freedom, memory pressure or phone qualification. Host call/last-packet times
+use one document clock; they exclude speech accumulation/translation/display
+and are single trials, not percentiles or ten-minute throughput.
+
+### Required checks, remaining scope and preservation
+
+- PASS: `npm run verify`, **exit 0**, `chrome-20261007-3-verify.log`: Biome
+  **106 files / 45 ms / no findings**, Ruff/typecheck/unchanged companion build,
+  **99 JS passed / 0 failed/skipped/cancelled** (**21574.524625 ms**),
+  **222 Python passed / 66.95 s**. Its lint preceded the final test-range
+  correction; final two-file Biome (**8 ms**) and script syntax check also passed.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261007-3-stage-acceptance.log`: `Missing script:
+  "test:framework:chrome"`. B5's full selected-video → ASR → Korean translation
+  → DOM harness remains unimplemented. No placeholder or B2 substitute was added.
+- FAIL: all three streaming invocations as detailed above; two independently
+  reached the same Japanese live quality failure. No thresholds, candidate
+  failures or fixture sentences were removed. No further identical retry.
+- PASS: final document-inclusive unstaged/staged whitespace checks; intended
+  changes committed and post-commit worktree cleanliness checked before delivery.
+
+**Next unfinished item remains B2:** improve and evaluate the live Japanese
+multi-period/boundary quality failure, then rerun the final real harness. Broader
+natural speech/noise, learned VAD, sustained queue/recovery/memory limits,
+conversion/distribution licensing and evidence-based default selection remain
+unfinished. Longer live input, ten-minute backlog/loss, complete offline
+interpretation, Korean translation/revisions/DOM, external installation and all
+Safari/iPhone behavior remain **unverified**. No required environment/device/
+permission was absent; this is a quality failure and incomplete implementation,
+so no blocked or stage-complete marker applies. No checkbox was changed.
+
+No root/nested AGENTS.md or requested independent runner file exists. Supplied
+instructions, plan, architecture and prior Chrome report were read. Work stays
+in this worktree. Published companion v0.1.0/install/native messaging/server
+paths, settings and unrelated files/apps/recordings/mounted images are preserved.
+No agents, runner edits, stage advance, push/publish/app installation or browser
+access/profile/permission bypass occurred. Only owned test browser resources
+were closed. Logs, profiles, model weights and user audio/transcripts are excluded
+from the commit. No whole-framework, Chrome-stage or iPhone completion is claimed.

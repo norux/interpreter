@@ -1639,3 +1639,88 @@ Published companion/settings and unrelated state preserved; no agents, runner
 edits, stage advance, push/publish/install or browser-access bypass. No AGENTS.md/
 requested runner failure file exists. Logs/weights/profile/user audio/transcripts
 are excluded from commit. Work stays in this worktree.
+
+### 2026-10-07 / chrome / iteration 3/5 — B2 live multi-period boundary qualification
+
+Related commit: `test: expose live browser ASR boundary quality failure`, containing
+this entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no default is selected.** Only B2 was extended.
+
+Changes: added three-period live Japanese/English trials using the original
+hash-checked 24-second videos and production selected-video input/normalization/
+ASR. Recorded actual host calls, delivered samples during inference, ranges,
+mapping, bounded queues and RSS. Retained all original trials, failed baselines,
+Stop/restart/isolation/playback assertions and numerical/meaning/latency gates.
+Extended quality failures are retained while collecting the other language and
+still rejected by the final assertion. Production/model/profile/settings/companion
+and fixture bytes are unchanged. No later-stage implementation was started.
+
+Commands and actual results (ignored `.ralph/media-framework/` evidence):
+
+- FAIL: first `caffeinate -disu npm run test:framework:chrome:stream`, **exit 1**,
+  `chrome-20261007-3-live-boundary-stream.log`: typecheck, thirteen port tests
+  (**94.776750 ms**) and build pass; new first-range assertion incorrectly
+  expected 0 instead of the energy gate's **60 ms quiet prefix**. Corrected
+  only this new test assumption; extended trials were not reached.
+- FAIL: second same command, **exit 1**,
+  `chrome-20261007-3-live-boundary-stream-second.log`: thirteen port tests
+  (**105.335500 ms**), original decoded/fault/recovery/four live checks pass.
+  Extended Japanese actual recognition fails **56/120 = 46.66667% CER** against
+  unchanged **20%** gate. Real samples, contiguous two segments, zero loss/drained
+  queue pass; returned extra repeated phrases. Extended English was not reached.
+- FAIL: third same command, **exit 1**,
+  `chrome-20261007-3-live-boundary-stream-final.log`: thirteen port tests
+  (**101.378583 ms**), prior checks pass; Japanese independently reproduces
+  **56/120 CER**. English returns three complete utterances, then a new inferred
+  count assertion fails **1 !== 2** because the last **13.3125 ms** is classified
+  quiet, with **0 reported discard**. Corrected only the new speech-span count
+  and allowed one **<20 ms** trailing quiet frame, retaining the zero-discard
+  gate. No further browser attempt after two independent Japanese quality failures.
+  Later five-copy continuous trials were not reached in these three commands.
+- PASS: local Python checks against the third run's recorded results, **exit 0**,
+  corrected bounded quiet prefix/tail, contiguous ranges, final identity/revision,
+  zero discard/drained and bounded queues. Recomputed Japanese **56/120 CER**,
+  English **3/66 = 4.54545% WER**. This is recorded-result analysis, not fresh
+  browser acceptance. Final revised browser assertions remain **unverified in
+  a fresh run**; retained Japanese failure still prevents qualification.
+- PASS: `npm run verify`, **exit 0**, `chrome-20261007-3-verify.log`: Biome
+  **106 files / 45 ms / no findings**, Ruff/typecheck/unchanged companion build,
+  **99 JS passed / 0 failed/skipped/cancelled / 21574.524625 ms**,
+  **222 Python passed / 66.95 s**. Its lint preceded the last test-only range
+  correction; final two-file Biome (**8 ms**) and `node --check` also pass.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261007-3-stage-acceptance.log`, missing script. B5 full interpretation
+  acceptance remains unimplemented; no placeholder or B2-command substitution.
+- PASS: final document-inclusive unstaged/staged whitespace and post-commit
+  worktree cleanliness checked before delivery.
+
+Real scope: owned headed Chromium **153.0.8010.12**, macOS **26.6.2/25G83 arm64**,
+Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**; unchanged small FP16 WebGPU
+model revision `36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven files /
+**487960440 bytes**. Each invocation prepared one fresh inventory, then cached
+workers. Third extended Japanese raw/normalized samples **1007616/335872**,
+ranges **60–20060 / 20060–20992 ms**, first-call delivered input advanced
+**20095.375→20992 ms** while inference was pending. Zero loss/pending,
+peak pending **20932 ms**, mapping **42.713 ms**; actual host calls
+**2573.400/306.200 ms**, final-packet-to-text **1985.200 ms**, RSS baseline/peak
+**3819232/3819408 KiB**. English **962560/320853 samples**, returned range
+**40–20040 ms**, quiet tail **13.3125 ms**, zero loss/pending, peak pending
+**20013.3125 ms**, mapping **44.759667 ms**, host call **1557.500 ms**,
+recorded final-packet-to-text **1557.800 ms**, RSS **3509136/3509136 KiB**.
+English scoring after the count assertion was not reached inside the harness.
+RSS is an owned process-tree diagnostic with shared-page/allocator/browser/GPU
+inclusion, not isolated GPU allocation, leaks, memory pressure or phone evidence.
+Exact original short/fault/recovery numbers, timing limits and failed/unverified
+scope are preserved in the report. No user transcripts/weights/profile/logs committed.
+
+Next unfinished item: **B2 live Japanese quality/segmentation improvement and
+re-evaluation**, followed by a fresh final-harness run, broader natural speech/
+noise, sustained queue/recovery/memory, licensing and default qualification.
+Acquired PCM/loaded models/zero loss are not transcription accuracy. B3–B6,
+full offline/Korean-caption/ten-minute acceptance, Safari/iPhone remain unfinished.
+No absent required environment/device/permission was observed; no terminal marker
+or checkbox change applies. No AGENTS.md/requested runner file exists. All required
+documents/instructions read; work stays in this worktree. Companion/settings and
+unrelated files/apps/recordings/mounts preserved. No agents, runner edits, stage
+advance, push/publish/install or browser-access/profile bypass; no whole-framework
+or iPhone completion claim.

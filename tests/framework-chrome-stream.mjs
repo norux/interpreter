@@ -374,14 +374,15 @@ try {
   assert.deepEqual(pageErrors, []); assert.deepEqual(failures, [], "Preserved numerical accuracy gates must pass");
   observations.liveRuns = [];
   await page.goto(`${origin}/live`); await page.waitForFunction(() => globalThis.ready);
-  for (const [round, language] of ["ja", "ja", "ja", "en"].entries()) {
+  for (const [round, language] of ["ja", "ja", "ja", "en", "ja", "en"].entries()) {
     const clip = manifest.clips.find(clip => clip.language === language);
+    const periods = round >= 4 ? 3 : 1;
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
-    await page.evaluate(({ language, duration, round }) => configure(language, duration, round), { language, duration: clip.speechDurationSeconds, round });
+    await page.evaluate(({ language, duration, round }) => configure(language, duration, round), { language, duration: clip.speechDurationSeconds * periods, round });
     await page.locator("#prepare").click();
     await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 120000, polling: 100 });
     assert.equal(await page.evaluate(() => prepareError), undefined);
-    const live = { round, language, baselineRssKiB: await sampleRss() }; peakRssKiB = live.baselineRssKiB;
+    const live = { round, language, periods, baselineRssKiB: await sampleRss() }; peakRssKiB = live.baselineRssKiB;
     await page.locator("#start").click();
     if (round === 1) {
       await page.waitForFunction(() => normalized.chunks >= 20 || globalThis.liveError, undefined, { polling: 100 });
@@ -389,7 +390,7 @@ try {
     }
     await page.waitForFunction(() => globalThis.finished || globalThis.liveError, undefined, { timeout: 30000, polling: 100 });
     Object.assign(live, await page.evaluate(() => ({ error: liveError, raw, normalized, identity, transcripts, queueStatuses,
-      lastDelivery, playbackBefore, playbackAfter: state(), timesAfter: [...document.querySelectorAll('video')].map(video => video.currentTime), visibilityEvents })), { peakRssKiB });
+      lastDelivery, invocations, playbackBefore, playbackAfter: state(), timesAfter: [...document.querySelectorAll('video')].map(video => video.currentTime), visibilityEvents })), { peakRssKiB });
     observations.liveRuns.push(live); console.log(JSON.stringify({ live }));
     assert.deepEqual(live.playbackBefore, live.playbackAfter);
     assert.ok(live.playbackAfter.every(video => !video.paused && !video.muted));
@@ -403,7 +404,9 @@ try {
       assert.equal(await page.evaluate(() => raw.chunks), live.raw.chunks, "Stop must detach capture while both videos continue");
       continue;
     }
-    assert.equal(live.error, undefined); assert.equal(live.transcripts.length, 1);
+    assert.equal(live.error, undefined);
+    if (periods === 1) assert.equal(live.transcripts.length, 1);
+    assert.equal(live.transcripts.length, Math.ceil((live.transcripts.at(-1).audioRange.endMs - live.transcripts[0].audioRange.startMs) / 20000), "Every live model-bound segment must return text");
     assert.deepEqual(live.raw.rates, [48000]);
     assert.ok(live.raw.chunks > 100); assert.ok(live.raw.maxMapErrorMs < 150);
     const own = Math.sqrt(live.raw.selectedTagPower / live.raw.windows), other = Math.sqrt(live.raw.otherTagPower / live.raw.windows);
@@ -412,20 +415,52 @@ try {
     assert.equal(live.normalized.first.capture.clockId, live.raw.first.capture.clockId);
     assert.equal(live.normalized.first.audioRange.startMs, live.raw.first.audioRange.startMs);
     assert.ok(Math.abs(live.normalized.last.audioRange.endMs - live.raw.last.audioRange.endMs) < 0.0625);
-    assert.ok(live.timesAfter.every(time => time >= clip.speechDurationSeconds));
+    assert.ok(live.timesAfter.every(time => time >= clip.speechDurationSeconds * periods));
     assert.ok(live.queueStatuses.every(status => !status.reason && status.queue.droppedAudioMs === 0));
     assert.equal(live.queueStatuses.at(-1).queue.pendingAudioMs, 0);
-    const revision = live.transcripts[0]; assert.deepEqual(revision.identity, live.identity);
-    assert.equal(revision.final, true); assert.equal(revision.sourceRevision, 1); assert.equal(revision.language, language);
-    live.accuracy = errors(clip.text, revision.text, language);
-    assert.ok(live.accuracy.rate <= 0.2, `Live selected-video ${language} ${live.accuracy.metric}: ${live.accuracy.rate}`);
+    live.maxPendingAudioMs = Math.max(...live.queueStatuses.map(status => status.queue.pendingAudioMs));
+    assert.ok(live.maxPendingAudioMs <= 30000);
+    assert.equal(live.invocations.length, live.transcripts.length);
+    for (const [i, revision] of live.transcripts.entries()) {
+      assert.deepEqual(revision.identity, live.identity);
+      assert.equal(revision.utteranceId, `speech-${i + 1}`);
+      assert.equal(revision.final, true); assert.equal(revision.sourceRevision, 1); assert.equal(revision.language, language);
+      if (i) assert.equal(revision.audioRange.startMs, live.transcripts[i - 1].audioRange.endMs);
+      else {
+        // The energy gate skips initial quiet frames before speech starts.
+        assert.ok(revision.audioRange.startMs >= live.normalized.first.audioRange.startMs);
+        assert.ok(revision.audioRange.startMs - live.normalized.first.audioRange.startMs <= 100);
+      }
+      assert.ok(revision.audioRange.endMs - revision.audioRange.startMs <= 20000);
+      assert.deepEqual(live.invocations[i].audioRange, revision.audioRange);
+      assert.equal(live.invocations[i].samples, Math.round((revision.audioRange.endMs - revision.audioRange.startMs) * 16));
+      assert.ok(revision.mapped.endMs > revision.mapped.startMs);
+    }
+    // A final quiet frame after a full segment need not become an ASR job.
+    // Non-quiet short remainders must still fail the zero-discard gate above.
+    const trailingQuietMs = live.normalized.last.audioRange.endMs - live.transcripts.at(-1).audioRange.endMs;
+    assert.ok(trailingQuietMs >= 0 && trailingQuietMs < 20);
+    const text = live.transcripts.map(revision => revision.text).join(" ");
+    live.accuracy = errors(Array(periods).fill(clip.text).join(" "), text, language);
+    if (periods === 1) assert.ok(live.accuracy.rate <= 0.2, `Live selected-video ${language} ${live.accuracy.metric}: ${live.accuracy.rate}`);
+    else if (live.accuracy.rate > 0.2) failures.push(`${language}/live-${periods}-periods: ${live.accuracy.metric} ${live.accuracy.rate} exceeds preserved 0.2 gate`);
     const anchors = language === "ja" ? ["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
       : ["not meet today", "station tomorrow", "in the afternoon", "not cancel the reservation"];
-    assert.ok(anchors.every(anchor => revision.text.includes(anchor)), "Live input must preserve negation/time/cancellation meaning");
-    live.lastPacketToResultMs = revision.observedAtMs - live.lastDelivery.atMs;
-    assert.ok(live.lastPacketToResultMs >= 0 && live.lastPacketToResultMs < 2000);
+    const normalizedText = text.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, language === "ja" ? "" : " ");
+    live.meaningCounts = Object.fromEntries(anchors.map(anchor => [anchor, normalizedText.split(anchor).length - 1]));
+    if (periods === 1) assert.ok(anchors.every(anchor => text.includes(anchor)), "Live input must preserve negation/time/cancellation meaning");
+    else if (Object.values(live.meaningCounts).some(count => count < periods)) failures.push(`${language}/live-${periods}-periods: missing repeated meaning anchors`);
+    if (round === 4) {
+      assert.equal(live.transcripts.length, 2, "Japanese live input must cross the 20 s segmentation bound");
+      assert.ok(live.invocations[0].deliveredAtEndMs > live.invocations[0].deliveredAtStartMs + 100,
+        "Real selected-video capture must continue during actual ASR inference");
+    }
+    live.lastPacketToResultMs = live.transcripts.at(-1).observedAtMs - live.lastDelivery.atMs;
+    if (periods === 1) assert.ok(live.lastPacketToResultMs >= 0 && live.lastPacketToResultMs < 2000);
+    else if (!(live.lastPacketToResultMs >= 0 && live.lastPacketToResultMs < 2000)) failures.push(`${language}/live-${periods}-periods: last-packet-to-text ${live.lastPacketToResultMs} ms exceeds preserved latency gate`);
     await page.waitForTimeout(200);
     assert.equal(await page.evaluate(() => raw.chunks), live.raw.chunks, "Capture must detach after completion while playback continues");
+    console.log(JSON.stringify({ scoredLive: live }));
   }
   assert.deepEqual(pageErrors, []);
   await page.evaluate(() => host.dispose());
@@ -501,9 +536,10 @@ try {
   }
   observations.failures = failures;
   assert.deepEqual(pageErrors, []);
-  assert.deepEqual(failures, [], "Continuous input must cross the model boundary without loss and preserve accuracy");
+  assert.deepEqual(failures, [], "Live and continuous input must cross the model boundary without loss and preserve accuracy");
   observations.checks.push("Three paced utterances per language, bounded queue, semantic anchors and preserved CER/WER <= 0.2", "Silence-only input makes no ASR call; endpoints create no extra utterances", "Explicit unpaced overload/audio gap with discarded-duration status", "Real invocation-observed cancel and actual GPUDevice loss, no fallback");
   observations.checks.push("Live selected-element 48 kHz PCM → streaming 16 kHz normalization → real ASR, two audible videos, repeat Start, preserved accuracy/meaning, capture-clock/video mapping and playback state");
+  observations.checks.push("Three live speech periods per language retain every meaning anchor and the aggregate CER/WER gate; Japanese capture continues during ASR across the 20 s segmentation bound without loss");
   observations.checks.push("Five preserved speech periods per language cross 30 s at real-time cadence without loss and pass the unchanged aggregate CER/WER gate");
   observations.checks.push("Actual GPU loss during observed inference discards pending audio/text; same-host explicit cached Prepare and fresh-epoch Japanese/English recognition preserve accuracy without remote downloads or fallback");
   console.log(JSON.stringify({ passed: true, ...observations }));

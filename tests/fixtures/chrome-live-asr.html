@@ -28,6 +28,14 @@
   globalThis.configure = async (language, durationSeconds, round) => {
     globalThis.host?.dispose(); globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
     globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => statuses.push(status));
+    globalThis.invocations = [];
+    const recognize = host.recognize;
+    host.recognize = async job => {
+      const invocation = {audioRange: {...job.audioRange}, samples: job.pcm.length, atMs: performance.now(), deliveredAtStartMs: normalized.samples/16};
+      invocations.push(invocation);
+      try { return await recognize(job); }
+      finally { invocation.settledAtMs = performance.now(); invocation.deliveredAtEndMs = normalized.samples/16; }
+    };
     for (const video of videos) { video.pause(); video.currentTime = 0; }
     // Wait for actual media seek before confirming the existing opaque handles.
     await Promise.all(videos.map(video => video.seeking ? new Promise(done => video.addEventListener('seeked', done, {once: true})) : Promise.resolve()));
@@ -82,7 +90,7 @@
             }
             globalThis.lastDelivery = {atMs: performance.now(), audioEndMs: event.audioRange.endMs};
             yield event;
-            // One complete labeled speech period of the unchanged looping fixture.
+            // Complete labeled speech periods from the unchanged fixture.
             // No decoded samples or transcript oracle supplies production input.
             if (selected.currentTime >= endAtSeconds) break;
           }
