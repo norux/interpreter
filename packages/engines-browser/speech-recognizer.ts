@@ -5,7 +5,8 @@ import type { createAsrHost } from "./asr-host";
 import type { AsrJob } from "./asr-protocol";
 
 // Experimental 16 kHz profile: energy gating, 20 ms frames, 500 ms silence
-// endpoint, 20 s maximum segment with 10 s queue headroom during inference.
+// endpoint, speech-band pause cuts after 10 s, 20 s maximum segment with
+// 10 s queue headroom during inference. Pause detection never filters ASR PCM.
 // This is not a learned speech detector.
 export function createSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
@@ -52,6 +53,11 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       let segmentLength = 0;
       let segmentStartMs = 0;
       let quietSamples = 0;
+      let boundaryQuietSamples = 0;
+      let continueSegment = false;
+      const filterAlpha = 1 - Math.exp(-2 * Math.PI * 2000 / 16000);
+      let filterFirst = 0;
+      let filterSecond = 0;
       const frame = new Float32Array(320);
       let frameLength = 0;
       let frameStartMs = 0;
@@ -73,7 +79,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
           if (!stopped) stop(failure instanceof Error && failure.message === "gpu-lost" ? "gpu-lost" : "engine-failed");
         } finally { active = false; wake?.(); }
       }
-      function finishSegment() {
+      function finishSegment(continuous = false) {
         if (stopped || !segmentLength) return;
         if (segmentLength < 1600) {
           // Less than the executor's 100 ms minimum: no padded/fabricated audio.
@@ -85,19 +91,30 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
             pcm: segment.slice(0, segmentLength) });
           void drain();
         }
-        segmentLength = 0; quietSamples = 0;
+        segmentLength = 0; quietSamples = 0; boundaryQuietSamples = 0;
+        continueSegment = continuous;
       }
       function consumeFrame() {
         let energy = 0;
-        for (let i = 0; i < frameLength; i++) energy += frame[i] * frame[i];
+        let boundaryEnergy = 0;
+        for (let i = 0; i < frameLength; i++) {
+          energy += frame[i] * frame[i];
+          // Two 2 kHz one-pole stages keep high-frequency tones from hiding
+          // pauses when choosing an earlier boundary for a long segment.
+          filterFirst += filterAlpha * (frame[i] - filterFirst);
+          filterSecond += filterAlpha * (filterFirst - filterSecond);
+          boundaryEnergy += filterSecond * filterSecond;
+        }
         const speech = Math.sqrt(energy / frameLength) >= 0.01;
-        if (speech || segmentLength) {
+        if (speech || segmentLength || continueSegment) {
           if (!segmentLength) segmentStartMs = frameStartMs;
           segment.set(frame.subarray(0, frameLength), segmentLength);
           segmentLength += frameLength;
           quietSamples = speech ? 0 : quietSamples + frameLength;
+          boundaryQuietSamples = Math.sqrt(boundaryEnergy / frameLength) >= 0.01 ? 0 : boundaryQuietSamples + frameLength;
           if (bufferedSamples > 16000 * 30) { stop("overloaded"); return; }
-          if (quietSamples >= 8000 || segmentLength === segment.length) finishSegment();
+          if (quietSamples >= 8000) finishSegment();
+          else if (segmentLength === segment.length || (segmentLength >= 16000 * 10 && boundaryQuietSamples >= 3200)) finishSegment(true);
         } else bufferedSamples -= frameLength;
         frameLength = 0;
       }

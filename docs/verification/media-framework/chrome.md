@@ -1622,3 +1622,214 @@ No agents, runner edits, stage advance, push/publish/app installation or browser
 access/profile/permission bypass occurred. Only owned test browser resources
 were closed. Logs, profiles, model weights and user audio/transcripts are excluded
 from the commit. No whole-framework, Chrome-stage or iPhone completion is claimed.
+
+## 2026-10-07 — B2 speech-band pause boundaries (iteration 4/5)
+
+Related commit: `fix: split long browser ASR at speech-band pauses`, containing
+this report. **B2 remains unchecked; no default is selected.** Only the next
+unfinished Chrome item is changed. The two prior 46.66667% Japanese live CER
+failures remain evidence; the unchanged failing configuration was not retried.
+
+### Diagnostic, failing regression and implementation
+
+An explicit local, test-owned headless Chromium diagnostic decoded three periods
+from each unchanged hash-checked fixture and used the production 48→16 kHz
+normalizer. No model or live acquisition was involved. At diagnostic gain 0.4,
+Japanese minimum full-band frame RMS was **0.012378603**, above the existing
+0.01 gate; two cascaded 3 kHz one-pole detector stages reached **0.003711438**.
+They exposed 260 ms quiet intervals at **11560–11820 / 18520–18780 ms** and a
+240 ms interval at **13860–14100 ms**. English minima were **0.000042931 /
+0.000012759** at that same diagnostic gain (the real live English volume is
+0.25). **That gain assumption was incorrect for the input path:** the live
+pre-filter isolation gate measures a 0.06 carrier independent of speaker volume.
+Japanese decoded/normalized samples were **1004004/334668**, English
+**959976/319992**. These measurements explain why a high-frequency carrier can
+hide speech-band pauses. They do not label natural speech, establish VAD
+accuracy or independently prove the cause of Whisper's repeated phrases.
+
+The diagnostic initially failed importing the built module because its temporary
+server did not serve imported asset chunks (exit 1). One edit command also failed
+because `python` is absent (exit 1); `python3` applied the local server correction.
+The corrected diagnostic returned **exit 0**. Logs:
+`chrome-20261007-4-energy-diagnostic{,-second}.log` under ignored
+`.ralph/media-framework/`. Only its owned profile was removed; no browser access
+restriction was encountered or bypassed.
+
+The interim 3 kHz browser run passed every existing check but kept Japanese's
+first live cut at **20060 ms**, still a full 20 s segment. Its three-period CER
+was **10/120 = 8.33333%** (all anchor counts 3), versus the historical 56/120.
+English actually cut at **11200 ms** and scored **3/66 = 4.54545% WER**. This
+does **not** establish that earlier Japanese segmentation fixed the historical
+repetition failure. Both five-copy decoded inputs still split at 20000 ms and
+scored **7/200 CER / 5/110 WER**, with zero loss. Command:
+`caffeinate -disu npm run test:framework:chrome:stream`, **PASS, exit 0**,
+`chrome-20261007-4-pause-stream-first.log`, fourteen port tests / **95.937125 ms**.
+
+A corrected diagnostic used **unscaled** production-normalized PCM and two
+**2 kHz** stages: Japanese full-band/detector minima **0.030946507 /
+0.004713234**, quiet **11580–11800 ms (220 ms)**, **13900–14100 (200 ms)**,
+**18540–18780 (240 ms)**; English minima **0.000107327 / 0.000017043**,
+quiet **10940–11260 ms (320 ms)**. Sample counts are unchanged. Command:
+`node .ralph/media-framework/chrome-20261007-4-energy-diagnostic.mjs`, **PASS,
+exit 0**, `chrome-20261007-4-energy-diagnostic-unscaled.log`. This new signal
+evidence prompted the final 2 kHz cutoff, without changing source PCM or gain.
+
+A new synthetic signal/fake-executor regression first failed **1 job != 2**,
+**exit 1**, one failed/zero passed (**99.425417 ms**),
+`chrome-20261007-4-pause-regression-before.log`. The fifteen-second signal contains
+1 kHz speech-band energy, a 6.5 kHz carrier and a 300 ms speech-band pause at
+eleven seconds. After correcting the gain assumption, strengthened the regression
+to a **0.06** carrier and **100 ms of actual zero PCM after the cut**. It again
+failed with the interim 3 kHz detector, **exit 1**, 0 passed/1 failed /
+**118.460209 ms**, `chrome-20261007-4-unscaled-regression-before.log`. The final
+2 kHz port returns contiguous **0–11200 /
+11200–15000 ms** jobs; concatenating their PCM is **byte-identical** to all input
+samples, with zero pending/discarded audio. This is segmentation/transport evidence,
+not transcription accuracy.
+
+The experimental speech port retains its full-band RMS gate, 20 ms frames,
+500 ms endpoint, 20 s segment maximum, 30 s retained-audio budget, one active
+inference and two pending jobs/results. After ten seconds, **200 ms below 0.01
+speech-band RMS** permits an earlier cut. The two 2 kHz detector filter states persist
+across frames/chunks; only detector energy is filtered. ASR receives unchanged
+PCM, and continuation after such a cut preserves intervening quiet frames rather
+than silently skipping them. No padding, overlapping/deduplicated text, repeated
+phrase suppression, model/backend fallback, setting or playback change is added.
+This remains an energy heuristic, with unevaluated fricative/music/noise behavior;
+the 20 s forced cut still applies when no suitable pause is observed.
+
+Updated only the long live trial's count assumption to require two bounded
+pause-delimited results for **both** languages. The former inference of count
+solely from span/20000 cannot describe earlier boundaries. The original one-period
+count, contiguous ranges, complete tail, authoritative identity/revision, actual
+invocation/sample accounting, capture/inference overlap, <=20% CER/WER, all meaning
+anchors, <2000 ms latency, zero loss, mapping/isolation/playback and fault gates
+remain. Earlier cuts can also occur in the five-copy decoded tests, so their
+count must fall within **ceil(duration/20000)–ceil(duration/10000)** and every
+non-final range must be **10–20 s** (formerly only <=30 s). Contiguous coverage
+through exact EOF, every sample/sentence/hash, zero loss, aggregate <=20% CER/WER
+and all five occurrences of each meaning anchor remain required. The existing
+DC signal test still explicitly requires the forced **20+11 s** split. No failed
+candidate or fixture was removed.
+
+### Final real browser evidence
+
+`caffeinate -disu npm run test:framework:chrome:stream`: **PASS, exit 0**,
+`chrome-20261007-4-pause-stream-final.log`. Typecheck, **14 port/normalizer tests /
+101.382375 ms**, build and every original/final real assertion pass. Owned headed
+Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**,
+npm **11.12.1**, uv **0.12.23**, unchanged Transformers.js **4.3.0**/locked ORT.
+Same small FP16 WebGPU model:
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven
+files / **487960440 bytes**. Each of the two browser invocations downloaded this
+one inventory in its fresh owned context and reused its cache thereafter. No new
+dependency, model, fixture or default. The final run preceded final repository
+verification, with no concurrent verify workload.
+
+| Three-period live input | Raw 48 kHz samples / chunks | Normalized samples | Returned ranges ms | Actual host calls ms | CER/WER | Last-packet-to-text ms | Peak pending ms | Maximum mapping error ms | Baseline / peak RSS KiB |
+| --- | --- | ---: | --- | --- | --- | ---: | ---: | ---: | --- |
+| Japanese | 1007616 / 492 | 335872 | 60–11860; 11860–20992 | 1223.400; 977.600 | **3/120 = 2.5% CER** | 978.600 | 12995.375 | 45.899 | 3649696 / 3655680 |
+| English | 962560 / 470 | 320853 | 40–11200; 11200–20053.3125 | 1016.600; 798.800 | **3/66 = 4.54545% WER** | 800.900 | 12162 | 43.831 | 3099728 / 3099728 |
+
+Both live trials preserve **all anchor counts exactly 3**, **0 ms discarded /
+0 pending**, contiguous ranges and complete EOF. Japanese now actually cuts
+before the forced maximum. During its first inference, delivered normalized input
+advances **11860.6875→13055.375 ms**; English advances **11220.6875→12202 ms**.
+These are real selected-video acquisition/inference overlaps, not decoded PCM or
+expected text supplied to the live path. No independent acoustic labeling or
+causal/repeatability claim beyond these observed trials is made.
+
+| Five-copy decoded input | Samples / duration ms | Returned ranges ms | Actual host calls ms | Host run ms | CER/WER | Peak pending ms | Baseline / peak RSS KiB |
+| --- | --- | --- | --- | ---: | --- | ---: | --- |
+| Japanese | 557780 / 34861.25 | 0–11780; 11780–23040; 23040–34861.25 | 1142.400; 1014.400; 1160.100 | 36022.000 | **5/200 = 2.5% CER** | 12900 | 1555872 / 3846912 |
+| English | 533320 / 33332.5 | 0–11140; 11140–21360; 21360–33332.5 | 997.500; 875.200; 964.200 | 34298.900 | **5/110 = 4.54545% WER** | 12100 | 1903376 / 3685952 |
+
+Every decoded-input meaning anchor occurs **exactly 5** times. Three contiguous
+segments per language meet the tightened 10–20 s non-final range gate, exact
+sample/range coverage, **0 ms loss / 0 pending** and unchanged accuracy gates.
+No appended silence or source sample deletion. The only scored edits here are
+numeric spelling changes, which remain edits. This is decoded synthetic input,
+separate from live selected-video acquisition and natural speech qualification.
+
+Original checks also pass:
+
+- All six paced decoded utterances retain **2.5% CER / 4.54545% WER** and every
+  meaning anchor. Preparation **54891.633875 / 1236.911916 ms**; endpoint-to-result
+  **747.300–870.800 / 669.800–714.500 ms**, peak pending **8180 / 7780 ms**,
+  zero loss/drained. RSS baseline/peak KiB **1289600/3216160 / 2725936/3802864**.
+- Three original completed live rounds: Japanese twice **2.5% CER**, English
+  **4.54545% WER**, raw/normalized samples **337920/112640** twice and
+  **323584/107861**, last-packet-to-text **866.500 / 843.300 / 751.100 ms**.
+  Stop: `cancelled`, no text, **900.6875 ms discarded / 0 pending**. Capture
+  detaches, repeat Start, both videos' original playback state and pre-filter
+  isolation pass. Maximum mapping error across all six rounds **51.212333 ms**.
+- Injected unpaced overload: **29940 ms discarded / 29840 ms peak pending**;
+  sequence gap **100 ms**; invocation-observed cancel **7480 ms**; idle actual
+  GPU-device destruction **7180 ms**, all with zero transcripts/pending and no
+  fallback. Pure zero PCM: **0 ASR calls / 0 transcripts / 0 loss**.
+- Active actual GPU loss/recovery: interrupted Japanese/English jobs discard
+  **7480 / 7180 ms**, no text, no automatic worker replacement; retry remains
+  `gpu-lost` with caller PCM retained. Explicit same-host cached Prepare takes
+  **1230.973000 / 1232.318417 ms**, **0 HTTPS requests**; three fresh-epoch trials
+  each retain **2.5% CER / 4.54545% WER**, all meaning anchors and zero loss.
+  Recovered endpoint-to-result **773.400–885.800 / 649.100–759.900 ms**, peak
+  pending **8180 / 7780 ms**. Interrupted-job accuracy remains **unverified**.
+- Page errors, native visibility events and accuracy failures are `[]`;
+  original pinned-model/network-path checks pass.
+
+Overall owned browser-tree RSS baseline **1276624 KiB**. RSS is sampled every
+250 ms for the owned browser/renderers/GPU process tree and includes shared-page
+double counting and allocator retention; it is not isolated GPU/model allocation,
+leak freedom, device pressure or phone memory. Host calls/endpoints use one
+document clock, exclude speech accumulation/translation/display, and are individual
+observations or three-trial ranges, not percentiles or ten-minute throughput.
+No independent speaker-output-level measurement is added in this iteration.
+
+### Command ledger and qualification limits
+
+- PASS: final `npm run verify`, **exit 0**, `chrome-20261007-4-verify-final.log`:
+  Biome **106 files / 47 ms / no findings**, Ruff/typecheck/unchanged companion
+  build, **100 JS passed / 0 failed/skipped/cancelled / 21331.810166 ms**,
+  **222 Python passed / 66.90 s**. This verifies final 2 kHz production/tests;
+  subsequent edits only complete these Markdown evidence records.
+- PASS: interim `npm run verify`, **exit 0**, `chrome-20261007-4-verify.log`:
+  Biome **106 files / 35 ms / no findings**, Ruff/typecheck/unchanged companion
+  build, **100 JS passed / 0 failed/skipped/cancelled / 22054.464666 ms**,
+  **222 Python passed / 66.94 s**. This covered the interim 3 kHz source and
+  overlapped the first browser run's early trials; it is not final 2 kHz verification.
+- PASS: final cutoff's `npm run typecheck` and fourteen speech/normalizer tests,
+  **0 failed/skipped/cancelled / 102.450333 ms**, `chrome-20261007-4-unscaled-port.log`.
+  The preceding 3 kHz typecheck/fourteen tests also passed (**95.957667 ms**),
+  `chrome-20261007-4-pause-port.log`. Both use synthetic signals/fake executors.
+- FAIL then fixed: initial targeted Biome **exit 1** for the new test's returning
+  `forEach` callback. Used a block callback; subsequent three-file Biome checks
+  **exit 0 / 9 ms and 18 ms / no findings**.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261007-4-stage-acceptance.log`: `Missing script: "test:framework:chrome"`.
+  Package scripts are unchanged. B5's full selected-video → ASR → Korean
+  translation → DOM acceptance remains unimplemented. No placeholder or B2-only
+  substitution was added and no identical retry was made.
+- PASS: final document-inclusive unstaged/staged `git diff --check`, exit 0;
+  intended files committed and post-commit worktree cleanliness checked before
+  delivery. No temporary `.ralph` state is staged.
+
+**Next unfinished item remains B2:** broader speech/noise/boundary recognition,
+sustained queue/GPU recovery/memory qualification, conversion/distribution licensing
+and an evidence-based default. Prior tiny/WASM and candidate semantic failures
+remain recorded and were not rerun without new evidence. The finite synthetic
+fixture trials do not establish natural VAD, storage/GPU pressure, leak freedom,
+ten-minute backlog/loss, full offline interpretation, Korean translation/revisions/
+caption DOM, external-site installation, or Safari/iPhone behavior. Those remain
+**unverified**. No checkbox is changed; no stage/whole-framework/iPhone completion
+is claimed. No required environment/device/permission blocker was observed in
+either browser invocation; no blocked/stage-complete terminal marker applies.
+
+No root/nested AGENTS.md or requested independent runner file
+`2026-10-07T12-30-44-825Z-chrome-verification.txt` exists. Supplied instructions,
+plan, architecture and previous report were read. All changes stay in this worktree.
+Published companion v0.1.0/installation/native messaging/server paths, settings,
+unrelated files and user apps/recordings/mounted images remain unchanged. No agents,
+runner edits, stage advance, push/publish/app installation or browser access/profile/
+permission bypass. Only test-owned browser/profile resources are cleaned up.
+Credentials, model/runtime weights, user audio/transcripts and ignored `.ralph`
+logs/state are excluded from the commit.

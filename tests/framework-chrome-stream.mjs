@@ -406,7 +406,7 @@ try {
     }
     assert.equal(live.error, undefined);
     if (periods === 1) assert.equal(live.transcripts.length, 1);
-    assert.equal(live.transcripts.length, Math.ceil((live.transcripts.at(-1).audioRange.endMs - live.transcripts[0].audioRange.startMs) / 20000), "Every live model-bound segment must return text");
+    if (periods === 3) assert.equal(live.transcripts.length, 2, "Long live input must return both pause-delimited bounded segments");
     assert.deepEqual(live.raw.rates, [48000]);
     assert.ok(live.raw.chunks > 100); assert.ok(live.raw.maxMapErrorMs < 150);
     const own = Math.sqrt(live.raw.selectedTagPower / live.raw.windows), other = Math.sqrt(live.raw.otherTagPower / live.raw.windows);
@@ -451,7 +451,7 @@ try {
     if (periods === 1) assert.ok(anchors.every(anchor => text.includes(anchor)), "Live input must preserve negation/time/cancellation meaning");
     else if (Object.values(live.meaningCounts).some(count => count < periods)) failures.push(`${language}/live-${periods}-periods: missing repeated meaning anchors`);
     if (round === 4) {
-      assert.equal(live.transcripts.length, 2, "Japanese live input must cross the 20 s segmentation bound");
+      assert.equal(live.transcripts.length, 2, "Japanese live input must preserve both segments across its speech-band pause");
       assert.ok(live.invocations[0].deliveredAtEndMs > live.invocations[0].deliveredAtStartMs + 100,
         "Real selected-video capture must continue during actual ASR inference");
     }
@@ -515,13 +515,17 @@ try {
         .replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, clip.language === "ja" ? "" : " ");
       continuous.meaningCounts = Object.fromEntries(anchors.map(anchor => [anchor, text.split(anchor).length - 1]));
       if (Object.values(continuous.meaningCounts).some(count => count < 5)) failures.push(`${clip.language}/continuous: missing repeated meaning anchors`);
-      if (continuous.transcripts.length !== 2) failures.push(`${clip.language}/continuous: expected two bounded segments`);
+      if (continuous.transcripts.length < Math.ceil(continuous.intendedDurationMs / 20000)
+        || continuous.transcripts.length > Math.ceil(continuous.intendedDurationMs / 10000))
+        failures.push(`${clip.language}/continuous: segment count must respect the 10–20 s boundary window`);
       for (const [i, revision] of continuous.transcripts.entries()) {
         assert.deepEqual(revision.identity, { sessionId: "fixture-stream", targetId: `fixture-${clip.language}`, epoch: 3 });
         assert.equal(revision.utteranceId, `speech-${i + 1}`); assert.equal(revision.final, true);
         assert.equal(revision.sourceRevision, 1); assert.equal(revision.language, clip.language);
         assert.equal(revision.audioRange.startMs, i ? continuous.transcripts[i - 1].audioRange.endMs : 0);
-        assert.ok(revision.audioRange.endMs - revision.audioRange.startMs <= 30000);
+        const durationMs = revision.audioRange.endMs - revision.audioRange.startMs;
+        assert.ok(durationMs <= 20000);
+        if (i < continuous.transcripts.length - 1) assert.ok(durationMs >= 10000);
       }
       assert.equal(continuous.transcripts.at(-1)?.audioRange.endMs, continuous.intendedDurationMs);
     }
@@ -539,7 +543,7 @@ try {
   assert.deepEqual(failures, [], "Live and continuous input must cross the model boundary without loss and preserve accuracy");
   observations.checks.push("Three paced utterances per language, bounded queue, semantic anchors and preserved CER/WER <= 0.2", "Silence-only input makes no ASR call; endpoints create no extra utterances", "Explicit unpaced overload/audio gap with discarded-duration status", "Real invocation-observed cancel and actual GPUDevice loss, no fallback");
   observations.checks.push("Live selected-element 48 kHz PCM → streaming 16 kHz normalization → real ASR, two audible videos, repeat Start, preserved accuracy/meaning, capture-clock/video mapping and playback state");
-  observations.checks.push("Three live speech periods per language retain every meaning anchor and the aggregate CER/WER gate; Japanese capture continues during ASR across the 20 s segmentation bound without loss");
+  observations.checks.push("Three live speech periods per language retain every meaning anchor and the aggregate CER/WER gate; Japanese capture continues during ASR across a speech-band pause boundary without loss");
   observations.checks.push("Five preserved speech periods per language cross 30 s at real-time cadence without loss and pass the unchanged aggregate CER/WER gate");
   observations.checks.push("Actual GPU loss during observed inference discards pending audio/text; same-host explicit cached Prepare and fresh-epoch Japanese/English recognition preserve accuracy without remote downloads or fallback");
   console.log(JSON.stringify({ passed: true, ...observations }));

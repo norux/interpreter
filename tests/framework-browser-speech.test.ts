@@ -82,6 +82,31 @@ test("continuous input reserves queue headroom and stays within the 30 second mo
   assert.ok(fixture.statuses.every(status => (status.queue?.pendingAudioMs ?? 0) <= 30000));
 });
 
+test("long speech uses a speech-band pause without deleting carrier or speech samples", async () => {
+  const fixture = setup();
+  const chunks = Array.from({ length: 150 }, (_, sequence) => {
+    const packet = chunk(sequence);
+    const pcm = new Float32Array(packet.pcm);
+    for (let i = 0; i < pcm.length; i++) {
+      const sample = sequence * pcm.length + i;
+      const voice = sequence >= 110 && sequence < 113 ? 0 : 0.05 * Math.sin(2 * Math.PI * 1000 * sample / 16000);
+      const carrier = sequence === 112 ? 0 : 0.06 * Math.sin(2 * Math.PI * 6500 * sample / 16000);
+      pcm[i] = voice + carrier;
+    }
+    return packet;
+  });
+  await collect(fixture.recognizer.run(source(chunks)));
+  assert.equal(fixture.jobs.length, 2);
+  assert.deepEqual(fixture.jobs.map(job => job.audioRange), [{ startMs: 0, endMs: 11200 }, { startMs: 11200, endMs: 15000 }]);
+  const supplied = new Float32Array(chunks.length * 1600);
+  chunks.forEach((packet, i) => { supplied.set(new Float32Array(packet.pcm), i * 1600); });
+  const recognized = new Float32Array(supplied.length);
+  recognized.set(fixture.jobs[0].pcm); recognized.set(fixture.jobs[1].pcm, fixture.jobs[0].pcm.length);
+  assert.deepEqual(recognized, supplied);
+  assert.equal(fixture.statuses.at(-1)?.queue?.pendingAudioMs, 0);
+  assert.equal(fixture.statuses.at(-1)?.queue?.droppedAudioMs, 0);
+});
+
 test("continuous input still reports loss when inference exhausts the retained audio budget", async () => {
   const statuses: SessionStatus[] = []; const jobs: AsrJob[] = [];
   let resolveJob: (value: never) => void = () => {}; let stops = 0;
