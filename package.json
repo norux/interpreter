@@ -35,7 +35,8 @@
     "test:youtube-browser": "npm run build && node tests/youtube-browser.mjs",
     "test:framework:chrome:asr": "npm run typecheck && node --import tsx --test tests/framework-browser-model.test.ts tests/framework-browser-asr.test.ts && node tests/framework-chrome-asr.mjs",
     "test:framework:chrome:stream": "npm run typecheck && node --import tsx --test tests/framework-browser-speech.test.ts tests/framework-browser-normalize.test.ts && node tests/framework-chrome-stream.mjs",
-    "test:framework:chrome:noise": "npm run typecheck && node tests/framework-chrome-noise.mjs"
+    "test:framework:chrome:noise": "npm run typecheck && node tests/framework-chrome-noise.mjs",
+    "test:framework:chrome:vad": "npm run typecheck && node tests/framework-chrome-vad.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
