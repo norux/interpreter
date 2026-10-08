@@ -11945,3 +11945,133 @@ checked, B6 wording/gates are unchanged except its B5a prerequisite, and
 core/video/Safari/iPhone stage sections are byte-for-byte unchanged.
 No runtime code changed; capture/browser/quality acceptance is NOT RUN for this
 spec-only commit and will be performed by B5a/B6, not claimed here.
+
+## 2026-10-09 KST — B5a tab input adapter (chrome iteration 1/20)
+
+**B5a is first unfinished and remains unchecked; B6 tuning stays stopped.**
+This partial iteration implements the capture adapter and verifies its real input
+and playback branch. The production action/host still uses selected-video input;
+this is not completion of the requested default-input switch. Entry worktree had
+only the preserved untracked `.DS_Store`. Repository AGENTS.md and requested
+independent runner log `2026-10-08T21-59-42-338Z-chrome-verification.txt` are absent.
+Read supplied instructions, plan, full architecture and retained Chrome report.
+
+### Retained implementation and actual scope
+
+`apps/chrome/tab-input.ts` owns capture in a persistent extension document. The
+existing host-document approach is sufficient in the tested browser; no offscreen
+permission/document or service-worker PCM transport is introduced. The adapter
+obtains and consumes a single-use `getMediaStreamId({targetTabId})` in the same
+host immediately. It connects the captured stream to output before PCM/model
+preparation. `capture()` and `input.open()` are separate so playback can run while
+models prepare. No model preparation or transcription is performed by this slice.
+The opaque target includes explicit `tab-mix` scope, original tab ID and host
+identity; PCM includes session/epoch and a fresh capture clock each Start. It
+emits no selected-video playback anchor: its sample range is elapsed capture time,
+not video currentTime. The existing platform-neutral `VideoInput` port already
+accepts `tab-mix` AudioChunks; no core/browser dependency or shared API is added.
+
+PCM uses the existing mono 2,048-sample worklet and direct document delivery.
+The adapter bounds queued duration/bytes; overflow reports discarded milliseconds,
+clears queued work and closes capture. Stop invalidates synchronously, resolves a
+waiting consumer, closes owned tracks/context/worklet, and rejects late acquisition
+or worklet preparation. Tab loading/navigation, tab closure, capture-track ending
+and host pagehide release capture. Tab interruption invokes the host callback so
+future composition can retire its session before accepting late inference output.
+The implemented policy ends a tab session on navigation/reload and requires a fresh
+explicit action, rather than following a newly active tab or selected media events.
+The production host has not yet been wired to enforce that callback policy.
+
+### Commands and numeric evidence
+
+`npm run test:framework:chrome:tab-input` **PASS / exit 0**:
+`npm run typecheck`, **3 unit tests passed / 0 failed/skipped/cancelled /
+88.792042 ms**, then headed real-extension harness. Evidence:
+`.ralph/media-framework/chrome-tab-input-final.log` (ignored, not committed).
+The command deliberately names the input slice; the required full
+`test:framework:chrome:tab-capture` command is still to be implemented.
+
+The test extension uses production manifest security settings plus `tabCapture`,
+and test-owned action/host entrypoints. **Production permissions/action are
+unchanged.** `Extensions.triggerAction` performs native action dispatch and grants
+activeTab; it is not a manually called listener or injected capture permission.
+Physical toolbar clicking is unverified. All samples come from real browser
+playback; no fake media, PCM, model, ASR or Translator result is used.
+
+| Actual fixture | PCM marker amplitude, two rounds | Independent native host-output marker amplitude, two rounds |
+| --- | --- | --- |
+| No-video Web Audio, 440 Hz | 0.0999240445 / 0.0997934026 | 0.1000001056 / 0.1000001081 |
+| Top-frame 440 Hz plus cross-origin iframe Web Audio 660 Hz | 440: 0.0998614764 / 0.0998028785; 660: 0.0998596384 / 0.0997902165 | 440: 0.0999997049 / 0.1000001252; 660: 0.1000001535 / 0.1000005681 |
+| Encoded Japanese top-frame video, 6,500 Hz fixture marker | 0.0588399400 / 0.0593462388 | 0.0598622974 / 0.0602305413 |
+
+Independent `getDisplayMedia` loopback observes the persistent host's actual
+browser output, with local playback suppression/AGC/echo cancellation/noise
+suppression disabled. Output before opening PCM is **0.1000001035**, mix
+**0.0977889222 / 0.0972825660**, and video **0.0602635166**. Warmup must reach the
+known fixture marker within 3%; during/before output ratio must remain within
+12%, ruling out duplicate/missing output at those measurements. Physical speaker
+listening, site output restoration after Stop and output after host closure are
+**UNVERIFIED**, not inferred from a connected graph or released capture tracks.
+
+An independently playing other tab emits 11,000 Hz at amplitude 0.1. Its marker
+stays below **0.001** in every input/output check; largest observed PCM amplitude
+is **9.6678418e-7**. Original target ID remains bound across rounds. Six rounds
+each validate **20 contiguous 8,192-byte chunks**, sequence starting at zero,
+capture-relative range starting at zero, same clock within a run and fresh clock
+on restart. Duplicate open rejects. Stop ends delivery with no later chunks and
+native capture status leaves pending/active. Reload likewise retires capture in
+all three fixtures. Slow-consumer overflow explicitly reports
+**213.33333333333331 ms discarded** against a **200 ms** bound. Page errors **[]**.
+
+Unit mocks independently cover Stop during delayed real-API acquisition, Stop
+while worklet loading, one-time cleanup and rejection of a saved late PCM callback.
+They also verify `createTimeline.map()` returns undefined without a video anchor.
+These unit results are contract evidence, not real audio/recognition acceptance.
+
+Development failures are retained under ignored `.ralph/media-framework/`:
+`chrome-tab-input-1.log` **FAIL / exit 1**, reserved Window `closed` property in
+fixture; `...-2.log` **FAIL / exit 1**, immediate native-status read before capture
+teardown notification; `...-3.log` **FAIL / exit 1**, 990 Hz isolation pilot overlaps
+ordinary speech; `...-4.log` **FAIL / exit 1**, baseline marker sampled during output
+warmup. Fixes rename fixture state, await native non-active status (5-second
+limit), choose the independent pilot outside speech bandwidth, and require known
+output amplitude within 3% before taking the baseline. These are test-oracle
+corrections, not production audio filtering or B6 assertion changes. `...-5.log`
+**PASS / exit 0** verifies all three actual fixtures; the final combined command
+above repeats this short changed harness successfully. Initial focused unit run
+fails in its cleanup hook because globals were restored before adapter disposal;
+corrected hook disposes first. Initial standalone unit pass: **3 passed /
+0 failed / 67.258541 ms**. Initial typecheck after adding unit helper fails on an
+incorrect TestContext type; final typecheck passes. Final adapter arrow callback
+preserves TypeScript's narrowing without a cast; no behavior change.
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**. No dependency/model download, browser
+profile access workaround, app install, agents, push or publish. Only test-owned
+browser/profile is cleaned. Existing user apps/recordings/mounted images/settings,
+companion v0.1.0, selected-video adapter and other stages are preserved.
+
+**UNVERIFIED / next B5a:** production action/host and no-video comparison/elapsed
+clock/overlay integration; audio-element and cross-origin iframe-video fixtures;
+site playback after Stop/failure/host closure; real capture interruption and tab
+closure; Japanese/English tab PCM → actual smallFp16 ASR → native Korean → DOM;
+late ASR/translation retirement and full `test:framework:chrome:tab-capture`
+acceptance connected into `test:framework:chrome`. Full Chrome/browser model/
+quality/ten-minute suites are **NOT RUN** this partial iteration; historical B6
+failures remain FAIL. No accuracy claim follows from the Japanese PCM marker.
+No required environment/device/permission blocker has been established.
+B5a/B6 and later-stage checkboxes remain unchanged; no completion/blocker marker.
+Related commit: `feat: add Chrome tab audio input adapter`.
+
+Final-source `npm run verify` **PASS / exit 0 / 93.073079709 s**, evidence
+`chrome-tab-input-verify.log` / `chrome-tab-input-verify-status.json`: Biome
+**154 files / 64 ms**, Ruff, typecheck, existing companion extension build;
+**156 JS passed / 0 failed/skipped/cancelled / 24,909.24675 ms**;
+**222 Python passed / 66.95 s**. No executable changes follow that run.
+Final six-file focused Biome **PASS / exit 0 / 3 ms** and harness syntax **PASS**.
+`git diff --check`, unchanged checklist and append-only plan/report comparisons
+pass. Nine-file staging whitelist includes only adapter, package command, five
+fixture/test files, report and plan. `.DS_Store` remains preserved/untracked;
+no generated artifacts or `.ralph` state enter the commit. Both full stage
+acceptance commands remain required before Chrome completion; this verify pass
+does not check B5a or resolve historical B6 failures.

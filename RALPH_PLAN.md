@@ -7284,3 +7284,52 @@ checked, B6 wording/gates are unchanged except its B5a prerequisite, and
 core/video/Safari/iPhone stage sections are byte-for-byte unchanged.
 No runtime code changed; capture/browser/quality acceptance is NOT RUN for this
 spec-only commit and will be performed by B5a/B6, not claimed here.
+
+### 2026-10-09 / chrome / iteration 1/20 — B5a capture-input slice
+
+관련 commit: `feat: add Chrome tab audio input adapter` (this record included).
+First unfinished **B5a stays unchecked**, B6 tuning remains stopped. Added the
+Chrome-specific persistent-document tab adapter, separating immediate capture/
+playback from later PCM consumption. Original tab/scope/identity/capture clock,
+bounded queue, navigation/track/host teardown and synchronous Stop retirement
+are explicit. Existing worklet/VideoInput contracts are reused; production
+selected-video action/host/permissions have not switched yet. Companion/settings,
+selected-video adapter, strict B6 gates, runner and other stages are preserved.
+
+PASS: `npm run test:framework:chrome:tab-input` / exit 0; typecheck + 3 unit
+contracts (88.792042 ms, no failed/skipped/cancelled) + native-action-authorized
+headed Chromium 153.0.8010.12 fixture extension. Real no-video Web Audio, cross-origin
+iframe mixed tones and encoded Japanese top-frame video produce six rounds of
+20 contiguous 8192-byte tab-mix chunks. Independent native host loopback verifies
+output before/during PCM without duplicate output; 11 kHz other-tab pilot remains
+below 0.001. Repeat Stop/Start, duplicate open, navigation teardown and 200 ms
+queue overflow (213.33333333333331 ms discarded) pass; pageErrors []. Unit mocks
+verify delayed acquisition/worklet cancellation, cleanup and late PCM rejection,
+not accuracy. Exact numerical output and all development failures are recorded
+in [Chrome report](docs/verification/media-framework/chrome.md); ignored evidence
+`chrome-tab-input-{1,2,3,4,5,final}.log` retains four failing fixture/oracle versions
+and two passing real runs. No acceptance threshold/model/VAD/decoder change.
+
+UNVERIFIED / next B5a: production default action/host plus elapsed comparison/
+page overlay, audio-element and iframe-video, site output restoration after
+Stop/failure/host closure, capture interruption/tab closure, real Japanese/English
+ASR/native Korean/DOM and stale inference retirement. Required full
+`test:framework:chrome:tab-capture` and full Chrome acceptance wiring remain work;
+`:tab-input` is explicitly a partial command. Full Chrome/unchanged long browser/
+quality suites NOT RUN; no model downloaded or transcription accuracy claimed.
+B5a/B6/later checklist states unchanged. No missing required environment or browser
+permission blocker; no terminal marker. Repository AGENTS.md and requested runner
+log `2026-10-08T21-59-42-338Z-chrome-verification.txt` absent. Only owned test browser/
+profile cleaned; `.DS_Store` preserved unstaged. No user media/credentials/weights/
+temporary .ralph state staged, agents/install/push/publish or app/profile workaround.
+
+Final-source PASS: `npm run verify` / exit 0 / 93.073079709 s — Biome 154 files/
+64 ms, Ruff/typecheck/existing extension build, JS 156 passed/0 failed/skipped/
+cancelled (24909.24675 ms), Python 222 passed (66.95 s). Logs/status:
+`.ralph/media-framework/chrome-tab-input-verify{.log,-status.json}` (ignored).
+No executable changes follow. Final focused six-file Biome PASS (3 ms), syntax,
+whitespace, unchanged checklist/append-only report/plan and nine-file staging
+whitelist checks PASS. Full `npm run test:framework:chrome` remains NOT RUN this
+partial iteration; all full acceptance remains mandatory before completion.
+Next B5a is production host/default-input integration and its remaining actual
+playback/ASR/translation/DOM acceptance, with B6 still stopped.
