@@ -5475,3 +5475,81 @@ overlay and real PCM → smallFp16/WebGPU ASR → native Korean translation →
 application DOM verification. B5 full acceptance/ten-minute measurements and
 B6 quality tuning remain separate, followed by Safari/iPhone. No stage completion
 marker, device verification, app install, push or publication is claimed.
+
+### 2026-10-08 / chrome / iteration 2/20 — B4 persistent host and selected-page channel
+
+**B4 remains unchecked and next.** Repository AGENTS.md and requested independent
+runner `2026-10-08T13-28-06-822Z-chrome-verification.txt` were absent; worktree clean
+at entry. Read supplied instructions, plan, architecture and retained Chrome
+records. Assumption: finish the document/selected-page transport slice using
+existing composition/input before overlay and real extension engine validation.
+No B2/B6 tuning, settings migration or later-stage work.
+
+Added distinct MV3 development manifest (**activeTab + scripting**, no shipping
+host permissions or companion key), control-only action worker and persistent
+host window. Host confirms one top-frame video/language and composes the existing
+smallFp16/WebGPU/shared policy. Selected audio uses direct `tabs.connect` to one
+isolated-world page owner, with a separate page consent click that preserves
+actual page activation. Added protocol/identity/sequence/size/timing validation,
+base64 JSON PCM (8,192 bytes maximum; 14,000 wire characters), **4-event** consumed
+acknowledgement window, existing 1,000 ms page queue and 1,000 ms stalled-window
+failure. Stop cancels pending consent synchronously; disconnect/navigation retire
+streams. Catalog replies capped at 16. Build packages host/classic content/
+worklet separately; companion/settings/runner/model inventories unchanged.
+
+**PASS `npm run test:framework:chrome:channel`, exit 0**,
+`chrome-b4-channel-acceptance-delivery.log` under ignored `.ralph/media-framework/`:
+typecheck, **5 contract tests / 0 failed, skipped or cancelled / 1,190.275083 ms**,
+owned headed Chromium **153.0.8010.12 / darwin arm64**, real encoded Japanese/
+English video/worklet/extension runtime PCM. Each selection **24 × 8,192-byte**
+contiguous packets, **48 kHz / 1,024 ms**, selected tag **0.058042465 / 0.058924621**
+(expected .06 within 12%), wrong-source tag **0.000722405 / 0.000333001** (<.001),
+video mapping error **1.782 / 5.226333 ms** (<150 ms). Native loopback output stays
+within 12% during/after capture; videos keep playing at volumes .4/.25. Host-only
+arrival intervals **41.600–43.300 / 41.500–43.700 ms**, not inference/cross-clock
+latency. Stop pending page consent captures **0** chunks; navigation rejects the
+remote connection; page errors **[]**. This test never loads ASR/Translator and
+adds localhost-only permission to its ignored fixture copy; shipping toolbar
+activeTab grant remains **unverified**. No user permission/profile bypass.
+
+Retained failures: initial local session `never` and nullable-closure typecheck
+errors; focused attempt 1 fails before browser. Attempt 2 (5 unit pass) times out
+at read-only fixture `window.closed`; rename counter. Attempts 3 and later timing
+fixture fail startup baseline/output comparison while stable output is correct;
+require actual full-level observer readiness (now stricter **3% / 5 seconds**),
+retain **12%** playback assertion. Attempt 4 and intermediate final/delivery runs
+pass. Video-time observation now precedes test-runner sample copying, retaining
+150 ms gate and same-clock semantics. All exact failure/pass logs and measurements
+are retained in Chrome report; none is hidden or relabeled real ASR acceptance.
+
+**PASS final `npm run test:framework:chrome:composition`, exit 0**,
+`chrome-b4-host-composition-delivery.log`: **11 contract tests / 68.490958 ms**,
+actual DOM/layout/clicks with explicit mock workers/Translator/PCM, pending-source
+progress and prior replay/revisions/Stop/history cases; page errors **[]**.
+**PASS `npm run typecheck:framework`, exit 0**, DOM-free contracts/core.
+**PASS `npm run verify`, exit 0**, `chrome-b4-host-verify-delivery.log`: lint
+**139 files / 71 ms**, Ruff/typecheck/unchanged companion build, **146 JS /
+0 failed, skipped or cancelled / 25,101.385625 ms**, **222 Python / 66.94 s**.
+Earlier verify also passes (**146 JS / 222 Python / 67.00 s**). No production edit
+follows final verify. Focused browser fixture timing/readiness refinements follow
+it; final focused acceptance and final lint **PASS / exit 0 / 139 files / no
+findings** cover those exact refinements (`chrome-b4-host-lint-final.log`).
+**FAIL required `npm run test:framework:chrome`, exit 1**, still-missing B5 script
+(`chrome-b4-host-stage-acceptance.log`); no placeholder or narrower substitute.
+
+**Next B4:** verify shipping toolbar activeTab flow, actual model/native preparation
+in the extension, real selected-video → default ASR → Korean application DOM,
+selected-page overlay/fullscreen. These are **UNVERIFIED**. No missing-environment
+blocker established; preserve every checkbox. B5 full/offline/ten-minute and B6
+quality/latency remain separate; no Chrome/Safari/iPhone/framework completion.
+Intended **13-file** scope only; append-only report/plan, companion v0.1.0/settings/
+installation/server/native messaging/runner and prior gates unchanged. No agents,
+push/publish/app install, user audio/transcripts/weights/keys or temporary `.ralph`
+state in Git. Only owned tests cleaned up. Whitespace, scope, commit and clean
+post-commit worktree are checked at delivery.
+
+Final preservation assertions **PASS** (direct tool output): exact **13-file**
+scope, append-only plan/report, all checkboxes unchanged, companion/settings/
+server/runner untouched, no tracked `.ralph`, documentation-inclusive whitespace
+clean. No executable edit follows final checks; staged checks and post-commit
+clean status are verified with this iteration's commit.

@@ -12,6 +12,7 @@
     "build": "vite build",
     "build:chrome:preparation": "vite build --config vite.chrome.config.ts",
     "build:chrome": "vite build --config vite.chrome.config.ts",
+    "test:framework:chrome:channel": "npm run typecheck && node --import tsx --test tests/framework-chrome-channel.test.ts && node tests/framework-chrome-channel.mjs",
     "test:framework:chrome:composition": "npm run typecheck && node --import tsx --test tests/framework-browser-pipeline.test.ts tests/framework-browser-translation.test.ts && npm run build:chrome && node tests/framework-chrome-composition.mjs",
     "test:framework:chrome:preparation": "npm run typecheck && node --import tsx --test tests/framework-browser-model.test.ts && npm run build:chrome:preparation && node tests/framework-chrome-preparation.mjs",
     "test:framework:chrome:translation": "npm run typecheck && node --import tsx --test tests/framework-browser-translation.test.ts && node tests/framework-chrome-translation.mjs",

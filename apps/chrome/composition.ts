@@ -7,7 +7,7 @@ import { createChromeEngine } from "./engine";
 
 // The platform host supplies the selected-page input. This module owns no tab,
 // native bridge, site permission or persistent transcript storage.
-export function createChromeComposition(container: HTMLElement, input: VideoInput) {
+export function createChromeComposition(container: HTMLElement, input: VideoInput, cancelInput?: () => void) {
   const document = container.ownerDocument;
   const window = document.defaultView;
   if (!window) throw new Error("Chrome composition requires a live document");
@@ -57,6 +57,7 @@ export function createChromeComposition(container: HTMLElement, input: VideoInpu
   function stopSession(): Promise<void> {
     if (stopping) return stopping;
     generation++; start.disabled = true; prepare.disabled = true;
+    cancelInput?.();
     const owned = engine; engine = undefined;
     // Controller invalidation happens before asynchronous resource cleanup.
     const stopped = controller.stop(); policy?.clear();

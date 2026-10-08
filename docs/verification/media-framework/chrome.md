@@ -8522,3 +8522,189 @@ next and unfinished**, pending persistent extension host, selected-video channel
 overlay and real PCM/ASR/native translation/application DOM evidence. B5/B6,
 Safari/iPhone and full framework completion remain unverified. No app install,
 user profile/settings changes, agents, publication, push or tracked `.ralph` data.
+
+## 2026-10-08 — B4 persistent Chrome host and selected-page channel (iteration 2/20)
+
+**B4 remains unchecked and next.** This iteration supplies a packaged development
+host and the selected-page input channel. It does not establish the complete
+selected-video → real ASR → native Korean translation → application/overlay path.
+Repository `AGENTS.md` and the requested independent runner file
+`2026-10-08T13-28-06-822Z-chrome-verification.txt` were absent. The worktree was
+clean at entry. Read the supplied instructions, plan, architecture and current
+Chrome verification records; retained all previous strict gates and failures.
+
+Assumption: reuse the existing composition and selected-element input, and
+verify their real extension transport before overlay and engine qualification.
+This is the smaller next B4 slice; no new model/VAD/decoder comparison or tuning.
+No environment/device/permission blocker was established in these owned tests.
+The untested shipping toolbar permission path is **unverified**, not a pass or
+a blocked-access workaround.
+
+### Implementation and ownership
+
+- `apps/chrome/public/manifest.json` defines a distinct MV3 development extension,
+  without the companion's key. Shipping permissions are exactly **activeTab,
+  scripting**, no persistent site grant, native messaging, tab capture, offscreen,
+  storage or downloads permission. Packaged module workers/WASM use the extension
+  CSP; model connections are limited to Hugging Face origins. This configuration
+  is not evidence that model/native preparation inside the extension has passed.
+- The action injects one idempotent **isolated-world, top-frame** page owner and
+  opens a persistent document window. The worker only opens the host; it receives
+  no PCM and owns no model, inference session, transcript or settings. The host
+  exposes explicit video confirmation and Japanese/English selection, then
+  composes the existing pinned smallFp16/WebGPU engine and shared presentation.
+  It cancels invalidated selections, without selecting a replacement video.
+- The host's model gesture cannot supply activation in the video document. After
+  host Start, a page control requests a separate click to allow that selected
+  video's audio. `input.open()` begins directly in that page click. Stop and
+  selection changes cancel a pending click immediately; late acquisition closes
+  its owned input. A 60-second permission wait expires explicitly. The page UI
+  and media graph remain separate from the companion and user settings.
+- `apps/chrome/channel.ts` adapts `tabs.connect` to `VideoInput`, with direct
+  host/content traffic and no service-worker PCM forwarding. Chrome uses
+  [JSON serialization for messaging](https://developer.chrome.com/docs/extensions/develop/concepts/messaging),
+  so bounded PCM is base64 encoded; it is not presented as transferable buffers.
+  Injection relies on the shipping
+  [activeTab grant](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab)
+  and [scripting API](https://developer.chrome.com/docs/extensions/reference/api/scripting).
+- Both receivers validate protocol **1**, control/stream IDs, target/document/
+  top-frame identity, session/epoch, media sequence/timing and bounded envelopes.
+  Host decode requires selected-video mono float32, finite samples, **8,192-byte**
+  maximum PCM and a valid matching playback clock/anchor. Packets from retired
+  streams cannot paint or re-enter the input. Neither page URLs nor DOM handles
+  enter the host's catalog. Labels/captions use safe text insertion.
+- The sender has **4** unacknowledged events maximum; acknowledgements occur on
+  consumption, not mere receipt. That bounds queued PCM at **32,768 bytes** plus
+  the existing page input queue (**1,000 ms**) and one pulled packet. Wire messages
+  are capped at **14,000 characters**; catalog responses return at most **16**
+  candidates. A stalled acknowledgement window fails after **1,000 ms** with
+  explicit `audio-gap`, closes capture and discards that stream. No silent audio
+  joining or automatic video pause. Stop/disconnect rejects pending commands,
+  releases page work and makes a lost host connection visible.
+- `build:chrome` packages host/manifest/control worker, classic content bundle,
+  unchanged PCM worklet and existing model workers in its separate ignored build.
+  `createChromeComposition` accepts a local cancellation callback so its Stop,
+  selection and suspension paths also invalidate pending remote input.
+
+### Exact checks and failures
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**. Logs are under ignored
+`.ralph/media-framework/`. Only test-owned browsers/profiles were created/closed.
+No models were downloaded or loaded by this iteration's focused transport test.
+
+**PASS `npm run test:framework:chrome:channel`, exit 0**, final source/fixture log
+`chrome-b4-channel-acceptance-delivery.log`: typecheck, **5 contract tests /
+0 failed, skipped or cancelled / 1,190.275083 ms**, packaged extension and real
+content-script input in an owned headed browser. Unit ports/input are explicit
+synthetic fixtures; the browser uses real encoded speech, Web Audio/worklet,
+Chrome runtime messaging, DOM controls, navigation and independent tab-output
+loopback. It does **not** prepare ASR or Translator, inject model output or call
+its captured PCM transcription-accuracy evidence.
+
+The test asserts the production manifest before adding a **localhost-only host
+permission to its ignored test copy**. This allows scripted fixture injection;
+it does not exercise or certify the shipping toolbar's activeTab grant. It never
+changes a user profile or a blocked permission. The production manifest stays
+without host permissions. Host confirmation and displayed model identity pass;
+repeat content injection preserves one page owner. Stop before page consent
+acquires **0 chunks** and removes the gate. Navigation rejects further discovery
+with `context-destroyed`. Page errors **[]**.
+
+Two simultaneously audible, existing synthetic Japanese/English encoded fixtures:
+
+| Measurement | Japanese selection | English selection |
+| --- | ---: | ---: |
+| Contiguous packets / PCM bytes each | 24 / 8,192 | 24 / 8,192 |
+| Sample rate / captured duration | 48,000 Hz / 1,024 ms | 48,000 Hz / 1,024 ms |
+| Selected encoded tag amplitude (expected 0.06, tolerance 12%) | 0.058042465 | 0.058924621 |
+| Other video's tag (limit <0.001) | 0.000722405 | 0.000333001 |
+| Host packet arrival interval range | 41.600–43.300 ms | 41.500–43.700 ms |
+| Playback mapping error (limit <150 ms) | 1.782 ms | 5.226333 ms |
+| Native output tags after Stop (expected 0.024 / 0.015) | 0.024131260 / 0.014946495 | 0.024010516 / 0.014969331 |
+
+Every media sequence is **0–23**, every timeline result accepted and capture/
+playback clock IDs match. Both videos remain playing/unmuted at volumes **0.4 /
+0.25**. Output during/after capture stays within the unchanged **12%** comparison
+tolerance. The observer first requires both expected tags within **3%**, bounded
+at **5 seconds**, so partially filled startup data cannot become the baseline.
+Packet arrival intervals use only the host clock; they are not cross-document
+latency or ASR endpoint-to-text measurements. Physical speaker audibility remains
+unverified; output samples are observed through native browser tab loopback.
+
+Retained development failures and subsequent evidence:
+
+- Initial direct typecheck **FAIL**: TypeScript narrowed `typeof active` to `never`
+  in a local session construction; use an explicit local page-session type.
+  `build:chrome` independently **PASS**, 27 modules. Subsequent cleanup of lint
+  warnings exposed nullable closure narrowing; focused attempt 1 **FAIL / exit 1**
+  at typecheck (`chrome-b4-channel-attempt-1.log`), before browser execution.
+  Fixed local control types/session capture, without relaxed checks.
+- Attempt 2 **FAIL / exit 1**, **5 unit PASS**, browser timeout **30,000 ms** at
+  fixture Stop (`chrome-b4-channel-attempt-2.log`). Real sample isolation checks
+  reached their assertions first. The test used read-only `window.closed`;
+  renamed its fixture state `captureFinished`.
+- Attempt 3 **FAIL / exit 1**, **5 unit PASS**, startup output baseline
+  **0.008200494 / 0.006566868**, later **0.024069095 / 0.015031291**
+  (`chrome-b4-channel-attempt-3.log`). Wait for actual full-level output, rather
+  than accepting merely nonzero data. Attempt 4 **PASS / exit 0**
+  (`chrome-b4-channel-attempt-4.log`). Added HTTP range serving and a video-time
+  comparison, preserving the existing 150 ms mapping criterion.
+- `chrome-b4-channel-final.log` and `chrome-b4-channel-delivery.log` **PASS / exit
+  0**. The latter's mapping measurements **132.777333 / 147.167333 ms** included
+  test-runner copying of fixture samples. Observe video position before copying
+  samples; do not subtract unrelated document clocks or enlarge the criterion.
+  `chrome-b4-channel-timing-delivery.log` then **FAIL / exit 1** at output: a
+  startup baseline **0.022569128 / 0.013238933** still differed from stable
+  **0.023921589 / 0.014920458** by more than 12%. Tightened baseline readiness to
+  **3%**; the final command above passes all original isolation, mapping, output,
+  Stop and navigation assertions. These are fixture/observer defects, not an
+  absent-device blocker or evidence of real ASR quality.
+
+**PASS `npm run test:framework:chrome:composition`, exit 0**,
+`chrome-b4-host-composition-delivery.log`: typecheck, **11 contract tests /
+0 failed, skipped or cancelled / 68.490958 ms**, Chrome build and unchanged actual
+DOM/layout/click assertions with explicitly mocked workers/Translator/PCM.
+Long replay **33 + 33 characters / 480**, **300** history rows, pending-source
+reading/revision/cancellation cases and page errors **[]**. This remains mock
+engine evidence, not real extension ASR/native output.
+
+**PASS `npm run typecheck:framework`, exit 0**,
+`chrome-b4-host-framework-types.log`: DOM-free contracts/core compilation.
+**PASS `npm run verify`, exit 0**, `chrome-b4-host-verify-delivery.log`: Biome
+**139 files / 71 ms**, Ruff/typecheck/unchanged companion build, **146 JS /
+0 failed, skipped or cancelled / 25,101.385625 ms**, **222 Python / 66.94 s**.
+Earlier verify also **PASS / exit 0**, **146 JS / 222 Python / 67.00 s**,
+`chrome-b4-host-verify.log`. No production-code edit follows final verify.
+The final timing/readiness edits affect only the focused browser fixture; its
+final acceptance above and final `npm run lint` **PASS / exit 0 / 139 files /
+no findings** (`chrome-b4-host-lint-final.log`) cover those exact edits.
+
+**FAIL `npm run test:framework:chrome`, exit 1**,
+`chrome-b4-host-stage-acceptance.log`: the full-stage script is still missing and
+belongs to B5. The new focused command does not replace it, certify Chrome stage
+acceptance or relax prior quality/latency failures.
+
+### Remaining B4 and preservation
+
+**UNVERIFIED:** shipping toolbar activeTab grant/install flow; actual model/native
+preparation and real default ASR/native translation in this extension document;
+full selected-video → ASR → Korean comparison/live DOM; selected-page overlay/
+fullscreen. Continue those B4 items before checking B4. B5 offline/error/restart/
+ten-minute functional acceptance and B6 quality/latency remain later Chrome work.
+No Safari/iPhone or whole-framework completion, stage completion or blocker marker.
+
+All checklist lines remain unchanged. Intended scope is **13 files**, including
+append-only report/plan. Companion v0.1.0, installation/native messaging/server,
+existing user settings, runner, model inventories and strict gates are unchanged.
+No other agents, app installation, push/publication or later-stage work. No user
+recording/transcript, credentials, model weights or temporary `.ralph` state in
+Git. Only this iteration's owned local test browsers/profiles were removed;
+unrelated files/apps/recordings/mounted images were preserved. Whitespace/scope
+checks, commit and post-commit cleanliness are verified at delivery.
+
+Final preservation assertions **PASS** (direct tool output): exact **13-file**
+intended scope; append-only plan/report; every checkbox unchanged; companion,
+settings/server and runner untouched; no tracked `.ralph`; documentation-inclusive
+`git diff --check` clean. Staged whitespace/scope and post-commit status are
+checked with the commit below; no executable edit follows the listed final checks.

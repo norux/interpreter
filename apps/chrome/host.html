@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Selected video interpreter</title></head>
+<body>
+<h1>Selected video interpreter</h1>
+<p>Confirm a video from the page where you opened Interpreter. Prepare the language here, then Start and allow audio on the video page. Keep this window open and visible.</p>
+<p>Only ordinary videos in the page's top frame are supported by this build. Other frames and protected or unverified media need their own supported adapter.</p>
+<p id="connection" role="status"></p>
+<section aria-label="Select video"><label>Video <select id="video"><option value="">Choose a video</option></select></label>
+<label>Source language <select id="language"><option value="ja">Japanese</option><option value="en">English</option></select></label>
+<button type="button" id="confirm">Use selected video</button></section>
+<main id="app"></main><script type="module" src="./host.ts"></script>
+</body></html>
