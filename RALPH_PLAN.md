@@ -6997,3 +6997,84 @@ models/permissions/fixtures/runner, unrelated files and user apps/recordings/mou
 are preserved. No agents, app install, push/publish or temporary state/credentials/
 weights/user media staged. Only owned test browsers are cleaned; staged whitelist,
 whitespace and clean committed worktree are checked at delivery.
+
+
+### 2026-10-09 KST / chrome / iteration 7/20 — rejected FP32 precision comparison
+
+Related commit: `docs: record rejected Chrome FP32 precision comparison`. Entry
+HEAD `d9487d6` was clean; repository AGENTS.md and requested independent runner log
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` are absent. Read supplied
+instructions, plan, architecture and retained Chrome evidence. **B6 only, still
+unchecked; application default remains smallFp16/WebGPU.** All history/checklists
+and strict failure gates remain unchanged.
+
+Hypothesis: test full FP32 small weights on the identical retained noisy input,
+using existing bounded text decoding rather than a new decoder/filter/VAD/model
+revision. Temporary inventory/loader/worker support prepares the same pinned
+`onnx-community/whisper-small` revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **970,919,779 bytes** including metadata.
+The report links pinned inventory and records both weight sizes/hashes. A local
+replay copy changes only candidate selection, precision scope and pinned whitelist;
+all original integrity, worker/cache, 256-token, <=20%, exact-count and network gates
+remain. Source-copy equivalence and both original noise/long archive integrity checks
+PASS. Application composition/settings are unchanged throughout.
+
+Executed evidence under ignored `.ralph/media-framework/`:
+
+- `node --import tsx tests/framework-chrome-fp32-experiment.mjs
+  .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --default-only`
+  **FAIL / exit 1 / 124.23020454200001 s**, `chrome-iteration-7-fp32-noise`:
+  two fresh production workers each process four runs/twelve exact jobs. Japanese
+  white noise **9/120 CER**, meeting **2**, station **1**, other five **3**, expected
+  **3 each**; both count failures remain. All other controls pass: quiet Japanese
+  **3/120 CER**, English quiet/white **3/66 WER**, all meanings **3**. **24/24 texts
+  exactly match archived FP16 output**: no recognition improvement. Preparation
+  **97,527.577083 / 1,657.9465420000051 ms**, preparation requests **14 / 0**,
+  inference **0 / 0**, RSS **5,035,280 / 5,884,560 KiB**, worker inference
+  **766.5–1,461.1000000238419 / 769.6000000238419–1,154.7999999523163 ms**.
+  Both loading/ready totals match inventory; request/HTTP/page/visibility arrays
+  empty. Reject without another precision attempt or unaffected long/quiet suite.
+- Independent `python3 .ralph/media-framework/chrome-iteration-7-readback.py
+  chrome-iteration-7-fp32-noise chrome-live-jobs-noise-PGrAUS` **PASS / exit 0**,
+  initial **0.069973334 s**, final **0.062749042 s** with explicit archived-text count:
+  **24 PCM/hash/range/identity/revision/text/token associations**, recomputed eight
+  scores/counts, twelve matching trial pairs, all 24 original texts and zero
+  inference requests. Manifest unchanged, SHA-256
+  `5e3e9af50dfaa98fc59f15c091a9deae2a5893e63c41bbf96bde34129cabbb89`.
+  Readback passes, acoustic acceptance fails. Earlier diagnostic stdin read
+  **FAIL / exit 1**, `KeyError: 'jobs'` on prior quiet summary schema; no ASR repeat.
+- Experimental `npm run typecheck` **PASS / exit 0 / 0.185458208 s**.
+  Restore all three production files byte for byte to entry HEAD and remove the
+  temporary test copy; no FP32 inventory/support retained. Restored focused
+  timestamp/ASR/model/trace tests **PASS / exit 0 / 13 passed / 0 failed/skipped/
+  cancelled / 427.856542 ms TAP** (wrapper **0.493370625 s**),
+  `chrome-iteration-7-restored-contracts`; restored typecheck **PASS / exit 0 /
+  0.254481542 s**, `chrome-iteration-7-restored-typecheck`. Mocked contracts do not
+  establish ASR accuracy. Whitespace, append-only histories, unchanged checkboxes,
+  two-file scope and committed cleanliness are checked at delivery.
+
+Scope: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, Transformers.js **4.3.0**. Pinned public
+FP32 weights prepared only for this explicit owned test; no weights/dependencies
+committed. No environment/device/permission absence is observed. Replay timing is
+not live endpoint, new selected-video acquisition, Korean/DOM or complete-extension
+qualification. RSS includes shared/browser/GPU/allocator/harness, not isolated
+allocation/pressure/leak/mobile qualification. No controlled FP16 timing comparison.
+
+**NOT RUN:** `npm run verify`, full `npm run test:framework:chrome`, unchanged
+long/live/noise/quiet/EOF/Stop/GPU, ten-minute extension/native Korean/DOM suites.
+Final executable source equals entry source; focused restored checks pass. Retained
+application-default noise/full-stage failures remain FAIL; all full plan acceptance
+commands required before completion. FP32 live/long/quiet and broader natural/site
+speech remain unverified. No acoustic improvement, default switch, B6/Chrome/
+framework/Safari/physical iPhone completion or terminal marker applies.
+
+Next **B6**: recover raw noisy Japanese meanings while preserving retained long/quiet
+meanings; qualify an improved final app profile's live <2,000 ms endpoints, selected
+video/native Korean/ten-minute quality, then full acceptance. Do not repeat rejected
+precision-only hypothesis without new evidence. Preserve <=20%, exact counts,
+bounded/drained queue/loss and all failed inputs. Two append-only docs retained;
+companion v0.1.0/native messaging/install/settings, production/core/media/translation,
+model inventory/permissions/fixtures/runner/unrelated files/apps/recordings/mounts
+unchanged. No agents/install/push/publish/access workaround or credentials/weights/
+user audio/temporary `.ralph` state staged. Only owned test browsers/profiles cleaned.
