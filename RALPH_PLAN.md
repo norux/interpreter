@@ -7333,3 +7333,50 @@ whitelist checks PASS. Full `npm run test:framework:chrome` remains NOT RUN this
 partial iteration; all full acceptance remains mandatory before completion.
 Next B5a is production host/default-input integration and its remaining actual
 playback/ASR/translation/DOM acceptance, with B6 still stopped.
+
+
+### 2026-10-09 / chrome / iteration 2/20 — B5a restoration/media acceptance slice
+
+관련 commit: `test: verify Chrome tab playback restoration` (this record included).
+**B5a stays first unfinished and unchecked; B6 tuning stays stopped.** Extend only
+the real tab-input harness and add an independent native-output observer. Verify
+actual audio-element and cross-origin iframe-video input without a top-frame video;
+retained Web Audio/mixed/top-video fixtures, original-tab isolation, Stop/restart,
+site output after Stop/overflow/live-host closure, recapture after host closure,
+navigation and original-tab closure. Production action/host/default input and
+permissions, companion/settings, selected-video adapter, engines, quality gates,
+runner and other stages are unchanged. This is partial B5a acceptance work.
+
+Actual `npm run test:framework:chrome:tab-input` results: initial expanded harness
+PASS / exit 0 / 34.668046708 s; media-count/origin assertions PASS / exit 0 /
+34.894375875 s; mixed-output gates run FAIL / exit 1 / 31.085407416 s at
+iframe-video PCM **0.03816503082774152 < 0.04** (failed round unverified).
+Native-output readiness is now checked before every explicit PCM Start/restart,
+without removing samples, lowering thresholds or adding a production delay.
+Final-source run PASS / exit 0 / **37.001023624999995 s**: typecheck, **3 unit
+passed / 0 failed/skipped/cancelled / 45.755625 ms**, real headed Chromium
+153.0.8010.12; **10 main rounds × 20 contiguous 8192-byte tab-mix chunks**,
+five live-host restoration/recapture and five real-tab closure retirements,
+pageErrors **[]**. Known native-output gate within 3%, preservation within 12%
+cover both simultaneous 440/660 Hz markers. Maximum observed output deviation
+**2.44970939548228%**; largest other-tab 11 kHz marker
+**0.000011602047835472267 < 0.001**. Overflow discards
+**213.33333333333331 ms** and restores actual 440 Hz output
+**0.10000010739272791**. Exact scalar evidence and limits are in the
+[Chrome report](docs/verification/media-framework/chrome.md). Ignored logs/status:
+`chrome-tab-input-iteration-2-{attempt-1,final,mix-gates,warmup}` under `.ralph`.
+Final two-file Biome PASS / exit 0 / 4 ms; harness syntax/whitespace PASS.
+
+UNVERIFIED: physical speakers, zero initial acquisition loss, failure's exact
+cause/round, independent permission revocation/track loss, production tab controls/
+elapsed comparison/overlay and real tab ASR/native Korean/DOM/stale inference.
+No accuracy claim follows from PCM/native output or unit mocks. `npm run verify`,
+full Chrome and unchanged long/model/quality suites NOT RUN this partial iteration;
+retained changes are covered by focused checks. Historical B6 failures remain FAIL.
+Both full acceptance commands remain required before Chrome completion.
+Next B5a: production default action/host/permissions and engine/presentation
+integration, full `test:framework:chrome:tab-capture` and Chrome acceptance wiring.
+No required environment/permission blocker or completion marker. AGENTS.md and
+requested independent runner log absent. Only owned test browsers/profiles cleaned;
+`.DS_Store` preserved untracked. No agents/app installs/push/publish, temporary
+state/model/user media/credentials commits or user apps/recordings/mounts changes.
