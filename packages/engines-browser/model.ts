@@ -72,6 +72,21 @@ export const asrCandidates = {
         sha256: "22aba6c7f5193701cbe1519051b6ef097eb530ad6887b7093065ec59b830f61d" },
     ],
   },
+  turboFp16: {
+    dtype: "fp16",
+    model: { id: "onnx-community/whisper-large-v3-turbo", version: "360ebcde2559d60bb474678be3c1de9ef347d01a" },
+    files: [
+      { path: "config.json", bytes: 1332 },
+      { path: "generation_config.json", bytes: 3897 },
+      { path: "tokenizer.json", bytes: 2480617 },
+      { path: "tokenizer_config.json", bytes: 282843 },
+      { path: "preprocessor_config.json", bytes: 340 },
+      { path: "onnx/encoder_model_fp16.onnx", bytes: 1274342603,
+        sha256: "fdadc70836e6b028fd5e580417c312208dad073d2d01e509e2d127c1373399d8" },
+      { path: "onnx/decoder_model_merged_fp16.onnx", bytes: 344227339,
+        sha256: "fdf10afca73a0c7bf87286cfb96cf7028a9edbc9bb02512509a526f95b126c9d" },
+    ],
+  },
 } as const;
 
 export const vadCandidate = {

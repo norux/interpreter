@@ -5572,3 +5572,208 @@ Biome lint also pass, exit 0. Staged whitespace, the exact four-file commit and
 post-commit worktree cleanliness are checked before delivery. Only package command,
 existing live harness, this report and plan enter the commit; no credentials,
 weights, user data, generated media/profiles or ignored temporary state.
+
+
+## 2026-10-08 — B2 turbo FP16 noise comparison (iteration 18/20)
+
+Related commit: `feat: evaluate turbo browser ASR noise profile`, containing this
+report. **B2 remains unchecked; no default is selected.** Only B2 advances.
+
+Assumption: the retained small-FP16 Japanese louder-noise meaning failure warrants
+an explicit candidate comparison before changing segmentation or decoding policy.
+The smaller implementation registers another pinned model in the existing
+repository/worker and reuses the complete noise harness. No new engine abstraction,
+model fallback, production default, dependency or user setting is introduced.
+
+Added `turboFp16` and `test:framework:chrome:noise:turbo`. This opt-in command requires
+learned VAD and retains all ten cases, original source/mixed-input hashes, seeded
+noise, three complete utterance periods, reference labels, every meaning exactly
+three times, <=20% CER/WER, <2,000 ms endpoint latency, <=20-second contiguous ASR
+jobs, <=30-second pending audio, zero loss/drained queues, exact unfiltered PCM,
+complete detector coverage, <10% VAD duration and zero noise-only active frames,
+ASR calls and text. Original commands still select small FP16. Cached offline
+fresh-worker ASR for both languages retains its own exact-once meaning gates.
+Every preparation/offline ready status must identify the selected pinned model
+and declared byte inventory; another model cannot substitute. Remote artifact
+allowlists use only the explicit selected candidate and pinned VAD.
+
+Fake transport checks additionally cover turbo's rejected WASM route with no
+worker/fallback, explicit candidate forwarding and termination on small-model
+readiness. These checks are not recognition or GPU-accuracy evidence.
+
+### Candidate discovery and initial checks
+
+Supplied instructions, plan, architecture and prior Chrome report reviewed.
+Root/nested AGENTS.md and the requested independent runner evidence file
+`2026-10-08T01-12-31-094Z-chrome-verification.txt` are absent. Local logs remain
+ignored under `.ralph/media-framework/`.
+
+- FAIL: web-reader lookups for medium and the pinned turbo README returned
+  accessibility errors; no licensing or model evidence inferred from those errors.
+  Initial system-Python urllib metadata lookup for
+  `onnx-community/whisper-medium?blobs=true` returned HTTP 401, exit 1. No
+  authentication/profile/permission bypass or medium weights download.
+- PASS: public `node --input-type=module` fetch inspection, exit 0: Xenova medium
+  and ONNX-community turbo metadata HTTP 200, followed by pinned turbo
+  README/config/generation/preprocessor HTTP 200. Medium is not registered or
+  downloaded. Turbo metadata/card and the upstream
+  [model card](https://huggingface.co/openai/whisper-large-v3-turbo) identify the
+  multilingual pruned model; browser support is assessed by actual execution.
+- PASS: focused `node --import tsx --test` over model, ASR, VAD and speech port
+  files, exit 0, `chrome-20261008-18-ports.log`: **30 passed / 0 failed/skipped/
+  cancelled / 267.951292 ms**. Fake cache/worker/executor evidence only.
+- PASS: final preliminary `node --check tests/framework-chrome-noise.mjs`,
+  registered-byte-sum check (**1,621,338,971**) and prescribed five-file Biome
+  lint (**23 ms / no findings**), exit 0; preliminary whitespace also passes.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-18-stage-acceptance.log`: missing `test:framework:chrome` script.
+  Full selected-video PCM → ASR → Korean translation → DOM acceptance remains
+  unimplemented. No placeholder command or substituted success.
+
+Actual browser results and final required repository checks follow.
+
+
+### Actual browser results
+
+FAIL: `caffeinate -disu npm run test:framework:chrome:noise:turbo`, **exit 1**,
+once, `chrome-20261008-18-turbo-noise.log`: typecheck, **30 port tests / 0 failed/
+skipped/cancelled / 259.001834 ms**, build, **ten complete online cases / 4,066
+recorded WASM VAD frames / twelve online plus two offline real FP16 WebGPU ASR
+jobs**. Only qualification failures are the first endpoint in each Japanese
+speech case exceeding the unchanged 2,000 ms gate. Page errors and native
+visibility events are `[]`. No second browser invocation or gate relaxation.
+
+| Speech case | Error | Meanings | Endpoint-to-text ms | Peak pending ms |
+| --- | --- | --- | --- | ---: |
+| Japanese / quiet noise — latency FAIL | 3/120 = 2.5% CER | Every anchor 3 | **2,384.200**, 1,893.300, 1,258.600 | 10,400 |
+| Japanese / louder noise — latency FAIL | 3/120 = 2.5% CER | Every anchor 3 | **2,009.100**, 1,889.900, 1,263.500 | 10,200 |
+| English / quiet noise — PASS | 3/66 = 4.545455% WER | Every anchor 3 | 1,839.000, 1,682.300, 1,177.800 | 9,600 |
+| English / louder noise — PASS | 3/66 = 4.545455% WER | Every anchor 3 | 1,827.500, 1,787.300, 1,188.700 | 9,600 |
+
+All six noise-only controls have **zero active VAD frames / zero ASR calls /
+zero text**, with 6,000 ms maximum pending. Every run has zero reported loss,
+final pending zero, exact mixed PCM submitted to ASR, complete contiguous detector
+coverage and job ranges, bounded jobs/queues, and <10% detector duration.
+Speech VAD totals **424.500 / 437.500 / 417.000 / 402.300 ms** in table order.
+Inputs are Japanese **383,040 samples / 23,940 ms**, English **368,640 / 23,040**;
+noise-only inputs each **96,000 / 6,000**. Louder-noise SNR is **7.709260 /
+8.633690 dB**. Seeded white noise is synthetic; no natural-noise claim.
+
+Job boundaries ms, same table order:
+`0,8096,15872,23940`; `0,8128,15872,23940`;
+`0,7744,15264,23040`; `0,7712,15200,23040`.
+The failed Japanese endpoint host calls are only **1,680.200 / 1,405.100 ms**;
+these exclude endpoint-to-submission waiting and cannot replace the failed
+endpoint metrics. No attribution of latency to shader compilation or memory
+pressure is established. No first-job deletion/warm-up exemption/rounding to pass.
+
+PASS: Python assertions over the retained iteration-13 small-FP16 log
+`chrome-20261008-13-noise-offline.log` and this run, exit 0: **all ten input hashes,
+all detector active counts and all twelve actual ASR job sample counts/ranges/
+hashes match**. Small's louder Japanese result remains **9/120 CER**, meeting 2 /
+station 1; turbo returns **3/120**, all seven meanings 3 on those same jobs.
+Louder English changes **4/66 → 3/66 WER**, all four meanings 3 in both.
+This is a historical candidate comparison with identical measured inputs, not
+simultaneous timing, repeatability, a segmentation fix or general model ranking.
+Original small/noise and sustained-live failures are not reclassified or rerun.
+
+PASS: cached offline fresh workers reach cached/loading/ready for the exact turbo
+and VAD inventories without downloading. **Zero remote requests** across offline
+prepare/control/inference. Actual no-speech VAD probability **0.012012064457**;
+pending detector Stop returns `VAD stopped` and preserves **2,048 caller bytes**.
+Offline Japanese **111,556 samples / 6,972.25 ms**, **1/40 CER**, every meaning 1,
+worker inference **1,499.500 ms**, document host **1,501.400 ms**. English
+**106,664 / 6,666.5 ms**, **1/22 WER**, every meaning 1, **1,199.200 / 1,200.500 ms**.
+Both PCM buffers transfer (zero caller bytes), and pinned identity/session/target/
+epoch/range/final revision checks pass. Original PCM hashes remain
+`015684bdb023e8a53ea991d73b4e2ff56266c94a9876a8239a2940521b213d8c` /
+`f19362f78f79ac81c6c0b2189753ce6c17b640f340184443ed2b08270c0b93a8`.
+This is cached ASR/detector evidence, not offline streaming or Korean captions.
+
+### Model, environment and memory evidence
+
+Owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, uv **0.12.23**; host has **17,179,869,184 bytes**
+physical memory. Locked Transformers.js **4.3.0** and ORT unchanged.
+
+Pinned candidate:
+`onnx-community/whisper-large-v3-turbo@360ebcde2559d60bb474678be3c1de9ef347d01a`,
+**seven files / 1,621,338,971 bytes**. Metadata/card/config were retrieved from the
+public Hub; [pinned card](https://huggingface.co/onnx-community/whisper-large-v3-turbo/blob/360ebcde2559d60bb474678be3c1de9ef347d01a/README.md)
+links the upstream model and Transformers.js-compatible conversion. Pinned config
+has 32 encoder / 4 decoder layers, 128 mel features and 16 kHz preprocessing.
+Upstream card reports MIT; separate conversion/distribution license confirmation
+remains **unverified**, as the conversion card has no license field.
+
+Config **1,332**, generation **3,897**, tokenizer **2,480,617**, tokenizer config
+**282,843**, preprocessor **340** bytes. Encoder FP16 **1,274,342,603 bytes**,
+SHA-256 `fdadc70836e6b028fd5e580417c312208dad073d2d01e509e2d127c1373399d8`;
+merged decoder FP16 **344,227,339 bytes**,
+`fdf10afca73a0c7bf87286cfb96cf7028a9edbc9bb02512509a526f95b126c9d`.
+The production repository verifies both actual ONNX download hashes before load.
+Silero remains pinned at `e71cae966052b992a7eca6b17738916ce0eca4ec`,
+**one file / 2,243,022 bytes**. One fresh inventory each, then cached fresh workers;
+**16 distinct pinned/redirect paths** observed. Locally packaged runtime storage
+is additional to model bytes. No medium or other new weights downloaded.
+
+First preparation **163,271.711250 ms**; nine cached online preparations
+**2,133.598791–2,841.023500 ms**. Preparation is distinct from inference/accuracy.
+Initial owned-browser-tree RSS **1,290,912 KiB**, maximum case peak
+**6,592,704 KiB**. Speech baseline/peak/final KiB:
+Japanese quiet **3598000/6562592/2456768**, louder **996672/5350208/1576016**;
+English quiet **3983008/6315984/745456**, louder **748480/5248736/733792**.
+250 ms samples sum only the owned browser tree, including preparation, shared-page
+double counting, browser/renderers/GPU, allocator/model/harness residency. Baselines
+carry sequential allocator effects. These are process RSS diagnostics, not isolated
+model/GPU allocations, available-memory guarantees, leak, pressure/storage or
+mobile/thermal evidence. Endpoint/host observations use one document clock;
+preparation/RSS use Node and VAD inference its own worker clock independently.
+Latencies exclude download/preparation, translation and DOM. No percentile claim.
+
+PASS: explicit Python recorded-result assertions, exit 0: ten completed cases,
+exactly the two retained Japanese endpoint failures, all error/meaning/PCM/queue/
+noise gates and both cached offline recognitions/lifecycle outcomes match.
+Evidence analysis only; no inference rerun. Final syntax/preliminary whitespace
+also pass. The browser command itself remains **FAIL**.
+
+### Remaining work and preservation
+
+**Next unfinished item remains B2:** bring turbo's two Japanese endpoints below
+2,000 ms while preserving this exact-input meaning improvement; qualify actual
+live input, sustained repetition, overload/ASR Stop/GPU loss and recovery, memory/
+storage pressure, natural/no-pause/quiet phoneme boundaries, broader candidate
+comparison and licensing before selecting a default. Existing small's louder-noise
+and sustained station/latency failures remain. Turbo's cached synthetic-noise
+results do not qualify those live/lifecycle paths or a default.
+
+Full Chrome acceptance remains FAIL (missing script); B2–B6 remain unchecked.
+Korean translation/revisions/DOM, ten-minute playback, full offline interpretation,
+installation and Safari/iPhone remain unverified. No required environment/device/
+permission is absent; unfinished qualification/implementation warrants neither
+terminal marker. No stage/framework/iPhone completion claim.
+
+Only this worktree changes. Published companion v0.1.0/install/native messaging/
+server/settings and unrelated files/apps/recordings/mounted images preserved.
+No agents/runner edits/stage advance/push/publish/app installation or blocked
+browser/profile/permission bypass. Only the owned test browser/profile resources
+are cleaned up. Credentials/weights/user audio/transcripts/temporary ignored state
+stay out of the commit. Final required verify and Git checks follow.
+
+
+### Final required verification and Git checks
+
+PASS: `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-18-verify.log`: Biome **115 files / 52 ms / no findings**,
+Ruff, typecheck, companion build **28 main / 10 content modules**,
+**113 JS passed / 0 failed/skipped/cancelled / 21,903.350209 ms**,
+**222 Python passed / 66.91 s**, Python **3.12.15**. Run after the sole actual
+browser invocation on final implementation/test sources; subsequent edits only
+finish Markdown evidence. This does not override either turbo latency failure,
+the retained small qualification failures or missing full Chrome acceptance.
+
+PASS: exact seven-file scope, append-only plan/report, unchanged every original
+checkbox and document-inclusive unstaged whitespace assertions, exit 0. Final
+staged whitespace/scope and post-commit cleanliness checked before delivery.
+Only candidate registry/worker whitelist, transport test, existing noise harness,
+package command, report and plan enter the commit. No generated assets, models,
+profiles, credentials, user data or ignored temporary state are committed.

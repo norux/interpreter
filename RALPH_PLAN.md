@@ -3840,3 +3840,89 @@ Final required verification:
   scope and post-commit clean worktree checked before delivery. Only package
   command/live harness/report/plan committed; credentials/weights/user data/
   generated media/profiles/ignored temporary state excluded.
+
+
+### 2026-10-08 / chrome / iteration 18/20
+
+관련 commit: 이 기록을 포함한 `feat: evaluate turbo browser ASR noise profile`.
+
+수행한 변경: B2의 기존 small FP16 일본어 louder-noise 의미 실패에 대해,
+segmentation을 추측으로 수정하기 전에 pinned Whisper large-v3-turbo FP16 후보를
+기존 repository/worker에 명시적으로 등록하고 전체 learned-noise/offline harness로
+비교한다. 새 `test:framework:chrome:noise:turbo`만 후보를 선택한다. 원래 명령,
+열 가지 fixture와 hash, 정확도/의미/지연/큐/손실/노이즈 거부 기준은 유지한다.
+후보 identity/byte 검증과 WASM 거부·후보 전달·다른 모델 readiness 거부 transport
+검증을 추가했다. 기본 모델·production policy·dependency·기존 사용자 설정은 불변.
+
+실행한 명령과 결과:
+
+- PASS: focused model/ASR/VAD/speech ports, exit 0, **30 passed / 0 failed/skipped/
+  cancelled / 267.951292 ms**, `chrome-20261008-18-ports.log`; fake evidence only.
+- PASS: syntax, registered byte sum **1,621,338,971**, five-file Biome lint
+  **23 ms / no findings**, preliminary whitespace, exit 0.
+- FAIL: `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-18-stage-acceptance.log`, missing script. No replacement.
+- Model discovery HTTP/accessibility outcomes, pinned identity, unchanged gates,
+  actual browser results and final required verification are recorded in
+  `docs/verification/media-framework/chrome.md` iteration 18.
+
+실제 모델 실행 결과와 최종 verify/Git 증거는 실행 후 아래에 추가한다.
+B2–B6 체크박스는 아직 유지하며 다른 stage로 진행하지 않는다.
+
+
+실제 브라우저 결과:
+
+- FAIL: `caffeinate -disu npm run test:framework:chrome:noise:turbo`, exit 1,
+  **한 번만 실행**, `chrome-20261008-18-turbo-noise.log`: typecheck, **30 port
+  passed / 259.001834 ms**, build, **10 online cases / 4,066 WASM VAD frames /
+  12 online + 2 offline FP16 WebGPU ASR jobs**. 모든 의미/정확도 기준과 six
+  noise-only 거부는 통과하지만 일본어 첫 endpoint **2,384.200 / 2,009.100 ms**가
+  기존 <2,000 ms 기준 실패. 뒤 일본어 endpoints와 영어 endpoints는 기준 통과.
+  queue loss zero/final pending zero, page errors/native visibility events `[]`.
+- 일본어 quiet/louder 각각 **3/120 CER**, 모든 의미 3회. 영어 각각 **3/66 WER**,
+  모든 의미 3회. 실제 job hashes/ranges/sample counts 열두 개와 입력 hash 열 개,
+  detector active counts가 iteration 13 small FP16 결과와 일치함을 Python으로
+  확인(PASS/exit 0). 기존 louder 일본어 **9/120, 회의 2/역 1 → turbo 3/120,
+  모든 의미 3**. 과거 small 실패를 지우거나 동시 latency 비교로 주장하지 않는다.
+- PASS: cached fresh-worker offline Japanese/English, remote requests **0**,
+  **1/40 CER / 1/22 WER**, 모든 의미 1회, document host **1,501.400 /
+  1,200.500 ms**, transferred PCM/identity/epoch/range/final 검증 통과. Actual
+  detector Stop/VAD no-speech 통과; full offline streaming/translation 증거 아님.
+- 새 pinned turbo **1,621,338,971 bytes / seven files**, Silero는 기존 **2,243,022
+  bytes / one file**. ONNX hashes 검증, 한 inventory씩 다운로드 후 cached workers.
+  First Prepare **163,271.711250 ms**, cached **2,133.598791–2,841.023500 ms**.
+  Owned browser RSS initial **1,290,912 KiB**, 최대 **6,592,704 KiB**. 250 ms
+  process-tree RSS는 shared pages/GPU/allocators/preparation/harness 포함이며
+  isolated model/leak/pressure/mobile 증거가 아니다. 모델/환경/수치/hash/clock과
+  conversion licensing 미검증은 report에 상세 기록.
+- PASS: recorded-result assertions(Python), exit 0, 정확히 두 지연 실패를 유지하며
+  나머지 의미/PCM/accounting/noise/offline 결과 확인; 추가 inference 실행 아님.
+
+다음 미완료 **B2**: turbo의 두 일본어 endpoint 지연을 원래 기준 안으로 줄이면서
+의미 보존, actual live/sustained/ASR Stop/GPU recovery/pressure/broader quality와
+license 검증 후 default 선택. 기존 small louder-noise와 sustained 실패 유지.
+B2–B6는 unchecked; full Chrome acceptance missing script로 FAIL. B3–B6와
+Safari/iPhone/설치/full offline interpretation는 미검증. 필요한 환경/권한/실기 부재가
+관측된 것은 아니므로 미완성 구현/qualification에 terminal marker를 사용하지 않는다.
+
+Companion/install/server/native messaging/user settings/unrelated apps/recordings/
+mounted images 보존. Agents/runner edit/stage advance/push/publish/app installation/
+blocked-browser bypass 없음. Owned test browser/profile만 정리; weights/credentials/
+user data/.ralph state 제외. 최종 verify와 Git 증거는 아래에 기록한다.
+
+
+최종 required verification:
+
+- PASS: `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-18-verify.log`: Biome **115 files / 52 ms / no findings**,
+  Ruff/typecheck, companion **28 main / 10 content modules**,
+  **113 JS passed / 0 failed/skipped/cancelled / 21,903.350209 ms**,
+  **222 Python passed / 66.91 s**, Python **3.12.15**. Sole browser invocation
+  후 final implementation/test sources에서 실행; 이후 Markdown evidence만 수정.
+  두 turbo 지연 실패/과거 small 실패/missing Chrome acceptance는 그대로 유지.
+- PASS: exact seven-file scope, append-only report/plan, 모든 original checkbox
+  unchanged, document-inclusive unstaged whitespace, exit 0. Staged whitespace/
+  scope와 post-commit clean worktree는 delivery 전에 확인. Candidate registry/
+  worker whitelist, transport test, existing noise harness, package command,
+  report/plan만 commit; generated assets/weights/profiles/credentials/user data/
+  ignored temporary state 제외.

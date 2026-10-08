@@ -11,6 +11,11 @@ import { build } from "vite";
 // B2 noise/cached ASR qualification only: decoded synthetic speech, not live acquisition,
 // natural speakers, translation, caption DOM or full Chrome-stage acceptance.
 const learned = process.argv.includes("--learned-vad");
+const turbo = process.argv.includes("--turbo");
+assert.ok(!turbo || learned, "Turbo comparison must retain learned VAD and offline qualification");
+const candidate = turbo ? "turboFp16" : "smallFp16";
+const model = turbo ? { id: "onnx-community/whisper-large-v3-turbo", version: "360ebcde2559d60bb474678be3c1de9ef347d01a", requiredBytes: 1621338971 }
+  : { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732", requiredBytes: 487960440 };
 const output = resolve(learned ? ".ralph/media-framework/chrome-learned-noise-build" : ".ralph/media-framework/chrome-noise-build");
 const manifest = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8"));
 for (const clip of manifest.clips) {
@@ -48,7 +53,7 @@ const server = createServer(async (request, response) => {
       globalThis.prepare = () => {
         globalThis.host?.dispose(); globalThis.vad?.dispose(); globalThis.modelStatuses = []; globalThis.vadStatuses = [];
         globalThis.prepared = false; globalThis.prepareError = undefined;
-        globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => modelStatuses.push(status));
+        globalThis.host = createAsrHost(document, '${candidate}', 'webgpu', status => modelStatuses.push(status));
         globalThis.vad = learned ? createVadHost(document, status => vadStatuses.push(status)) : undefined;
         Promise.all([host.prepare(), vad?.prepare()]).then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
       };
@@ -76,7 +81,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 deterministic additive noise/no-speech regression and learned-mode cached offline ASR; real FP16 WebGPU ASR over decoded synthetic PCM", learned, runs: [], failures: [] };
+const observations = { scope: "B2 deterministic additive noise/no-speech regression and learned-mode cached offline ASR; real FP16 WebGPU ASR over decoded synthetic PCM", learned, candidate, model, runs: [], failures: [] };
 const execute = promisify(execFile);
 let browser; let browserProcess; let browserExit; let profile; let page; let monitor;
 let peakRssKiB = 0;
@@ -134,7 +139,8 @@ try {
     const status = await page.evaluate(() => ({ error: prepareError, last: modelStatuses.at(-1), vadStatuses }));
     run.vadStatuses = status.vadStatuses;
     if (learned) { assert.equal(run.vadStatuses.at(-1).state, "ready"); assert.equal(run.vadStatuses.at(-1).requiredBytes, 2243022); }
-    assert.equal(status.error, undefined); assert.equal(status.last.state, "ready"); assert.equal(status.last.requiredBytes, 487960440);
+    assert.equal(status.error, undefined); assert.equal(status.last.state, "ready"); assert.equal(status.last.requiredBytes, model.requiredBytes);
+    assert.deepEqual(status.last.model, { id: model.id, version: model.version });
     if (learned && observations.runs.length > 1) for (const statuses of [run.vadStatuses, await page.evaluate(() => modelStatuses)]) {
       assert.ok(statuses.some(status => status.state === "cached"));
       assert.ok(statuses.every(status => status.state !== "downloading"));
@@ -283,6 +289,8 @@ try {
     assert.equal(observations.offline.statuses.at(-1).state, "ready");
     assert.ok(observations.offline.statuses.some(status => status.state === "cached"));
     assert.equal(observations.offline.asrStatuses.at(-1).state, "ready");
+    assert.deepEqual(observations.offline.asrStatuses.at(-1).model, { id: model.id, version: model.version });
+    assert.equal(observations.offline.asrStatuses.at(-1).requiredBytes, model.requiredBytes);
     assert.ok(observations.offline.control.probability < 0.5);
     assert.equal(observations.offline.cancelled, "VAD stopped");
     assert.equal(observations.offline.originalPcmBytes, 2048);
@@ -329,12 +337,12 @@ try {
   observations.visibilityEvents = await page.evaluate(() => visibilityEvents);
   assert.deepEqual(pageErrors, []); assert.deepEqual(observations.visibilityEvents, []);
   observations.remotePaths = [...remotePaths];
-  const pinned = "https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/";
+  const pinned = `https://huggingface.co/${model.id}/resolve/${model.version}/`;
   const vadPinned = "https://huggingface.co/onnx-community/silero-vad/resolve/e71cae966052b992a7eca6b17738916ce0eca4ec/onnx/model.onnx";
   if (learned) assert.ok(remotePaths.has(vadPinned));
   assert.equal([...remotePaths].filter(path => path.startsWith(pinned)).length, 7);
   assert.ok([...remotePaths].every(path => path.startsWith(pinned)
-    || path.startsWith("https://huggingface.co/api/resolve-cache/models/onnx-community/whisper-small/36050c46d777d46dc4b5f43f6d90574fc38f8732/")
+    || path.startsWith(`https://huggingface.co/api/resolve-cache/models/${model.id}/${model.version}/`)
     || (learned && (path === vadPinned || path.startsWith("https://huggingface.co/api/resolve-cache/models/onnx-community/silero-vad/e71cae966052b992a7eca6b17738916ce0eca4ec/")))
     || path.startsWith("https://us.aws.cdn.hf.co/xet-bridge-us/")), "Only pinned model artifacts/redirects may be remote");
   console.log(JSON.stringify({ passed: observations.failures.length === 0, ...observations }));

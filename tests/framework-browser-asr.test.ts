@@ -26,10 +26,10 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
     onmessage?: (event: { data: unknown }) => void;
     onerror?: () => void;
     onmessageerror?: () => void;
-    messages: { requestId: number; type: string; job?: AsrJob }[] = [];
+    messages: { requestId: number; type: string; candidate?: string; job?: AsrJob }[] = [];
     terminated = false;
     constructor() { workers.push(this); }
-    postMessage(message: { requestId: number; type: string; job?: AsrJob }, transfers: ArrayBuffer[]) {
+    postMessage(message: { requestId: number; type: string; candidate?: string; job?: AsrJob }, transfers: ArrayBuffer[]) {
       this.messages.push(structuredClone(message, { transfer: transfers }));
     }
     terminate() { this.terminated = true; }
@@ -43,11 +43,13 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
   try {
     await assert.rejects(host.prepare(), /Press Prepare/); assert.equal(workers.length, 0);
     (document.defaultView?.navigator.userActivation as { isActive: boolean }).isActive = true;
-    const unsupported = createAsrHost(document, "smallFp16", "wasm", () => {});
-    try {
-      await assert.rejects(unsupported.prepare(), /FP16 candidate requires WebGPU/);
-      assert.equal(workers.length, 0, "Unsupported precision/backend must not start a worker or fall back");
-    } finally { unsupported.dispose(); }
+    for (const candidate of ["smallFp16", "turboFp16"] as const) {
+      const unsupported = createAsrHost(document, candidate, "wasm", () => {});
+      try {
+        await assert.rejects(unsupported.prepare(), /FP16 candidate requires WebGPU/);
+        assert.equal(workers.length, 0, "Unsupported precision/backend must not start a worker or fall back");
+      } finally { unsupported.dispose(); }
+    }
     const preparation = host.prepare(); const worker = workers[0];
     worker.reply({ type: "ready" }); await preparation;
     const input = job(); const originalIdentity = { ...input.identity };
@@ -71,6 +73,14 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
     await assert.rejects(lost, /gpu-lost/);
     await assert.rejects(host.recognize(job()), /gpu-lost/); assert.equal(current.terminated, true);
     host.dispose(); host.dispose(); await assert.rejects(host.prepare(), /visible secure document/);
+    const turbo = createAsrHost(document, "turboFp16", "webgpu", () => {});
+    try {
+      const preparing = turbo.prepare(); const current = workers.at(-1);
+      assert.equal(current?.messages.at(-1)?.candidate, "turboFp16", "Explicit candidate must cross the worker boundary");
+      current?.reply({ type: "status", status: { state: "ready", model: { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732" }, requiredBytes: 487960440 } });
+      await assert.rejects(preparing, /Invalid ASR worker response/);
+      assert.equal(current?.terminated, true, "Another candidate's readiness must fail without fallback");
+    } finally { turbo.dispose(); }
   } finally {
     host.dispose();
     if (original) Object.defineProperty(globalThis, "Worker", original); else Reflect.deleteProperty(globalThis, "Worker");
