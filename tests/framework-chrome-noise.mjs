@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -14,6 +14,8 @@ const learned = process.argv.includes("--learned-vad");
 const turbo = process.argv.includes("--turbo");
 assert.ok(!turbo || learned, "Turbo comparison must retain learned VAD and offline qualification");
 const candidate = turbo ? "turboFp16" : "smallFp16";
+// Retain exact default-profile failing jobs for the existing strict replay harness.
+const archivedRuns = [];
 const model = turbo ? { id: "onnx-community/whisper-large-v3-turbo", version: "360ebcde2559d60bb474678be3c1de9ef347d01a", requiredBytes: 1621338971 }
   : { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732", requiredBytes: 487960440 };
 const output = resolve(learned ? ".ralph/media-framework/chrome-learned-noise-build" : ".ralph/media-framework/chrome-noise-build");
@@ -38,6 +40,7 @@ await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: {
     vad: resolve("packages/engines-browser/vad-host.ts") },
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } },
 } });
+const archive = learned && !turbo ? await mkdtemp(resolve(".ralph/media-framework/chrome-live-jobs-noise-")) : undefined;
 const server = createServer(async (request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
   if (path === "/") {
@@ -81,7 +84,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 deterministic additive noise/no-speech regression and learned-mode cached offline ASR; real FP16 WebGPU ASR over decoded synthetic PCM", learned, candidate, model, runs: [], failures: [] };
+const observations = { scope: "B2 deterministic additive noise/no-speech regression and learned-mode cached offline ASR; real FP16 WebGPU ASR over decoded synthetic PCM", learned, candidate, model, archive, runs: [], failures: [] };
 const execute = promisify(execFile);
 let browser; let browserProcess; let browserExit; let profile; let page; let monitor;
 let peakRssKiB = 0;
@@ -145,7 +148,7 @@ try {
       assert.ok(statuses.some(status => status.state === "cached"));
       assert.ok(statuses.every(status => status.state !== "downloading"));
     }
-    const measured = await page.evaluate(async ({ clip, mode }) => {
+    const measured = await page.evaluate(async ({ clip, mode, archive }) => {
       const speech = mode.startsWith('speech-');
       const noiseRms = mode.includes('quiet') ? 0.006 : mode === 'hum' ? 0.04 : 0.02;
       const original = speech ? await readClip(clip) : new Float32Array(0);
@@ -173,6 +176,11 @@ try {
         const inputSlice = pcm.slice(startSample, startSample+job.pcm.length);
         const invocation = {audioRange: {...job.audioRange}, samples: job.pcm.length,
           exactInput: job.pcm.every((sample,i) => sample === inputSlice[i]), pcmSha256: await digest(job.pcm)};
+        if (archive && speech) {
+          if (new Uint8Array(new Float32Array([1]).buffer)[3] !== 63) throw new Error('Archive requires Float32 little-endian');
+          let binary = ''; for (const byte of new Uint8Array(job.pcm.buffer)) binary += String.fromCharCode(byte);
+          invocation.base64 = btoa(binary);
+        }
         invocations.push(invocation); invocation.atMs = performance.now();
         try { return await host.recognize(job); } finally { invocation.settledAtMs = performance.now(); }
       }};
@@ -203,7 +211,7 @@ try {
       return {outcome,originalSamples:original.length,inputSamples:pcm.length,inputDurationMs:pcm.length/16,
         inputSha256,noiseRms:Math.sqrt(noiseEnergy/pcm.length),snrDb:speech ? 10*Math.log10(speechEnergy/noiseEnergy) : undefined,
         peak,hostDurationMs:performance.now()-start,transcripts,invocations,deliveries,statuses,detectorFrames};
-    }, { clip, mode });
+    }, { clip, mode, archive: Boolean(archive) });
     Object.assign(run, measured, { peakRssKiB, finalRssKiB: await sampleRss() });
     const fail = message => observations.failures.push(`${clip.language}/${mode}: ${message}`);
     assert.equal(run.inputSha256, hashes[`${clip.language}/${mode}`] ?? hashes[mode], "Retain every original mixed input");
@@ -259,6 +267,30 @@ try {
       // speech-free input is a failure even if the queue/accounting passed.
       if (run.transcripts.some(revision => revision.text.trim())) fail("fabricated text on known speech-free input");
       if (mode === "quiet-noise" && run.invocations.length) fail("below-gate noise must make no ASR calls");
+    }
+    if (archive && mode.startsWith("speech-")) {
+      const saved = { round: archivedRuns.length+1, language: clip.language, mode, periods: 3,
+        reference: clip.text, fixtureSha256: clip.sha256, inputSha256: run.inputSha256,
+        inputSamples: run.inputSamples, noiseRms: run.noiseRms, snrDb: run.snrDb,
+        identity: run.transcripts[0].identity, jobs: [] };
+      for (const [index, job] of run.invocations.entries()) {
+        const bytes = Buffer.from(job.base64, "base64"); delete job.base64;
+        assert.equal(bytes.length, job.samples*4);
+        assert.equal(createHash("sha256").update(bytes).digest("hex"), job.pcmSha256,
+          "Archive exactly matches the original mixed-input slice hashed before transfer");
+        const revision = run.transcripts[index];
+        const file = `round-${saved.round}-job-${index+1}.f32`;
+        await writeFile(resolve(archive, file), bytes);
+        saved.jobs.push({ file, samples: job.samples, inputSha256: job.pcmSha256,
+          utteranceId: revision.utteranceId, audioRange: job.audioRange, originalText: revision.text,
+          originalEndpointMs: run.endpointLatenciesMs[index] });
+      }
+      archivedRuns.push(saved);
+      await writeFile(resolve(archive, "manifest.json"), JSON.stringify({
+        scope: "Owned synthetic selected-video ASR jobs only; no user recordings or full interpretation",
+        format: "float32-le", sampleRate: 16000, channels: 1, candidate, model, runs: archivedRuns,
+      }, null, 2));
+      run.archivedJobs = saved.jobs.length;
     }
     console.log(JSON.stringify({ run }));
   }

@@ -10322,3 +10322,206 @@ state committed. Only owned test browser/profile resources are cleaned by the
 harnesses. Commit: `fix: use text decoding for bounded Chrome ASR`.
 Final staged whitelist, preserved checkboxes/history, whitespace and clean
 committed worktree are checked at delivery.
+
+
+## 2026-10-09 KST — B6 exact noisy ASR jobs (chrome iteration 10/20)
+
+**B6 remains unchecked.** Entry worktree was clean; no repository AGENTS.md or
+requested `2026-10-08T13-28-06-822Z-chrome-verification.txt` was present. Read the
+plan, framework architecture and Chrome evidence. This iteration evaluates the
+retained Japanese white-noise omissions. A proposed acoustic change failed and
+was fully reverted; the retained change is test-only input provenance.
+
+### Retained implementation and rejected acoustic experiment
+
+`tests/framework-chrome-noise.mjs` now snapshots default learned-profile speech
+jobs before transfer, writes Float32 little-endian PCM to ignored
+`chrome-live-jobs-noise-*` archives, and validates saved length/SHA-256 against the
+original hashed mixed-input slice. The manifest preserves language, identity,
+range, utterance, fixture/input/job hashes, original text, endpoint measurement,
+noise RMS/SNR and the unchanged three-period reference. Passing Japanese/English
+quiet/noisy controls accompany the failing case. The existing strict replay
+command consumes this format without new options or harness modifications.
+Archives remain outside Git; ordinary model/profile ownership and cleanup remain.
+The archive is created after the build establishes its parent directory, including
+on a fresh checkout. Snapshot encoding contributes to the measured test workload;
+RSS includes observer copies, browser/GPU and shared pages.
+
+All original ten cases, original assertion lines, immutable input hashes,
+**CER/WER <=20%**, exact meaning counts, **endpoint <2,000 ms**, contiguous input,
+queue/loss, cached offline and visibility checks remain. No production source,
+model choice/revision, VAD, decoding, settings, permissions, dependency or runner
+change is retained. The production worker exactly matches entry HEAD.
+
+**FAIL experiment / exit 1:** `npm run test:framework:chrome:noise:learned`,
+`chrome-b6-10-filter-noise.log` / `...-summary.json`. A temporary worker-local
+fourth-order 4 kHz low-pass filter used two biquads (Q 0.541196100146197 and
+1.306562964876377), copied samples without trimming or mutating acquired PCM,
+and kept the existing text decoder. All ten mixtures and twelve acquired job
+hashes/ranges/lengths match iteration 9 (independent comparison PASS).
+Japanese white noise worsens from **9/120 = 7.5%** to **10/120 = 8.333333333333332%**
+CER; meeting **2**, station **1**, expected **3**, other five **3**. Endpoints
+**1,100.800000011921 / 1,443.8999999761581 / 841.8999999761581 ms**, max queue
+**9,300 ms**. The sole aggregate failure is unchanged meaning loss. Other speech
+scores/counts and the six no-speech cases pass; offline ja/en are **1/40 CER /
+1/22 WER**, all meanings once, **850.1999999880791 / 655.1999999880791 ms**.
+The command's **23 mocked transport/VAD checks** pass; they do not establish
+recognition accuracy. Page errors/visibility events **[]**. No second unchanged
+filter attempt or retained filtering, text correction, deduplication or label
+prompt. The worker was restored before the full acceptance invocation.
+
+### Actual final-source archive and integrity evidence
+
+The full-stage noise constituent is **FAIL / exit 1**, with the same sole
+Japanese white-noise exact-count failure: **9/120 = 7.5% CER**, meeting **2**,
+station **1**, other five **3**. Endpoints **1,079.2000000476837 /
+1,434.6999999284744 / 836.1000000238419 ms**, maximum pending **9,200 ms**.
+All ten cases and cached offline ASR execute; passing CER/latency does not qualify
+missing meanings. Evidence: `chrome-b6-10-stage.log` / `...-stage-noise.json`.
+
+Archive `.ralph/media-framework/chrome-live-jobs-noise-PGrAUS` contains **four
+runs / twelve jobs**, each three periods. Manifest SHA-256:
+`5e3e9af50dfaa98fc59f15c091a9deae2a5893e63c41bbf96bde34129cabbb89`.
+Independent readback **PASS / exit 0** for all sizes, hashes, ranges, identities,
+utterances and original-text associations, plus all twelve identical job hashes/
+ranges/lengths against iteration 9. Each Japanese run retains **383,040 samples**,
+each English run **368,640**. Full Japanese white-noise input SHA-256 remains
+`38db530ee1d6884d13ed97b716f2ccc690317cf166268163bf5a4591838514e9`.
+Evidence: `chrome-b6-10-archive-integrity.json`.
+
+A one-byte mutation of an owned synthetic archive copy is **correctly rejected**
+by `npm run test:framework:chrome:replay --
+.ralph/media-framework/chrome-live-jobs-noise-corrupt-fxq_0yec --default-only`,
+**exit 1** at
+the original SHA-256 assertion (`framework-chrome-replay.mjs:54`), before build/
+browser/model execution. Evidence: `chrome-b6-10-corrupt-replay.log`. The initial
+analysis wrapper itself **FAILS / exit 1** because it expected source line 72;
+correcting the wrapper to inspect actual line 54 and the two recorded digests
+**PASSES / exit 0** on that existing log. No inference/negative command repeated.
+The copy was removed; the original archive is unchanged.
+
+### Full acceptance, actual extension and retained English failure
+
+**FAIL `npm run test:framework:chrome` / exit 1**, one complete invocation on the
+restored production worker and final noise harness: **12 constituents / 10 PASS /
+2 FAIL / none skipped**, `passed: false`. The archive-parent ordering edit was
+made before the noise constituent was loaded; final-source verify was rerun.
+Evidence: `chrome-b6-10-stage.log` / `...-stage-summary.json`.
+
+| Constituent | Status / exit | Elapsed ms |
+| --- | --- | ---: |
+| `typecheck:framework` | PASS / 0 | 188.57887499999998 |
+| `test:framework:chrome:preparation` | PASS / 0 | 14055.415417 |
+| `test:framework:chrome:channel` | PASS / 0 | 7629.9376250000005 |
+| `test:framework:chrome:overlay` | PASS / 0 | 7255.021624999998 |
+| `test:framework:chrome:composition` | PASS / 0 | 2627.9660829999993 |
+| `test:framework:chrome:translation` | PASS / 0 | 8459.203250000002 |
+| `test:framework:chrome:sustained` | PASS / 0 | 742803.451542 |
+| `test:framework:chrome:live:gpu-recovery` | PASS / 0 | 213328.50537500007 |
+| `test:framework:chrome:eof` | PASS / 0 | 280374.9192919999 |
+| `test:framework:chrome:quiet` | PASS / 0 | 188024.53191699996 |
+| `test:framework:chrome:noise:learned` | FAIL / 1 | 202148.479542 |
+| `test:framework:chrome:live:sustained:learned` | FAIL / 1 | 538063.6372919998 |
+
+The separate sustained live English run **FAILS** exact meaning counts:
+**61/418 = 14.5933014354067% WER**, each of four meanings **17**, expected **19**.
+Maximum labeled endpoint **1,416.1000000238419 ms**, last packet-to-result
+**1,018.3999999761581 ms**, maximum pending **14,783.375 / 30,000 ms**,
+normal loss/final pending **0/0**. Its only aggregate failure is meaning loss;
+passing WER/latency cannot excuse it. Host interval **127,729.5 ms**. This is a
+fresh input layout on unchanged production code, not a claimed filter regression
+or permission/device blocker. It is retained in ignored `chrome-live-jobs-pI0asc`
+and `chrome-b6-10-stage-live.json`; exact English replay remains **UNVERIFIED in
+this iteration**. No repeat live attempt with unchanged sources.
+
+Long live Japanese **PASS**: **18/720 = 2.5% CER**, all seven meanings **18**,
+maximum labeled endpoint **1,668.8999999761581 ms**, maximum pending
+**15,615.375 ms**, final pending/loss **0/0**, host interval
+**126,928.69999992847 ms**. All eight live rounds execute. Two exact Japanese
+replay groups (**2 / 10 jobs**) reproduce passing counts/error with zero remote
+inference requests. These successes do not override English/noise failures.
+The separate GPU recovery constituent and all ten EOF/six quiet cases pass.
+
+Actual production extension's ten-minute/offline lifecycle constituent **PASS**:
+companion/Ollama **8765/11434 ECONNREFUSED**, page errors **[]**; real first-download
+failure, ja/en online and cached offline Stop/restart, native Korean/revision/
+DOM/overlay/playback gates pass. Ten-minute host interval **600,162 ms**, PCM
+**600,064 ms / 14,064 chunks / 48 kHz / 28,803,072 samples**. Frozen snapshot
+**93 submitted jobs / 92 results / 92 paired rows**, first ASR start **0 ms**,
+last completed end **593,088 ms**, uncompleted tail **6,976 ms**. Maximum queue
+**17,322 / 30,000 ms**, running loss **0**, acknowledgement max **1 / limit 4 /
+final 0**. Worker inference max **1,537.5 ms**, common-host last-PCM-delivery to
+source max **1,841.1000000238419 ms**, source to paired max
+**62.59999996423721 ms**; these are not labeled speech-endpoint measurements.
+Minute RSS **3,900,288–4,374,272 KiB**, whole owned tree, not isolated model/leak/
+mobile-pressure evidence. Before Stop, pending **2,783.375 ms**, loss **0**,
+uncompleted submitted jobs **[]**; after Stop controller idle/queue **0**, history
+retained/no late captions/original playback. The result pending in the frozen
+snapshot completed before Stop: **93 completed sustained jobs** are retained
+in `chrome-extension-jobs-YgoufO`. Evidence: `chrome-b6-10-stage-extension.json`.
+
+### Final-source verification and qualification boundary
+
+**PASS `npm run verify` / exit 0**, `chrome-b6-10-verify-final.log`: Biome
+**148 files / 78 ms / no findings**, Ruff/typechecks/unchanged companion build,
+**153 JS / 0 failed / 26,800.75775 ms**, **222 Python / 67.03 s**. The initial
+verify also **PASS / exit 0** (**153 JS / 222 Python / 66.96 s**) before the
+archive-parent ordering edit; it is not substituted for the final run. Focused
+Node syntax, one-file Biome, original assertion-line preservation and whitespace
+checks pass. No executable edit follows final verify or the noise constituent.
+
+Environment: macOS **26.6.2 / 25G83 / arm64**, Node **24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, locked Transformers.js **4.3.0**. Same
+smallFp16/WebGPU model `onnx-community/whisper-small`, revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 model bytes**.
+No new model candidate, weights or dependency is committed.
+
+Complete ten-minute CER/meaning/native translation semantics remain
+**UNVERIFIED**: the 23,940 ms remux period clips speech, so multiplying the short
+reference would be invalid. A different 93-job capture does not reproduce the
+three historical production hallucination windows or erase earlier failures.
+Other retained layouts, broader natural/site speech, physical speaker/native
+fullscreen, complete offline browser restart, Safari and physical iPhone remain
+**UNVERIFIED in this slice**. Mocks, PCM acquisition, cache/loading and replay
+speed do not establish recognition/translation accuracy.
+
+### Exact noisy-job replay and next work
+
+**FAIL / exit 1:** `npm run test:framework:chrome:replay --
+.ralph/media-framework/chrome-live-jobs-noise-PGrAUS --default-only`,
+`chrome-b6-10-noise-replay.log` / `...-summary.json`. Both fresh production workers
+execute **all twelve jobs / four original runs**, retaining every original score,
+meaning, identity/hash/range, transfer, decoder token/chunk, worker/cache/network
+and visibility assertion. Each trial fails only round 2's Japanese white-noise
+meaning counts (**2 meeting / 1 station**, expected **3**), with **7.5% CER**.
+Japanese quiet noise **2.5% CER**; English quiet/white noise **4.545454545454546%
+WER**; those three runs retain all meanings three times in each worker.
+
+Independent decoder analysis **PASS / exit 0**,
+`chrome-b6-10-noise-replay-analysis.log`: **24/24 exact original text/PCM/identity/
+range associations**, raw generated text equals final decoded text in every job;
+texts and token sequences are identical between workers. Thus the omissions are
+already present in raw generation, not repaired or caused by result assembly.
+Preparation **52,562.633042 ms / 14 remote requests**, then cached fresh worker
+**1,328.737957999998 ms / 0 requests**; inference **0 remote requests** each,
+page errors/visibility events **[]**. Owned tree RSS peaks **4,207,104 /
+4,308,624 KiB**. Replay ran after full-stage GPU workloads ended; replay timing
+still does not qualify live endpoint latency. No third unchanged noise attempt.
+
+**Next remains B6:** improve raw Japanese white-noise meeting/station recognition,
+qualify the newly retained sustained English omission layout, and establish valid
+complete long-run semantic/reference quality. Keep **<=20%**, exact counts,
+**<2,000 ms**, queue/loss and all failed inputs/assertions. No required device,
+permission or browser-access absence was observed; no missing-environment blocker
+or stage-completion claim applies. All Stage chrome checkboxes are preserved,
+including unfinished B6; no other stage is advanced.
+
+Three intended files only: noise harness, this report and plan log. Companion
+v0.1.0/native messaging/install/server/legacy extension/user settings, production
+permissions/models/core, runner and original fixtures remain unchanged. User
+apps, recordings, mounted images and unrelated files are preserved. No agents,
+push, publish, app install or browser/profile workaround. No credentials, model
+weights, user audio/transcripts or temporary `.ralph` state committed; only owned
+test-browser/profile resources cleaned. Related commit:
+`test: archive noisy Chrome ASR inputs`. Final staged whitelist, unchanged
+checklists/history, whitespace and clean committed worktree are checked at delivery.
