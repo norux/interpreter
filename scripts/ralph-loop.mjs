@@ -57,8 +57,11 @@ ${repairFailure ? `Repair the failed acceptance in Stage ${selected} only: ${rep
 Read the failure log, establish the cause, fix and verify it, and commit the repair.
 Do not restart completed feature work or tune unrelated quality targets.` : `Implement the next unfinished item in Stage ${selected} only.`} Follow the full framework
 architecture and preserve the published companion and existing user settings.
-Run acceptance checks, record exact passing/failing/unverified evidence in the stage
-report and plan progress log, check only actually completed items, and commit the work.
+For partial iterations, run checks affected by retained changes or a new hypothesis.
+Do not repeat unchanged long browser suites without new evidence or a regression concern.
+Before declaring stage completion, run all acceptance commands required by the plan.
+Record exact passing/failing/unverified evidence in the stage report and plan progress log,
+check only actually completed items, and commit the work.
 Do not change scripts/ralph-loop.mjs, weaken acceptance, delete the plan, launch other
 agents, push, publish, install apps without authorization or advance to another stage.
 Preserve unrelated files, active recordings, mounted images and running user apps.

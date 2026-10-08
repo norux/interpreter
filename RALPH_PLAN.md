@@ -6374,3 +6374,40 @@ fixtures/other stages preserved. No agents/push/publish/app install/access
 workaround or committed credentials/weights/user audio/transcripts/temporary state.
 Commit: `test: archive noisy Chrome ASR inputs`. Detailed report is the matching
 iteration-10 section of `docs/verification/media-framework/chrome.md`.
+
+
+### 2026-10-09 KST — supervisor: scope partial-iteration validation
+
+The clean `ce0947c` checkpoint preserves the failed Japanese white-noise
+input and the new sustained English failure (`chrome-live-jobs-pI0asc`,
+14.5933014354067% WER, each required meaning 17 rather than 19). The
+English archive's ten original job files and all twelve noisy job files
+(`chrome-live-jobs-noise-PGrAUS`) independently match their recorded sizes
+and SHA-256 values. B6 remains unchecked; Safari/iPhone/final cleanup
+remain unfinished. No failed evidence is replaced with a passing capture.
+
+Partial diagnostic work was repeatedly running the full long Chrome suite
+even after a failed hypothesis was reverted and only an observer changed.
+Clarify the runner prompt: partial iterations run checks affected by retained
+changes, new hypotheses or regression concerns; completion still requires
+every plan acceptance command. Independent completion/repair checks,
+iteration/commit guards, stage boundaries and final revalidation/cleanup
+logic are unchanged. No runtime, model, fixture, threshold or user-setting
+change accompanies this instruction clarification.
+
+Prepared the exact prompt change in an ignored isolated copy and ran the
+existing runner fixture suite: PASS, 23 tests, zero failures/skips,
+25,549.470084 ms (`scoped-runner-validation/tests.log`). These are runner
+control/repair/cleanup checks, not ASR or device acceptance. The current
+worker finished and committed before the old held runner was terminated
+for source reload. Validate the primary script and commit this clarification
+then restart the same all-stage flow; do not abandon the held transition
+or claim framework completion.
+
+Primary validation also PASS: `node --check scripts/ralph-loop.mjs`, the
+existing 23-test runner fixture suite (zero failed/skipped/cancelled;
+`scoped-runner-validation/primary-tests.log`), and `git diff --check`.
+The primary source exactly matches the isolated tested source. No actual
+ASR/runtime code changed in this supervisor slice. Commit the two owned
+files and restart `node scripts/ralph-loop.mjs all 20` with a fresh guarded
+runner process; all stage completion and final cleanup gates remain required.
