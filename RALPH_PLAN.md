@@ -7161,3 +7161,76 @@ cover only these intended files. An untracked `.DS_Store` appeared during this
 iteration and is preserved, unstaged; the plan excludes it from runner cleanliness.
 Full Chrome acceptance remains NOT RUN this partial iteration; historical failure
 and unfinished B6 remain. No stage/framework/iPhone completion or terminal marker.
+
+
+### 2026-10-09 KST / chrome / iteration 9/20 — medium Q8 allocation comparison
+
+Entry `0d50858`; only unrelated untracked `.DS_Store`, preserved unstaged. Root
+AGENTS.md and requested independent runner acceptance log absent. Read supplied
+instructions, plan, architecture and Chrome report. **B6 only, still unchecked;
+app default remains smallFp16/WebGPU.** No checkbox/later-stage change.
+
+New hypothesis: pinned medium Q8's **778,899,072-byte** inventory, versus previously
+failed FP16 **1,533,989,445 bytes**, might permit inference and recognition comparison.
+Use existing Q8 loader before a custom beam decoder. Installed Transformers.js
+4.3.0 generation code does not branch beams and breaks after its first sampler
+token; no `num_beams` option added. Public pinned metadata refresh **HTTP 200** matches
+all seven files; sizes/SHA-256 and links in the stage report. Temporary medium Q8
+inventory, worker forwarding and replay flag preserve exact archive/fixture hashes,
+PCM/ranges/identity/revision, 256-token budget, two-fresh-worker design, single-pass
+text decoding, <=20%, exact counts and original timeout/cache/network/visibility gates.
+No app/default/settings/PCM/VAD/filter/prompt/text correction or fallback changes.
+
+Actual experimental command:
+`npm run test:framework:chrome:replay --
+ .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --medium-only`
+**FAIL / exit 1 / 130.586182125 s**, local basename
+`chrome-iteration-9-medium-q8-noise` (log/summary/status). Preparation
+**110,621.0615 ms / 14 HTTPS requests**, exact **778,899,072 bytes** loaded and ready.
+First Japanese inference rejects with `engine-failed`; observer records
+`OrtRun ERROR_CODE: 6, ERROR_MESSAGE: std::bad_alloc` in encoder preparation.
+**Zero scored ASR jobs**; second worker not reached. Empty quality-failure array
+is not acceptance. Stop medium after this lower-size evidence; no Q8 repeat or
+third unchanged FP16 attempt. Retry only with materially new runtime/allocation
+evidence. Requested allocation size/limit/physical or GPU exhaustion unverified.
+
+Request/HTTP failures and visibility events **[]**; document visible. Owned-tree
+baseline/trial-baseline RSS **1,297,408 / 1,308,608 KiB**, not isolated allocation.
+Peak/final network/page-error counters and all accuracy/meaning/endpoint/Korean/
+DOM/ten-minute qualification **UNVERIFIED** on early failure. Independent
+`python3 .ralph/media-framework/chrome-iteration-9-failure-readback.py`
+**PASS / exit 0 / 0.052277541 s** validates twelve PCM hashes/sizes, seven pinned
+metadata entries/total, status/identity/ready association, zero scored jobs, failing
+exit and exact exception. Manifest SHA-256 unchanged:
+`5e3e9af50dfaa98fc59f15c091a9deae2a5893e63c41bbf96bde34129cabbb89`.
+Forensic consistency is not recognition acceptance.
+
+All three experimental executable files restored byte for byte to entry HEAD.
+Experimental typecheck/syntax/Biome (**6 ms**) and focused contracts **PASS / 13 tests**.
+Restored timestamp/ASR/model/trace command **PASS / exit 0 / 13 passed /
+0 failed/skipped/cancelled / 376.682166 ms TAP** (wrapper **0.402262416 s**),
+`chrome-iteration-9-restored-contracts`; restored `npm run typecheck`
+**PASS / exit 0 / 0.243462542 s**, `chrome-iteration-9-restored-typecheck`.
+Restored syntax/source-equality checks pass. Mocks establish contracts, not accuracy.
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, Transformers.js **4.3.0**. Ordinary model
+metadata/cache and explicit local tests only. No required environment/device/
+permission absence; optional candidate allocation failure does not block required
+small's environment. No terminal marker. No browser/profile access workaround,
+app installation, agents, push or publication; only owned browser/profile cleaned.
+
+**NOT RUN:** `npm run verify`, full `npm run test:framework:chrome`, unchanged long/
+noise/quiet/EOF/live/Stop/GPU/native Korean/DOM/ten-minute suites. Final executable
+source is identical to entry, whose iteration-8 verify passed; restoration checks
+above pass. Historical app-default noise/full-acceptance failures remain FAIL.
+Both plan commands remain mandatory before completion. **Next B6:** recover noisy
+Japanese meanings without long/quiet omissions/repetitions, qualify final default's
+<2,000 ms live endpoints and complete selected-video/native Korean/ten-minute/full
+Chrome acceptance; keep all strict gates and failures. B6/Chrome/framework/Safari/
+physical iPhone incomplete. Only append-only report/plan retained; no weights,
+credentials/user media/transcripts or ignored temporary `.ralph` state staged.
+Companion/install/native messaging/settings, production inventory/permissions/
+fixtures/runner and unrelated apps/files/recordings/mounts preserved. Whitespace,
+append-only history/checklist equality, two-file scope and committed cleanliness
+checked at delivery. Related commit: `docs: record Chrome medium Q8 allocation comparison`.
