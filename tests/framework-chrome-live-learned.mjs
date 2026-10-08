@@ -9,9 +9,11 @@ import { chromium } from "playwright";
 import { build } from "vite";
 
 // B2 learned live-input qualification only; no Korean translation/caption DOM.
-const sustained = process.argv.includes("--sustained-input");
-const gpuRecovery = process.argv.includes("--gpu-recovery");
-assert.ok(!(sustained && gpuRecovery), "Qualification modes must run separately");
+const sustainedGpuRecovery = process.argv.includes("--sustained-gpu-recovery");
+assert.ok(["--sustained-input", "--gpu-recovery", "--sustained-gpu-recovery"].filter(flag => process.argv.includes(flag)).length <= 1,
+  "Qualification modes must run separately");
+const sustained = sustainedGpuRecovery || process.argv.includes("--sustained-input");
+const gpuRecovery = sustainedGpuRecovery || process.argv.includes("--gpu-recovery");
 const output = resolve(".ralph/media-framework/chrome-live-learned-build");
 const manifest = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8"));
 for (const clip of manifest.clips) {
@@ -43,7 +45,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, gpuRecovery, generatedMedia: [], liveRuns: [], failures: [] };
+const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, gpuRecovery, sustainedGpuRecovery, generatedMedia: [], liveRuns: [], failures: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page;
 let peakRssKiB = 0;
 let sustainedMemory;
@@ -179,7 +181,7 @@ try {
     }
     console.log(JSON.stringify({ generatedMedia: observations.generatedMedia }));
   }
-  for (const [round, language] of ["ja", "ja", "ja", "en", "ja", "en", ...(sustained ? ["ja", "en"] : gpuRecovery ? ["ja", "ja", "en", "en"] : [])].entries()) {
+  for (const [round, language] of ["ja", "ja", "ja", "en", "ja", "en", ...(gpuRecovery ? ["ja", "ja", "en", "en"] : sustained ? ["ja", "en"] : [])].entries()) {
     const clip = manifest.clips.find(clip => clip.language === language);
     const lossRound = gpuRecovery && (round === 6 || round === 8);
     const recoveryRound = gpuRecovery && (round === 7 || round === 9);
@@ -207,14 +209,14 @@ try {
       assert.equal(await asrWorker.evaluate(() => !!globalThis.testRuntimeDevice), true);
       await page.evaluate(() => { globalThis.lossHost = host; globalThis.lossVad = vad; globalThis.workersBeforeLoss = ownedWorkers.length; });
       // Enter the production recognize handler before destroying its real device.
-      await asrWorker.evaluate(() => {
+      await asrWorker.evaluate(lossAfterAudioMs => {
         const original = globalThis.onmessage;
         globalThis.onmessage = function (event) {
           const operation = original.call(this, event);
-          if (event.data?.type === "recognize") globalThis.testRuntimeDevice.destroy();
+          if (event.data?.type === "recognize" && event.data.job.audioRange.endMs >= lossAfterAudioMs) globalThis.testRuntimeDevice.destroy();
           return operation;
         };
-      });
+      }, sustainedGpuRecovery ? 60000 : 0);
     }
     if (recoveryRound) {
       assert.deepEqual(await page.evaluate(() => ({ sameHost: host === lossHost, sameVad: vad === lossVad,
@@ -245,14 +247,39 @@ try {
     assert.deepEqual(live.playbackBefore, live.playbackAfter);
     assert.ok(live.playbackAfter.every(video => !video.paused && !video.muted));
     assert.deepEqual(live.visibilityEvents, []);
+    if (sustained && round >= 6) {
+      live.hostDurationMs = live.liveFinishedAtMs-live.liveStartedAtMs;
+      live.minuteQueues = Array.from({ length: Math.ceil(live.hostDurationMs/60000) }, (_, minute) => {
+        const start = live.liveStartedAtMs+minute*60000;
+        const statuses = live.queueStatuses.filter(status => status.atMs >= start && status.atMs < start+60000);
+        assert.ok(statuses.length, "Every sustained minute must contain actual queue observations");
+        return { minute: minute+1, maxPendingAudioMs: Math.max(...statuses.map(status => status.queue.pendingAudioMs)),
+          finalPendingAudioMs: statuses.at(-1).queue.pendingAudioMs, droppedAudioMs: statuses.at(-1).queue.droppedAudioMs };
+      });
+    }
     if (lossRound) {
-      assert.equal(live.error, "gpu-lost"); assert.deepEqual(live.transcripts, []);
-      assert.equal(live.invocations.length, 1);
-      assert.ok(live.invocations[0].exactInput && live.invocations[0].samples > 1600);
+      assert.equal(live.error, "gpu-lost");
+      if (sustainedGpuRecovery) {
+        assert.ok(live.normalized.samples/16 >= 60000 && live.hostDurationMs >= 60000,
+          "Sustained GPU loss must follow at least one minute of actual live acquisition");
+        assert.ok(live.memorySamples.length >= 2);
+        assert.ok(live.transcripts.length > 0, "Real recognition must precede sustained loss");
+        assert.equal(live.invocations.length, live.transcripts.length+1, "Interrupted recognition must publish no revision");
+        for (const [i, revision] of live.transcripts.entries()) {
+          assert.deepEqual(revision.identity, live.identity);
+          assert.deepEqual(revision.audioRange, live.invocations[i].audioRange);
+          assert.equal(revision.utteranceId, `speech-${i+1}`);
+          assert.ok(revision.audioRange.endMs < 60000, "Only jobs before the injected failure may publish");
+        }
+        assert.ok(live.invocations.at(-1).audioRange.endMs >= 60000);
+      } else {
+        assert.deepEqual(live.transcripts, []); assert.equal(live.invocations.length, 1);
+      }
+      assert.ok(live.invocations.every(job => job.exactInput && job.samples > 1600));
       assert.ok(live.detectorFrames.length > 0 && live.normalized.samples > 1600);
       assert.ok(live.normalized.samples/16 < clip.speechDurationSeconds*periods*1000,
         "GPU loss must interrupt selected-video acquisition before its capture endpoint");
-      assert.ok(live.invocations[0].audioRange.endMs < clip.speechDurationSeconds*periods*1000,
+      assert.ok(live.invocations.at(-1).audioRange.endMs < clip.speechDurationSeconds*periods*1000,
         "Loss must interrupt a nonfinal live speech job");
       assert.equal(live.queueStatuses.at(-1).reason, "gpu-lost");
       assert.equal(live.queueStatuses.at(-1).queue.pendingAudioMs, 0);
@@ -265,7 +292,9 @@ try {
         const reason = await host.recognize(job).then(() => 'unexpected success', error => error.message);
         return {reason, retainedBytes:job.pcm.byteLength, workers:ownedWorkers.length-workersBeforeLoss, transcripts};
       });
-      assert.deepEqual(live.retry, { reason: "gpu-lost", retainedBytes: 6400, workers: 0, transcripts: [] });
+      assert.deepEqual(live.retry, { reason: "gpu-lost", retainedBytes: 6400, workers: 0, transcripts: live.transcripts });
+      live.remoteRequests = remoteRequests-requestsBefore;
+      assert.equal(live.remoteRequests, 0, "Cached live loss must not fetch model artifacts");
       console.log(JSON.stringify({ liveGpuLoss: live }));
       continue;
     }
@@ -354,7 +383,6 @@ try {
     else if (!(live.lastPacketToResultMs >= 0 && live.lastPacketToResultMs < 2000)) observations.failures.push(`${language}/live-${periods}-periods: last-packet-to-text ${live.lastPacketToResultMs} ms exceeds preserved latency gate`);
     if (sustained && round >= 6) {
       assert.ok(live.normalized.samples/16 >= 120000, "Each sustained language must supply at least two minutes of actual selected-video PCM");
-      live.hostDurationMs = live.liveFinishedAtMs-live.liveStartedAtMs;
       assert.ok(live.hostDurationMs >= 120000);
       assert.ok(live.memorySamples.length >= 3, "Sample owned browser RSS at the start and both minute boundaries");
       live.inferenceOverlapJobs = live.invocations.filter(job => job.deliveredAtEndMs > job.deliveredAtStartMs+100).length;
@@ -365,13 +393,6 @@ try {
         return revision.observedAtMs-delivery.atMs;
       });
       if (live.endpointLatenciesMs.some(ms => ms < 0 || ms >= 2000)) observations.failures.push(`${language}/live-${periods}-periods: an endpoint exceeds the preserved 2000 ms gate`);
-      live.minuteQueues = Array.from({ length: Math.ceil(live.hostDurationMs/60000) }, (_, minute) => {
-        const start = live.liveStartedAtMs+minute*60000;
-        const statuses = live.queueStatuses.filter(status => status.atMs >= start && status.atMs < start+60000);
-        assert.ok(statuses.length, "Every sustained minute must contain actual queue observations");
-        return { minute: minute+1, maxPendingAudioMs: Math.max(...statuses.map(status => status.queue.pendingAudioMs)),
-          finalPendingAudioMs: statuses.at(-1).queue.pendingAudioMs, droppedAudioMs: statuses.at(-1).queue.droppedAudioMs };
-      });
     }
     await page.waitForTimeout(200);
     assert.equal(await page.evaluate(() => raw.chunks), live.raw.chunks, "Capture must detach after completion while playback continues");
