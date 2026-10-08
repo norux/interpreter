@@ -18,6 +18,7 @@ const sustained = process.argv.includes("--sustained");
 const lifecycle = sustained || process.argv.includes("--lifecycle");
 const longMedia = new Map();
 const generatedMedia = [];
+const archivedRuns = [];
 const output = resolve(".ralph/media-framework/chrome-extension-build");
 const fixtures = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8")).clips;
 for (const fixture of fixtures) {
@@ -32,6 +33,7 @@ for (const fixture of fixtures) {
   }
 }
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: { outDir: output } });
+const archive = sustained ? await mkdtemp(resolve(".ralph/media-framework/chrome-extension-jobs-")) : undefined;
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
 assert.deepEqual(manifest.permissions, ["activeTab", "scripting"]);
 assert.equal(manifest.host_permissions, undefined);
@@ -41,7 +43,7 @@ const observations = { scope: sustained
   : lifecycle
   ? "B5 real extension first-download failure, cached offline Japanese/English PCM → ASR → native Korean → DOM, active inference Stop/restart; no ten-minute or B6 final quality acceptance"
   : "B4 real production extension selected-video PCM → smallFp16/WebGPU → native Korean translation → comparison/live/overlay DOM; no B5 ten-minute or B6 final quality acceptance",
-  generatedMedia, pageErrors: [], consoleErrors: [], checks: [], runs: [], productionPermissions: manifest.permissions, modelRequests: [], companionEndpoints: [] };
+  archive, generatedMedia, pageErrors: [], consoleErrors: [], checks: [], runs: [], productionPermissions: manifest.permissions, modelRequests: [], companionEndpoints: [] };
 const server = createServer(async (request, response) => {
   try {
     const path = new URL(request.url, "http://localhost").pathname;
@@ -150,6 +152,7 @@ try {
     // Observation only: original workers and their messages/results run unchanged.
     const NativeWorker = Worker; globalThis.engineObservations = [];
     globalThis.pcmObservations = [];
+    globalThis.asrInputs = [];
     if (globalThis.chrome?.tabs?.connect) {
       const connect = chrome.tabs.connect.bind(chrome.tabs);
       chrome.tabs.connect = (...args) => {
@@ -169,6 +172,8 @@ try {
         return port;
       };
     }
+    // Copy only owned synthetic test jobs before their original transfer. Keep
+    // buffers outside telemetry/DOM snapshots so measurement serialization is bounded.
     let workerId = 0;
     globalThis.Worker = class extends NativeWorker {
       constructor(...args) {
@@ -184,6 +189,10 @@ try {
       }
       postMessage(message, ...args) {
         if (message.type === "prepare") engineObservations.push({ type: "prepare", candidate: message.candidate, device: message.device });
+        if (message.type === "recognize" && globalThis.archiveAsrInputs) asrInputs.push({
+          workerId:this.observedId,requestId:message.requestId,pcm:message.job.pcm.slice(),
+          digest:crypto.subtle.digest("SHA-256", message.job.pcm),
+        });
         if (message.type === "recognize") engineObservations.push({type:"asr-job",workerId:this.observedId,requestId:message.requestId,at:performance.now(),samples:message.job.pcm.length,
           identity:{...message.job.identity},utteranceId:message.job.utteranceId,language:message.job.language,audioRange:{...message.job.audioRange}});
         return super.postMessage(message, ...args);
@@ -290,7 +299,7 @@ try {
         source:row.cells[0].textContent,time:row.cells[1].textContent,korean:row.cells[2].textContent}));
         const value=JSON.stringify(rows);if(rows.length && rowObservations.at(-1)?.value!==value)rowObservations.push({at:performance.now(),value,rows});};
       globalThis.rowObserver=new MutationObserver(read);rowObserver.observe(document.querySelector('#app tbody'),{subtree:true,childList:true,characterData:true,attributes:true});
-      globalThis.engineObservations=[]; globalThis.pcmObservations=[];
+      globalThis.engineObservations=[]; globalThis.pcmObservations=[]; globalThis.asrInputs=[];
       globalThis.queueObservations=[];
       const status=document.querySelector('[aria-label="Interpreter captions"] [role="status"]');
       globalThis.queueObserver=new MutationObserver(()=>queueObservations.push({at:performance.now(),state:status.dataset.state,
@@ -298,6 +307,7 @@ try {
         droppedAudioMs:status.dataset.droppedAudioMs===''?null:Number(status.dataset.droppedAudioMs)}));
       queueObserver.observe(status,{attributes:true,childList:true,characterData:true,subtree:true});
     });
+    await host.evaluate(enabled=>{globalThis.archiveAsrInputs=enabled}, Boolean(archive));
     if (lifecycle && scenarioIndex === 0) {
       const denied=[];
       const deny = route => { const url=new URL(route.request().url()); denied.push(url.origin+url.pathname); return route.abort('failed'); };
@@ -519,6 +529,46 @@ try {
       assert.equal(run.remoteRequestsAdded,0);
       assert.equal(observations.modelRequests.length,requestsBefore);
       run.checks.push('Complete cached offline PCM/ASR/native Korean/DOM run makes zero remote requests');
+    }
+    if (archive) {
+      const engine=mode==='sustained' ? await host.evaluate(()=>engineObservations) : run.engine;
+      // Only completed jobs are archived. Stop's unfinished tail stays explicit
+      // in its original cancellation evidence and is never called transcribed.
+      const jobs=engine.filter(event=>event.type==='asr-job');
+      const completed=jobs.filter(job=>engine.some(result=>result.type==='asr-result' && result.workerId===job.workerId && result.requestId===job.requestId));
+      const saved={round:scenarioIndex+1,language:fixture.language,mode,reference:fixture.text,
+        fixtureSha256:fixture.sha256,identity:completed[0].identity,
+        generatedMedia:mode==='sustained' ? generatedMedia.find(media=>media.language===fixture.language) : undefined,
+        referenceScope:'Original labeled phrase only; remux repeats truncated encoded periods, so whole-run reference/counts are not established',jobs:[]};
+      for(const [index,job] of completed.entries()) {
+        const snapshot=await host.evaluate(async ({workerId,requestId})=>{
+          const input=asrInputs.find(value=>value.workerId===workerId && value.requestId===requestId);
+          if(!input)throw new Error('Missing original pre-transfer ASR input');
+          const bytes=new Uint8Array(input.pcm.buffer);
+          let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);
+          return {base64:btoa(binary),littleEndian:new Uint8Array(new Float32Array([1]).buffer)[3]===63,
+            sha256:[...new Uint8Array(await input.digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('')};
+        },job);
+        assert.equal(snapshot.littleEndian,true);
+        const bytes=Buffer.from(snapshot.base64,'base64');
+        assert.equal(bytes.length,job.samples*4);
+        assert.equal(createHash('sha256').update(bytes).digest('hex'),snapshot.sha256,'Archive exactly matches the original buffer hashed before transfer');
+        const result=engine.find(value=>value.type==='asr-result' && value.workerId===job.workerId && value.requestId===job.requestId);
+        const file=`round-${saved.round}-job-${index+1}.f32`;
+        await writeFile(resolve(archive,file),bytes);
+        saved.jobs.push({file,samples:job.samples,inputSha256:snapshot.sha256,utteranceId:job.utteranceId,
+          audioRange:job.audioRange,originalText:result.text,originalInferenceMs:result.inferenceMs,
+          latency:run.measurement?.latencies.find(value=>value.utterance===job.utteranceId)});
+      }
+      archivedRuns.push(saved);
+      await writeFile(resolve(archive,'manifest.json'),JSON.stringify({
+        scope:'Owned synthetic production-extension ASR inputs; replay reproducibility only, not whole-run accuracy or endpoint acceptance',
+        format:'float32-le',sampleRate:16000,channels:1,candidate:'smallFp16',
+        model:{id:'onnx-community/whisper-small',version:'36050c46d777d46dc4b5f43f6d90574fc38f8732',requiredBytes:487960440},
+        runs:archivedRuns,
+      },null,2));
+      run.archivedJobs=saved.jobs.length;
+      await host.evaluate(()=>{asrInputs=[]});
     }
     console.log(JSON.stringify({run}));
   }

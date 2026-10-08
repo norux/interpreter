@@ -12,11 +12,16 @@ import { asrCandidates, registeredCandidate } from "../packages/engines-browser/
 
 // Compare candidates on identical captured jobs, without regenerating input or
 // replacing the original live accuracy/endpoint acceptance with replay timing.
-assert.equal(process.argv.length, 3, "Supply one synthetic live-job archive directory");
+const extensionInput = process.argv[3] === "--extension-input";
+const defaultOnly = extensionInput || process.argv[3] === "--default-only";
+assert.equal(process.argv.length, defaultOnly ? 4 : 3, "Supply one synthetic live-job archive directory");
 const archive = resolve(process.argv[2]);
-assert.ok(archive.startsWith(resolve(".ralph/media-framework/chrome-live-jobs-") ));
+assert.ok(archive.startsWith(resolve(extensionInput ? ".ralph/media-framework/chrome-extension-jobs-" : ".ralph/media-framework/chrome-live-jobs-")));
 const captured = JSON.parse(await readFile(resolve(archive, "manifest.json"), "utf8"));
-assert.equal(captured.scope, "Owned synthetic selected-video ASR jobs only; no user recordings or full interpretation");
+assert.equal(captured.scope, extensionInput
+  ? "Owned synthetic production-extension ASR inputs; replay reproducibility only, not whole-run accuracy or endpoint acceptance"
+  : "Owned synthetic selected-video ASR jobs only; no user recordings or full interpretation");
+if (defaultOnly) assert.equal(captured.candidate, "smallFp16");
 assert.equal(captured.format, "float32-le"); assert.equal(captured.sampleRate, 16000); assert.equal(captured.channels, 1);
 const original = registeredCandidate(asrCandidates[captured.candidate].model, asrCandidates[captured.candidate].dtype);
 assert.deepEqual(captured.model, { ...original.model, requiredBytes: original.requiredBytes });
@@ -31,7 +36,17 @@ const files = new Set();
 for (const run of captured.runs) {
   const clip = fixtures.clips.find(clip => clip.language === run.language);
   assert.equal(run.reference, clip.text); assert.equal(run.fixtureSha256, clip.sha256);
-  assert.ok(Number.isSafeInteger(run.periods) && run.periods > 0); assert.ok(run.jobs.length > 0);
+  if (extensionInput) {
+    assert.ok(["online", "offline-restart", "sustained"].includes(run.mode));
+    assert.equal(run.referenceScope, "Original labeled phrase only; remux repeats truncated encoded periods, so whole-run reference/counts are not established");
+    if (run.mode === "sustained") {
+      const { repeatSpeechVideo } = await import("./fixtures/video-speech/repeat.mjs");
+      const remux = repeatSpeechVideo(await readFile(`tests/fixtures/video-speech/${run.language}.webm`), 26);
+      assert.deepEqual(run.generatedMedia, { language: run.language, periods: 26, periodMs: remux.periodMs,
+        packets: remux.packets, bytes: remux.bytes.length, sha256: createHash("sha256").update(remux.bytes).digest("hex"), originalSha256: clip.sha256 });
+    }
+  } else assert.ok(Number.isSafeInteger(run.periods) && run.periods > 0);
+  assert.ok(run.jobs.length > 0);
   for (const [index, job] of run.jobs.entries()) {
     assert.equal(job.file, basename(job.file)); assert.ok(!files.has(job.file)); files.add(job.file);
     const bytes = await readFile(resolve(archive, job.file));
@@ -101,7 +116,10 @@ const server = createServer(async (request, response) => {
   } catch { response.writeHead(404); response.end(); }
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
-const observations = { scope: "B2 exact archived synthetic selected-video ASR candidate comparison; no live capture/VAD/endpoint/translation/DOM qualification",
+const observations = { scope: extensionInput
+  ? "B6 exact production-extension synthetic ASR input replay/decoder traces; no new capture, whole-run accuracy, native translation or endpoint qualification"
+  : defaultOnly ? "B6 default-profile exact archived ASR replay/decoder traces and original accuracy/meaning gates; no live endpoint or translation qualification"
+  : "B2 exact archived synthetic selected-video ASR candidate comparison; no live capture/VAD/endpoint/translation/DOM qualification",
   archive, archiveManifestSha256: createHash("sha256").update(await readFile(resolve(archive, "manifest.json"))).digest("hex"),
   originalModel: captured.model, archivedJobs: files.size, trials: [], failures: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page; let peakRssKiB = 0;
@@ -151,7 +169,7 @@ try {
   monitor = setInterval(() => { void sampleRss().catch(() => {}); }, 250);
   await page.goto(`http://127.0.0.1:${server.address().port}`); await page.waitForFunction(() => globalThis.makeHost);
   observations.baselineRssKiB = await sampleRss();
-  for (const candidate of ["smallFp16", "turboFp16", "smallTimestamped"]) for (const trial of [1, 2]) {
+  for (const candidate of defaultOnly ? ["smallFp16"] : ["smallFp16", "turboFp16", "smallTimestamped"]) for (const trial of [1, 2]) {
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
     await page.evaluate(candidate => makeHost(candidate), candidate);
     const workersBefore = await page.evaluate(() => workerCount);
@@ -200,6 +218,13 @@ try {
         assert.ok(Array.isArray(trace.decoded.chunks));
         replay.jobs.push({ ...job, ...result, identicalOriginalText: result.revision.text === job.originalText });
       }
+      if (extensionInput) {
+        replay.identicalOriginalJobs = replay.jobs.filter(job => job.identicalOriginalText).length;
+        if (replay.identicalOriginalJobs !== run.jobs.length) observations.failures.push(`default/trial-${trial}/round-${run.round}: original ASR output was not reproduced for every unchanged job`);
+        replay.wholeRunAccuracy = "UNVERIFIED: no complete reference for truncated remux speech";
+        console.log(JSON.stringify({ candidate, trial, exactReplay: replay }));
+        continue;
+      }
       const text = replay.jobs.map(job => job.revision.text).join(" ");
       replay.accuracy = errors(Array(run.periods).fill(run.reference).join(" "), text, run.language);
       const anchors = run.language === "ja" ? ["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
@@ -224,7 +249,9 @@ try {
       || path.startsWith(`https://huggingface.co/api/resolve-cache/models/${model.id}/${model.version}/`);
   }) || path.startsWith("https://us.aws.cdn.hf.co/xet-bridge-us/")), "Only pinned model artifacts/redirects may be remote");
   console.log(JSON.stringify({ passed: observations.failures.length === 0, ...observations }));
-  assert.deepEqual(observations.failures, [], "Every archived run and candidate must pass unchanged accuracy/meaning gates");
+  assert.deepEqual(observations.failures, [], extensionInput
+    ? "Every captured production job must reproduce its original output in both fresh default-worker trials"
+    : "Every archived run and candidate must pass unchanged accuracy/meaning gates");
 } catch (error) {
   observations.documentState = await page?.evaluate(() => ({ visibility: document.visibilityState, visibilityEvents,
     prepared: globalThis.prepared, prepareError: globalThis.prepareError, lastStatus: statuses.at(-1) })).catch(failure => ({ error: failure.message }));

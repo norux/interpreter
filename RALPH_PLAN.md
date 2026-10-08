@@ -6072,3 +6072,120 @@ and real repetitions; no transcript post-filter, reference substitution or
 weaker gate. Native translation's verified slice stays recorded separately.
 No runtime, fixture, threshold or checkbox changes; resume the same all-stage
 loop after this evidence commit. Safari/iPhone/final cleanup remain unfinished.
+
+
+### 2026-10-09 KST — chrome iteration 8/20: B6 exact production ASR input
+
+Next unfinished item is **B6** only. Entry worktree clean; repository `AGENTS.md`
+and requested independent runner acceptance file are absent. Read the plan,
+framework architecture and current/historical Chrome failure evidence, including
+the supervisory long-run hallucination handoff. No checkbox changes.
+
+This slice preserves exact actual production-extension ASR inputs for diagnosing
+the three retained repeated store-phrase hallucinations. The sustained acceptance
+observer copies synthetic fixture job PCM and independently hashes the original
+buffer before the unchanged worker transfer. Original worker arguments, transfer,
+results and cleanup remain intact; PCM stays outside telemetry/DOM snapshots.
+Only completed jobs are saved, with session/range, byte count, SHA-256, original
+ASR text/timing and remux provenance, in an ignored local archive. The normal Stop
+assertions still account for unfinished work; archived completion does not imply
+that Stop's pending tail was transcribed. No default audio/transcript persistence
+is added to the application.
+
+`npm run test:framework:chrome:replay -- <chrome-extension-jobs-directory>
+--extension-input` is an explicitly separate production-input reproducibility
+mode: two fresh default smallFp16/WebGPU workers, every captured job, exact bytes,
+identity and output comparisons, unchanged tokenizer traces and cached second
+preparation. Existing candidate replay accuracy/meaning gates and all full-stage
+commands remain intact. Production replay does not compare ASR text with itself
+as an accuracy metric, qualify endpoint timing or claim native translation quality.
+
+Reference scope matters: the unchanged fixture generator loops speech within
+24-second media; the remux repeats complete encoded periods ending mid-phrase.
+Its 23,940 ms period is not one labeled utterance. Multiplying the phrase reference
+by remux periods would produce invalid whole-run CER/count expectations. Complete
+long-run reference/semantic qualification remains **UNVERIFIED**, while the prior
+299-character hallucinations and the independently labeled two-minute failure
+remain failures. No source/reference replacement, text deduplication, model/VAD/
+decoder tuning or threshold changes are made in this evidence slice.
+
+A focused regression exercises the actual observer init script with real buffer
+transfer/detachment, enabled/disabled retention, independent hash comparison,
+original argument identity and cleanup. It is a mocked worker conformance check,
+not real ASR accuracy. Real model/capture/replay results and acceptance statuses
+are recorded below after execution.
+
+The existing labeled-job archive also supports `--default-only` for B6's selected
+smallFp16 profile. It runs two fresh workers with **all original CER/WER and exact
+meaning-count gates**, keeping the existing no-flag candidate comparison intact.
+This establishes decoder provenance for the retained two-minute offending PCM
+without reopening B2 or trying to qualify every rejected candidate.
+
+Current ten-minute capture passes B5 functional gates: host **600,217.0999999642
+ms**, PCM **600,106.6666666666 ms / 14,065 chunks**, frozen **98 jobs / 97 results /
+97 paired rows**, zero reported running loss, max queue **17,386 / 30,000 ms**.
+Archive `chrome-extension-jobs-fvq0Y8` retains **98** sustained completed jobs
+(one completes between the snapshot and Stop), plus four short ja/en runs.
+All pre-transfer hashes verify. No store-phrase hallucination occurs in this
+**different** captured input/segmentation; it does not repair or reproduce the
+prior offending production PCM, which is still unavailable. Delivery→source
+maximum **2,064 ms** is not speech-endpoint acceptance. Full original failure
+evidence is preserved; complete ten-minute CER/meaning remains unverified.
+Expected one-byte tamper rejection passes with the inner replay's **exit 1**
+retained; observer/trace conformance **2 PASS**. Full stage/replay results follow.
+
+**FAIL `npm run test:framework:chrome`, exit 1**, one invocation, all **12**
+constituents: **11 PASS / 1 FAIL** (`chrome-b6-input-stage.log`). Sole command
+failure is Japanese white-noise meaning loss: **7.5% CER**, meeting **2** and
+station **1**, expected **3**. All other commands pass, including fresh long
+Japanese **2.5% CER / every count 18 / max endpoint 1,715 ms** and English
+**4.545454545454546% WER / every count 19 / max endpoint 1,525.6000000238419 ms**.
+These are new captures, not repairs of the retained old **34.86% / 23–24 /
+4,934.9 ms** failure. Exact per-command exits/durations and scope are in the
+Chrome report. No thresholds/failed records/checkboxes change.
+
+**FAIL retained default replay, exit 1**,
+`npm run test:framework:chrome:replay --
+.ralph/media-framework/chrome-live-jobs-4hf2rL --default-only`: two fresh workers,
+**38 / 38 identical original jobs each**, same **251/720 = 34.86111111111111%
+CER / 23–24 counts**; four retained aggregate failures. The 9,216 ms offending
+job's verified SHA-256 `9795b58c77d7d2d10c09f11668261c5514841ff03830d8f8c3e57bc4f416bd6a`
+reaches **259 tokens**, with **7 meeting / 8 tomorrow** mentions already in raw
+generated text exactly equal to final decoded text. Crowded 8.28–8.34 s ticks
+and truncation at the 256-token generation limit recur in both trials.
+Repetition precedes SDK merge/translation/DOM; no text post-filter is added.
+Fresh live success does not erase this reproduced failure. More details,
+preparation/cache/zero inference requests and timing scope are in the report.
+
+**PASS new production-input replay, exit 0**,
+`npm run test:framework:chrome:replay --
+.ralph/media-framework/chrome-extension-jobs-fvq0Y8 --extension-input`:
+**102 / 102 identical jobs per fresh default worker / two trials**, including
+98 sustained completions, exact PCM/remux hashes and identities, zero inference
+requests, cached second preparation (zero remote requests), page errors **[]**.
+This is reproducibility only, not full production CER/meaning or endpoint
+qualification. Old/default quality replay remains **FAIL**, unchanged.
+
+**PASS final `npm run verify`, exit 0**, after final executable edits:
+Biome **148 / 82 ms**, Ruff/typecheck/unchanged companion build,
+**155 JS / 0 fail / 31,787.218542 ms**, **222 Python / 67.03 s**.
+Focused observer/trace **2 PASS / 0 FAIL / 297.1665 ms**, Node syntax, Biome,
+whitespace and every existing checkbox unchanged. Exact command statuses,
+metrics, environment and local ignored evidence paths are in the Chrome report.
+
+**B6 remains next and unchecked**: repair raw generated-token repetition on
+the retained 9,216 ms failure and Japanese white-noise omissions without text
+deduplication or losing legitimate repeats; retain every strict gate. Previous
+production store-phrase PCM remains unavailable/unreproduced; this fresh
+production archive is a different captured baseline. Ten-minute complete
+reference/semantics, external sites, physical speaker/native fullscreen, full
+offline restart/remote reload, Safari and physical iPhone remain unverified.
+No absent environment/device/permission/access blocker or terminal marker.
+
+Five scoped files; companion/settings/install/server/production composition/
+permissions/runner/fixtures/model inventory unchanged. User apps/recordings/
+mounted images/unrelated files preserved; no agents/push/publish/app install/
+access workaround. No credentials/weights/user audio/transcripts/temporary
+`.ralph` state committed. Commit: `test: preserve exact Chrome ASR input evidence`.
+Final staged scope/checkbox/whitespace and clean committed worktree checked
+at delivery. No stage advancement or whole-framework/iPhone completion.
