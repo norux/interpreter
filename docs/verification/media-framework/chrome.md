@@ -8137,3 +8137,136 @@ and B6's detailed quality scope; those boundaries should be clarified before ano
 long run. This checkpoint does not change sequencing or mark work complete. B3
 translation remains independently implementable, but no instruction to bypass the
 current item order is inferred here. Archives and failure evidence are preserved.
+
+## 2026-10-08 — B3 document translation and revision queue (chrome iteration 1/20)
+
+Commit: `feat: add document translation adapter and revision queue`, containing
+this entry. The current B2-complete/B3-next scope at the beginning of this report
+and in the plan governs this iteration. **B3 remains unchecked and blocked**.
+Repository `AGENTS.md` and requested runner log
+`.ralph/media-framework/2026-10-08T13-08-27-886Z-chrome-verification.txt` are absent;
+reviewed supplied instructions, plan, architecture and retained Chrome evidence.
+
+Assumption: B3 adds native document translation and source/revision scheduling;
+B4 owns application/DOM composition, B5 full-path acceptance, and B6 retained
+quality/performance failures. The smaller implementation uses existing
+`TextTranslator`, revision store and caption contracts. No alternate translation
+engine, automatic fallback, new model comparison or user setting is added.
+Success requires actual Japanese/English → Korean translation and immediate
+original output, exact latest-revision pairing, final priority and cancellation.
+Native capability alone cannot complete B3.
+
+### Implementation and contract verification
+
+`document-translator.ts` implements `TextTranslator` in a visible secure document.
+It probes the exact pair, distinguishes browser download requirement from adapter
+readiness, and calls native creation synchronously from activation before any
+await. Creation is for one selected language per gesture. Progress is a reported
+fraction, not invented bytes/model identity. Ready requires creation to resolve;
+`progress=1` is insufficient. Stop/pagehide/hidden/close abort owned preparation
+and inference and destroy owned instances; late resolutions cannot restore ready
+or captions. Epoch-specific cancellation retains the prepared pair, while Stop
+requires explicit preparation again. Missing API, unsupported pair and creation
+errors stay explicit. No worker proxy or extension messaging is implemented here;
+B4 must compose the eligible document host.
+
+`translation-queue.ts` uses the existing revision store to publish original text
+immediately with pending translation, discard stale identity/source results,
+coalesce pending revisions per utterance and reject final-to-partial regressions.
+One native translation runs at a time; queued finals precede partials. Explicit
+utterance/history limits bound scheduling and retained captions. Queued partials
+are evicted before rejecting new work; overload remains visible when no such
+capacity can be freed. Cancellation invalidates the queue before awaiting the
+translator. The composition owns closing its shared document adapter.
+
+A local regression caught active partial and final replacement being counted as
+two utterances: the final was rejected at a one-utterance limit. Established the
+failing regression first, then counted distinct IDs. The final now fits without
+adding a second concurrent native job. Other original acceptance gates are intact.
+
+Primary sources: [Chrome Translator documentation](https://developer.chrome.com/docs/ai/translator-api)
+and [translation API explainer](https://github.com/webmachinelearning/translation-api/blob/main/README.md).
+The browser API exposes no pinned pack revision, checksum or exact download bytes.
+No inventory is fabricated; browser version/native observations are recorded.
+
+All log paths below are under ignored `.ralph/media-framework/`.
+
+- **FAIL initial typecheck**, direct tool output: three test assertions accessed
+  `Capability.reason` without narrowing its available branch. Initial five
+  runtime contract tests and four-file lint pass. Corrected assertions; final
+  typecheck passes.
+- **FAIL regression before queue fix**: `node --import tsx --test
+  tests/framework-browser-translation.test.ts`, exit 1, **5 passed / 1 failed /
+  70.610542 ms**, `chrome-b3-queue-bound-before.log`: final replacement rejected.
+- **PASS final focused checks**: `npm run typecheck`, same focused test,
+  four-file Biome, exit 0; **6 passed / 0 failed/skipped/cancelled / 69.780959 ms**,
+  `chrome-b3-unit-final.log`; Biome **4 files / 4 ms / no findings** (direct output).
+  Fake native API/translator tests prove contracts, never real accuracy.
+- **PASS intermediate `npm run verify`**, exit 0, `chrome-b3-verify.log`:
+  **132 JS / 222 Python (66.92 s)**. This preceded the one-utterance fix.
+- **PASS final-source `npm run verify`**, exit 0, `chrome-b3-verify-final.log`:
+  Biome **125 files / 43 ms / no findings**, Ruff/typecheck/unchanged companion
+  build, **133 JS / 0 failed/skipped/cancelled / 24,914.351458 ms**,
+  **222 Python / 66.84 s**. No executable edit follows this run.
+- **FAIL required `npm run test:framework:chrome`**, exit 1,
+  `chrome-b3-stage-acceptance.log`: missing full-stage script, assigned to B5 in
+  the plan. No placeholder, lowered gate or translation-only substitute is added.
+
+### Native acceptance, blocker and resume condition
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+test-owned headed Chromium **153.0.8010.12**. Profiles/builds/logs stay inside
+ignored `.ralph/media-framework/`; only owned browsers/profiles are cleaned.
+Both tests use ordinary browser behavior without feature overrides, another
+installed browser, user profiles, pack injection or app/permission changes.
+
+1. **PASS capability probe**, exit 0, `chrome-b3-capability-attempt-1.log`:
+   API exists in a visible secure document; native `ja→ko` and `en→ko` both report
+   `downloadable`. This is not translation or a language-pack readiness pass.
+2. **FAIL first independent creation**, exit 1,
+   `chrome-b3-creation-attempt-1.log`: native Japanese creation remains pending
+   through **120,000 ms**, with no ready instance or output. The raw diagnostic
+   also called English creation from the same gesture; it rejects at **7 ms**
+   with `NotAllowedError` (requires activation). That is a consumed-activation
+   diagnostic, not proof of English unavailability. The permanent harness uses
+   a separate gesture per selected pair.
+3. **FAIL second independent creation / focused native acceptance**,
+   `npm run test:framework:chrome:translation`, exit 1,
+   `chrome-b3-translation-attempt-2.log`: typecheck and initial **5 contract tests**
+   pass, then both pairs are tested with individual trusted clicks. Japanese
+   times out at **120,041.933583 ms**, statuses `[preparing]`. English times out
+   at **120,042.775625 ms**, statuses `[preparing, progress=0, progress=1]`.
+   Neither creation resolves; neither performs translation. Stop reports
+   `stopped/cancelled` for both; page errors **[]**. Native readiness/accuracy and
+   native revision scheduling remain **UNVERIFIED**, and the command exits 1.
+   Its build preceded the unique-utterance queue fix; the unchanged document
+   adapter was tested, but no native queue execution occurred. Final-source unit
+   tests and verify cover the queue fix; no third unchanged native attempt is made.
+
+**Blocker:** the required browser-owned Translator instance cannot be prepared in
+this permitted environment within the explicit two-minute deadline. Japanese
+confirms this in two independently owned browser attempts. English's reported
+100% progress does not prove a loaded runtime. The component/download/runtime
+root cause is **unverified**; no native error explains the pending creations.
+This is an environment/readiness blocker, not an ASR-quality failure or proof
+that these language pairs are unsupported in all Chrome environments.
+
+**Resume:** new permitted evidence that native creation for both exact pairs can
+resolve from a real gesture in an eligible document, or a proven repository fix
+to creation/lifecycle. Then rerun the unchanged focused native acceptance and
+final verification before checking B3. Do not repeat unchanged attempts or bypass
+the blocker through another tool/profile, injected packs or unauthorized apps.
+
+Only adapter/queue, focused regressions/harness, its npm command and report/plan
+progress are intended for this commit. All checkboxes remain unchanged; B3–B6
+stay incomplete. Preserve companion v0.1.0, installation/native messaging/server,
+settings, prior quality failures/strict gates, runner and unrelated files/apps/
+recordings/mounted images. No agents, stage advance, push/publish/install or user
+audio/transcripts/weights/credentials/temporary `.ralph` state in Git. Full
+selected-video PCM → ASR → Korean translation → application DOM, native offline
+translation, B4–B6, Safari/iPhone and whole-framework completion remain unverified.
+
+Final preservation assertions **PASS** (direct tool output): exact seven-file
+scope, append-only plan/report, all checklist lines unchanged, no tracked `.ralph`,
+both native creation failures and stopped states retained. Staged whitespace
+check **PASS**. Commit and post-commit clean-worktree checks follow at delivery.

@@ -1,0 +1,168 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import type { CaptionRevision, MediaTargetId, TextTranslator, TranscriptRevision, TranslationRevision } from "../packages/contracts";
+import { createDocumentTranslator } from "../packages/engines-browser/document-translator";
+import { createTranslationQueue } from "../packages/engines-browser/translation-queue";
+
+const identity = { sessionId: "translation-test", targetId: "video" as MediaTargetId, epoch: 1 };
+const pair = { source: "ja", target: "ko" };
+const source = (utteranceId = "one", sourceRevision = 1, final = false): TranscriptRevision => ({
+  identity: { ...identity }, utteranceId, sourceRevision, final, language: "ja", text: `synthetic ${sourceRevision}`,
+  audioRange: { startMs: utteranceId === "one" ? 0 : 1000, endMs: 2000 },
+});
+const tick = () => new Promise<void>(resolve => setImmediate(resolve));
+
+function deferred<T>() {
+  let resolve!: (value: T) => void; let reject!: (error: Error) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+// Fake native API/translation tests verify contracts, never real accuracy.
+function fixture() {
+  const loads: ReturnType<typeof deferred<{ translate: (text: string, options: { signal: AbortSignal }) => Promise<string>; destroy: () => void }>>[] = [];
+  const calls: { text: string; signal: AbortSignal; result: ReturnType<typeof deferred<string>> }[] = [];
+  const signals: AbortSignal[] = [];
+  const progresses: ((event: { loaded: number }) => void)[] = [];
+  let destroyed = 0;
+  const native = { translate(text: string, options: { signal: AbortSignal }) {
+    const result = deferred<string>(); calls.push({ text, signal: options.signal, result }); return result.promise;
+  }, destroy() { destroyed++; } };
+  const document = Object.assign(new EventTarget(), { visibilityState: "visible", defaultView: Object.assign(new EventTarget(), {
+    isSecureContext: true, navigator: { userActivation: { isActive: true } }, Translator: {
+      async availability() { return "downloadable"; },
+      create(options: { signal: AbortSignal; monitor: (monitor: { addEventListener: (type: string, handler: (event: { loaded: number }) => void) => void }) => void }) {
+        signals.push(options.signal); options.monitor({ addEventListener(_type, handler) { progresses.push(handler); } });
+        const result = deferred<typeof native>(); loads.push(result); return result.promise;
+      },
+    },
+  }) });
+  const statuses: { state: string; progress?: number; reason?: string }[] = [];
+  const host = createDocumentTranslator(document as unknown as Document, pair, status => statuses.push(status));
+  return { host, document, loads, native, calls, signals, progresses, statuses, destroyed: () => destroyed };
+}
+
+test("document Translator probes real API states without creation and preserves synchronous activation", async () => {
+  const f = fixture();
+  try {
+    assert.equal((await f.host.probe()).state, "download-required"); assert.equal(f.loads.length, 0);
+    f.document.defaultView.navigator.userActivation.isActive = false;
+    await assert.rejects(f.host.prepare(), /Press Prepare/); assert.equal(f.loads.length, 0);
+    f.document.defaultView.navigator.userActivation.isActive = true;
+    const prepared = f.host.prepare();
+    assert.equal(f.loads.length, 1, "Create happens before the activation task can finish");
+    await assert.rejects(f.host.prepare(), /Stop before/);
+    for (const loaded of [-1, Number.NaN, 1.1, 0, 0.5, 1]) f.progresses[0]({ loaded });
+    assert.deepEqual(f.statuses.filter(s => s.progress !== undefined).map(s => s.progress), [0, 0.5, 1]);
+    assert.equal(f.statuses.some(s => s.state === "ready"), false, "Progress 1 is not a loaded translator");
+    f.loads[0].resolve(f.native); await prepared; assert.equal(f.statuses.at(-1)?.state, "ready");
+    const input = source(); const iterator = f.host.translate(input, pair)[Symbol.asyncIterator](); const result = iterator.next();
+    (input.identity as { epoch: number }).epoch = 9;
+    f.calls[0].result.resolve("합성 번역");
+    const translated = (await result).value as TranslationRevision;
+    assert.deepEqual(translated.identity, identity); assert.equal(translated.sourceRevision, 1); assert.equal(translated.final, false);
+    assert.equal(translated.translationRevision, 1); assert.deepEqual(translated.languages, pair);
+    await iterator.return?.();
+    await assert.rejects(f.host.translate(source(), { source: "ja", target: "en" })[Symbol.asyncIterator]().next(), /language-pair-unsupported/);
+    await assert.rejects(f.host.translate({ ...source(), text: "x".repeat(16385) }, pair)[Symbol.asyncIterator]().next(), /Invalid translation source/);
+  } finally { await f.host.close(); }
+});
+
+test("document Translator cancels matching epochs, suppresses late preparation/results and destroys only owned instances", async () => {
+  const f = fixture();
+  try {
+    const preparing = f.host.prepare(); f.host.stop();
+    assert.equal(f.signals[0].aborted, true);
+    const statusCount = f.statuses.length;
+    f.progresses[0]({ loaded: 1 }); f.loads[0].resolve(f.native);
+    await assert.rejects(preparing, { name: "AbortError" }); assert.equal(f.destroyed(), 1);
+    assert.equal(f.statuses.length, statusCount);
+    const prepared = f.host.prepare(); f.loads[1].resolve(f.native); await prepared;
+    const iterator = f.host.translate(source(), pair)[Symbol.asyncIterator](); const late = iterator.next();
+    await assert.rejects(f.host.translate(source("two"), pair)[Symbol.asyncIterator]().next(), /overloaded/);
+    await f.host.cancel({ ...identity, epoch: 2 }); assert.equal(f.calls[0].signal.aborted, false);
+    await f.host.cancel(identity); assert.equal(f.calls[0].signal.aborted, true);
+    const next = f.host.translate(source("two", 2, true), pair)[Symbol.asyncIterator](); const nextResult = next.next();
+    f.calls[0].result.resolve("late"); await assert.rejects(late, { name: "AbortError" });
+    f.calls[1].result.resolve("current"); assert.equal(((await nextResult).value as TranslationRevision).sourceRevision, 2); await next.return?.();
+    const hidden = f.host.translate(source(), pair)[Symbol.asyncIterator]().next();
+    f.document.visibilityState = "hidden"; f.document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(f.calls[2].signal.aborted, true); f.calls[2].result.resolve("hidden"); await assert.rejects(hidden, { name: "AbortError" });
+    assert.equal((await f.host.probe()).state, "unavailable");
+    f.document.visibilityState = "visible";
+    await assert.rejects(f.host.translate(source(), pair)[Symbol.asyncIterator]().next(), /model-load-failed/);
+    const failed = f.host.prepare(); f.loads[2].reject(new DOMException("unsupported", "NotSupportedError"));
+    await assert.rejects(failed, { name: "NotSupportedError" }); assert.equal(f.statuses.at(-1)?.reason, "language-pair-unsupported");
+    await f.host.close(); await f.host.close(); await assert.rejects(f.host.prepare(), /execution-context-unavailable/);
+  } finally { await f.host.close(); }
+});
+
+test("document Translator reports missing API, unsupported pair and unavailable capability without fallback", async () => {
+  const f = fixture();
+  try {
+    f.document.defaultView.Translator.availability = async () => "unavailable";
+    assert.deepEqual(await f.host.probe(), { state: "unavailable", reason: "language-pair-unsupported", message: "Browser cannot translate this language pair" });
+    const other = createDocumentTranslator(f.document as unknown as Document, { source: "fr", target: "ko" }, () => {});
+    assert.deepEqual(await other.probe(), { state: "unavailable", reason: "language-pair-unsupported", message: "Only Japanese/English to Korean is supported by this adapter" }); await assert.rejects(other.prepare(), /language-pair-unsupported/); await other.close();
+    Reflect.deleteProperty(f.document.defaultView, "Translator");
+    assert.deepEqual(await f.host.probe(), { state: "unavailable", reason: "execution-context-unavailable", message: "Translator requires an eligible visible secure document" }); await assert.rejects(f.host.prepare(), /execution-context-unavailable/);
+    assert.equal(f.loads.length, 0);
+  } finally { await f.host.close(); }
+});
+
+function queued(limit = 3) {
+  const calls: { source: TranscriptRevision; result: ReturnType<typeof deferred<string>> }[] = [];
+  const captions: CaptionRevision[] = []; const failures: string[] = []; let revision = 0; let cancellations = 0;
+  const translator: TextTranslator = { async *translate(source, languages) {
+    const result = deferred<string>(); calls.push({ source, result });
+    yield { identity: source.identity, utteranceId: source.utteranceId, sourceRevision: source.sourceRevision,
+      translationRevision: ++revision, languages, text: await result.promise, final: source.final };
+  }, async cancel() { cancellations++; }, async close() {} };
+  const queue = createTranslationQueue(identity, pair, translator, limit, 300, caption => captions.push(caption), reason => failures.push(reason));
+  return { queue, calls, captions, failures, cancellations: () => cancellations };
+}
+
+test("translation queue paints sources first, coalesces revisions, prioritizes finals and rejects stale pairs", async () => {
+  const f = queued(4);
+  assert.equal(f.queue.accept(source()), true); assert.equal(f.captions[0].translation.state, "pending");
+  assert.equal(f.queue.accept(source("one", 2)), true); assert.equal(f.queue.accept(source("one", 3)), true);
+  assert.equal(f.queue.accept(source("two")), true); assert.equal(f.queue.accept(source("three", 1, true)), true);
+  assert.equal(f.calls.length, 1);
+  f.calls[0].result.resolve("stale"); await tick();
+  assert.equal(f.captions.filter(c => c.translation.state === "paired").length, 0);
+  assert.equal(f.calls[1].source.utteranceId, "three", "Final bypasses queued partials");
+  f.calls[1].result.resolve("final"); await tick();
+  assert.equal(f.calls[2].source.sourceRevision, 3, "Only the newest queued revision executes");
+  f.calls[2].result.resolve("latest"); await tick(); f.calls[3].result.resolve("two"); await tick();
+  assert.equal(f.calls.length, 4); assert.deepEqual(f.failures, []);
+  assert.equal(f.queue.accept(source("three", 2, false)), false, "Final cannot regress to partial");
+  assert.equal(f.queue.accept({ ...source("three", 2, true), identity: { ...identity, epoch: 0 } }), false);
+  assert.equal(f.queue.snapshot().find(c => c.source.utteranceId === "one")?.source.sourceRevision, 3);
+  const lateSource = source("late", 1, true); assert.equal(f.queue.accept(lateSource), true);
+  await f.queue.cancel(); await f.queue.cancel(); f.calls[4].result.resolve("after Stop"); await tick();
+  assert.equal(f.cancellations(), 1); assert.equal(f.queue.accept(source("new")), false);
+  assert.equal(f.queue.snapshot().find(c => c.source.utteranceId === "late")?.translation.state, "pending");
+});
+
+test("translation queue evicts queued provisional work before finals and reports a full final queue", async () => {
+  const f = queued(2);
+  f.queue.accept(source()); f.queue.accept(source("two"));
+  assert.equal(f.queue.accept(source("three", 1, true)), true);
+  assert.equal(f.queue.accept(source("four", 1, true)), false); assert.deepEqual(f.failures, ["overloaded"]);
+  f.calls[0].result.resolve("one"); await tick(); assert.equal(f.calls[1].source.utteranceId, "three");
+  f.calls[1].result.reject(new Error("native failure")); await tick();
+  assert.deepEqual(f.failures, ["overloaded", "engine-failed"]); assert.equal(f.calls.length, 2);
+  await f.queue.cancel();
+});
+
+test("a final revision of the active utterance fits a one-utterance queue", async () => {
+  const f = queued(1);
+  assert.equal(f.queue.accept(source()), true);
+  assert.equal(f.queue.accept(source("one", 2, true)), true);
+  assert.deepEqual(f.failures, []);
+  f.calls[0].result.resolve("obsolete"); await tick();
+  assert.equal(f.calls[1].source.sourceRevision, 2); assert.equal(f.calls[1].source.final, true);
+  f.calls[1].result.resolve("final"); await tick();
+  assert.equal(f.queue.snapshot()[0].translation.state, "paired");
+  await f.queue.cancel();
+});

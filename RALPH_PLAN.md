@@ -5286,3 +5286,62 @@ Whitespace PASS. Video has no unfinished item after both required commands pass;
 physical speaker/ASR/translation/Safari/iPhone remain unverified. Commit only the
 fixture control repair, native regression, report and plan entry; check staged
 scope/whitespace and clean worktree after commit. Do not advance another stage.
+
+### 2026-10-08 / chrome / iteration 1/20 — B3 document translation readiness blocker
+
+Commit: `feat: add document translation adapter and revision queue`, containing
+this entry. B3 is next under the revised scope; B2 stays complete. All selected
+and other stage checkboxes remain unchanged. Repository AGENTS.md and requested
+`2026-10-08T13-08-27-886Z-chrome-verification.txt` runner log are absent.
+
+Implemented a document-owned `TextTranslator` adapter: exact pair capability,
+synchronous native create from activation, progress distinct from ready, bounded
+text, identity/revision snapshots, matching-epoch cancellation, Stop/hidden/
+pagehide cleanup and late completion rejection. Added bounded translation queue
+using the existing revision store: original-first/pending output, newest pending
+source per utterance, final priority, stale revision rejection and visible
+overload. Native creation uses a separate gesture per selected language. No
+fallback/model tuning, companion/settings/runner change or later-stage work.
+
+Regression first FAILS **5 pass / 1 fail** at a one-utterance final replacement;
+fixed capacity to count distinct utterance IDs. Final focused typecheck/lint and
+**6 unit contract tests PASS**, with fake translation explicitly distinguished
+from native accuracy. Initial typecheck test-only union errors were corrected.
+Final-source `npm run verify` **PASS**, exit 0: **133 JS / 222 Python (66.84 s)**,
+lint/typecheck/unchanged companion build. Evidence:
+`chrome-b3-unit-final.log`, `chrome-b3-queue-bound-before.log`,
+`chrome-b3-verify-final.log` under ignored `.ralph/media-framework/`.
+
+Real headed owned Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**,
+Node **v24.15.0**, npm **11.12.1**: native API exists and both pairs report
+downloadable, but **no translator instance or Korean output is obtained**.
+First independent Japanese create stays pending for **120,000 ms**; simultaneous
+English create consumes unavailable activation and rejects at **7 ms**, not a
+pair-support result. Permanent acceptance corrects that activation flow.
+Second independent Japanese create times out at **120,041.933583 ms**; English's
+first properly activated create times out at **120,042.775625 ms** even after
+progress **0→1**. Stop reports stopped/cancelled; page errors **[]**. No third
+unchanged Japanese attempt. `npm run test:framework:chrome:translation` **FAIL**,
+exit 1; native scheduling, translation quality/offline and full path remain
+**UNVERIFIED**. Its native build preceded the queue limit fix; the unchanged
+adapter never reached inference, and final unit/verify cover the corrected queue.
+Logs: `chrome-b3-capability-attempt-1.log`, `chrome-b3-creation-attempt-1.log`,
+`chrome-b3-translation-attempt-2.log`. Exact evidence is in the Chrome report.
+
+Required `npm run test:framework:chrome` **FAIL**, exit 1, missing B5 full-stage
+script (`chrome-b3-stage-acceptance.log`). Do not substitute the focused script,
+weaken acceptance or confuse capability/download progress/mock translation with
+native translation, actual PCM/ASR or Chrome-stage completion.
+
+**BLOCKED B3:** native browser-owned Translator creation does not resolve in the
+permitted environment within two minutes; Japanese confirms two independent
+attempts. Runtime/download/component root cause is unverified. Resume only with
+new permitted native readiness evidence for both pairs or a proven repository
+fix, then pass focused native acceptance and final verification before checking
+B3. Preserve all previous failures, gates, checkboxes, settings and companion;
+no alternative tool/profile/pack injection, app installation, agents, push or
+publication. Commit progress only; B4–B6/Safari/iPhone remain unfinished.
+
+Preservation assertions and staged whitespace **PASS**: exactly seven intended
+files, append-only report/plan, every checkbox unchanged, both native failures
+retained and no tracked `.ralph`. Commit and clean-worktree checks at delivery.

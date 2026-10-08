@@ -1,0 +1,116 @@
+import type { Capability, LanguagePair, ReasonCode, SessionIdentity, TextTranslator } from "../contracts";
+import { sameIdentity } from "../core/identity";
+
+interface NativeTranslator {
+  translate(text: string, options: { signal: AbortSignal }): Promise<string>;
+  destroy(): void;
+}
+
+interface TranslatorApi {
+  availability(options: { sourceLanguage: string; targetLanguage: string }): Promise<"available" | "downloadable" | "downloading" | "unavailable">;
+  create(options: {
+    sourceLanguage: string; targetLanguage: string; signal: AbortSignal;
+    monitor(monitor: { addEventListener(type: "downloadprogress", receive: (event: { loaded: number }) => void): void }): void;
+  }): Promise<NativeTranslator>;
+}
+
+export function createDocumentTranslator(document: Document, languages: LanguagePair,
+  receive: (status: { state: "preparing" | "ready" | "stopped" | "failed"; progress?: number; reason?: ReasonCode }) => void) {
+  const pair = { ...languages };
+  let translator: NativeTranslator | undefined;
+  let preparing: AbortController | undefined;
+  let active: { identity: SessionIdentity; controller: AbortController } | undefined;
+  let disposed = false;
+  let translationRevision = 0;
+
+  function api(): TranslatorApi | undefined {
+    return (document.defaultView as (Window & { Translator?: TranslatorApi }) | null)?.Translator;
+  }
+  function eligible() {
+    return !disposed && document.defaultView?.isSecureContext && document.visibilityState === "visible";
+  }
+  function supported() { return (pair.source === "ja" || pair.source === "en") && pair.target === "ko"; }
+  function stop() {
+    preparing?.abort(); preparing = undefined;
+    active?.controller.abort(); active = undefined;
+    translator?.destroy(); translator = undefined;
+    receive({ state: "stopped", reason: "cancelled" });
+  }
+  const suspend = () => { if (document.visibilityState !== "visible") stop(); };
+  document.addEventListener("visibilitychange", suspend);
+  document.defaultView?.addEventListener("pagehide", stop);
+
+  const port: TextTranslator = {
+    async *translate(source, requested) {
+      if (!eligible()) throw new Error("execution-context-unavailable");
+      if (!translator) throw new Error("model-load-failed");
+      if (!supported() || requested.source !== pair.source || requested.target !== pair.target || source.language !== pair.source) throw new Error("language-pair-unsupported");
+      if (!source.text || source.text.length > 16384 || !Number.isSafeInteger(source.sourceRevision) || source.sourceRevision <= 0) throw new Error("Invalid translation source");
+      if (active) throw new Error("overloaded");
+      const identity = { ...source.identity };
+      const utteranceId = source.utteranceId; const sourceRevision = source.sourceRevision; const final = source.final;
+      const operation = { identity, controller: new AbortController() };
+      active = operation;
+      try {
+        const text = await translator.translate(source.text, { signal: operation.controller.signal });
+        operation.controller.signal.throwIfAborted();
+        if (!eligible()) throw new Error("execution-context-unavailable");
+        if (typeof text !== "string" || !text.trim() || text.length > 16384) throw new Error("Invalid translation result");
+        yield { identity, utteranceId, sourceRevision, translationRevision: ++translationRevision,
+          languages: { ...pair }, text, final };
+      } finally { if (active === operation) active = undefined; }
+    },
+    async cancel(identity) {
+      if (active && sameIdentity(active.identity, identity)) {
+        active.controller.abort(); active = undefined;
+      }
+    },
+    async close() {
+      if (disposed) return;
+      disposed = true; stop();
+      document.removeEventListener("visibilitychange", suspend);
+      document.defaultView?.removeEventListener("pagehide", stop);
+    },
+  };
+
+  return {
+    ...port,
+    async probe(): Promise<Capability> {
+      if (!eligible() || !api()) return { state: "unavailable", reason: "execution-context-unavailable", message: "Translator requires an eligible visible secure document" };
+      if (!supported()) return { state: "unavailable", reason: "language-pair-unsupported", message: "Only Japanese/English to Korean is supported by this adapter" };
+      try {
+        const state = await api()?.availability({ sourceLanguage: pair.source, targetLanguage: pair.target });
+        if (!eligible()) return { state: "unavailable", reason: "execution-context-unavailable", message: "Document suspended during probe" };
+        if (state === "available") return { state: "available" };
+        if (state === "downloadable" || state === "downloading") return { state: "download-required", reason: "download-required", message: "Press Prepare to download or finish loading this language pair" };
+        return { state: "unavailable", reason: "language-pair-unsupported", message: "Browser cannot translate this language pair" };
+      } catch { return { state: "unavailable", reason: "execution-context-unavailable", message: "Translator capability probe failed" }; }
+    },
+    async prepare(): Promise<void> {
+      const native = api();
+      if (!eligible() || !native) throw new Error("execution-context-unavailable");
+      if (!supported()) throw new Error("language-pair-unsupported");
+      if (!document.defaultView?.navigator.userActivation.isActive) throw new Error("Press Prepare in this document to start");
+      if (preparing || translator) throw new Error("Stop before preparing another translator");
+      const operation = new AbortController(); preparing = operation;
+      receive({ state: "preparing" });
+      try {
+        // Call create before any await: a capability probe must not consume the
+        // activation needed to begin the browser-owned language-pack download.
+        const loaded = await native.create({ sourceLanguage: pair.source, targetLanguage: pair.target, signal: operation.signal,
+          monitor(monitor) {
+            monitor.addEventListener("downloadprogress", event => {
+              if (preparing === operation && !operation.signal.aborted && Number.isFinite(event.loaded) && event.loaded >= 0 && event.loaded <= 1) receive({ state: "preparing", progress: event.loaded });
+            });
+          },
+        });
+        if (operation.signal.aborted || !eligible()) { loaded.destroy(); throw new DOMException("Translation preparation stopped", "AbortError"); }
+        translator = loaded; receive({ state: "ready" });
+      } catch (error) {
+        if (!operation.signal.aborted) receive({ state: "failed", reason: error instanceof DOMException && error.name === "NotSupportedError" ? "language-pair-unsupported" : "model-load-failed" });
+        throw error;
+      } finally { if (preparing === operation) preparing = undefined; }
+    },
+    stop,
+  };
+}

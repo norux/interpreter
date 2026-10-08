@@ -12,6 +12,7 @@
     "build": "vite build",
     "build:chrome:preparation": "vite build --config vite.chrome.config.ts",
     "test:framework:chrome:preparation": "npm run typecheck && node --import tsx --test tests/framework-browser-model.test.ts && npm run build:chrome:preparation && node tests/framework-chrome-preparation.mjs",
+    "test:framework:chrome:translation": "npm run typecheck && node --import tsx --test tests/framework-browser-translation.test.ts && node tests/framework-chrome-translation.mjs",
     "lint": "biome lint extension packages/contracts packages/core packages/engines-companion packages/media-web packages/engines-browser apps/chrome tests scripts/ralph-loop.mjs vite.config.ts vite.content.config.ts vite.chrome.config.ts && uv run --locked ruff check server tests companion",
     "typecheck": "tsc --noEmit",
     "typecheck:framework": "tsc -p tsconfig.contracts.json && tsc -p tsconfig.framework.json",
