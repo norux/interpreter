@@ -278,3 +278,58 @@ test("learned pause jobs retain the pending-job bound and reject a late stalled 
   await new Promise<void>(resolve => setImmediate(resolve));
   assert.equal(statuses.length, count);
 });
+
+test("learned long silence submits before another onset or input EOF", async () => {
+  const jobs: AsrJob[] = []; const statuses: SessionStatus[] = [];
+  let delivered = 0; let returned = 0; let frame = 0;
+  const recognizer = createSpeechRecognizer(identity, "ja", {
+    async recognize(job) {
+      jobs.push(structuredClone(job));
+      return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+    }, stop() {},
+  }, status => statuses.push(status), {
+    async detect() { return { speech: frame++ < 32 }; }, stop() {},
+  });
+  const input = { [Symbol.asyncIterator]() { return {
+    async next(): Promise<IteratorResult<AudioChunk>> {
+      if (delivered < 79) return { done: false, value: chunk(delivered++, true, 512) };
+      return new Promise(() => {}); // Still open after 1,504 ms of detected silence.
+    },
+    async return() { returned++; return { done: true as const, value: undefined }; },
+  }; } };
+  const stream = recognizer.run(input)[Symbol.asyncIterator]();
+  const pending = stream.next();
+  const result = await Promise.race([pending, new Promise<undefined>(resolve => setImmediate(() => resolve(undefined)))]);
+  assert.ok(result, "A completed utterance must not wait for another onset or EOF");
+  assert.equal(result.done, false); assert.equal(delivered, 79); assert.equal(returned, 0);
+  assert.equal(jobs.length, 1);
+  assert.deepEqual(jobs[0].audioRange, { startMs: 0, endMs: 2272 });
+  assert.deepEqual(jobs[0].pcm, new Float32Array(2272 * 16).fill(0.05));
+  assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 256);
+  await recognizer.cancel(identity); await stream.return?.();
+  assert.equal(returned, 1); assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+  assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 256);
+});
+
+test("learned long pause retains exact context for subsequent speech and rejects a speech-free EOF tail", async () => {
+  for (const resumed of [false, true]) {
+    const jobs: AsrJob[] = []; const statuses: SessionStatus[] = []; let frame = 0;
+    const count = resumed ? 272 : 232;
+    const recognizer = createSpeechRecognizer(identity, "en", {
+      async recognize(job) {
+        jobs.push(structuredClone(job));
+        return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+      }, stop() {},
+    }, status => statuses.push(status), {
+      async detect() { const index = frame++; return { speech: index < 32 || (resumed && index >= 232 && index < 264) }; }, stop() {},
+    });
+    await collect(recognizer.run(source(Array.from({ length: count }, (_, i) => chunk(i, true, 512)))));
+    assert.deepEqual(jobs.map(job => job.audioRange), resumed
+      ? [{ startMs: 0, endMs: 2272 }, { startMs: 2272, endMs: 8704 }]
+      : [{ startMs: 0, endMs: 2272 }]);
+    assert.equal(jobs.reduce((sum, job) => sum + job.pcm.length, 0), (resumed ? count * 512 : 2272 * 16));
+    assert.ok(jobs.every(job => job.pcm.every(sample => sample === Math.fround(0.05))));
+    assert.equal(frame, count); assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+    assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 0);
+  }
+});

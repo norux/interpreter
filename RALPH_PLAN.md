@@ -2484,3 +2484,120 @@ PASS: document-inclusive unstaged/staged whitespace (`git diff --check` /
 `git diff --cached --check`), **exit 0**. Only the plan/report/recognizer/tests
 are staged, excluding ignored `.ralph` evidence/state. Intended commit and
 post-commit cleanliness are checked before delivery.
+
+
+### 2026-10-08 / chrome / iteration 6/20 — B2 bounded learned silence
+
+Related commit: `fix: bound learned ASR silence submission`, containing this
+entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no default ASR model is selected.** Only B2 advances.
+
+Changes: the experimental learned profile submits after >=1,500 ms of detected
+silence (1,504 ms with full 32 ms frames), retaining 256 ms of exact context for
+later speech. It no longer needs another onset or EOF to submit a completed
+utterance during a long pause. Existing short-pause midpoint cuts, exact unfiltered
+ASR samples, 20 s segment/30 s retained limits, pending-job/result bounds and
+cancellation rules remain. No extra timer/VAD/model/backend/fallback/dependency,
+public configuration or user setting is added. The energy-only comparison is
+unchanged. Two regressions cover an open input, resumed contiguous PCM and
+speech-free EOF rejection; mocks establish segmentation/lifetime, not accuracy.
+
+Added independent `node tests/framework-chrome-silence.mjs`: two complete copies
+of each unchanged fixture with >=5 s synthetic gaps/tail and seeded 0.006 RMS
+noise, at 100 ms paced delivery. These new cases retain every original speech
+sample/tag/sentence; the original ten-case/three-period noise harness, hashes,
+exact-three meaning/error/coverage/latency gates and candidate comparisons remain
+unchanged. The new command is not full selected-video/Korean-caption acceptance.
+Criteria established before execution: real text before next onset/EOF, <3 s
+from last detected active-frame delivery, <2 s endpoint-to-text, <=20% CER/WER,
+every meaning twice for the two new periods, exact ASR slices/full speech coverage,
+contiguous ranges, bounded queues, zero loss/drained queues and real VAD coverage/
+padding/inference budget. First independently observed input hashes are pinned
+for the final run. Expected text scores outputs only; no phrase injection.
+
+Commands and results, evidence under ignored `.ralph/media-framework/`:
+
+- FAIL before fix: `node --import tsx --test tests/framework-browser-speech.test.ts`,
+  **exit 1 / 14 passed / 2 failed / 171.103709 ms**,
+  `chrome-20261008-6-regression.log`: no open-stream long-silence result; energetic
+  speech-free EOF remains attached until 7,424 ms.
+- PASS after fix: speech/VAD tests, **exit 0 / 17 passed / 143.194042 ms**,
+  `chrome-20261008-6-unit.log`, and `npm run typecheck`, **exit 0**.
+- PASS: local Node/tsx historical detector-schedule replay, **exit 0 / four cases**,
+  `chrome-20261008-6-schedule-replay.log`: all iteration 5 job ranges/EOF unchanged.
+  Synthetic energetic context/fake ASR only, not historical PCM/accuracy inference.
+  Those measured pauses are <=928 ms after speech. No third unchanged attempt
+  at iteration 5's twice-observed louder-noise Japanese quality failure is made.
+- PASS: first `caffeinate -disu node tests/framework-chrome-silence.mjs`, **exit 0**,
+  `chrome-20261008-6-silence.log`, both new cases/four actual ASR jobs. Japanese
+  **2/80 CER**, English **2/44 WER**, every meaning twice. Last-active-to-text
+  **2,376.100–2,441.000 / 2,262.900–2,299.300 ms**. Joint first/cached preparation
+  **54,174.446625 / 1,323.269584 ms**, not ASR latency. Before final run, only new
+  harness hash assertions and redundant scaffold simplification are added.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-6-stage-acceptance.log`: missing script; B5 complete selected
+  video → ASR → Korean translation → DOM is unimplemented. No substitute.
+- PASS: script syntax, targeted three-file Biome **20 ms / no findings** and
+  preliminary whitespace, **exit 0**. Final browser/verify evidence follows below.
+
+
+Final real browser: PASS, same long-silence command, **exit 0**,
+`chrome-20261008-6-silence-final.log`: fixed input hashes, **1,518 real VAD calls /
+four ASR jobs**, all declared quality/latency/coverage/revision/queue/network
+assertions. Japanese **2/80 = 2.5% CER**, English **2/44 = 4.545455% WER**, every
+meaning twice. Endpoint-to-text **1,080.000–1,251.700 / 940.500–979.000 ms**;
+last-active-delivery to text **2,379.700–2,451.700 / 2,240.300–2,279.700 ms**.
+Actual ASR host calls **733.900–944.700 ms**, peak pending **13,004 / 12,660 ms**,
+zero reported lost/final pending. Ranges **576–8,896 / 8,896–20,832 ms** Japanese,
+**576–8,640 / 8,640–20,320 ms** English; each complete original speech period
+is covered by exact unfiltered PCM. Speech-free leading context **576 ms** and
+EOF tails **3,720 / 3,656 ms** are deliberately rejected, separate from queue
+loss. Detector padding **384 samples/language** never enters ASR. Real detector
+inference totals **456.100 / 446.600 ms**, max frame **12.900 / 11.200 ms**.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, unchanged locked
+Transformers.js/ORT. Input is **paced decoded synthetic PCM**, not live selected
+video or natural speech/noise. Same pinned small FP16 WebGPU ASR **487,960,440
+bytes** and Silero WASM VAD **2,243,022 bytes**, one inventory each per owned fresh
+browser invocation, then cached fresh English workers. First/cached preparation
+**55,280.454209 / 1,220.172375 ms**, not recognition latency. No remote inference,
+companion/Ollama; remote paths **16**, page errors/native visibility events `[]`.
+RSS baseline **1,298,448 KiB**, case peaks **3,321,952 / 3,815,104 KiB**, sampled
+at 250 ms for only the owned browser tree; includes shared pages/allocators/joint
+models/PCM, not isolated GPU allocations, pressure, leaks or mobile qualification.
+Detailed hashes/sample counts/timing/RSS are in the report. Latencies use one
+document clock and exclude earlier speech accumulation, translation and display.
+
+**Next remains B2:** improve retained louder-noise Japanese meaning, qualify
+natural speakers/noise/word boundaries, learned live input and sustained queue/
+GPU-loss/storage/pressure/memory, resolve Whisper conversion/distribution
+licensing and then select a default. The original noise suite/model comparison/
+stream/sustained/isolated VAD/B1 UI commands are not rerun; historical results are
+not fresh full-profile passes. New long-silence cases pass, but broader quiet
+phonemes/boundaries remain unverified. Offline speech/full interpretation, Korean
+translation/revisions/DOM, ten-minute live Korean captions, B3–B6, installation
+and Safari/iPhone are unfinished. No absent required environment/device/permission
+or terminal marker; no checkbox or stage/framework/iPhone completion claim.
+
+Root/nested AGENTS.md and requested runner evidence file are absent at initial
+read; supplied instructions/plan/architecture/prior report read. Work stays here;
+companion v0.1.0/install/native messaging/server/settings and unrelated files/apps/
+recordings/mounted images are preserved. No agents, runner change, stage advance,
+push/publish/app installation or browser access/profile/permission bypass. Only
+owned test browsers/profiles cleaned up. No credentials, weights, user audio/
+transcripts or temporary `.ralph` state staged/committed.
+
+
+Final required verification: PASS, `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-6-verify.log`: Biome **113 files / 51 ms / no findings**, Ruff,
+typecheck, unchanged companion build (**28 main / 10 content modules**),
+**108 JS passed / 0 failed/skipped/cancelled / 21,126.336958 ms**,
+**222 Python passed / 66.94 s**, Python **3.12.15**. Runs after both actual
+model/browser invocations; subsequent changes complete only Markdown records.
+Full Chrome acceptance and B2 remain unfinished, as distinguished above.
+
+PASS: final document-inclusive unstaged/staged whitespace checks, **exit 0**.
+Only the plan/report/recognizer/unit tests/new silence harness are staged;
+ignored `.ralph` state is excluded. Intended commit and post-commit cleanliness
+are checked before delivery.

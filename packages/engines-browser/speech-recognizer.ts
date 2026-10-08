@@ -7,9 +7,9 @@ import type { AsrJob } from "./asr-protocol";
 // Experimental 16 kHz profiles: energy-only 20 ms frames/500 ms endpoint and
 // speech-band pause cuts after 10 s; learned 32 ms frames/500 ms detected pauses.
 // Both keep a 20 s maximum segment and 10 s queue headroom during inference.
-// Learned cuts wait for the next onset or EOF, preserving intervening PCM and
-// dividing a detected pause within one frame of its midpoint. This delays
-// submission during silence; it is not an immediate learned silence endpoint.
+// Learned short pauses split at the next onset near their midpoint. After
+// 1,500 ms of detected silence, submit without another onset/EOF, retaining
+// 256 ms of context for the next segment. Neither path filters ASR samples.
 // The original energy-only profile remains a comparison, never a fallback.
 export function createSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
@@ -132,7 +132,8 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
           quietSamples = (detector ? activity : speech) ? 0 : quietSamples + frameLength;
           boundaryQuietSamples = Math.sqrt(boundaryEnergy / frameLength) >= 0.01 ? 0 : boundaryQuietSamples + frameLength;
           if (bufferedSamples > 16000 * 30) { stop("overloaded"); return; }
-          if (!detector && quietSamples >= 8000) finishSegment();
+          if (detector && detectedSpeech && quietSamples >= 24000) finishSegment(true, segmentLength - 4096);
+          else if (!detector && quietSamples >= 8000) finishSegment();
           else if (segmentLength === segment.length || (!detector && segmentLength >= 16000 * 10 && boundaryQuietSamples >= 3200)) finishSegment(true);
         } else bufferedSamples -= frameLength;
         frameLength = 0;
