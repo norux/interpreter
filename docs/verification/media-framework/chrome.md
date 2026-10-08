@@ -11916,3 +11916,32 @@ production/model inventory/permissions/fixtures/runner and unrelated files/apps/
 recordings/mounts preserved. Append-only history, checklist equality, whitespace,
 two-file staging scope and committed cleanliness checked at delivery; `.DS_Store`
 is preserved unstaged and excluded by the plan's runner cleanliness rule.
+
+
+### 2026-10-09 KST / user scope update — tab audio before B6
+
+User stopped quality work, then authorized adding whole-tab Chrome audio capture
+to the Ralph implementation scope before B6 and restarting the loop. The standing
+goal remains `ralph loop 가 성공적으로 완료될때까지 감독하기.`; no stage or quality
+criterion is removed. No Ralph/Codex replay worker remained at the pause check.
+
+Added unchecked B5a ahead of B6 and updated the architecture/product boundary:
+Chrome defaults to an explicitly started tab mix, including cross-origin iframe,
+audio-element and Web Audio output, without video discovery/selection. Preserve
+original playback, tab isolation, scope/clock semantics, bounded transport, real
+ASR/translation/DOM and lifecycle cleanup. Prefer the existing persistent host
+when sufficient. Safari/iPhone selected-video scope and companion remain intact.
+
+Next item is **B5a**, overriding historical Next B6 entries. Quality/model/VAD/
+decoder experiments stay stopped until B5a functionality acceptance passes.
+Existing B6 failures, exact meaning counts, CER/WER <=20%, endpoint <2,000 ms
+and long-run backlog/loss gates remain required on the new default input.
+B5a is a spec change, not an implemented or verified capture feature.
+
+Scope verification: `git diff --check` and
+`node scripts/ralph-loop.mjs chrome 20 --dry-run` both PASS / exit 0.
+Independent checklist readback confirms B5a is first unfinished, B1–B5 stay
+checked, B6 wording/gates are unchanged except its B5a prerequisite, and
+core/video/Safari/iPhone stage sections are byte-for-byte unchanged.
+No runtime code changed; capture/browser/quality acceptance is NOT RUN for this
+spec-only commit and will be performed by B5a/B6, not claimed here.

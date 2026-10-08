@@ -5,14 +5,16 @@
 
 ## 목표와 범위
 
-PC Chrome·Safari와 아이폰 Safari에서 **현재 페이지의 선택한 영상 하나**를
-음성 인식하고 한국어로 번역하는 프레임워크를 구현한다. 공통 코어, 플랫폼 호스트,
+PC Chrome에서는 **사용자가 시작한 탭의 전체 오디오**를, Safari와 아이폰 Safari에서는
+**현재 페이지의 선택한 영상 하나**를 음성 인식하고 한국어로 번역하는 프레임워크를
+구현한다. Chrome 기본 입력은 2026-10-09 사용자 요구에 따라 탭 전체 캡처로 변경한다.
+공통 코어, 플랫폼 호스트,
 영상 입력, 모델 엔진, 출력 계약을 처음부터 분리한다. 첫 실기 대상은 사용자가
 지정한 iPhone 18 Pro이며 실제 iOS/Safari 버전은 검증 때 기록한다.
 유튜브 전용 기능이 아니라 일반 HTML5 영상으로 시작한다.
 
 기존 macOS companion v0.1.0과 설치 경로를 유지한다. 새 브라우저 전용 빌드는
-별도로 만들고, 기존 전체 탭 캡처를 선택한 영상의 PCM으로 표현하지 않는다.
+별도로 만들고, 전체 탭 캡처를 선택한 영상의 PCM으로 표현하지 않는다.
 공통 코어에는 Chrome/Safari/DOM/모델 제공자 의존성을 넣지 않는다. 큰 프레임워크의
 계약·수명주기·의존성 경계는 설계를 따르되, 확인되지 않은 엔진을 작동한다고 표시하지 않는다.
 
@@ -79,7 +81,7 @@ iteration은 미완료 체크리스트 항목 하나를 구현·검증·기록·
 | --- | --- | --- |
 | core | 공통 계약 → 세션/큐/시간 관리 → 자막 정책 → companion 연결 → 회귀 검증 | 5 |
 | video | 영상 선택 → 실제 오디오 입력 → 시간 매핑 → 입력 제약 → 선택 영상 검증 | 5 |
-| chrome | 모델 로드/캐시 → ASR 비교 → 한국어 번역 → 화면 연결 → 장시간 검증 → 품질 평가 | 6 |
+| chrome | 모델 로드/캐시 → ASR 비교 → 한국어 번역 → 화면 연결 → 장시간 검증 → 탭 전체 캡처 → 품질 평가 | 7 |
 | safari | Safari 빌드 → 번역 엔진 → 영상부터 자막까지 연결 → 실제 Safari 검증 | 4 |
 | iphone | 실기 설치 → 모델/성능 확인 → 영상부터 자막까지 연결 → 10분 실기 측정 → 최종 검증 | 5 |
 
@@ -142,7 +144,7 @@ Ralph 시작 안내 블록을 제거한 뒤 `chore: remove completed framework R
 | --- | --- | --- |
 | core | `npm run test:framework:core` | 브라우저 없는 코어 빌드, 수명주기·revision·epoch·취소·자막 정책 회귀 |
 | video | `npm run test:framework:video` | 실제 영상 PCM, 선택한 영상만 처리, 시간 매핑, 원래 재생 유지 |
-| chrome | `npm run test:framework:chrome` | 보조 앱 없는 실제 일본어/영어 영상 → 한국어 자막, 모델 준비·Stop |
+| chrome | `npm run test:framework:chrome` | 보조 앱 없는 실제 탭 전체 오디오 → 일본어/영어 ASR → 한국어 자막, iframe·재생 유지·Stop |
 | safari | `npm run test:framework:safari` | 실제 Safari의 입력·엔진·표시 경로와 설치/수명주기 |
 | iphone | `npm run test:framework:iphone` | 연결된 실기의 설치·영상·엔진 검증; 없는 실기를 보고서로 대체하지 않음 |
 
@@ -184,12 +186,12 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 
 ## Stage chrome
 
-목표: companion/Ollama 서버 없이 실제 영상 음성 인식·번역·자막이 동작하는 Chrome 빌드.
+목표: companion/Ollama 서버 없이 사용자가 시작한 탭의 전체 오디오를 음성 인식·번역·자막으로 연결하는 Chrome 빌드.
 
 ### 현재 작업 순서와 B2 종료 조건 (2026-10-08 사용자 확정)
 
 B2의 엔진 비교·연결과 최종 품질·성능 개선을 분리한다. 현재 순서는
-**B3 번역 → B4 화면 연결 → B5 통합·장시간 검증 → B6 품질·성능 개선**이다.
+**B3 번역 → B4 화면 연결 → B5 통합·장시간 검증 → B5a 탭 전체 오디오 캡처 → B6 품질·성능 개선**이다.
 아래 규칙이 Progress log와 Chrome 보고서의 과거 “B2 유지/default 미선택”
 지시보다 우선한다. 최종 수치가 미달한다는 이유로 B2를 다시 열거나 B3–B5에서
 모델·VAD·디코더 비교를 반복하지 않는다. 각 항목의 연결·취소·revision 등 기능
@@ -223,12 +225,31 @@ assertion만 실패한 경우 그 실패를 B6 미해결 목록에 남기고 B6�
 완료 처리하지 않으며, B6와 전체 acceptance까지 통과해야 Chrome stage 완료
 marker를 낼 수 있다.
 
+### 탭 전체 오디오 캡처 추가 요구 (2026-10-09 사용자 확정)
+
+**다음 작업은 B5a다. B5a 완료 전에는 B6 품질 개선·모델/VAD/디코더 비교를 중단한다.**
+이 순서는 Progress log와 Chrome 보고서의 과거 "Next B6" 지시보다 우선한다.
+기존 B1–B5 체크와 실패 증거는 보존하며 B6 번호·수치 기준·전체 goal은 변경하지 않는다.
+
+- Chrome 단독 빌드의 기본 입력을 `chrome.tabCapture` 기반의 **사용자가 시작한 탭 전체 오디오**로 바꾼다. 확장 버튼으로 해당 탭의 통역을 시작하며 영상 검색·선택을 시작 조건으로 요구하지 않는다. 다른 출처 iframe, `<audio>`, Web Audio와 여러 소리가 실제로 탭에서 재생되면 함께 캡처한다. 광고도 포함되는 탭 혼합 입력이며 특정 영상만 수집했다고 표시하지 않는다.
+- 실제 확장 action/user gesture와 `tabCapture` 권한으로 시작하고, 원래 탭 ID에 묶는다. 다른 탭·시스템 오디오·마이크는 수집하지 않는다. iframe DOM 주입이나 각 영상 리소스의 CORS 허용을 입력 조건으로 삼지 않고 사이트 권한·DRM을 우회하지 않는다. 거부·캡처 실패·보호 콘텐츠는 실제 결과에 맞는 상태를 표시한다.
+- 지속 가능한 extension document에서 스트림을 소유한다. 기존 host document를 활용할 수 있으면 먼저 활용하며, offscreen이 필요하면 해당 권한과 수명주기를 명시한다. 일시적인 popup/service worker가 스트림이나 추론의 유일한 소유자가 되지 않게 한다. stream ID는 유효기간 내 실제 소비하고 모델 준비·취소 중에도 원래 소리가 들리게 한다.
+- 캡처로 Chrome의 기본 재생 경로가 바뀌므로 캡처 스트림의 출력 연결을 유지한다. 원래 소리의 누락·이중 재생을 방지하고 Stop·재시작·실패·host 종료 후 정상 사이트 재생이 유지/복구되는지 실제 출력으로 검증한다. 사이트의 mute/volume/source를 강제로 바꾸지 않는다.
+- 탭 입력의 scope·identity·capture clock을 계약에 명시한다. 탭 경과 시간을 영상 `currentTime`으로 표시하지 않는다. 특정 영상의 pause/seek/교체를 전체 탭의 종료로 처리하지 않는다. 탭/host 종료, navigation/reload, 캡처 중단과 재시작 때 자원 해제·epoch 변경·늦은 PCM/ASR/번역 차단 정책을 명시하고 검증한다. 코어에는 Chrome API를 넣지 않는다.
+- `<video>`가 없는 페이지에서도 원문/한국어 comparison과 Start/Stop이 동작해야 한다. overlay는 특정 영상 선택을 입력 조건으로 만들지 않는다. 기존 selected-video adapter와 Safari/iPhone 범위·companion 구현은 보존하며 Safari에도 같은 API가 있다고 가정하지 않는다.
+- `npm run test:framework:chrome:tab-capture`를 실제 확장을 사용하는 acceptance harness로 추가한다. test-owned headed Chrome에서 최상위 영상, 다른 출처 iframe 영상, audio-only/Web Audio 페이지, 동시 두 소리의 혼합, 캡처 탭과 다른 탭의 격리, 원래 출력 유지, Stop/repeat Start/중단 후 복구를 실제 PCM·출력·수명주기 증거로 검사한다. mock/DOM 검색 성공으로 캡처를 대체하지 않는다. 일본어/영어 탭 PCM → 실제 ASR → 한국어 번역 → DOM 연결을 검사하고 전체 `test:framework:chrome`도 새 기본 입력을 검증하도록 연결한다.
+- B5a 종료 조건은 탭 캡처·입력 보존·출력·수명주기·엔진/화면 연결의 실제 기능 검증이다. 기존 B6 품질/지연 실패는 그대로 기록하고 B5a에서 모델 튜닝을 반복하지 않는다. 복합 명령의 실패를 성공으로 바꾸지 않는다. B5a가 끝나면 B6를 재개하고 새 기본 탭 입력에서 기존 엄격한 품질·지연·장시간 기준과 전체 Chrome acceptance를 통과해야 Chrome stage가 완료된다.
+
+API 근거: [Chrome tabCapture](https://developer.chrome.com/docs/extensions/reference/api/tabCapture),
+[Chrome 탭 캡처 구현 안내](https://developer.chrome.com/docs/extensions/how-to/web-platform/screen-capture).
+
 - [x] B1. browser engine의 execution host/worker와 model repository를 구현한다. 모델 준비의 ID·버전·다운로드·캐시·실제 로드 상태를 표시하고 document/user activation 제약을 처리한다.
 - [x] B2. 일본어/영어 browser ASR 후보의 실제 WebGPU/WASM 실행과 메모리·지연·정확도를 비교하고 구현용 기본 모델을 선택한다. bounded queue·과부하·GPU loss·cancel 계약을 검증한다. 최종 품질·성능 합격은 B6에서 검증한다.
 - [x] B3. Chrome Translator document adapter를 구현하고 실제 일본어/영어 → 한국어 지원을 검사한다. 최신 원문 revision과 번역을 정확히 짝짓고 원문을 먼저 표시하며 final 작업이 partial에 밀리지 않게 한다.
 - [x] B4. 새 Chrome 단독 빌드에 선택 영상 입력·엔진·공통 정책·원문/시간/번역 화면을 연결한다. 기존 companion 빌드의 native messaging/설치 경로는 보존하며 새 빌드에는 필요한 권한만 포함한다.
 - [x] B5. `test:framework:chrome`이 companion/Ollama가 없는 환경에서 실제 영상 PCM → ASR → 번역 → DOM을 검증하게 한다. 캐시된 모델 offline run, 첫 다운로드 오류, Stop/재시작, 10분 재생의 backlog/지연/손실을 측정한다. B5는 연결·수명주기·입력 보존을 검증하고 품질·성능 수치를 기록하며, 수치 목표를 맞추기 위한 최적화는 B6에서 수행한다.
-- [ ] B6. Chrome 기능 연결과 B5 통합 검증 뒤 마지막으로 ASR·번역 품질과 성능을 개선한다. 일본어 부정·취소·시간·미래 의도, 긴 문장 경계·반복·누락, 영어 fixture와 잡음·작은 음성·연속 발화를 평가한다. 기존 CER/WER ≤20%, 핵심 표현의 기대 횟수 일치, 실시간 endpoint-to-text <2초 기준과 장시간 backlog·손실 검증을 통과하고 수치·메모리·수용 기준을 문서화한다. 실패 문장·기록을 삭제하거나 테스트·기준을 약화시키지 않는다. 기준을 못 맞추면 개선 또는 차단으로 보고한다.
+- [ ] B5a. Chrome 기본 입력을 사용자 확장 버튼으로 시작하는 탭 전체 오디오 캡처로 변경한다. 위 추가 요구의 iframe/audio/Web Audio·혼합 입력·탭 격리·원래 출력·Stop/재시작·수명주기·실제 ASR/번역/DOM 연결을 `test:framework:chrome:tab-capture`로 검증하고 전체 Chrome acceptance에 연결한다. B6 품질 개선보다 먼저 완료한다.
+- [ ] B6. Chrome 기능 연결과 B5/B5a 통합 검증 뒤 마지막으로 ASR·번역 품질과 성능을 개선한다. 일본어 부정·취소·시간·미래 의도, 긴 문장 경계·반복·누락, 영어 fixture와 잡음·작은 음성·연속 발화를 평가한다. 기존 CER/WER ≤20%, 핵심 표현의 기대 횟수 일치, 실시간 endpoint-to-text <2초 기준과 장시간 backlog·손실 검증을 통과하고 수치·메모리·수용 기준을 문서화한다. 실패 문장·기록을 삭제하거나 테스트·기준을 약화시키지 않는다. 기준을 못 맞추면 개선 또는 차단으로 보고한다.
 
 완료 검증: `npm run verify`, `npm run test:framework:chrome`.
 모델 smoke 성공만으로 B5/B6를 체크하지 않는다.
@@ -7234,3 +7255,32 @@ Companion/install/native messaging/settings, production inventory/permissions/
 fixtures/runner and unrelated apps/files/recordings/mounts preserved. Whitespace,
 append-only history/checklist equality, two-file scope and committed cleanliness
 checked at delivery. Related commit: `docs: record Chrome medium Q8 allocation comparison`.
+
+
+### 2026-10-09 KST / user scope update — tab audio before B6
+
+User stopped quality work, then authorized adding whole-tab Chrome audio capture
+to the Ralph implementation scope before B6 and restarting the loop. The standing
+goal remains `ralph loop 가 성공적으로 완료될때까지 감독하기.`; no stage or quality
+criterion is removed. No Ralph/Codex replay worker remained at the pause check.
+
+Added unchecked B5a ahead of B6 and updated the architecture/product boundary:
+Chrome defaults to an explicitly started tab mix, including cross-origin iframe,
+audio-element and Web Audio output, without video discovery/selection. Preserve
+original playback, tab isolation, scope/clock semantics, bounded transport, real
+ASR/translation/DOM and lifecycle cleanup. Prefer the existing persistent host
+when sufficient. Safari/iPhone selected-video scope and companion remain intact.
+
+Next item is **B5a**, overriding historical Next B6 entries. Quality/model/VAD/
+decoder experiments stay stopped until B5a functionality acceptance passes.
+Existing B6 failures, exact meaning counts, CER/WER <=20%, endpoint <2,000 ms
+and long-run backlog/loss gates remain required on the new default input.
+B5a is a spec change, not an implemented or verified capture feature.
+
+Scope verification: `git diff --check` and
+`node scripts/ralph-loop.mjs chrome 20 --dry-run` both PASS / exit 0.
+Independent checklist readback confirms B5a is first unfinished, B1–B5 stay
+checked, B6 wording/gates are unchanged except its B5a prerequisite, and
+core/video/Safari/iPhone stage sections are byte-for-byte unchanged.
+No runtime code changed; capture/browser/quality acceptance is NOT RUN for this
+spec-only commit and will be performed by B5a/B6, not claimed here.

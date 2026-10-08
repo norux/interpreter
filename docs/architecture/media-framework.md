@@ -5,11 +5,19 @@ support is implemented by this document. The published companion remains v0.1.0.
 
 ## Product boundary
 
-The user starts interpretation for **one selected video on the current page**.
-Other videos, other tabs and system audio are outside this session. When multiple
-videos are visible, offer a suggested target and let the user confirm or select
-another. Do not silently change targets when an advertisement or another video
-starts. Navigation or replacement of the selected element invalidates its handle.
+As of the 2026-10-09 user requirement, desktop Chrome starts interpretation for
+**all audio from the tab where the user invokes the extension**. This includes
+audible iframe, audio-element and Web Audio output, including simultaneous sounds
+and advertisements. It does not require finding or selecting a video. Other tabs,
+system audio and microphones are outside this session. The capture stays bound to
+the original tab rather than following whichever tab becomes active.
+
+Desktop Safari and iPhone Safari retain **one selected video on the current page**.
+When multiple videos are visible, offer a suggested target and let the user confirm
+or select another. Do not silently change that target when another video starts.
+Navigation or replacement of the selected element invalidates its handle. Preserve
+the selected-video adapter and its acceptance tests; tab audio is a distinct input
+scope and must not be described as PCM from one selected element.
 
 Design the framework for desktop Chrome, desktop Safari and iPhone Safari from
 the outset. Share session behavior, data contracts and inference orchestration;
@@ -20,8 +28,10 @@ A smaller Chrome-only refactor could deliver a browser prototype sooner. This
 design intentionally establishes the broader framework requested by the user,
 including execution contexts, lifecycle, compatibility and acceptance criteria.
 
-The central feasibility condition is **access to samples from that video**.
-Finding a `<video>` element or observing its playback does not establish sample
+The central feasibility condition is **access to samples from the declared input**.
+Chrome tab capture uses the browser-authorized tab mix, without requiring access to
+iframe DOM or origin-clean samples from an individual media element. For selected
+video input, finding a `<video>` element or observing its playback does not establish sample
 access. [Web Audio specifies silence for CORS-cross-origin media](https://www.w3.org/TR/webaudio/#MediaElementAudioSourceNode).
 Site permissions do not remove that restriction. Mobile Safari support must be
 established against real media and a physical iPhone before being advertised.
@@ -34,7 +44,7 @@ flowchart TB
     SH[Desktop Safari host] --> CT
     IH[iPhone Safari host] --> CT
     CT --> SC[Session controller]
-    SC --> MI[Selected-video input port]
+    SC --> MI[Declared audio input port]
     MI --> MP[Media timeline and bounded audio queue]
     MP --> IP[Interpretation port]
     IP --> CE[Caption revision store]
@@ -150,6 +160,10 @@ scores. Text accuracy is established using labeled evaluation fixtures.
 
 ## Two timelines and discontinuities
 
+The selected-video rules below apply to that input scope. Chrome tab input uses
+capture-relative elapsed time and tab/host discontinuities as specified in Chrome
+tab audio access; it does not fabricate a selected-video timeline.
+
 Keep capture time, video time and presentation time distinct:
 
 - Capture/sample time determines audio ordering and ASR ranges.
@@ -200,7 +214,7 @@ stateDiagram-v2
     unavailable --> idle: dismiss or select another target
 ```
 
-One foreground selected-video session per host is the initial policy. Start and
+One explicitly started input session per host is the initial policy. Start and
 Stop are serialized; Stop invalidates the session generation synchronously
 before waiting for cleanup. Late preparation completions cannot restart capture.
 Starting with changed settings creates a new session, never mutates an engine
@@ -215,10 +229,9 @@ lifetime and is not a way to assume an indefinitely running iOS helper server.
 
 ## Selected-video audio access
 
-The primary input is a Web Audio adapter for the selected media element. Chrome
-tab capture remains available only for the existing companion product; a whole
-tab mix is not equivalent to selected-video PCM and must not silently satisfy
-this new product's input requirement.
+Safari/iPhone input and the retained selected-video adapter use Web Audio for the
+selected media element. Desktop Chrome's default input is now the separate tab
+capture route below. A whole tab mix is not equivalent to selected-video PCM.
 
 Media adapter responsibilities:
 
@@ -255,6 +268,41 @@ exist. Availability combines route evidence and actual playback/sample tests.
 An existing-subtitle input can be added as a separate product mode if requested;
 it must not silently replace audio recognition or claim to be an ASR result.
 
+## Chrome tab audio access
+
+Implement this route as B5a before resuming B6 quality work. Use `chrome.tabCapture`
+after the actual extension action/user gesture, with only the necessary permissions.
+Own the stream in a persistent extension document; prefer the existing host when
+sufficient, or document an offscreen owner's permission and lifetime if required.
+Consume short-lived stream IDs promptly rather than retaining them during model
+downloads. Neither a transient popup nor the service worker alone owns continuous
+capture or inference.
+
+Capturing tab audio suppresses Chrome's ordinary local playback. Connect the
+captured stream to an AudioContext output so original audio remains audible,
+including preparation and cancellation. Stop, failure and host closure release
+owned tracks/graphs and restore ordinary playback without mutating site media
+attributes. Verify actual output, missing/duplicate playback and repeated Start.
+[Chrome capture and playback behavior](https://developer.chrome.com/docs/extensions/reference/api/tabCapture),
+[extension document implementation](https://developer.chrome.com/docs/extensions/how-to/web-platform/screen-capture).
+
+Declare tab input scope, session/tab identity and a capture-relative timeline at
+the adapter boundary. Display elapsed capture time rather than fabricating a
+video `currentTime`. Selected-element pause/seek/source events do not end the tab
+session. Specify navigation/reload, tab/host closure and capture-loss behavior;
+clear old queues and reject stale results across discontinuities and restart.
+Keep Chrome APIs in the host/adapter, outside the platform-neutral core. Controls
+and source/Korean comparison work even when no video element exists.
+
+Validate with a real extension in test-owned headed Chrome: top-frame and
+cross-origin iframe audio, audio-only and Web Audio pages, simultaneous mixed
+sources, isolation from another tab, original playback and lifecycle cleanup.
+Connect real tab PCM through ASR, translation and DOM; mocks or selected-element
+capture do not establish tab-capture acceptance. Preserve historical failures and
+selected-video checks. B5a establishes functionality; B6 retains strict quality,
+latency and long-run criteria on the new default route. This API requirement is
+specific to Chrome and does not establish Safari/iPhone support.
+
 ## Capabilities and engine selection
 
 Probe capabilities for the exact target, execution context, model and language
@@ -265,7 +313,7 @@ and `unverified`. Probe results become invalid when the target or host changes.
 | Deployment | Media route | Inference route | Acceptance status |
 | --- | --- | --- | --- |
 | Existing macOS Chrome + companion | Current single-tab capture | MLX Qwen3-ASR + Ollama Qwen3.5 | Existing implementation; not selected-video input |
-| Desktop Chrome standalone | Selected element/site adapter | Browser ASR + Chrome Translator or browser translation model | Planned; model and media tests required |
+| Desktop Chrome standalone | User-authorized whole-tab audio | Browser ASR + Chrome Translator or browser translation model | B5a planned; real tab input and engine tests required |
 | Desktop Safari standalone | Selected element/site adapter | Browser ASR + browser translation model | Planned; Safari execution tests required |
 | iPhone Safari | Selected element/site adapter | Mobile-qualified browser models; optional native implementation | Planned; physical device and site tests required |
 
@@ -389,7 +437,7 @@ companion backend. Their behavior is not rewritten merely to extract web core.
 | --- | --- | --- |
 | 1. Contract/core extraction | Browser-free contracts, session and revision rules, adapters around current protocol | No browser/DOM dependencies in core; existing Stop/restart, caption cadence and final replay regressions pass |
 | 2. Selected-video input | Common media catalog and Web Audio adapter, video/epoch mapping | Two audible videos: selected source only; seek/pause/rate/source replacement; original audio survives Stop and repeat Start; cross-origin/protected route failure |
-| 3. Chrome standalone | Local browser inference/model preparation and document translation adapter | Companion/Ollama absent; real selected-video PCM → Japanese/English source → Korean captions; offline cached run; cancellation and pressure tests |
+| 3. Chrome standalone | Local browser inference/model preparation, tab audio input and document translation adapter | Companion/Ollama absent; real tab PCM including cross-origin iframe/audio/Web Audio → Japanese/English source → Korean captions; original playback, offline cached run, cancellation and pressure tests |
 | 4. Safari desktop | Safari host/build/container and supported browser engine | Same core fixtures pass; real Safari selected-video run and native fullscreen capability evidence |
 | 5. iPhone | Mobile presentation and evaluated runtime profile | Physical device model/OS recorded; Japanese/English accuracy, sustained processing, storage pressure, suspension/resume, inline/fullscreen playback |
 | 6. Distribution | Independently packaged Chrome/Safari builds with evaluated compatibility matrix | Install/update/permission checks, exact model identity, declared supported sites/devices and release checksums |
