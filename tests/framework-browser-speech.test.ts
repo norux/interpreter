@@ -318,6 +318,52 @@ test("learned pause jobs retain the pending-job bound and reject a late stalled 
   assert.equal(statuses.length, count);
 });
 
+test("confident learned silence releases only the first result before input EOF", async () => {
+  for (const probability of [0.01, 0.05]) {
+    const jobs: AsrJob[] = []; const statuses: SessionStatus[] = [];
+    const submissions: number[] = [];
+    let delivered = 0; let returned = 0; let frame = 0;
+    const recognizer = createSpeechRecognizer(identity, "ja", {
+      async recognize(job) {
+        submissions.push(delivered);
+        jobs.push(structuredClone(job));
+        return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+      }, stop() {},
+    }, status => statuses.push(status), {
+      async detect() {
+        const index = frame++;
+        const speech = index < 32 || (probability < 0.05 && index >= 48 && index < 80);
+        return { speech, probability: speech ? 0.99 : probability };
+      }, stop() {},
+    });
+    const input = { [Symbol.asyncIterator]() { return {
+      async next(): Promise<IteratorResult<AudioChunk>> {
+        if (delivered < (probability < 0.05 ? 96 : 48)) return { done: false, value: chunk(delivered++, true, 512) };
+        return new Promise(() => {}); // Input stays open after 512 ms of confident silence.
+      },
+      async return() { returned++; return { done: true as const, value: undefined }; },
+    }; } };
+    const stream = recognizer.run(input)[Symbol.asyncIterator]();
+    const pending = stream.next();
+    const result = await Promise.race([pending, new Promise<undefined>(resolve => setImmediate(() => resolve(undefined)))]);
+    if (probability < 0.05) {
+      assert.ok(result, "Confident silence must release text without waiting for more speech");
+      await new Promise<void>(resolve => setImmediate(resolve));
+      assert.equal(result.done, false); assert.equal(delivered, 96); assert.equal(returned, 0);
+      assert.deepEqual(submissions, [48], "The first job must submit before the next speech starts");
+      assert.equal(jobs.length, 1, "Later speech retains the original onset/EOF policy");
+      assert.deepEqual(jobs[0].audioRange, { startMs: 0, endMs: 1280 });
+      assert.deepEqual(jobs[0].pcm, new Float32Array(1280 * 16).fill(0.05));
+      assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 1792);
+    } else {
+      assert.equal(result, undefined, "Uncertain quiet frames must preserve the onset confirmation policy");
+      assert.equal(jobs.length, 0);
+    }
+    await recognizer.cancel(identity); await stream.return?.();
+    assert.equal(returned, 1); assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+  }
+});
+
 test("learned long silence submits before another onset or input EOF", async () => {
   const jobs: AsrJob[] = []; const statuses: SessionStatus[] = [];
   let delivered = 0; let returned = 0; let frame = 0;

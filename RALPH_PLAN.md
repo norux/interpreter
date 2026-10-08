@@ -4138,3 +4138,24 @@ Final required verification and Git checks:
   existing live harness/fixture and report/plan selected for commit; models/media/
   profiles/credentials/user data/ignored state/runner changes excluded. Staged
   scope/whitespace and post-commit cleanliness checked before delivery.
+
+
+### 2026-10-08 / chrome / B2 first-result latency fix
+
+Fixed production submission delay, without another evaluation variant. The
+initial job can submit after 512 ms of VAD probability <0.05, retaining 256 ms
+of exact context; uncertain frames/later jobs retain the original policy.
+Final existing Turbo noise suite PASS (ten cases plus cached offline ASR):
+Japanese first endpoints 2,384.2→1,765.3 ms / 2,009.1→1,672.0 ms; all Japanese
+endpoints <=1,912.4 ms. Both Japanese input and all job PCM hashes/ranges match
+the prior failure; all repeated meanings preserved. Existing quiet-input suite
+PASS, six Japanese/English gain cases, no renewed negation/meaning loss.
+Full verify PASS, 114 JS / 222 Python; final focused ports PASS, 28. Failed
+regression and rejected broader EOF behavior are recorded in the Chrome report.
+No acceptance criteria changed. Commit: `fix: release initial browser ASR after confident silence`.
+
+Next B2 priority: diagnose/fix the retained sustained live Japanese missing
+`明日` at the 23,296 ms split (iteration 19 recovered jobs), and rerun the existing
+sustained suite. Do not spend the next iteration adding another GPU/Stop variant
+while that meaning failure remains unresolved. Sustained quality/later latency
+has not been requalified here; no stage checkbox/default selection changed.

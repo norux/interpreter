@@ -6187,3 +6187,59 @@ whitespace, exit 0. Only package command, existing live harness/fixture, report
 and plan are selected for the commit. Models/media/profiles/credentials/user data/
 ignored temporary state and runner changes are excluded. Staged scope/whitespace
 and post-commit cleanliness are checked before delivery.
+
+
+## 2026-10-08 — fix first-result submission latency
+
+The retained Turbo noise failure was a late first submission, not missing
+Japanese meaning in that suite. Previous first-result endpoint latency was
+2,384.2 ms (quiet additive noise) / 2,009.1 ms (white noise), including
+703.9 / 604.0 ms of submission wait. Speech recognition already preserved all
+three repetitions' meaning. Baseline: `chrome-20261008-18-turbo-noise.log`.
+
+The recognizer now uses the existing VAD probability: after admitted speech,
+512 ms continuously below 0.05 can submit the **first** job, retaining 256 ms
+of unchanged source context. Uncertain frames and subsequent jobs keep the
+existing onset/EOF policy. No model/default/fixture/PCM/gate/harness changed.
+The existing boolean-only detector interface remains supported without this
+confidence-based early submission.
+
+Final `caffeinate -disu npm run test:framework:chrome:noise:turbo`: PASS, all ten
+original cases plus cached offline Japanese/English ASR, no failures/page errors/
+visibility events, zero offline remote requests. Japanese first results are
+**1,765.3 / 1,672.0 ms**; waits **303.8 / 208.6 ms**. All Japanese endpoints are
+<=**1,912.4 ms**, English <=**1,870.9 ms**. Every original meaning occurs three
+times. Both Japanese mixed-input hashes and **all job PCM hashes/ranges exactly
+match the previous failing run**. Evidence:
+`.ralph/media-framework/japanese-endpoint-turbo-noise-final.log`.
+
+Regression on the original HEAD code fails: the first job submits at packet 53
+(after new speech starts), instead of packet 48. Final focused ports: 28 PASS,
+covering uncertain silence, retained context, subsequent-job policy, Stop and
+existing quiet onset guards. Evidence: `japanese-endpoint-final-regression-before.log`
+and `japanese-endpoint-unit.log`. Full `npm run verify` on the final production
+change: PASS, 114 JS / 222 Python (66.88 s), lint/typecheck/build; final strengthened
+submission assertion subsequently passed with all 28 focused ports. Evidence:
+`japanese-endpoint-verify-complete.log`.
+
+Rejected broader early-submission attempt reduced first latency but failed the
+original EOF gate (23,648 != 23,940 ms); limiting it to the initial job preserves
+that gate. An intermediate test assertion sampled acquisition before it had
+finished (50 != 96 packets); waiting one event-loop turn fixed that test timing.
+Evidence: `japanese-endpoint-turbo-noise.log` and
+`japanese-endpoint-verify-final.log`. Neither acceptance gate was relaxed.
+
+Quiet-input compatibility and final Git evidence are recorded below.
+B2 is still incomplete: the previously recorded sustained live Japanese missing
+`明日` and later endpoint failures have not been requalified by this noise fix.
+Next work should target that retained failed boundary, rather than adding another
+GPU/Stop qualification variant. B3–B6/Safari/iPhone remain incomplete.
+
+
+Compatibility: `caffeinate -disu npm run test:framework:chrome:quiet` PASS, all six
+original small-FP16 cases at gains 1/0.25/0.1. Japanese CER 2.5%/2.5%/5%; English
+WER 4.545% in every case. All meanings exactly three times, maximum endpoint
+1,660.2 ms, unchanged EOF/PCM/coverage/loss gates PASS. Evidence:
+`.ralph/media-framework/japanese-endpoint-quiet.log`. Final targeted Biome,
+typecheck and whitespace checks PASS. Only recognizer, one focused regression,
+report and plan are committed; fixture audio/runner/model/defaults remain unchanged.

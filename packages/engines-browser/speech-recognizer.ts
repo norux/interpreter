@@ -12,12 +12,14 @@ import type { AsrJob } from "./asr-protocol";
 // Learned short pauses split near their midpoint after 160 ms of sustained
 // onset, avoiding cuts on isolated detector hits inside quiet words. After
 // 1,500 ms of detected silence, submit without another onset/EOF, retaining
-// 256 ms of context for the next segment. Neither path filters ASR samples.
+// 256 ms of context for the next segment. The first result can submit after
+// 512 ms with speech probability below 0.05 to leave time for decoder warmup;
+// later segments retain their onset/EOF policy. Neither path filters ASR samples.
 // The original energy-only profile remains a comparison, never a fallback.
 export function createSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
   receive: (status: SessionStatus) => void,
-  detector?: { detect(pcm: Float32Array): Promise<{ speech: boolean }>; stop(): void }): SpeechRecognizer {
+  detector?: { detect(pcm: Float32Array): Promise<{ speech: boolean; probability?: number }>; stop(): void }): SpeechRecognizer {
   const selected = { ...identity };
   let started = false;
   let stopped = false;
@@ -61,6 +63,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       let detectedSpeech = false;
       let segmentStartMs = 0;
       let quietSamples = 0;
+      let confidentQuietSamples = 0;
       let boundaryQuietSamples = 0;
       let pauseCut: number | undefined;
       let onsetSamples = 0;
@@ -107,12 +110,13 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
         }
         segment.copyWithin(0, length, segmentLength);
         segmentLength -= length; segmentStartMs += length / 16;
-        detectedSpeech = false; quietSamples = 0; boundaryQuietSamples = 0;
+        detectedSpeech = false; quietSamples = 0; confidentQuietSamples = 0; boundaryQuietSamples = 0;
         pauseCut = undefined; onsetSamples = 0;
         continueSegment = continuous;
       }
       async function consumeFrame() {
-        const activity = detector ? (await detector.detect(frame.slice(0, frameLength))).speech : false;
+        const detection = detector ? await detector.detect(frame.slice(0, frameLength)) : undefined;
+        const activity = detector ? detection?.speech : false;
         if (stopped) return;
         if (typeof activity !== "boolean") throw new Error("Invalid speech detector result");
         if (detector) {
@@ -149,9 +153,11 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
           segment.set(frame.subarray(0, frameLength), segmentLength);
           segmentLength += frameLength;
           quietSamples = (detector ? activity : speech) ? 0 : quietSamples + frameLength;
+          confidentQuietSamples = !activity && detection?.probability !== undefined && detection.probability < 0.05
+            ? confidentQuietSamples + frameLength : 0;
           boundaryQuietSamples = Math.sqrt(boundaryEnergy / frameLength) >= 0.01 ? 0 : boundaryQuietSamples + frameLength;
           if (bufferedSamples > 16000 * 30) { stop("overloaded"); return; }
-          if (detector && detectedSpeech && quietSamples >= 24000) finishSegment(true, segmentLength - 4096);
+          if (detector && detectedSpeech && (quietSamples >= 24000 || (utterance === 0 && confidentQuietSamples >= 8192))) finishSegment(true, segmentLength - 4096);
           else if (!detector && quietSamples >= 8000) finishSegment();
           else if (segmentLength === segment.length || (!detector && segmentLength >= 16000 * 10 && boundaryQuietSamples >= 3200)) finishSegment(true);
         } else bufferedSamples -= frameLength;
