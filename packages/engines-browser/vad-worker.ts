@@ -31,11 +31,13 @@ globalThis.onmessage = async (event: MessageEvent<unknown>) => {
           .map(byte => byte.toString(16).padStart(2, "0")).join("");
         if (hash !== vadCandidate.files[0].sha256) throw new Error("VAD cached checksum mismatch");
         const runtimeUrl = new URL(wasmUrl, globalThis.location.href).href;
-        let runtime = await cache.match(runtimeUrl);
+        // Packaged extension resources are local but cannot be Cache.put keys.
+        const cacheable = ["http:", "https:"].includes(new URL(runtimeUrl).protocol);
+        let runtime = cacheable ? await cache.match(runtimeUrl) : undefined;
         if (!runtime) {
           runtime = await fetch(runtimeUrl);
           if (!runtime.ok) throw new Error("Packaged VAD runtime unavailable");
-          await cache.put(runtimeUrl, runtime.clone());
+          if (cacheable) await cache.put(runtimeUrl, runtime.clone());
         }
         env.wasm.wasmBinary = await runtime.arrayBuffer();
         const loaded = await InferenceSession.create(bytes, { executionProviders: ["wasm"] });

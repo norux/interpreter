@@ -226,7 +226,7 @@ marker를 낼 수 있다.
 - [x] B1. browser engine의 execution host/worker와 model repository를 구현한다. 모델 준비의 ID·버전·다운로드·캐시·실제 로드 상태를 표시하고 document/user activation 제약을 처리한다.
 - [x] B2. 일본어/영어 browser ASR 후보의 실제 WebGPU/WASM 실행과 메모리·지연·정확도를 비교하고 구현용 기본 모델을 선택한다. bounded queue·과부하·GPU loss·cancel 계약을 검증한다. 최종 품질·성능 합격은 B6에서 검증한다.
 - [x] B3. Chrome Translator document adapter를 구현하고 실제 일본어/영어 → 한국어 지원을 검사한다. 최신 원문 revision과 번역을 정확히 짝짓고 원문을 먼저 표시하며 final 작업이 partial에 밀리지 않게 한다.
-- [ ] B4. 새 Chrome 단독 빌드에 선택 영상 입력·엔진·공통 정책·원문/시간/번역 화면을 연결한다. 기존 companion 빌드의 native messaging/설치 경로는 보존하며 새 빌드에는 필요한 권한만 포함한다.
+- [x] B4. 새 Chrome 단독 빌드에 선택 영상 입력·엔진·공통 정책·원문/시간/번역 화면을 연결한다. 기존 companion 빌드의 native messaging/설치 경로는 보존하며 새 빌드에는 필요한 권한만 포함한다.
 - [ ] B5. `test:framework:chrome`이 companion/Ollama가 없는 환경에서 실제 영상 PCM → ASR → 번역 → DOM을 검증하게 한다. 캐시된 모델 offline run, 첫 다운로드 오류, Stop/재시작, 10분 재생의 backlog/지연/손실을 측정한다. B5는 연결·수명주기·입력 보존을 검증하고 품질·성능 수치를 기록하며, 수치 목표를 맞추기 위한 최적화는 B6에서 수행한다.
 - [ ] B6. Chrome 기능 연결과 B5 통합 검증 뒤 마지막으로 ASR·번역 품질과 성능을 개선한다. 일본어 부정·취소·시간·미래 의도, 긴 문장 경계·반복·누락, 영어 fixture와 잡음·작은 음성·연속 발화를 평가한다. 기존 CER/WER ≤20%, 핵심 표현의 기대 횟수 일치, 실시간 endpoint-to-text <2초 기준과 장시간 backlog·손실 검증을 통과하고 수치·메모리·수용 기준을 문서화한다. 실패 문장·기록을 삭제하거나 테스트·기준을 약화시키지 않는다. 기준을 못 맞추면 개선 또는 차단으로 보고한다.
 
@@ -5668,3 +5668,100 @@ harness-only edit. The Chrome report records exact scope and measurements.
 Korean translation → comparison/selected-video DOM. No engine/model accuracy or
 B4 completion is inferred from PCM/action/overlay-only tests. All checkboxes and
 strict gates remain unchanged, followed by B5/B6, Safari/iPhone and final cleanup.
+
+### 2026-10-08 / chrome / iteration 4/20 — B4 real extension engine path
+
+관련 commit: 이 기록을 포함한 `fix: load packaged Chrome inference runtimes`.
+**B4 PASS; 다음 항목 B5.** 실제 extension 경로가 VAD 준비 중
+`Cache.put`의 `chrome-extension:` WASM URL 거부로 실패하는 회귀를 먼저 확보했다.
+ASR/VAD가 로컬 packaged runtime은 직접 읽고 HTTP/HTTPS runtime은 기존 cache를
+유지하도록 수정했다. 모델/프로필/VAD/decoder/번역 품질 튜닝·fallback·권한 추가 없음.
+
+새 `test:framework:chrome:extension`은 shipping **activeTab + scripting** manifest,
+Chrome native unpacked/action grant 및 정확한 extension worker, 실제 선택 영상 입력,
+smallFp16/WebGPU·learned VAD·native Translator, 원문 우선/영상 시간/한국어 비교·live·
+page overlay와 Stop/원래 재생 보존을 검사한다. mock/result/model readiness 주입 없음.
+기존 B3 CfT native component 준비만 사용하며 user profile/차단 권한 우회 없음.
+
+**PASS / exit 0** 최종 `npm run test:framework:chrome:extension`,
+`chrome-b4-extension-attempt-11.log`: headed Chromium **153.0.8010.12**,
+macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**.
+일본어/영어 실제 PCM → ASR → native Korean → application/선택 페이지 DOM 및 Stop 통과.
+기본 ASR 모델 **487,960,440 bytes**, VAD **2,243,022 bytes**, 실제 준비
+**54,836.472667 / 1,347.396833 ms** (first download / cached language restart).
+실제 16 kHz ASR **187,904 / 177,664 samples**, capture-relative range
+**32–11,776 / 32–11,136 ms**, worker 추론 **1,344.800000 / 1,149.200000 ms**.
+source pending → paired DOM **30.100000 / 22.800000 ms**, 동일 host clock.
+source/translation revision **1/1**, video range **0.0–11.8 / 0.1–11.2 s**;
+Stop 후 두 live surface 제거/비교 기록 유지/500 ms late 변경 없음,
+두 영상 playing/unmuted 및 .4/.25 volume 유지. page/console errors **[]**.
+companion/Ollama **8765/11434 ECONNREFUSED**, 요청 없음; user app을 종료하지 않았다.
+추론/DOM 간격은 endpoint-to-text <2초 또는 최종 CER/WER/품질 합격 수치가 아니다.
+반복 fixture 원문의 일본어 native 번역이 반복 표현을 합친 관측은 **B6** 평가에 남긴다.
+
+기타 실제 실행 결과 (모든 로그 ignored `.ralph/media-framework/`):
+
+- **PASS `npm run test:framework:chrome:channel`, exit 0**,
+  `chrome-b4-extension-channel.log`: **5 contracts / 1,189.079250 ms**, 원래
+  production action/permission/real PCM/native output/Stop/navigation gates.
+  각 **24 × 8,192 bytes / 48 kHz / sequences 0–23**, 다른 영상 tag 제한과
+  playback/mapping **6.116000 / 4.980333 ms** 통과. guard 수정 전의 media 회귀이며
+  media/transport 코드는 변경하지 않았다. ASR 품질/physical speaker 증거 아님.
+- **PASS `npm run test:framework:chrome:composition`, exit 0**,
+  `chrome-b4-extension-composition.log`: **11 contracts / 55.588208 ms**, 기존
+  mocked engine/PCM/Translator의 실제 DOM/layout/click/Stop/seek/revision 정책.
+  **33 + 33 / 480 characters**, **300 rows**, errors **[]**; real engine 증거는 위 별도 검사.
+- **PASS `npm run test:framework:chrome:translation`, exit 0**,
+  `chrome-b4-extension-native-baseline.log`: **7 contracts / 48.934292 ms**,
+  독립 B3 native Japanese/English Korean, 실제 준비 **339.973625 / 148.898292 ms**,
+  latest source **2** pairing/Stop; errors/failures **[]**.
+- **PASS `npm run test:framework:chrome:preparation`, exit 0**,
+  `chrome-b4-extension-http-preparation.log`: guard 수정 후 B1 실제 HTTP WASM
+  download/offline-cache/error/Stop/corruption/eviction/visibility 회귀.
+  tiny **43,613,734 bytes**, first **19,463.180875 ms**, cached offline
+  **627.416834 ms**, offline 새 요청 없음, page errors **[]**. B5 offline extension
+  ASR 검증을 대체하지 않는다.
+- **PASS `npm run typecheck:framework`, exit 0**,
+  `chrome-b4-extension-framework-types.log`, DOM 없는 core/contracts.
+- **PASS initial `npm run verify`, exit 0**,
+  `chrome-b4-extension-verify-initial.log`: **144 files / 48 ms**, **150 JS /
+  26,169.960750 ms**, **222 Python / 66.99 s**. guard 수정 전.
+- **PASS post-fix `npm run verify`, exit 0**,
+  `chrome-b4-extension-verify-final.log`: **144 files / 55 ms**, **150 JS /
+  28,131.235083 ms**, **222 Python / 66.97 s**. 이후 harness 관측/history wait만
+  수정했고 최종 실제 extension pass가 해당 source를 검사한다. delivery verify는 아래 기록.
+- **PASS focused Biome**, **3 files / 19 ms / no findings**, direct output.
+- **FAIL required `npm run test:framework:chrome`, exit 1**, 초기/최종
+  `chrome-b4-extension-stage-acceptance{,-final}.log`: **Missing script**.
+  B5 full harness가 아직 없으며 새 B4 명령을 stage acceptance로 대체하지 않는다.
+
+실패를 삭제하지 않았다. Chrome 보고서에 정확히 기록: attempt 1 unhandled owned-page
+rejection(exit 1), 2 startup/CDP 진단 중 종료(exit 143), 3 120초 initial page
+미생성(exit 1)/owned cleanup 강제 종료; 독립 B3 baseline PASS로 새 근거 확보.
+4 component 시작 뒤 action 진단 종료(exit 143), 5 120초 startup failure
+(exit 1). 6 native loading 뒤 첫 worker가 built-in component인 잘못된 가정(exit 1),
+7 real action/host는 성공하지만 tabs 권한 없는 URL 기반 window lookup 실패(exit 1).
+정확한 returned extension ID와 host 자신의 windows.getCurrent로 고쳤으며 권한 추가 없음.
+8/9 actual VAD model-load failure(exit 1), 9에서 unsupported Cache.put scheme을 입증.
+10 guard 수정 뒤 일본어 real full path/Stop PASS, 영어 wait가 보존된 일본어 history를
+새 결과로 오인하고 overlay 10초 timeout(exit 1). 새 영어 row를 기존 30초 deadline 내
+기다린 뒤 동일 10초 overlay gate를 적용한 11이 최종 PASS. gate/fixture 변경·완화 없음.
+이는 repository/harness 결함의 수정이며 필수 환경/기기/권한 부재 차단은 아니다.
+
+다음 미완료 **B5**: full acceptance, 실제 extension cached offline, first-download error,
+in-flight Stop/restart, 10분 backlog/지연/손실/입력 보존. B6 엄격 품질/endpoint gate와
+반복 번역 관측 미해결; B4 밖 물리 toolbar click/real-engine fullscreen 미검증을 명시한다.
+**B4만** 새로 체크하고 B5/B6·Safari/iPhone은 보존한다. 전체 Chrome/프레임워크/iPhone
+완료 또는 차단 marker 없음. 예정 **6 files**, append-only 문서/progress 외에는 loader와
+focused harness/npm 명령만 변경. companion/settings/install/server/native messaging,
+runner/model inventory/기존 strict assertions, unrelated 앱/녹화/mounted image 보존.
+agents/push/publish/app 설치 없음; weights/user audio/transcripts/credentials/.ralph는 Git에 없음.
+최종 delivery verify/whitespace/scope/commit/clean worktree 확인은 아래 기록한다.
+
+최종 source **PASS `npm run verify`, exit 0**,
+`chrome-b4-extension-verify-delivery.log`: **144 files / 64 ms**, Ruff/typecheck,
+기존 companion build **28 main / 10 content modules**, **150 JS / 0 failed,
+skipped or cancelled / 25,525.698750 ms**, **222 Python / 66.93 s**.
+이후 executable 변경 없음. 앞서 종료한 diagnostic **2/4의 실제 exit 143**을
+session 결과로 확인했다. 최종 scope/문서 append 보존/B4 하나만 체크/staged whitespace,
+commit 및 clean post-commit worktree를 delivery에서 확인한다.

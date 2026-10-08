@@ -8909,3 +8909,210 @@ full real PCM → ASR → Korean → application/overlay path remain unverified.
 acceptance/ten-minute measurements, B6 quality tuning, Safari/iPhone and final
 cleanup are unchanged. No checkbox, numerical gate, runtime implementation,
 companion/settings, user profile, runner or publication changed.
+
+## 2026-10-08 — B4 real standalone extension path (iteration 4/20)
+
+**B4 PASS; next is B5.** Repository `AGENTS.md` and the requested independent
+runner file `2026-10-08T13-28-06-822Z-chrome-verification.txt` were absent. Read the
+plan, architecture and retained Chrome evidence; worktree was clean at entry.
+Assumption: complete B4's real extension-document/default-engine/application
+path, using the accepted B2 model and B3 native component preparation. No model,
+VAD, decoder or translation-engine comparison/tuning; B5/B6 remain separate.
+
+### Product fix and focused acceptance
+
+The new real extension check established a failing production regression:
+VAD downloaded and verified its real model, then preparation failed because
+`Cache.put` rejects packaged **chrome-extension:** WASM URLs. Both VAD and ASR
+loaders now fetch their packaged local runtimes directly; HTTP/HTTPS runtimes
+retain the existing cache/offline behavior. HTTPS model caches, exact identities,
+checksums, worker ownership and all existing gates are unchanged. No synthetic
+HTTP cache key, remote runtime, permission expansion or engine fallback.
+
+`npm run test:framework:chrome:extension` builds the shipping manifest unchanged
+(**activeTab + scripting**, no host permissions/key), verifies the original
+synthetic Japanese/English fixture hashes and tests the actual application.
+It uses the same accepted B3 explicit Chrome-for-Testing component installer and
+cache, native debugging only in a new owned browser, and no user profile or
+blocked-access workaround. Native unpacked loading occurs after component
+startup; the returned extension ID selects its exact service worker. Native
+extension action grants the source tab and opens the shipping host. Ordinary
+owned-window positioning keeps source and host visibly eligible without
+Playwright focus/visibility emulation. This is native development loading/action,
+not a manual physical toolbar click or public installation/release.
+
+Prepare/confirm/Start/page audio consent are real controls. Worker instrumentation
+only observes and forwards original messages/transferables; workers, VAD, model
+loading, ASR, native Translator, PCM, captions and output are **not mocked**.
+DOM observers require a **new** source pending row before its final Korean pair,
+video times, host live text and selected-page Korean overlay. History from the
+preceding language cannot satisfy the next language's gate. Stop removes both
+live surfaces, retains comparison rows without late updates over **500 ms**, and
+keeps both original videos playing/unmuted at **0.4 / 0.25**. Actual in-flight
+Stop, offline extension runs and sustained measurements still belong to B5.
+
+### Exact passing evidence
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**. All following log names are under ignored
+`.ralph/media-framework/`; no temporary state/models/transcripts enter Git.
+
+**PASS `npm run test:framework:chrome:extension`, exit 0**, final executable
+source, `chrome-b4-extension-attempt-11.log`. Both native language pairs work in
+the actual secure/visible extension document. Both workers report real
+cached/loading/**ready** states; small FP16/WebGPU remains the selected default
+`onnx-community/whisper-small` @
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 bytes**. Learned VAD:
+`onnx-community/silero-vad` @ `e71cae966052b992a7eca6b17738916ce0eca4ec`,
+**2,243,022 bytes**. Native packs are Chrome-owned, with the existing B3 identity
+limitations; no pack/version/download figure is invented.
+
+| Actual observation | Japanese | English |
+| --- | ---: | ---: |
+| All-host preparation | 54,836.472667 ms, first ASR/VAD download | 1,347.396833 ms, cached reprepare |
+| Real ASR job samples at 16 kHz | 187,904 | 177,664 |
+| Capture-relative ASR range | 32–11,776 ms | 32–11,136 ms |
+| Actual worker inference | 1,344.800000 ms | 1,149.200000 ms |
+| Comparison's mapped video time | 0.0–11.8 s | 0.1–11.2 s |
+| Source pending → native paired DOM, same host clock | 30.100000 ms | 22.800000 ms |
+| First source/Korean overlay part, Unicode characters | 39 / 49 | 77 / 48 |
+
+Every accepted new row has final source revision **1**, first pending then final
+native translation revision **1**, with source revision unchanged. Both languages
+produce real Korean in comparison/live/overlay surfaces; both full original rows
+are retained after Stop. Both native endpoints **127.0.0.1:8765 / :11434** return
+**ECONNREFUSED** before execution; the extension makes no companion/Ollama request
+and has no native-messaging permission. Page errors and console errors **[]**.
+This proves the local path with those servers absent, without stopping user apps.
+
+The ASR ranges contain parts of the existing repeated speech fixtures. These
+numbers are **not endpoint-to-text <2 s**, final CER/WER, repeated-anchor or
+translation-quality acceptance. Japanese native translation coalesces repeated
+phrases from the recognized input; that observation is retained in the ignored
+synthetic-output evidence and remains for **B6** evaluation. No historical
+quality/latency failure or strict assertion is removed or lowered.
+
+Other actual checks:
+
+- **PASS `npm run test:framework:chrome:channel`, exit 0**,
+  `chrome-b4-extension-channel.log`: typecheck, **5 contracts /
+  1,189.079250 ms**, unchanged production action/permission/PCM/native-output
+  assertions. Each selected language gives **24 × 8,192-byte**, **48 kHz**,
+  sequences **0–23**, accepted matching-clock mappings; errors **[]**.
+  Selected/other tags **0.058875185 / 0.000717870** (ja) and
+  **0.058775100 / 0.000560155** (en), mapping errors **6.116000 / 4.980333 ms**.
+  After-Stop output tags **0.024093348 / 0.015002686** (ja) and
+  **0.023980569 / 0.014971236** (en). All original isolation/output/timing/Stop/
+  navigation and ungranted-tab denial gates pass. This run predates the two
+  loader guards, which do not modify media or transport code. Not ASR quality
+  or physical speaker audibility.
+- **PASS `npm run test:framework:chrome:composition`, exit 0**,
+  `chrome-b4-extension-composition.log`: **11 contracts / 55.588208 ms**,
+  separate build and unchanged actual DOM/control/layout assertions with
+  explicitly mocked engines/PCM/Translator. Original-first/revision pairing,
+  Stop/seek/preparation cancellation, reading/final replay/fade/history pass;
+  **33 + 33 / 480 characters**, **300 rows**, page errors **[]**. Also predates
+  the loader guards; real engine evidence is the extension check above.
+- **PASS `npm run test:framework:chrome:translation`, exit 0**,
+  `chrome-b4-extension-native-baseline.log`: **7 contracts / 48.934292 ms**,
+  independent unchanged native B3 document baseline; preparation
+  **339.973625 ms ja / 148.898292 ms en**; actual Korean, pending/latest source
+  revision **2** pairing and Stop suppression; errors/failures **[]**.
+- **PASS `npm run test:framework:chrome:preparation`, exit 0**,
+  `chrome-b4-extension-http-preparation.log`: unchanged **B1** real HTTP WASM
+  preparation/offline/eviction/download-error/Stop/corrupt-cache/visibility/UI
+  acceptance after the loader fix. Tiny model **43,613,734 bytes**; first load
+  **19,463.180875 ms**, cached offline reload **627.416834 ms**, zero new remote
+  requests offline; page errors **[]**. Expected injected offline/network/corrupt
+  errors remain recorded. This is runtime-cache regression, not B5 offline
+  extension transcription or B6 quality.
+- **PASS `npm run typecheck:framework`, exit 0**,
+  `chrome-b4-extension-framework-types.log`: DOM-free contracts/core compilation.
+- **PASS intermediate `npm run verify`, exit 0**,
+  `chrome-b4-extension-verify-initial.log`: **144 files / 48 ms**, unchanged
+  companion build, **150 JS / 26,169.960750 ms**, **222 Python / 66.99 s**.
+  Predates the loader fix. **PASS post-fix verify, exit 0**,
+  `chrome-b4-extension-verify-final.log`: **144 files / 55 ms**, **150 JS /
+  28,131.235083 ms**, **222 Python / 66.97 s**. Later edits only refine the
+  focused harness observation/retained-history wait; the final extension pass
+  covers that exact source. Delivery verify is recorded below.
+- **PASS final focused Biome**, **3 files / 19 ms / no findings** (direct output).
+- **FAIL required `npm run test:framework:chrome`, exit 1**, both
+  `chrome-b4-extension-stage-acceptance.log` and
+  `chrome-b4-extension-stage-acceptance-final.log`: **Missing script:
+  "test:framework:chrome"**. This remains B5's full-stage harness; the new B4
+  command is not a replacement or stage-completion pass.
+
+### Retained failures and diagnostics
+
+All attempts are retained; none is an accuracy pass based on loading/PCM/mocks.
+
+- Attempt **1 FAIL / exit 1**, `chrome-b4-extension-attempt-1.log`: unhandled
+  pending page-event rejection hid the primary diagnostic when its owned browser
+  closed. Attempt **2 terminated / exit 143**, matching log: CDP
+  startup stalled. Attempt **3 FAIL / exit 1**: no initial page by the shared
+  **120-second** native startup deadline. Graceful cleanup stalled; only this
+  test's owned browser was force-ended. Add bounded CDP/startup cleanup and catch
+  the pending page event. No absent device/permission was established.
+- The independent native baseline above **PASS**, new evidence against treating
+  this as the previous B3 Translator blocker. Attempt **4 terminated / exit
+  143**: removing the unnecessary exclusion flag lets component
+  startup finish, then action dispatch stalls before opening the host. Attempt
+  **5 FAIL / exit 1**: the added automation flag still reaches no initial page
+  by the same **120-second** deadline. These incomplete launch diagnostics are
+  not definitive component root-cause evidence or successful native creation.
+- Attempt **6 FAIL / exit 1** after successful component startup/native unpacked
+  loading: the first service worker belongs to a built-in Chrome component,
+  whose ID differs from the returned repository extension ID. Select the exact
+  worker; never assume it is the first. Attempt **7 FAIL / exit 1**: correct
+  native action now grants/opens the real host, but looking for its URL in
+  `tabs.query` without tabs permission yields no window. Obtain the host's own
+  window via its ordinary `windows.getCurrent`; no permission added.
+- Attempt **8 FAIL / exit 1**: actual VAD caches **2,243,022 bytes**, then fails
+  runtime loading; preparation **1,866.355375 ms**. Attempt **9 FAIL / exit 1**,
+  **1,665.538459 ms**, adds the decisive console error **“Request scheme
+  'chrome-extension' is unsupported”** at `Cache.put`. This is the established
+  product regression, fixed by the loader guards; no browser access restriction
+  was bypassed or model/result injected.
+- Attempt **10 FAIL / exit 1** after the fix: real Japanese full path/Stop passes,
+  first preparation **51,071.199125 ms**, cached English **1,346.189958 ms**.
+  English's wait incorrectly accepts retained Japanese final history, then times
+  out waiting **10,000 ms** for its new overlay. Require a new observed English
+  final row within the original **30,000 ms** gate; keep the subsequent
+  **10,000 ms** overlay gate. Final attempt **11 PASS**, above. No acceptance
+  deadline, quality gate, fixture or model/profile is relaxed.
+
+### Checklist and remaining scope
+
+Only **B4** is newly checked: persistent standalone host, exact production
+permissions/native action loading, selected input/default real engine/shared
+policy/original-time-Korean comparison and page output are implemented and
+functionally verified. Existing synthetic overlay checks still define inline /
+container / video-only fullscreen behavior; physical toolbar clicking and a
+real-engine native fullscreen session are **UNVERIFIED**, not platform promises.
+
+**Next B5:** implement the full `test:framework:chrome`, actual cached extension
+run offline, first-download error, in-flight Stop/restart and ten-minute
+backlog/delay/loss/functionality measurements. **B6 remains unchecked**, including
+all retained CER/WER/anchor-count/endpoint targets and the new native repetition
+observation. No Chrome-stage/Safari/iPhone/whole-framework completion or blocker
+marker: a repository runtime bug was fixed and the permitted real path passes.
+
+Scope: **six files**, including append-only report/progress and the one B4
+checkbox. Companion v0.1.0/install/native messaging/server/user settings, runner,
+model inventories, existing acceptance assertions and unrelated files/apps/
+recordings/mounted images remain untouched. No agents, push/publish/app install,
+user recordings/transcripts/credentials/model weights or tracked `.ralph` state.
+Only this iteration's owned browsers/profiles are closed/removed. Final delivery
+verify, staged whitespace/preservation, commit and clean worktree follow below.
+
+Final-source **PASS `npm run verify`, exit 0**,
+`chrome-b4-extension-verify-delivery.log`: Biome **144 files / 64 ms / no findings**,
+Ruff/typecheck, unchanged companion build **28 main / 10 content modules**,
+**150 JS / 0 failed, skipped or cancelled / 25,525.698750 ms**,
+**222 Python / 66.93 s**. No executable edit follows this verification or the
+final real extension acceptance. Direct session results confirm earlier
+terminated diagnostic attempts **2 / 4 exit 143**; they are not passing runs.
+Final scope/append-only preservation/one-checkbox, staged whitespace and clean
+post-commit state are checked at delivery. Commit: the
+`fix: load packaged Chrome inference runtimes` commit containing this record.

@@ -24,11 +24,13 @@ export async function loadAsrPipeline(cache: Cache, model: ModelIdentity = prepa
   // The locked ORT WebGPU backend calls webgpuInit from asyncify. The jsep
   // factory used by the WASM candidate exposes a different initialization API.
   const runtimeUrl = new URL(device === "webgpu" ? gpuWasmUrl : wasmUrl, globalThis.location.href).href;
-  let runtime = await cache.match(runtimeUrl);
+  // Cache Storage accepts HTTP(S), while extension resources are already local.
+  const cacheable = ["http:", "https:"].includes(new URL(runtimeUrl).protocol);
+  let runtime = cacheable ? await cache.match(runtimeUrl) : undefined;
   if (!runtime) {
     runtime = await fetch(runtimeUrl);
     if (!runtime.ok) throw new Error("Packaged WASM runtime unavailable");
-    await cache.put(runtimeUrl, runtime.clone());
+    if (cacheable) await cache.put(runtimeUrl, runtime.clone());
   }
   if (env.backends.onnx.wasm) {
     env.backends.onnx.wasm.wasmPaths = {
