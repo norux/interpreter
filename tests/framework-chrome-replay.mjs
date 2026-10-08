@@ -14,8 +14,9 @@ import { asrCandidates, registeredCandidate, vadCandidate } from "../packages/en
 // replacing the original live accuracy/endpoint acceptance with replay timing.
 const extensionInput = process.argv[3] === "--extension-input";
 const resegment = process.argv[3] === "--resegment";
+const turboOnly = process.argv[3] === "--turbo-only";
 const defaultOnly = extensionInput || resegment || process.argv[3] === "--default-only";
-assert.equal(process.argv.length, defaultOnly ? 4 : 3, "Supply one synthetic live-job archive directory");
+assert.equal(process.argv.length, defaultOnly || turboOnly ? 4 : 3, "Supply one synthetic live-job archive directory");
 const archive = resolve(process.argv[2]);
 assert.ok(archive.startsWith(resolve(extensionInput ? ".ralph/media-framework/chrome-extension-jobs-" : ".ralph/media-framework/chrome-live-jobs-")));
 const captured = JSON.parse(await readFile(resolve(archive, "manifest.json"), "utf8"));
@@ -168,6 +169,7 @@ await new Promise(done => server.listen(0, "127.0.0.1", done));
 const observations = { scope: extensionInput
   ? "B6 exact production-extension synthetic ASR input replay/decoder traces; no new capture, whole-run accuracy, native translation or endpoint qualification"
   : resegment ? "B6 identical archived PCM resegmented by production learned VAD; real default ASR accuracy/meaning gates only, no live capture/queue/endpoint/translation qualification"
+  : turboOnly ? "B6 explicit Turbo comparison on archived ASR inputs and original accuracy/meaning gates; no default selection, live endpoint or translation qualification"
   : defaultOnly ? "B6 default-profile exact archived ASR replay/decoder traces and original accuracy/meaning gates; no live endpoint or translation qualification"
   : "B2 exact archived synthetic selected-video ASR candidate comparison; no live capture/VAD/endpoint/translation/DOM qualification",
   archive, archiveManifestSha256: createHash("sha256").update(await readFile(resolve(archive, "manifest.json"))).digest("hex"),
@@ -231,7 +233,7 @@ try {
   monitor = setInterval(() => { void sampleRss().catch(() => {}); }, 250);
   await page.goto(`http://127.0.0.1:${server.address().port}`); await page.waitForFunction(() => globalThis.makeHost);
   observations.baselineRssKiB = await sampleRss();
-  for (const candidate of defaultOnly ? ["smallFp16"] : ["smallFp16", "turboFp16", "smallTimestamped"]) for (const trial of [1, 2]) {
+  for (const candidate of turboOnly ? ["turboFp16"] : defaultOnly ? ["smallFp16"] : ["smallFp16", "turboFp16", "smallTimestamped"]) for (const trial of [1, 2]) {
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
     await page.evaluate(candidate => makeHost(candidate), candidate);
     const workersBefore = await page.evaluate(() => workerCount);
@@ -331,13 +333,13 @@ try {
         assert.deepEqual(trace.inputs[0].stride, [job.samples/16000, 0, 0]);
         assert.ok(Number.isSafeInteger(trace.timestampBegin) && trace.timestampBegin > 0);
         assert.equal(trace.timePrecision, 0.02);
-        assert.ok(trace.inputs[0].tokens.length > 0 && trace.inputs[0].tokens.length <= (candidate === "smallFp16" ? 260 : 259));
+        assert.ok(trace.inputs[0].tokens.length > 0 && trace.inputs[0].tokens.length <= (candidate === "smallTimestamped" ? 259 : 260));
         assert.ok(trace.inputs[0].tokens.every(token => Number.isSafeInteger(token) && token >= 0));
         assert.equal(typeof trace.inputs[0].rawText, "string");
-        if (candidate === "smallFp16") {
+        if (candidate !== "smallTimestamped") {
           assert.equal(trace.decoded.chunks, undefined);
-          assert.ok(trace.inputs[0].tokens.every(token => token < trace.timestampBegin), "Default text decoding must not predict segment timestamps");
-          assert.equal(trace.inputs[0].tokens[3], trace.timestampBegin-1, "Default requires the no-timestamps prompt token");
+          assert.ok(trace.inputs[0].tokens.every(token => token < trace.timestampBegin), "Text decoding must not predict segment timestamps");
+          assert.equal(trace.inputs[0].tokens[3], trace.timestampBegin-1, "Text decoding requires the no-timestamps prompt token");
         } else assert.ok(Array.isArray(trace.decoded.chunks));
         replay.jobs.push({ ...job, ...result, ...(resegment ? {} : { identicalOriginalText: result.revision.text === job.originalText }) });
       }

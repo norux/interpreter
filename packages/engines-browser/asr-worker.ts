@@ -44,7 +44,7 @@ globalThis.onmessage = async (event: MessageEvent<unknown>) => {
     if (value.type === "prepare" && "candidate" in value && (value.candidate === "tiny" || value.candidate === "base" || value.candidate === "small" || value.candidate === "smallTimestamped" || value.candidate === "smallFp16" || value.candidate === "turboFp16")
       && "device" in value && (value.device === "wasm" || value.device === "webgpu") && !resident) {
       const { model, dtype } = asrCandidates[value.candidate];
-      timestamped = value.candidate === "turboFp16" || value.candidate === "smallTimestamped";
+      timestamped = value.candidate === "smallTimestamped";
       const device = value.device;
       if (dtype === "fp16" && device !== "webgpu") { send({ type: "error", reason: "engine-failed" }); return; }
       const repository = createModelRepository(async (cache) => {
@@ -76,7 +76,7 @@ globalThis.onmessage = async (event: MessageEvent<unknown>) => {
       const output = await resident(value.job.pcm, {
         language: value.job.language === "ja" ? "japanese" : "english",
         // Caption timing uses the bounded job range. The default does not need
-        // generated segment timestamps; comparison profiles retain their rules.
+        // generated segment timestamps; the timestamped comparison retains its rules.
         task: "transcribe", max_new_tokens: 256, return_timestamps: timestamped,
         logits_processor: processors,
       });

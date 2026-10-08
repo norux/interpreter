@@ -42,7 +42,7 @@ async function recognitionOptions(candidate: keyof typeof asrCandidates, samples
   return options;
 }
 
-for (const candidate of ["turboFp16", "smallTimestamped"] as const) {
+for (const candidate of ["smallTimestamped"] as const) {
   test(`${candidate} timestamp decoding rejects backwards and zero-length segments without banning repeated speech`, async () => {
     const options = await recognitionOptions(candidate);
     assert.equal(options.return_timestamps, true);
@@ -75,7 +75,7 @@ test("bounded default and q8 baselines keep non-timestamp decoding", async () =>
   }
 });
 
-for (const candidate of ["turboFp16", "smallTimestamped"] as const) {
+for (const candidate of ["smallTimestamped"] as const) {
   test(`${candidate} timestamps cannot enter padded audio beyond the final PCM tick`, async () => {
     for (const samples of [1600, 16000, 16016, 16000 * 30]) {
       const options = await recognitionOptions(candidate, samples);
@@ -97,3 +97,9 @@ for (const candidate of ["turboFp16", "smallTimestamped"] as const) {
     }
   });
 }
+
+test("bounded Turbo comparison uses text decoding without timestamp work", async () => {
+  const options = await recognitionOptions("turboFp16");
+  assert.equal(options.return_timestamps, false);
+  assert.equal(options.logits_processor, undefined);
+});

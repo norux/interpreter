@@ -6812,3 +6812,103 @@ runner/unrelated files/apps/recordings/mounts unchanged. No agents/install/push/
 publish/profile-access workaround or credentials/weights/user media/temporary
 .ralph state committed. Append-only histories, checkboxes, staged whitelist/
 whitespace and final committed clean worktree checked at delivery.
+
+### 2026-10-09 KST / chrome / iteration 5/20 — bounded Turbo text comparison
+
+Related commit: `perf: use bounded text decoding for Turbo ASR`. Entry HEAD
+`fd2117b` was clean; repository AGENTS.md and requested independent runner log
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` are absent. Read supplied
+instructions, plan, architecture and retained Chrome evidence. **B6 only, still
+unchecked. The app continues to select smallFp16/WebGPU.** No other stage advances.
+
+Hypothesis: previous timestamped Turbo preserves the exact Japanese noise
+meanings but misses two <2,000 ms endpoints. Reuse the smaller bounded text-decoding
+change that repaired small-model generation instead of another model/filter/VAD
+or decoder implementation. Retain text-only Turbo, unchanged **256 generated-token
+budget**, job timing/PCM and every strict quality/endpoint/loss gate. q8 timestamped
+comparison retains its monotonic/duration controls. No text prompt/correction,
+deduplication, truncation, fallback, user setting or model inventory change.
+Add replay `--turbo-only` for reproducible focused qualification without rerunning
+unchanged candidates; no automatic default selection. Matching Chrome report has
+exact tables, commands, failure/capture limits and local evidence basenames.
+
+Executed evidence under ignored `.ralph/media-framework/`:
+
+- Initial explicit local Turbo baseline replay **FAIL**, existing **240,000 ms
+  preparation timeout**, **zero scored jobs**; last download status
+  **1,620,731,408 / 1,621,338,971 bytes**, visible document, empty HTTP/request failure
+  arrays. Outer shell **exit 1** also on reserved zsh `status` assignment; child
+  numeric exit/elapsed unverified. Network/loader cause unverified. No accuracy
+  conclusion or alternate-access attempt. Basename `chrome-iteration-5-turbo-baseline`.
+- One independent same-route/unchanged-timeout local text-profile replay **PASS /
+  exit 0 / 251.31808337500001 s**, `chrome-iteration-5-turbo-text`: two fresh Turbo
+  workers, **24 exact jobs / eight runs**, Japanese quiet/white **3/120 CER**,
+  English quiet/white **3/66 WER**, all meanings **3**. Preparation
+  **215,278.428708 / 2,761.995083000016 ms**, owned-tree RSS
+  **5,295,168 / 5,404,464 KiB**, no inference remote requests. Independent Python
+  stdin readback **PASS / 0**, 24 input/hash/identity/range/raw-text associations,
+  recomputed error/count gates, twelve matching trial texts and unchanged manifest
+  digest (`chrome-iteration-5-turbo-readback.json`). Local copies differ only in
+  import depth, candidate selection and text token/chunk checks.
+- `npm run test:framework:chrome:noise:turbo` **PASS / exit 0 /
+  391.632673959 s**, `chrome-iteration-5-turbo-noise`: typecheck, **30 unit tests /
+  0 failed / 306.896333 ms**, ten paced cases, **12 online + 2 offline real ASR jobs**.
+  Six noise-only controls have zero active VAD/ASR/text. Speech errors/counts as
+  above; **all 12 endpoints <2,000 ms**, maximum **1,870.2000000476837 ms**.
+  Pending peaks **9,700 / 9,700 / 9,600 / 9,300 ms**, queues drain with zero loss.
+  Every original mixed-input and twelve job hashes/ranges/counts match the archive.
+  Offline Japanese/English **1/40 CER / 1/22 WER**, all meanings **1**, host
+  **1,441.6000000238419 / 1,151.7999999523163 ms**, zero remote requests.
+  Initial prepare **228,399.97541699998 ms**, maximum owned-tree RSS **7,472,448 KiB**.
+  `python3 .ralph/media-framework/chrome-iteration-5-noise-readback.py` **PASS / 0**.
+  Two initial diagnostic stdin reads **FAIL / 1** on nonexistent `offline.runs`
+  and top-level `language`; corrected readback uses actual keys, no browser repeat.
+- New bounded-Turbo contract against original source **FAIL**, **0 pass / 1 fail /
+  373.925375 ms**, explicit TAP timestamp mismatch; outer-shell child-exit capture
+  issue as above. Final focused timestamp/ASR/model/trace command **PASS / exit 0**,
+  **13 tests / 0 failed/skipped/cancelled / 369.972417 ms**. Mocked contracts alone
+  do not qualify acoustic quality. Separate typecheck, Node syntax, three-file
+  Biome and whitespace checks **PASS / 0**.
+- `npm run verify` **PASS / exit 0 / 93.837286375 s**, `chrome-iteration-5-verify`:
+  Biome **148 files / 88 ms**, Ruff/typecheck/companion build,
+  **153 JS / 0 failed/skipped/cancelled / 25,541.723208 ms**, **222 Python / 66.96 s**.
+- Final official `npm run test:framework:chrome:replay --
+  .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --turbo-only` **PASS / exit 0 /
+  215.363436584 s**, `chrome-iteration-5-official-turbo-replay`: all 24 jobs and all
+  original gates pass, preparation **178,366.982625 / 2,673.179583000019 ms**,
+  RSS **6,100,752 / 6,380,384 KiB**, remote preparation **14 / 0**, inference **0 / 0**;
+  errors/visibility arrays empty. Independent final Python stdin readback **PASS /
+  0**, all 24 identity/text/token associations match the experiment, eight score/
+  count pairs and unchanged manifest (`chrome-iteration-5-official-readback.json`).
+  This validates the new permanent CLI branch; final executable source unchanged.
+
+Scope: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, Transformers.js **4.3.0**. Same pinned
+Turbo revision `360ebcde2559d60bb474678be3c1de9ef347d01a`, **1,621,338,971 bytes**,
+Silero revision `e71cae966052b992a7eca6b17738916ce0eca4ec`, **2,243,022 bytes**.
+No new model/dependency/revision/weights committed. Same public owned-profile
+preparation recovers; no continuing required device/permission/environment absence
+is established. No terminal marker. Optional conversion-card web-reader lookup
+failed; no alternate route or licence inference. Primary Whisper decoder source
+checked as linked in Chrome report; prior conversion-license qualification remains
+unverified. Initial current baseline has no inference, so current exact baseline
+speedup is unverified; earlier failed timestamped Turbo endpoints remain historical.
+
+**NOT RUN:** full `npm run test:framework:chrome`, unchanged small-profile long
+live/noise/quiet/EOF, ten-minute extension/native Korean/DOM/GPU suites. Retained
+application-default noise semantics and prior full-stage failure remain unresolved.
+Replay speed is not paced endpoint acceptance; paced decoded fixture PCM is not
+new selected-video acquisition or translation/DOM qualification. RSS includes
+shared/browser/GPU/allocator/harness residency, not isolated allocation/leak/mobile
+qualification. B6 and full Chrome acceptance remain unfinished.
+
+Next **B6**: qualify text-only Turbo on retained long omissions/repetition inputs,
+quiet/EOF/sustained/Stop/GPU and complete selected-video/native Korean/ten-minute
+quality before deciding whether to replace the app default, then full required
+Chrome acceptance. Preserve exact counts, <=20%, <2,000 ms, queue/loss and every
+failed input. No automatic switching or Safari/iPhone/framework completion claim.
+Five intended files only; append-only report/plan and unchanged checklist checked.
+Companion v0.1.0/native messaging/install/settings, core/media/translation/model
+inventories/permissions/fixtures/runner and unrelated files remain unchanged.
+No agents, app install, push/publish, user apps/recordings/mount changes or temporary
+state/credentials/weights/user audio staged. Only owned test browsers are cleaned.
