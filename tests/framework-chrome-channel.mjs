@@ -1,7 +1,7 @@
 // Owned, headed extension/content integration. No ASR/Translator mock is used:
 // engines are deliberately not prepared. This tests real PCM transport only.
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { Script } from "node:vm";
@@ -67,18 +67,15 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-// Only this ignored test copy gains access to this test-owned localhost fixture.
-// An actual toolbar activeTab grant is a separate, still-unverified install check.
-manifest.host_permissions = [`${origin}/*`];
-await writeFile(`${output}/manifest.json`, JSON.stringify(manifest));
+// Keep the exact production permission mask. Native action grants this tab.
 const profile = await mkdtemp(resolve(".ralph/media-framework/chrome-channel-profile-"));
 let context;
 const observations = { pageErrors: [], productionPermissions: ["activeTab", "scripting"],
-  fixturePermission: `${origin}/*`, toolbarActiveTabGrant: "unverified", runs: [] };
+  hostPermissions: manifest.host_permissions ?? [], toolbarActiveTabGrant: "native action dispatch; physical toolbar click unverified", runs: [] };
 try {
   context = await chromium.launchPersistentContext(profile, { channel: "chromium", headless: false,
     ignoreDefaultArgs: ["--disable-extensions", "--mute-audio"], args: [`--disable-extensions-except=${output}`, `--load-extension=${output}`,
-      "--auto-select-tab-capture-source-by-title=Video audio acceptance", "--enable-usermedia-screen-capturing"] });
+      "--enable-unsafe-extension-debugging", "--auto-select-tab-capture-source-by-title=Video audio acceptance", "--enable-usermedia-screen-capturing"] });
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker", { timeout: 15000 });
   const extensionId = new URL(worker.url()).host;
   const page = await context.newPage(); page.on("pageerror", error => observations.pageErrors.push(error.message));
@@ -90,12 +87,21 @@ try {
   const expectedOutput = [0.06 * 0.4, 0.06 * 0.25];
   do { baseline = await page.evaluate(() => measure()); } while (baseline.some((value, i) => Math.abs(value / expectedOutput[i] - 1) >= 0.03) && performance.now() < baselineDeadline);
   assert.ok(baseline.every((value, i) => Math.abs(value / expectedOutput[i] - 1) < 0.03), `Both encoded tags must reach full native output within 5 seconds: ${JSON.stringify(baseline)}`);
-  const tabId = await worker.evaluate(async origin => (await chrome.tabs.query({})).find(tab => tab.url === `${origin}/`).id, origin);
+  await page.bringToFront();
+  // Evaluate the worker before dispatch so its action listener is registered.
+  const tabId = await worker.evaluate(async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0].id);
+  const cdp = await context.browser().newBrowserCDPSession();
+  const { targetInfos } = await cdp.send("Target.getTargets", { filter: [{ type: "tab", exclude: false }, { exclude: true }] });
+  const target = targetInfos.find(info => info.type === "tab" && info.url === `${origin}/`);
+  assert.ok(target);
+  const opened = context.waitForEvent("page", { timeout: 15000 }).catch(() => undefined);
+  await cdp.send("Extensions.triggerAction", { id: extensionId, targetId: target.targetId });
+  const host = await opened;
+  assert.ok(host, "Native extension action must open its host document");
+  host.on("pageerror", error => observations.pageErrors.push(error.message));
+  await host.waitForURL(`chrome-extension://${extensionId}/host.html?tab=${tabId}`);
+  // Reinject only after the actual action grant, preserving the active owner.
   await worker.evaluate(tabId => chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, files: ["content.js"] }), tabId);
-  // Repeat injection must not replace the document's media owner or connection.
-  await worker.evaluate(tabId => chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, files: ["content.js"] }), tabId);
-  const host = await context.newPage(); host.on("pageerror", error => observations.pageErrors.push(error.message));
-  await host.goto(`chrome-extension://${extensionId}/host.html?tab=${tabId}`);
   await host.waitForFunction(() => document.querySelector('#video').options.length === 3);
   assert.equal(await host.locator('#video').inputValue(), "", "A target must be explicitly confirmed");
   assert.equal(await host.getByRole("button", { name: "Prepare selected language" }).isDisabled(), true);
@@ -160,6 +166,12 @@ try {
   await page.getByRole('button',{name:'Allow selected video audio'}).waitFor({state:'detached'});
   assert.equal(await host.evaluate(() => chunks.length),0);
   assert.match(await host.evaluate(() => transportError),/cancelled/);
+  const priorTabIds = await worker.evaluate(async () => (await chrome.tabs.query({})).map(tab => tab.id));
+  const ungranted = await context.newPage(); await ungranted.goto(`${origin}/ungranted`);
+  const newTabId = await worker.evaluate(async prior => (await chrome.tabs.query({})).find(tab => !prior.includes(tab.id)).id, priorTabIds);
+  await assert.rejects(worker.evaluate(tabId => chrome.scripting.executeScript({ target: { tabId }, func: () => document.title }), newTabId), /Cannot access|permission/i);
+  await ungranted.close();
+  observations.ungrantedTabRejected = true;
   // Navigation destroys the actual content channel and rejects the remote host.
   await page.goto(`${origin}/replacement`);
   await assert.rejects(host.evaluate(() => remote.discover()),/context-destroyed/);

@@ -5642,3 +5642,29 @@ plan/report, no credentials/weights/user recordings/transcripts/temporary `.ralp
 state in Git, no agents/push/publish/app install. Unrelated files/apps/recordings/
 mounted images are preserved. Staged scope/whitespace/preservation and commit/
 clean post-commit state are verified at delivery.
+
+
+### 2026-10-08 supervised production activeTab/PCM verification
+
+The channel harness no longer injects fixture host permissions or opens the
+host manually. Chrome's native action dispatch with the exact production
+`activeTab`/`scripting` manifest grants the selected tab, injects the real content
+script and opens the real host. An ungranted second tab at the same origin rejects
+script access. Test-only native DevTools dispatch is explicitly distinguished
+from a manual physical toolbar click; only owned profiles/debugging are used.
+
+`npm run test:framework:chrome:channel` **PASS / exit 0**: typecheck, five contract
+tests, production build and actual headed extension PCM transport. Both selected
+languages deliver 24 ordered 8,192-byte / 48 kHz chunks with matching clocks,
+selected-only tags, preserved playback/volume, Stop/pending activation cleanup
+and navigation disconnect. Page errors **[]**. Final lint **PASS / exit 0**:
+143 files, Ruff, no findings. Evidence: `chrome-b4-production-channel-final.log`,
+`chrome-b4-production-channel-lint.log`, and earlier independent
+`supervisor-native-channel.log`, all ignored. Runtime/TS/Python are unchanged
+from `bba716a` (150 JS / 222 Python verify); broad verify was not repeated for this
+harness-only edit. The Chrome report records exact scope and measurements.
+
+**Next remains B4:** real extension PCM → prepared smallFp16/WebGPU ASR → native
+Korean translation → comparison/selected-video DOM. No engine/model accuracy or
+B4 completion is inferred from PCM/action/overlay-only tests. All checkboxes and
+strict gates remain unchanged, followed by B5/B6, Safari/iPhone and final cleanup.

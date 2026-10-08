@@ -8865,3 +8865,47 @@ report/plan, unchanged checkboxes and preserved companion/settings/runner, no
 tracked `.ralph`, whitespace and clean post-commit state are checked at delivery.
 Commit: the `feat: render selected-video Chrome captions` commit containing this
 record. B4 and the stage remain unfinished.
+
+
+## B4 production-permission PCM channel — supervised follow-up, 2026-10-08
+
+The permanent channel harness now uses the unchanged shipping manifest:
+**activeTab + scripting**, with no test-only `host_permissions`. It dispatches
+Chrome's native extension action for the owned source **tab** target and consumes
+the host window opened by the real service worker. Worker evaluation precedes
+dispatch so its action listener is registered. The native action performs the
+first content injection; a subsequent injection verifies owner idempotence.
+
+The [native DevTools action command](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/browser_protocol.json)
+is enabled only in the test-owned Chromium with
+`--enable-unsafe-extension-debugging`; it is not a shipping manifest or user
+browser change. This proves the native action/activeTab permission path, not a
+manual physical toolbar click. A second, ungranted tab at the same fixture origin
+rejects extension script access, confirming the test flag does not grant the
+extension unrestricted page access.
+
+**PASS `npm run test:framework:chrome:channel`, exit 0**, final evidence
+`chrome-b4-production-channel-final.log`: typecheck, **5 contract tests**, build,
+owned headed Chromium **153.0.8010.12**, unchanged production permissions,
+page errors **[]**, explicit video confirmation and trusted page audio activation.
+Both Japanese and English selections deliver **24 × 8,192-byte** PCM packets,
+**48 kHz**, ordered sequences and matching clock anchors. Selected/other tag
+amplitudes are **0.058875185 / 0.000717870** (Japanese) and
+**0.058806283 / 0.000504774** (English). Original playback/volume checks, Stop,
+pending-permission cancellation, navigation disconnect and all prior assertions
+pass. The other tab's access is rejected. No baseline/output/tag/ordering gate is
+weakened. Diagnostic `supervisor-native-channel.log` independently passed the
+same native permission/PCM path before this permanent harness update.
+
+**PASS final `npm run lint`, exit 0**, `chrome-b4-production-channel-lint.log`:
+Biome **143 files / 53 ms**, Ruff, no findings. Runtime/TypeScript/Python sources
+are unchanged from `bba716a`, whose full verify passed **150 JS / 222 Python**;
+full verify was not repeated for this harness-only edit. The updated channel
+harness itself, its build/typecheck/contracts and lint were run above.
+
+Physical toolbar clicking, prepared model/native translation execution and the
+full real PCM → ASR → Korean → application/overlay path remain unverified.
+**B4 remains unfinished; next is that real extension engine path.** B5 full
+acceptance/ten-minute measurements, B6 quality tuning, Safari/iPhone and final
+cleanup are unchanged. No checkbox, numerical gate, runtime implementation,
+companion/settings, user profile, runner or publication changed.
