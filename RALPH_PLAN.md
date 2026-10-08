@@ -5765,3 +5765,68 @@ skipped or cancelled / 25,525.698750 ms**, **222 Python / 66.93 s**.
 이후 executable 변경 없음. 앞서 종료한 diagnostic **2/4의 실제 exit 143**을
 session 결과로 확인했다. 최종 scope/문서 append 보존/B4 하나만 체크/staged whitespace,
 commit 및 clean post-commit worktree를 delivery에서 확인한다.
+
+
+### 2026-10-09 KST (2026-10-08 UTC) — chrome iteration 5/20: B5 offline lifecycle slice
+
+**B5 유지 / unchecked**. entry clean; repository AGENTS.md와 지정 runner
+`2026-10-08T13-28-06-822Z-chrome-verification.txt` 없음. plan/architecture/Chrome
+기록을 읽고 큰 B5를 실제 extension lifecycle부터 분할한다. B2 smallFp16/WebGPU,
+B3 native Translator, B4 production manifest/PCM/DOM의 기존 경로·assertion 유지;
+model/VAD/decoder tuning이나 B6 품질 gate 변경 없음.
+
+추가 `npm run test:framework:chrome:lifecycle`은 기존 real harness의
+`--lifecycle`: 빈 owned profile의 실제 첫 VAD 다운로드 오류 → 명시 failed /
+download-required, Start disabled / no rows → Stop / Prepare 복구;
+online ja/en 실제 PCM→ASR→한국어→DOM 후 fully buffered fixture와 browser context
+전체 offline → fresh cached ASR/VAD/native translator 준비 → actual unfinished
+ASR 중 Stop → explicit Prepare/Start ja/en의 새 worker/session/paired DOM.
+worker ID/request/identity/time 관측만 추가하고 원래 메시지/transfer/terminate 유지.
+기존 online 두 언어/원문 먼저/revision/time/host live/overlay/Stop/history/playback
+검증은 그대로 통과. ten-minute/full-stage/B6 대신 성공 처리하지 않는다.
+
+**PASS `npm run test:framework:chrome:lifecycle`, exit 0**, 최초 1회
+`chrome-b5-lifecycle-attempt-1.log`: macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, headed Chromium **153.0.8010.12**.
+첫 다운로드는 실제 VAD pinned request **1개** abort; absent/downloading/failed,
+Start 비활성/no rows/500ms 후 Prepare 복구, 예상 console error **1**, page errors
+**[]**. 이는 composition의 VAD 실패이며 small-ASR-specific fault 검증은 아님.
+small FP16 **487,960,440 bytes**, learned VAD **2,243,022 bytes** 유지.
+
+- online ja/en prepare **51,032.010000 / 1,359.329292 ms**; worker inference
+  **1,464.600000 / 1,274.200000 ms**, samples **235,520 / 177,152**.
+- offline unfinished ja prepare **1,348.277041 ms**, samples **234,496**;
+  submit 후 same host clock **36.300000 ms**에 Stop. 실제 unfinished job **1**,
+  terminate와 **2초** no result/no row/live resurrection, 원래 재생/볼륨 유지.
+- offline fresh ja/en prepare **1,348.317000 / 1,352.201208 ms**, samples
+  **235,008 / 177,664**, inference **1,450.600000 / 1,105.100000 ms**,
+  pending→paired **52.500000 / 19.900000 ms**, time **0.0–14.7 / 0.0–11.1 s**.
+  실제 Korean host/page DOM, final source/translation revision **1/1**, 모든
+  offline case **zero remote requests / no downloading**, fresh worker/session.
+- companion/Ollama **8765 / 11434 ECONNREFUSED**, 관련 network request 없음.
+  Stop마다 두 영상 unmuted/playing **0.4 / 0.25** 유지. cached offline는 기존
+  document의 buffered synthetic video/fresh workers/native translators 범위;
+  remote-site reload/full browser restart offline은 검증하지 않았다.
+
+**PASS `npm run verify`, exit 0**, `chrome-b5-lifecycle-verify.log`:
+Biome **144 files / 50 ms**, Ruff/typecheck/기존 companion build,
+**150 JS / 0 fail, skip, cancel / 26,399.508875 ms**, **222 Python / 67.06 s**.
+final executable source이고 이후 executable 변경 없음.
+**PASS** node syntax check / focused Biome **1 file / 7 ms**.
+**FAIL `npm run test:framework:chrome`, exit 1**, `chrome-b5-lifecycle-stage-acceptance.log`:
+**Missing script: "test:framework:chrome"**. focused command로 대체/성공 처리 안 함.
+**UNVERIFIED/not run**: ten-minute extension backlog/queue drain/손실·입력 보존,
+endpoint/memory 측정, B6 최종 CER/WER/meaning/endpoint suite 및 full-stage acceptance.
+수치의 worker/source→paired timing을 endpoint latency나 품질 합격으로 표시 안 함.
+
+다음 미완료 B5: 실제 10분 측정 및 full acceptance harness. 기능적인 bounded/
+drained queues, PCM 보존과 명시적 cancel/GPU/Stop loss/revision 조건을 검증하고
+품질/지연 수치 실패는 B6로 보존한다. **어떤 checkbox도 변경하지 않음**;
+Chrome/Safari/iPhone/전체 framework 완료 없음. missing environment/device/permission
+또는 browser-access blocker 관측 없음; blocked/complete marker 없음.
+**4 files** 범위; companion/settings/install/server/runner/model inventory/기존
+strict fixture와 사용자 앱/녹화/mounted image/unrelated files 보존. agents/push/
+publish/app install/access 우회 없음. weights/credentials/user audio/transcripts/
+.ralph Git 포함 없음; owned test browser/profile만 정리.
+commit: `test: verify offline Chrome inference lifecycle`.
+최종 whitespace/staged scope/checkbox 보존/clean post-commit worktree delivery 확인.

@@ -8,7 +8,7 @@ quality/performance tuning. This status and the current Stage chrome section in
 below. Historical observations and failed tests are preserved, not reclassified
 as passes.
 
-**B2 and B3 are complete within their integration scope; next is B4.** Existing
+**B2, B3 and B4 are complete within their integration scope; next is B5.** Existing
 Japanese/English real recognition, WebGPU/WASM comparison, measured memory/error/
 latency and bounded queue/overload/GPU-loss/cancellation evidence establish the
 integration contracts. Use **smallFp16 / WebGPU** as the implementation default:
@@ -16,7 +16,7 @@ integration contracts. Use **smallFp16 / WebGPU** as the implementation default:
 `36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 model bytes**.
 The latest two captured layouts give **4.306% / 2.917% Japanese CER**, **4.545%
 English WER**, **0.459–1.391 s replay worker latency**. It is smaller and faster
-than Turbo in this comparison. The full application will consume this decision
+than Turbo in this comparison. The full application consumes this decision
 in B4; the B1 tiny preparation document remains a separate preparation fixture.
 No automatic backend/model fallback is authorized by this decision.
 
@@ -44,7 +44,7 @@ pass before stage completion.
 Small's retained Japanese reservation omissions/extra negation, louder-noise
 meaning failures, Turbo's repetition and previously late live endpoints are still
 unresolved B6 work. Recent replay timing is not a live endpoint pass. Default
-selection may change after B6 evaluation. B4–B6 and the complete Chrome acceptance
+selection may change after B6 evaluation. B5–B6 and the complete Chrome acceptance
 remain unfinished; B2 completion does not authorize a stage-complete marker.
 
 
@@ -9116,3 +9116,128 @@ terminated diagnostic attempts **2 / 4 exit 143**; they are not passing runs.
 Final scope/append-only preservation/one-checkbox, staged whitespace and clean
 post-commit state are checked at delivery. Commit: the
 `fix: load packaged Chrome inference runtimes` commit containing this record.
+
+
+## 2026-10-09 KST (2026-10-08 UTC) — B5 offline lifecycle slice (iteration 5/20)
+
+**B5 remains unchecked; next is sustained/full-stage acceptance.** Entry worktree
+was clean. Repository `AGENTS.md` and the requested independent-runner file
+`2026-10-08T13-28-06-822Z-chrome-verification.txt` were absent. Read the plan,
+architecture and retained Chrome report; the user-supplied standing instructions
+apply. Assumption: split B5 into a bounded real-extension lifecycle slice before
+its ten-minute measurements, as the plan permits for large checklist items.
+No B2 model/VAD/decoder tuning or B6 threshold changes.
+
+### Implementation and observable conditions
+
+`npm run test:framework:chrome:lifecycle` runs the existing production extension
+harness with `--lifecycle`. The original B4 Japanese/English, manifest, selected
+input, original-first paired revisions, mapped video time, comparison/live/page
+DOM, Stop, retained history and original playback assertions remain intact.
+The default `:extension` command keeps its original two-language scope.
+
+The additional cases first abort actual Hub model requests in an empty owned
+profile, require explicit `download-required` failure and disabled Start/no rows,
+then require Stop to restore Prepare. After real online preparation/transcription,
+wait for both original media files to be fully buffered and put the entire owned
+browser context offline. Fresh real ASR/VAD workers must report cached/loading/
+ready without downloading. Native translators are recreated by the production
+Prepare flow; no readiness, recognition or translation result is injected.
+
+Worker observers retain request/worker/session IDs, sample/range metadata and
+host-document timestamps while forwarding original messages/transferables and
+termination unchanged. A capture-phase observer snapshots the real Stop click.
+The cancellation case must find exactly one submitted, unfinished ASR job at
+that click, observe its worker termination and no result/row/live resurrection
+for **2,000 ms**. Explicit offline Prepare/Start must then create different
+workers/session IDs and new Japanese/English final paired rows and live/page
+Korean output. The preceding history cannot satisfy the new-row gate. Each
+successful run retains source/translation revision **1 / 1**, final/final, and
+original-first pending→paired observations. No test deadline or quality gate is
+relaxed.
+
+### Exact executed evidence
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**. Logs below are ignored local
+`.ralph/media-framework/` evidence, not committed artifacts.
+
+**PASS `npm run test:framework:chrome:lifecycle`, exit 0**, first and only
+invocation, `chrome-b5-lifecycle-attempt-1.log`; includes typecheck and an actual
+production-manifest standalone build. Exact model remains **smallFp16/WebGPU**,
+`onnx-community/whisper-small` @
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 bytes**; learned VAD
+`onnx-community/silero-vad` @ `e71cae966052b992a7eca6b17738916ce0eca4ec`,
+**2,243,022 bytes**. Native pack identity limitations from B3 remain.
+
+Actual first-download fault: **one** aborted pinned VAD `onnx/model.onnx` request;
+observed **absent → downloading → failed / download-required**, no worker ready,
+Start disabled, zero rows, Stop restoring Prepare after **500 ms**. The native
+Translator/ASR/VAD composition is cancelled; this is the whole-app first-download
+failure, specifically on VAD, **not a new small-ASR-specific download fault test**.
+Expected injected console error: **one**, `Browser model preparation failed
+TypeError: Failed to fetch` in the VAD worker. Page errors **[]**. Normal
+preparation then succeeds without modifying the failure/result/readiness state.
+
+| Real run | Preparation ms | ASR samples at 16 kHz | Capture-relative range ms | Worker inference ms | Source→paired DOM ms | New HTTPS requests |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| Online Japanese | 51,032.010000 | 235,520 | 0–14,720 | 1,464.600000 | 70.800000 | 17, including injected request |
+| Online English | 1,359.329292 | 177,152 | 32–11,104 | 1,274.200000 | 22.000000 | 0 |
+| Offline Japanese / in-flight Stop | 1,348.277041 | 234,496 | 32–14,688 | cancelled; no result | no new row | 0 |
+| Offline Japanese / explicit restart | 1,348.317000 | 235,008 | 0–14,688 | 1,450.600000 | 52.500000 | 0 |
+| Offline English / explicit restart | 1,352.201208 | 177,664 | 0–11,104 | 1,105.100000 | 19.900000 | 0 |
+
+Actual Stop click was **36.300000 ms** after submitting the unfinished Japanese
+job, using the **same host-document clock**. Its worker is terminated with no
+matching result, comparison change or live surface over the following **2 s**.
+All fresh offline workers report cached and ready, zero downloading states and
+**zero remote requests** through full PCM/ASR/native Korean/DOM and cleanup.
+Offline paired mapped video times: Japanese **0.0–14.7 s**, English **0.0–11.1 s**.
+New real Korean reaches both host live and selected-page overlays. Both original
+videos remain playing/unmuted at **0.4 / 0.25** after Stop, including the active
+inference cancellation. Endpoints **127.0.0.1:8765 / :11434** both return
+**ECONNREFUSED**; no companion/Ollama request or native-messaging permission.
+
+This offline test uses fully buffered synthetic media in the existing document,
+fresh model workers and fresh native Translator instances. It does **not** claim
+an offline remote-site reload, a full browser restart offline or model eviction
+recovery. Worker inference and source→translation times above are **not**
+endpoint-to-text measurements or CER/WER/meaning acceptance. B6 repetition,
+negation/reservation/noise and strict endpoint failures remain unresolved.
+
+Other actual commands on the final executable source:
+
+- **PASS `npm run verify`, exit 0**, `chrome-b5-lifecycle-verify.log`: Biome
+  **144 files / 50 ms / no findings**, Ruff/typecheck, unchanged companion build
+  **28 main / 10 content modules**, **150 JS / 0 failed, skipped or cancelled /
+  26,399.508875 ms**, **222 Python / 67.06 s**. Runs alongside the owned browser
+  test, with separate build directories. No subsequent executable edits.
+- **PASS `node --check tests/framework-chrome-extension.mjs`, exit 0**, direct
+  output; **PASS focused Biome**, **1 file / 7 ms / no findings**.
+- **FAIL `npm run test:framework:chrome`, exit 1**,
+  `chrome-b5-lifecycle-stage-acceptance.log`: **Missing script:
+  "test:framework:chrome"**. The focused command is not the required full-stage
+  acceptance and is not a stage completion claim.
+- **UNVERIFIED / not run:** actual ten-minute real extension backlog/queue drain,
+  input preservation/drop accounting, endpoint latency and memory measurements;
+  the complete default-profile B6 quality/latency suite and full-stage acceptance.
+
+### Progress, resume condition and preservation
+
+Next B5 slice: implement actual **ten-minute** standalone extension measurements
+and the executable full `test:framework:chrome` harness, retaining functional
+input coverage, bounded/drained queues and explicit Stop/GPU/cancel loss/revision
+contracts. Preserve numerical quality/latency failures for B6; never convert a
+nonzero combined command into PASS. **No checklist changes**; B5/B6 and all later
+stage checkboxes remain unfinished. No absent environment/device/permission or
+browser-access blocker was observed; no blocked or complete marker is justified.
+
+Scope: **four files** (existing real harness, one focused npm command, report and
+plan progress). Companion v0.1.0/install/native messaging/server/user settings,
+runner, model inventory, existing strict fixtures/assertions, unrelated files,
+apps, recordings and mounted images remain unchanged. No agents, push/publish,
+app installation or blocked-access workaround. No weights, credentials, user
+recordings/transcripts or temporary `.ralph` state enter Git. Only this test's
+owned browser/profile are closed/removed. Commit:
+`test: verify offline Chrome inference lifecycle`. Whitespace, staged scope,
+checkbox preservation and clean committed worktree are checked at delivery.

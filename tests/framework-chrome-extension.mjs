@@ -1,5 +1,6 @@
 // B4 production extension path, real selected-video PCM/ASR/native translation.
-// B5 sustained/offline acceptance and B6 quality gates remain separate checks.
+// --lifecycle adds B5 download failure, cached offline ASR/translation and active
+// inference Stop/restart. Ten-minute measurements and B6 quality remain separate.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -10,6 +11,7 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { build } from "vite";
 
+const lifecycle = process.argv.includes("--lifecycle");
 const output = resolve(".ralph/media-framework/chrome-extension-build");
 const fixtures = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8")).clips;
 for (const fixture of fixtures) {
@@ -22,7 +24,9 @@ const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
 assert.deepEqual(manifest.permissions, ["activeTab", "scripting"]);
 assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.key, undefined);
-const observations = { scope: "B4 real production extension selected-video PCM → smallFp16/WebGPU → native Korean translation → comparison/live/overlay DOM; no B5 ten-minute or B6 final quality acceptance",
+const observations = { scope: lifecycle
+  ? "B5 real extension first-download failure, cached offline Japanese/English PCM → ASR → native Korean → DOM, active inference Stop/restart; no ten-minute or B6 final quality acceptance"
+  : "B4 real production extension selected-video PCM → smallFp16/WebGPU → native Korean translation → comparison/live/overlay DOM; no B5 ten-minute or B6 final quality acceptance",
   pageErrors: [], consoleErrors: [], checks: [], runs: [], productionPermissions: manifest.permissions, modelRequests: [], companionEndpoints: [] };
 const server = createServer(async (request, response) => {
   try {
@@ -120,22 +124,28 @@ try {
   await context.addInitScript(() => {
     // Observation only: original workers and their messages/results run unchanged.
     const NativeWorker = Worker; globalThis.engineObservations = [];
+    let workerId = 0;
     globalThis.Worker = class extends NativeWorker {
       constructor(...args) {
         super(...args); const url = String(args[0]);
+        this.observedId = ++workerId;
         let state;
         this.addEventListener("message", ({data}) => {
           if (data?.type === "status" && data.status?.state === state) return;
           if (data?.type === "status") state = data.status?.state;
-          if (["ready", "status", "error"].includes(data?.type)) engineObservations.push({ url, type: data.type, status: data.status, reason: data.reason });
-          if (data?.type === "result" && typeof data.text === "string") engineObservations.push({type:"asr-result",text:data.text,inferenceMs:data.inferenceMs});
+          if (["ready", "status", "error"].includes(data?.type)) engineObservations.push({ url, workerId:this.observedId, requestId:data.requestId, at:performance.now(), type: data.type, status: data.status, reason: data.reason });
+          if (data?.type === "result" && typeof data.text === "string") engineObservations.push({type:"asr-result",workerId:this.observedId,requestId:data.requestId,at:performance.now(),text:data.text,inferenceMs:data.inferenceMs});
         });
       }
       postMessage(message, ...args) {
         if (message.type === "prepare") engineObservations.push({ type: "prepare", candidate: message.candidate, device: message.device });
-        if (message.type === "recognize") engineObservations.push({type:"asr-job",samples:message.job.pcm.length,
-          language:message.job.language,audioRange:message.job.audioRange});
+        if (message.type === "recognize") engineObservations.push({type:"asr-job",workerId:this.observedId,requestId:message.requestId,at:performance.now(),samples:message.job.pcm.length,
+          identity:{...message.job.identity},utteranceId:message.job.utteranceId,language:message.job.language,audioRange:{...message.job.audioRange}});
         return super.postMessage(message, ...args);
+      }
+      terminate() {
+        engineObservations.push({type:"terminated",workerId:this.observedId,at:performance.now()});
+        return super.terminate();
       }
     };
   });
@@ -182,8 +192,28 @@ try {
   const prepare = host.getByRole("button", { name:"Prepare selected language", exact:true });
   const start = host.getByRole("button", { name:"Start interpretation", exact:true });
   const stop = host.getByRole("button", { name:"Stop interpretation", exact:true });
-  for (const [index, fixture] of fixtures.entries()) {
-    const run = { language:fixture.language, checks:[] }; observations.runs.push(run);
+  if (lifecycle) {
+    // Observe the real Stop click before production handlers invalidate resources.
+    await stop.evaluate(button => button.addEventListener('click', () => {
+      globalThis.stopSnapshot = { at:performance.now(), rows:document.querySelector('#app tbody').innerText,
+        pending:engineObservations.filter(job => job.type==='asr-job' && !engineObservations.some(result =>
+          result.type==='asr-result' && result.workerId===job.workerId && result.requestId===job.requestId)) };
+    }, {capture:true}));
+  }
+  const scenarios = fixtures.map((fixture,index) => ({fixture,index,mode:'online'}));
+  if (lifecycle) scenarios.push({fixture:fixtures[0],index:0,mode:'offline-stop'},
+    ...fixtures.map((fixture,index) => ({fixture,index,mode:'offline-restart'})));
+  for (const [scenarioIndex, {index,fixture,mode}] of scenarios.entries()) {
+    if (lifecycle && scenarioIndex === fixtures.length) {
+      await page.waitForFunction(() => [ja,en].every(video => video.buffered.length && video.buffered.start(0)===0
+        && video.buffered.end(video.buffered.length-1)>=video.duration-0.1));
+      await context.setOffline(true);
+      assert.equal(await host.evaluate(()=>navigator.onLine),false);
+      observations.checks.push('Offline browser network enabled only after both fixture videos and native/model caches are prepared');
+    }
+    const run = { language:fixture.language, mode, checks:[] }; observations.runs.push(run);
+    const requestsBefore = observations.modelRequests.length;
+    const remoteBefore = network.filter(value=>value.startsWith('https:')).length;
     await host.locator('#language').selectOption(fixture.language);
     const id = await host.locator('#video option').nth(index+1).getAttribute('value');
     await host.locator('#video').selectOption(id); await host.getByRole('button',{name:'Use selected video'}).click();
@@ -202,6 +232,30 @@ try {
       globalThis.rowObserver=new MutationObserver(read);rowObserver.observe(document.querySelector('#app tbody'),{subtree:true,childList:true,characterData:true,attributes:true});
       globalThis.engineObservations=[];
     });
+    if (lifecycle && scenarioIndex === 0) {
+      const denied=[];
+      const deny = route => { const url=new URL(route.request().url()); denied.push(url.origin+url.pathname); return route.abort('failed'); };
+      await context.route('https://huggingface.co/**',deny);
+      try {
+        await prepare.click();
+        await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('Preparation failed:'),undefined,{timeout:30000});
+        const failure = await host.evaluate(()=>({dom:document.querySelector('#app > section').innerText,engine:engineObservations}));
+        observations.downloadFailure={...failure,denied};
+        assert.ok(denied.length>0,'A real first-download request must reach the injected transport failure');
+        assert.ok(failure.engine.some(event=>event.type==='status' && event.status.state==='absent'));
+        assert.ok(failure.engine.some(event=>event.type==='status' && event.status.state==='failed' && event.status.reason==='download-required'));
+        assert.equal(failure.engine.some(event=>event.type==='ready'),false);
+        assert.equal(await start.isDisabled(),true);
+        await stop.click();
+        await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('Stopped.'));
+        await host.waitForTimeout(500);
+        assert.equal(await start.isDisabled(),true);
+        assert.equal(await prepare.isEnabled(),true);
+        assert.equal(await host.locator('#app tbody tr').count(),0);
+        observations.checks.push('Real first-download failure is explicit, never enables Start or adds captions; Stop restores Prepare without late ready');
+      } finally { await context.unroute('https://huggingface.co/**',deny); }
+      await host.evaluate(()=>{engineObservations=[];rowObservations=[]});
+    }
     const began=performance.now(); await prepare.click();
     await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(b=>b.textContent==='Start interpretation').disabled || document.querySelector('#app').textContent.includes('Preparation failed:'),undefined,{timeout:240000,polling:100});
     run.preparationMs=performance.now()-began; run.preparation=await host.locator('#app > section').first().innerText();
@@ -211,9 +265,46 @@ try {
     assert.ok(run.engine.some(event=>event.type==='prepare' && event.candidate==='smallFp16' && event.device==='webgpu'));
     assert.ok(run.engine.some(event=>event.type==='status' && event.status.model.id==='onnx-community/whisper-small' && event.status.state==='ready' && event.status.requiredBytes===487960440));
     assert.ok(run.engine.some(event=>event.type==='status' && event.status.model.id==='onnx-community/silero-vad' && event.status.state==='ready'));
+    if (mode.startsWith('offline')) {
+      assert.equal(run.engine.some(event=>event.type==='status' && event.status.state==='downloading'),false);
+      for (const model of ['onnx-community/whisper-small','onnx-community/silero-vad']) {
+        assert.ok(run.engine.some(event=>event.type==='status' && event.status.model.id===model && event.status.state==='cached'));
+      }
+      run.checks.push('Fresh ASR/VAD workers load cached weights and native translator offline without downloading');
+    }
     await page.getByRole('button',{name:'Play both videos'}).click();
     assert.equal(await host.evaluate(()=>document.visibilityState),'visible');
     await start.click(); await page.getByRole('button',{name:'Allow selected video audio'}).click();
+    if (mode === 'offline-stop') {
+      await host.waitForFunction(()=>engineObservations.some(job=>job.type==='asr-job' && !engineObservations.some(result=>
+        result.type==='asr-result' && result.workerId===job.workerId && result.requestId===job.requestId)),undefined,{timeout:30000,polling:10});
+      await stop.click();
+      run.stopSnapshot=await host.evaluate(()=>stopSnapshot);
+      assert.equal(run.stopSnapshot.pending.length,1,'Stop must occur during actual unfinished ASR, not after a result');
+      await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('Stopped.'));
+      await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
+      const retained=await host.locator('#app tbody').innerText();
+      await host.waitForTimeout(2000);
+      run.engine=await host.evaluate(()=>engineObservations);
+      const job=run.stopSnapshot.pending[0];
+      assert.ok(run.engine.some(event=>event.type==='terminated' && event.workerId===job.workerId));
+      assert.equal(run.engine.some(event=>event.type==='asr-result' && event.workerId===job.workerId && event.requestId===job.requestId),false);
+      assert.equal(await host.locator('#app tbody').innerText(),retained);
+      assert.equal(retained,run.stopSnapshot.rows);
+      assert.equal(await host.locator('#app .interpreter-live').innerText(),'');
+      assert.equal(await page.locator('[data-interpreter-overlay]').count(),0);
+      assert.equal(await start.isDisabled(),true); assert.equal(await prepare.isEnabled(),true);
+      assert.deepEqual(await page.evaluate(()=>[ja,en].map(video=>({paused:video.paused,muted:video.muted,volume:video.volume}))),
+        [{paused:false,muted:false,volume:0.4},{paused:false,muted:false,volume:0.25}]);
+      run.remoteRequestsAdded=network.filter(value=>value.startsWith('https:')).length-remoteBefore;
+      assert.equal(run.remoteRequestsAdded,0);
+      run.checks.push('Stop during real offline ASR terminates its worker; no result, late row or live output for two seconds; playback/volumes preserved');
+      await host.evaluate(()=>rowObserver.disconnect());
+      await page.evaluate(()=>{ja.pause();en.pause();ja.currentTime=0;en.currentTime=0;overlayTexts=[]});
+      await page.waitForFunction(()=>!ja.seeking && !en.seeking);
+      console.log(JSON.stringify({run}));
+      continue;
+    }
     await host.waitForFunction(() => rowObservations.some(event=>event.rows.some(row=>row.state==='paired' && row.sourceFinal==='true' && row.translationFinal==='true')),undefined,{timeout:30000});
     await page.waitForFunction(() => overlayTexts.some(text=>/[가-힣]/u.test(text)),undefined,{timeout:10000});
     run.rows=await host.evaluate(()=>rowObservations);
@@ -232,6 +323,13 @@ try {
     run.playback=await page.evaluate(()=>[ja,en].map(video=>({paused:video.paused,muted:video.muted,volume:video.volume,time:video.currentTime})));
     assert.deepEqual(run.playback.map(video=>({paused:video.paused,muted:video.muted,volume:video.volume})),[{paused:false,muted:false,volume:0.4},{paused:false,muted:false,volume:0.25}]);
     run.checks.push('Actual final ASR/native Korean, original-first comparison/video time, host live and selected-video overlay');
+    if (mode === 'offline-restart') {
+      const cancelled=observations.runs.find(previous=>previous.mode==='offline-stop').stopSnapshot.pending[0];
+      const job=run.engine.find(event=>event.type==='asr-job');
+      assert.notEqual(job.identity.sessionId,cancelled.identity.sessionId);
+      assert.notEqual(job.workerId,cancelled.workerId);
+      run.checks.push('Explicit offline Prepare/Start creates fresh workers/session and real paired DOM after the cancelled session');
+    }
     await stop.click(); await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('Stopped.'));
     await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
     const retained=await host.locator('#app tbody').innerText();
@@ -245,6 +343,12 @@ try {
     await host.evaluate(()=>rowObserver.disconnect());
     await page.evaluate(()=>{ja.pause();en.pause();ja.currentTime=0;en.currentTime=0;overlayTexts=[]});
     await page.waitForFunction(()=>!ja.seeking && !en.seeking);
+    run.remoteRequestsAdded=network.filter(value=>value.startsWith('https:')).length-remoteBefore;
+    if (mode.startsWith('offline')) {
+      assert.equal(run.remoteRequestsAdded,0);
+      assert.equal(observations.modelRequests.length,requestsBefore);
+      run.checks.push('Complete cached offline PCM/ASR/native Korean/DOM run makes zero remote requests');
+    }
     console.log(JSON.stringify({run}));
   }
   assert.ok(network.every(value=>!/^https?:\/\/[^/]+:(8765|11434)(\/|$)/u.test(value)),'No companion/Ollama network use');
