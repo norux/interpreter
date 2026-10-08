@@ -171,3 +171,43 @@ test("upstream normalization gaps remain audio-gap status and discard ASR contex
   assert.equal(fixture.statuses.at(-1)?.reason, "audio-gap");
   assert.equal(fixture.statuses.at(-1)?.queue?.droppedAudioMs, 100);
 });
+
+test("learned speech admission rejects energetic noise without submitting ASR or losing audio", async () => {
+  const fixture = setup();
+  let frames = 0; let detectorStops = 0;
+  const detector = { async detect(pcm: Float32Array) { frames++; assert.ok(pcm.length <= 512); return { speech: false }; },
+    stop() { detectorStops++; } };
+  const jobs: AsrJob[] = [];
+  const recognizer = createSpeechRecognizer(identity, "en", {
+    async recognize(job: AsrJob) { jobs.push(job); throw new Error("Noise must not reach ASR"); }, stop() {},
+  }, (status: SessionStatus) => fixture.statuses.push(status), detector);
+  await collect(recognizer.run(source(Array.from({ length: 60 }, (_, i) => chunk(i)))));
+  assert.equal(jobs.length, 0); assert.equal(frames, 188); assert.equal(detectorStops, 1);
+  assert.equal(fixture.statuses.at(-1)?.queue?.droppedAudioMs, 0);
+  assert.equal(fixture.statuses.at(-1)?.queue?.pendingAudioMs, 0);
+});
+
+test("learned admission keeps every energetic input sample and cancels an outstanding detector", async () => {
+  const jobs: AsrJob[] = []; const frames: Float32Array[] = [];
+  const supplied = Array.from({ length: 210 }, (_, i) => chunk(i));
+  const recognizer = createSpeechRecognizer(identity, "en", {
+    async recognize(job) { jobs.push(structuredClone(job)); return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 }; }, stop() {},
+  }, () => {}, { async detect(pcm) { frames.push(pcm); return { speech: true }; }, stop() {} });
+  await collect(recognizer.run(source(supplied)));
+  assert.deepEqual(jobs.map(job => job.audioRange), [{ startMs: 0, endMs: 20000 }, { startMs: 20000, endMs: 21000 }]);
+  const expected = new Float32Array(336000).fill(0.05);
+  const submitted = new Float32Array(336000); submitted.set(jobs[0].pcm); submitted.set(jobs[1].pcm, 320000);
+  assert.deepEqual(submitted, expected); assert.equal(frames.at(-1)?.length, 128);
+  let release: (value: { speech: boolean }) => void = () => {}; let detectorStops = 0; let asrCalls = 0;
+  const statuses: SessionStatus[] = [];
+  const cancelled = createSpeechRecognizer(identity, "en", {
+    async recognize() { asrCalls++; throw new Error("Unexpected ASR"); }, stop() {},
+  }, status => statuses.push(status), { detect() { return new Promise(resolve => { release = resolve; }); }, stop() { detectorStops++; } });
+  const run = collect(cancelled.run(source([chunk(0)])));
+  await new Promise<void>(resolve => setImmediate(resolve));
+  await cancelled.cancel(identity); await assert.rejects(run, /cancelled/);
+  const count = statuses.length; release({ speech: true });
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(statuses.length, count); assert.equal(detectorStops, 1); assert.equal(asrCalls, 0);
+  assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 100);
+});

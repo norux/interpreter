@@ -4,13 +4,17 @@ import { sameIdentity } from "../core/identity";
 import type { createAsrHost } from "./asr-host";
 import type { AsrJob } from "./asr-protocol";
 
-// Experimental 16 kHz profile: energy gating, 20 ms frames, 500 ms silence
+// Experimental 16 kHz profile: 20 ms energy-only / 32 ms learned frames,
+// 500 ms energy silence
 // endpoint, speech-band pause cuts after 10 s, 20 s maximum segment with
 // 10 s queue headroom during inference. Pause detection never filters ASR PCM.
-// This is not a learned speech detector.
+// The explicit learned profile gates ASR admission on recurrent speech activity;
+// energy remains an endpoint policy, never a filter of submitted PCM. The
+// original energy-only profile remains available for comparison, not fallback.
 export function createSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
-  receive: (status: SessionStatus) => void): SpeechRecognizer {
+  receive: (status: SessionStatus) => void,
+  detector?: { detect(pcm: Float32Array): Promise<{ speech: boolean }>; stop(): void }): SpeechRecognizer {
   const selected = { ...identity };
   let started = false;
   let stopped = false;
@@ -30,7 +34,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
     stopped = true;
     if (reason) error = new Error(reason);
     droppedAudioMs += bufferedSamples / 16; bufferedSamples = 0;
-    results.length = 0; executor.stop();
+    results.length = 0; executor.stop(); detector?.stop();
     const stream = input; input = undefined;
     void stream?.return?.().catch(() => {});
     report(reason === "cancelled" || !reason ? "stopping" : "failed", reason);
@@ -51,6 +55,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       let utterance = 0;
       let segment = new Float32Array(16000 * 20);
       let segmentLength = 0;
+      let detectedSpeech = false;
       let segmentStartMs = 0;
       let quietSamples = 0;
       let boundaryQuietSamples = 0;
@@ -58,7 +63,8 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       const filterAlpha = 1 - Math.exp(-2 * Math.PI * 2000 / 16000);
       let filterFirst = 0;
       let filterSecond = 0;
-      const frame = new Float32Array(320);
+      const frameSamples = detector ? 512 : 320;
+      const frame = new Float32Array(frameSamples);
       let frameLength = 0;
       let frameStartMs = 0;
 
@@ -81,7 +87,10 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       }
       function finishSegment(continuous = false) {
         if (stopped || !segmentLength) return;
-        if (segmentLength < 1600) {
+        if (detector && !detectedSpeech) {
+          // Deliberately rejected speech-free context is not queue loss.
+          bufferedSamples -= segmentLength;
+        } else if (segmentLength < 1600) {
           // Less than the executor's 100 ms minimum: no padded/fabricated audio.
           droppedAudioMs += segmentLength / 16; bufferedSamples -= segmentLength;
         } else {
@@ -91,10 +100,13 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
             pcm: segment.slice(0, segmentLength) });
           void drain();
         }
-        segmentLength = 0; quietSamples = 0; boundaryQuietSamples = 0;
+        segmentLength = 0; detectedSpeech = false; quietSamples = 0; boundaryQuietSamples = 0;
         continueSegment = continuous;
       }
-      function consumeFrame() {
+      async function consumeFrame() {
+        const activity = detector ? (await detector.detect(frame.slice(0, frameLength))).speech : false;
+        if (stopped) return;
+        if (typeof activity !== "boolean") throw new Error("Invalid speech detector result");
         let energy = 0;
         let boundaryEnergy = 0;
         for (let i = 0; i < frameLength; i++) {
@@ -106,7 +118,8 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
           boundaryEnergy += filterSecond * filterSecond;
         }
         const speech = Math.sqrt(energy / frameLength) >= 0.01;
-        if (speech || segmentLength || continueSegment) {
+        if (speech || activity || segmentLength || continueSegment) {
+          detectedSpeech ||= activity;
           if (!segmentLength) segmentStartMs = frameStartMs;
           segment.set(frame.subarray(0, frameLength), segmentLength);
           segmentLength += frameLength;
@@ -143,15 +156,15 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
             if (bufferedSamples > 16000 * 30) { stop("overloaded"); return; }
             for (let offset = 0; offset < pcm.length && !stopped;) {
               if (!frameLength) frameStartMs = chunk.audioRange.startMs + offset / 16;
-              const count = Math.min(320 - frameLength, pcm.length - offset);
+              const count = Math.min(frameSamples - frameLength, pcm.length - offset);
               frame.set(pcm.subarray(offset, offset + count), frameLength);
               frameLength += count; offset += count;
-              if (frameLength === 320) consumeFrame();
+              if (frameLength === frameSamples) await consumeFrame();
             }
             if (!stopped) report("running");
           }
           if (!stopped) {
-            if (frameLength) consumeFrame();
+            if (frameLength) await consumeFrame();
             finishSegment(); ended = true; wake?.();
           }
         } catch (failure) {

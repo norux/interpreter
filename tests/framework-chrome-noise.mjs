@@ -10,16 +10,27 @@ import { build } from "vite";
 
 // B2 noise qualification only: decoded synthetic speech, not live acquisition,
 // natural speakers, translation, caption DOM or full Chrome-stage acceptance.
-const output = resolve(".ralph/media-framework/chrome-noise-build");
+const learned = process.argv.includes("--learned-vad");
+const output = resolve(learned ? ".ralph/media-framework/chrome-learned-noise-build" : ".ralph/media-framework/chrome-noise-build");
 const manifest = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8"));
 for (const clip of manifest.clips) {
   const bytes = await readFile(`tests/fixtures/video-speech/${clip.language}.webm`);
   assert.equal(bytes.length, clip.bytes);
   assert.equal(createHash("sha256").update(bytes).digest("hex"), clip.sha256);
 }
+const hashes = {
+  "quiet-noise": "3f09b111ae02c03ea4f1754b94c2f92eef1d4c8cdd2a479938721752a7d3bb63",
+  "white-noise": "579dbcdab93b9f368dd6c93883ac80056751d370c699e69a6612c7af4d7cd7f5",
+  hum: "23a7fbefb156e79bb17e598c1a941c56fefc8ed194fc55578f2da4c05363e0b9",
+  "ja/speech-quiet-noise": "b4d78bb15c34ec99692f1c5169e80b0cb87d6b1aeb3afaf6551337120d3bb581",
+  "ja/speech-white-noise": "38db530ee1d6884d13ed97b716f2ccc690317cf166268163bf5a4591838514e9",
+  "en/speech-quiet-noise": "cfb1608b69d1fa5e58467bc1df86271727eff0d649bc123426e1001ddc6fcb67",
+  "en/speech-white-noise": "77a05349854fc95239a3145e8847acad34d05315b3d5eb984475932ffddb8864",
+};
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: {
   outDir: output, rollupOptions: { input: { asr: resolve("packages/engines-browser/asr-host.ts"),
-    speech: resolve("packages/engines-browser/speech-recognizer.ts") },
+    speech: resolve("packages/engines-browser/speech-recognizer.ts"),
+    vad: resolve("packages/engines-browser/vad-host.ts") },
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } },
 } });
 const server = createServer(async (request, response) => {
@@ -29,14 +40,17 @@ const server = createServer(async (request, response) => {
     response.end(`<button id="prepare">Prepare</button><script type="module">
       import {createAsrHost} from '/asr.js';
       import {createSpeechRecognizer} from '/speech.js';
+      import {createVadHost} from '/vad.js';
+      globalThis.learned = ${learned};
       globalThis.createSpeechRecognizer = createSpeechRecognizer;
       globalThis.visibilityEvents = [];
       document.addEventListener('visibilitychange', () => visibilityEvents.push(document.visibilityState));
       globalThis.prepare = () => {
-        globalThis.host?.dispose(); globalThis.modelStatuses = [];
+        globalThis.host?.dispose(); globalThis.vad?.dispose(); globalThis.modelStatuses = []; globalThis.vadStatuses = [];
         globalThis.prepared = false; globalThis.prepareError = undefined;
         globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => modelStatuses.push(status));
-        host.prepare().then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
+        globalThis.vad = learned ? createVadHost(document, status => vadStatuses.push(status)) : undefined;
+        Promise.all([host.prepare(), vad?.prepare()]).then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
       };
       document.querySelector('button').onclick = prepare;
       globalThis.readClip = async clip => {
@@ -62,7 +76,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 deterministic additive noise and no-speech regression; real FP16 WebGPU ASR over paced decoded synthetic PCM", runs: [], failures: [] };
+const observations = { scope: "B2 deterministic additive noise and no-speech regression; real FP16 WebGPU ASR over paced decoded synthetic PCM", learned, runs: [], failures: [] };
 const execute = promisify(execFile);
 let browser; let browserProcess; let browserExit; let profile; let page; let monitor;
 let peakRssKiB = 0;
@@ -103,9 +117,9 @@ try {
   observations.browser = browser.version(); observations.platform = `${process.platform}/${process.arch}`;
   observations.memoryMetric = "Owned browser-tree RSS KiB sampled every 250ms, including shared pages/allocators/browser/GPU process; not isolated model allocations, leak or pressure evidence";
   page = browser.contexts()[0].pages()[0];
-  const pageErrors = []; const remotePaths = new Set();
+  const pageErrors = []; const remotePaths = new Set(); const remoteRequests = [];
   page.on("pageerror", error => pageErrors.push(error.message));
-  page.on("request", request => { if (request.url().startsWith("https://")) { const url = new URL(request.url()); remotePaths.add(url.origin + url.pathname); } });
+  page.context().on("request", request => { if (request.url().startsWith("https://")) { const url = new URL(request.url()); remotePaths.add(url.origin + url.pathname); remoteRequests.push(url.origin + url.pathname); } });
   await page.goto(origin); await page.waitForFunction(() => globalThis.prepare);
   observations.baselineRssKiB = await sampleRss();
   monitor = setInterval(() => { void sampleRss().catch(() => {}); }, 250);
@@ -117,7 +131,9 @@ try {
     await page.locator("#prepare").focus(); await page.locator("#prepare").press("Enter");
     await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 240000, polling: 100 });
     run.preparationMs = performance.now() - preparationStart;
-    const status = await page.evaluate(() => ({ error: prepareError, last: modelStatuses.at(-1) }));
+    const status = await page.evaluate(() => ({ error: prepareError, last: modelStatuses.at(-1), vadStatuses }));
+    run.vadStatuses = status.vadStatuses;
+    if (learned) { assert.equal(run.vadStatuses.at(-1).state, "ready"); assert.equal(run.vadStatuses.at(-1).requiredBytes, 2243022); }
     assert.equal(status.error, undefined); assert.equal(status.last.state, "ready"); assert.equal(status.last.requiredBytes, 487960440);
     const measured = await page.evaluate(async ({ clip, mode }) => {
       const speech = mode.startsWith('speech-');
@@ -141,7 +157,7 @@ try {
         .map(byte => byte.toString(16).padStart(2,'0')).join('');
       const inputSha256 = await digest(pcm);
       const identity = {sessionId: 'fixture-noise', targetId: `fixture-${clip.language}`, epoch: 4};
-      const statuses = []; const transcripts = []; const invocations = []; const deliveries = [];
+      const statuses = []; const transcripts = []; const invocations = []; const deliveries = []; const detectorFrames = [];
       const executor = { stop: () => host.stop(), recognize: async job => {
         const startSample = Math.round(job.audioRange.startMs*16);
         const inputSlice = pcm.slice(startSample, startSample+job.pcm.length);
@@ -150,7 +166,16 @@ try {
         invocations.push(invocation); invocation.atMs = performance.now();
         try { return await host.recognize(job); } finally { invocation.settledAtMs = performance.now(); }
       }};
-      const recognizer = createSpeechRecognizer(identity, clip.language, executor, status => statuses.push({...status, atMs: performance.now()}));
+      let detectorSamples = 0;
+      const detector = learned ? {stop: () => vad.stop(), detect: async frame => {
+        const snapshot = frame.slice();
+        const result = await vad.detect(frame);
+        if (!frame.every((sample,i) => sample === snapshot[i])) throw new Error('Detector altered ASR PCM');
+        detectorFrames.push({...result, startSample:detectorSamples, atMs:performance.now()});
+        detectorSamples += frame.length;
+        return result;
+      }} : undefined;
+      const recognizer = createSpeechRecognizer(identity, clip.language, executor, status => statuses.push({...status, atMs: performance.now()}), detector);
       const start = performance.now();
       async function* paced() {
         for (let offset = 0, sequence = 0; offset < pcm.length; offset += 1600, sequence++) {
@@ -167,11 +192,25 @@ try {
       catch (error) { outcome = error.message; }
       return {outcome,originalSamples:original.length,inputSamples:pcm.length,inputDurationMs:pcm.length/16,
         inputSha256,noiseRms:Math.sqrt(noiseEnergy/pcm.length),snrDb:speech ? 10*Math.log10(speechEnergy/noiseEnergy) : undefined,
-        peak,hostDurationMs:performance.now()-start,transcripts,invocations,deliveries,statuses};
+        peak,hostDurationMs:performance.now()-start,transcripts,invocations,deliveries,statuses,detectorFrames};
     }, { clip, mode });
     Object.assign(run, measured, { peakRssKiB, finalRssKiB: await sampleRss() });
     const fail = message => observations.failures.push(`${clip.language}/${mode}: ${message}`);
+    assert.equal(run.inputSha256, hashes[`${clip.language}/${mode}`] ?? hashes[mode], "Retain every original mixed input");
     if (run.outcome !== "completed") fail(run.outcome);
+    if (learned) {
+      assert.equal(run.detectorFrames.length, Math.ceil(run.inputSamples/512));
+      let covered = 0;
+      for (const frame of run.detectorFrames) {
+        assert.equal(frame.startSample, covered); covered += frame.samples;
+        assert.equal(frame.paddingSamples, 512-frame.samples);
+      }
+      assert.equal(covered, run.inputSamples);
+      run.detectorInferenceMs = run.detectorFrames.reduce((sum, frame) => sum+frame.inferenceMs, 0);
+      run.detectorActiveFrames = run.detectorFrames.filter(frame => frame.probability >= 0.5).length;
+      if (run.detectorInferenceMs >= run.inputDurationMs*0.1) fail("Detector inference exceeds retained 10% duration gate");
+      if (!mode.startsWith("speech-") && (run.detectorActiveFrames || run.invocations.length)) fail("Learned noise rejection must make zero active frames and ASR calls");
+    }
     assert.equal(run.deliveries.at(-1).endMs, run.inputDurationMs);
     assert.ok(run.hostDurationMs >= run.inputDurationMs-1, "Actual paced delivery must cover the input duration");
     run.maxPendingAudioMs = Math.max(...run.statuses.map(status => status.queue.pendingAudioMs));
@@ -213,14 +252,42 @@ try {
     }
     console.log(JSON.stringify({ run }));
   }
+  if (learned) {
+    const beforeOffline = remoteRequests.length;
+    await page.context().setOffline(true);
+    await page.locator("#prepare").focus(); await page.locator("#prepare").press("Enter");
+    await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 240000, polling: 100 });
+    observations.offline = await page.evaluate(async () => {
+      if (prepareError) throw new Error(prepareError);
+      const statuses = [...vadStatuses]; const asrStatuses = [...modelStatuses];
+      const pcm = new Float32Array(512);
+      const control = await vad.detect(pcm);
+      const pending = vad.detect(pcm); vad.stop();
+      let cancelled;
+      try { await pending; } catch (error) { cancelled = error.message; }
+      return {statuses, asrStatuses, control, cancelled, originalPcmBytes:pcm.byteLength};
+    });
+    assert.equal(observations.offline.statuses.at(-1).state, "ready");
+    assert.ok(observations.offline.statuses.some(status => status.state === "cached"));
+    assert.equal(observations.offline.asrStatuses.at(-1).state, "ready");
+    assert.ok(observations.offline.control.probability < 0.5);
+    assert.equal(observations.offline.cancelled, "VAD stopped");
+    assert.equal(observations.offline.originalPcmBytes, 2048);
+    observations.offline.remoteRequests = remoteRequests.length-beforeOffline;
+    assert.equal(observations.offline.remoteRequests, 0);
+    await page.context().setOffline(false);
+  }
   observations.pageErrors = pageErrors;
   observations.visibilityEvents = await page.evaluate(() => visibilityEvents);
   assert.deepEqual(pageErrors, []); assert.deepEqual(observations.visibilityEvents, []);
   observations.remotePaths = [...remotePaths];
   const pinned = "https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/";
+  const vadPinned = "https://huggingface.co/onnx-community/silero-vad/resolve/e71cae966052b992a7eca6b17738916ce0eca4ec/onnx/model.onnx";
+  if (learned) assert.ok(remotePaths.has(vadPinned));
   assert.equal([...remotePaths].filter(path => path.startsWith(pinned)).length, 7);
   assert.ok([...remotePaths].every(path => path.startsWith(pinned)
     || path.startsWith("https://huggingface.co/api/resolve-cache/models/onnx-community/whisper-small/36050c46d777d46dc4b5f43f6d90574fc38f8732/")
+    || (learned && (path === vadPinned || path.startsWith("https://huggingface.co/api/resolve-cache/models/onnx-community/silero-vad/e71cae966052b992a7eca6b17738916ce0eca4ec/")))
     || path.startsWith("https://us.aws.cdn.hf.co/xet-bridge-us/")), "Only pinned model artifacts/redirects may be remote");
   console.log(JSON.stringify({ passed: observations.failures.length === 0, ...observations }));
   assert.deepEqual(observations.failures, [], "Noise qualification must preserve speech meaning and reject fabricated no-speech text");

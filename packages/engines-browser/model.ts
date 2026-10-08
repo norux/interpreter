@@ -74,13 +74,20 @@ export const asrCandidates = {
   },
 } as const;
 
-export function registeredCandidate(model: ModelIdentity, dtype: "q8" | "fp16" = "q8") {
-  const candidate = Object.values(asrCandidates).find(value => value.model.id === model.id && value.model.version === model.version && value.dtype === dtype);
+export const vadCandidate = {
+  dtype: "fp32",
+  model: { id: "onnx-community/silero-vad", version: "e71cae966052b992a7eca6b17738916ce0eca4ec" },
+  files: [{ path: "onnx/model.onnx", bytes: 2243022,
+    sha256: "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808" }],
+} as const;
+
+export function registeredCandidate(model: ModelIdentity, dtype: "q8" | "fp16" | "fp32" = "q8") {
+  const candidate = [...Object.values(asrCandidates), vadCandidate].find(value => value.model.id === model.id && value.model.version === model.version && value.dtype === dtype);
   if (!candidate) throw new Error("Unregistered model/version");
   return {
     ...candidate,
     requiredBytes: candidate.files.reduce((sum, file) => sum + file.bytes, 0),
-    cacheName: `interpreter-asr-${candidate.model.version}-${candidate.dtype}`,
+    cacheName: `interpreter-${candidate === vadCandidate ? "vad" : "asr"}-${candidate.model.version}-${candidate.dtype}`,
     url: (path: string) => `https://huggingface.co/${candidate.model.id}/resolve/${candidate.model.version}/${path}`,
   };
 }
