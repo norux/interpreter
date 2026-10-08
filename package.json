@@ -12,6 +12,8 @@
     "build": "vite build",
     "build:chrome:preparation": "vite build --config vite.chrome.config.ts",
     "build:chrome": "vite build --config vite.chrome.config.ts",
+    "test:framework:chrome:tab-engine": "npm run typecheck && node tests/framework-chrome-tab-engine.mjs",
+    "test:framework:chrome:tab-capture": "npm run test:framework:chrome:tab-input && npm run test:framework:chrome:tab-host && npm run test:framework:chrome:tab-engine",
     "test:framework:chrome:tab-host": "npm run typecheck && node tests/framework-chrome-tab-host.mjs",
     "test:framework:chrome:tab-input": "npm run typecheck && node --import tsx --test tests/framework-chrome-tab-input.test.ts && node tests/framework-chrome-tab-input.mjs",
     "test:framework:chrome:overlay": "npm run typecheck && node --import tsx --test tests/framework-chrome-overlay.test.ts && node tests/framework-chrome-overlay.mjs",

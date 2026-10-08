@@ -12413,3 +12413,172 @@ focused Biome **PASS / exit 0 / 10 ms**, new/changed harness syntax and
 `git diff --check` **PASS / exit 0**. Selected extension/ten-minute behavior after
 the test-owned action change remains NOT RUN; the changed bootstrap is exercised
 by the passing selected PCM channel, with new default bootstrap separately verified.
+
+## 2026-10-09 KST — B5a real tab engine acceptance (chrome iteration 4/20)
+
+**B5a remains first unfinished and unchecked; B6 tuning remains stopped.** Entry
+HEAD `a9d07f1` had only the preserved untracked `.DS_Store`. Repository AGENTS.md
+and requested independent runner log
+`2026-10-08T21-59-42-338Z-chrome-verification.txt` are absent. Read the supplied
+instructions, plan, architecture and retained Chrome scope/evidence. This iteration
+adds real production-tab engine acceptance, without changing production engines,
+permissions, the published companion, existing settings or selected-video tests.
+
+### Retained implementation and acceptance scope
+
+`test:framework:chrome:tab-engine` builds the unchanged standalone manifest/action
+and persistent tab host. It verifies Japanese top-frame video, English cross-origin
+iframe video, English audio-only playback and Japanese Web Audio with no media
+element. Synthetic fixture bytes are checked against the retained manifest hashes.
+Actual extension-action authorization uses native `Extensions.triggerAction`;
+physical toolbar clicking is not claimed. The browser runs headed in a disposable
+test-owned profile, with the existing explicitly prepared CfT native translation
+components. No user-profile/browser-access workaround is used.
+
+Observation wrappers pass original worker messages, native Translator calls and
+results through unchanged. They retain metadata and synthetic text, not PCM/model
+buffers. Assertions pair the real default smallFp16/WebGPU ASR result with the
+original-first comparison revision, the ordered native Korean result, capture
+elapsed ranges and actual page DOM. Japanese native phrase calls are checked in
+order against the exact source (only boundary whitespace is ignored for source
+reassembly); their joined native Korean must match the DOM exactly. No transcript,
+translation, readiness, PCM or mock engine result is injected.
+
+After the four source cases, fresh offline recaptures exercise Stop during real
+unfinished ASR, Stop immediately after a native translate call returns its pending
+promise, and original-tab reload during ASR. The translation observer invokes only
+the real Stop control after starting the unchanged native call; it does not delay,
+replace or fabricate a result. Cancellation snapshots require unfinished work,
+retained history, cleared live/page output, released native capture and no late DOM
+for two seconds. Fresh session IDs and actual worker termination are checked.
+An individual video's pause/seek must leave the tab session/capture running.
+
+`test:framework:chrome:tab-capture` composes the retained real tab-input and
+production-host checks with this new real engine harness. Full Chrome acceptance
+invokes this aggregate in place of its two previous direct input/host entries;
+both original constituents still execute, and all selected-video, translation,
+quality/latency and ten-minute constituents/assertions remain present. Failures
+retain nonzero exit status. No model/VAD/decoder tuning or acceptance weakening.
+
+### Actual development failures and verification
+
+Ignored evidence lives under `.ralph/media-framework/`; no logs, test profiles,
+credentials, model weights, user audio/transcripts or temporary state are committed.
+
+- `node tests/framework-chrome-tab-engine.mjs`,
+  `chrome-tab-engine-iteration-4-first.log`: **FAIL / exit 1**. Japanese preparation
+  **53283.564792000005 ms**; real ASR/native Korean and paired DOM are observed,
+  but the new harness incorrectly expects one native call for the full Japanese
+  source. Production already translates Japanese sentence phrases independently.
+  This is an oracle defect; no production/quality rule is changed to fix it.
+  Browser **153.0.8010.12**, page errors **[]**.
+- `npm run test:framework:chrome:tab-engine`,
+  `chrome-tab-engine-iteration-4-second.log`: **FAIL / exit 1**. Revised exact
+  phrase-result oracle passes the Japanese case (preparation **51850.628959 ms**).
+  English cross-origin iframe prepares in **1454.21033300001 ms** and produces
+  real ASR/native translation, then fails because `overlayTexts` is absent on the
+  fixture's top-level iframe container. Error **ReferenceError: overlayTexts is
+  not defined**; recorded page errors contain the same error twice. Move the
+  observation-only DOM setup to every fixture document. Cancellation cases and
+  later source cases are **UNVERIFIED in this failing run**.
+- `npm run verify`, `chrome-tab-engine-iteration-4-verify.log`: **PASS / exit 0**.
+  Biome **162 files / 60 ms**, Ruff/typecheck/existing companion extension build;
+  **161 JS passed / 0 failed/skipped/cancelled / 26761.042583 ms**, **222 Python
+  passed / 66.93 s**. This ran during harness development; subsequent retained
+  harness-observer/lifecycle assertion changes require their final focused
+  lint/syntax and browser run below, not a claim that this verified later code.
+
+- `npm run test:framework:chrome:tab-capture`,
+  `chrome-tab-capture-iteration-4-first.log`: **PASS / exit 0**, final executable
+  source. All three constituents execute successfully: typechecks; tab-input
+  **3 unit passed / 0 failed/skipped/cancelled / 49.518875 ms** and actual headed
+  PCM/native output; unchanged production-host native action/playback/synthetic
+  rendering; new real tab-engine/native translation/DOM/cancellation harness.
+  Each browser reports **153.0.8010.12** and **page errors []**. Companion/Ollama
+  endpoints **8765 / 11434 both ECONNREFUSED**, with no such network use.
+
+### Final actual tab-engine and playback evidence
+
+The engine harness uses the production **smallFp16 / WebGPU** model,
+`onnx-community/whisper-small` revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 bytes**; speech detector
+`onnx-community/silero-vad` revision
+`e71cae966052b992a7eca6b17738916ce0eca4ec`, **2,243,022 bytes**. First-run browser
+model download/load and subsequent cached preparation are actually observed.
+No new model/candidate or external component preparation method is introduced.
+
+| Production tab source | Preparation ms | First real ASR job, 16 kHz samples | Capture range ms | Worker inference ms | Native phrase calls |
+| --- | --- | --- | --- | --- | --- |
+| Japanese top-frame video | 51569.847042 | 235008 | 160–14848 | 1459.5 | 7 |
+| English cross-origin iframe video | 1454.713499999998 | 128512 | 128–8160 | 823.3000000715256 | 1 |
+| English audio-only | 1358.5400410000002 | 128512 | 128–8160 | 797.3000000715256 | 1 |
+| Japanese no-element Web Audio | 1348.7639170000039 | 184832 | 64–11616 | 1149.7999999523163 | 5 |
+
+These are actual job/preparation observations, **not endpoint-to-text <2 s,
+CER/WER, complete semantic accuracy or long-run acceptance**. Each source yields
+observed original-first and paired Korean DOM/overlay updates. The exact worker
+source is retained in its row, ordered native calls reproduce its Korean exactly,
+and displayed times equal the actual ASR capture range. The iframe top page has
+no video/audio elements; its child is actually `http://localhost:<port>` while
+the captured top page is `http://127.0.0.1:<port>`. Audio-only has no video;
+Web Audio has neither video nor audio elements. Site media remain unmuted at
+volume **1**, and pause/seek of the individual top-frame video leaves the real
+tab capture and interpreter status running.
+
+Three fresh cached offline recaptures on the no-element source use distinct
+session IDs and fresh workers. `asr-stop` and `navigation` snapshots each contain
+**one actual unfinished ASR job**; both terminate the owned ASR worker and have
+no corresponding result or late DOM for **2 seconds**. `translation-stop` observes
+**one real native call, settled=false at Stop**, subsequently **AbortError**;
+no late paired caption appears. Each cancellation records **two worker terminate
+calls** (ASR/VAD), releases native capture and clears host/page live output while
+retaining comparison history. Original-tab reload disables recapture and requires
+a new native extension action. The native translation cancellation is actual,
+not the previous mocked composition race check.
+
+Retained input harness: **five source modes, ten × 20 contiguous 8192-byte PCM
+chunks**, repeat Start/Stop, mixed 440/660 Hz signals, other-tab isolation, five
+host-closure restorations, navigation and tab closure. Largest recorded other-tab
+11 kHz marker across input/native output **0.0000035325126547938583 < 0.001**;
+maximum measured native-output deviation from preparation baseline
+**0.969754035992898% < 12%**. Overflow explicitly discards
+**213.33333333333331 ms** and restores actual 440 Hz output
+**0.10000011227999725**. No gate/sample is removed or lowered.
+
+Production-host native output: initial capture **0.10000010902972965**, language
+change **0.10000010828537148**, Stop restoration
+**0.1000001087234779 / 0.10000011343209683**, repeat capture
+**0.1000001059720108 / 0.10000010326814854**, host-closure restoration
+**0.10000010591532543**. Known-output within 3% and repeat preservation within 12%
+pass. Actual duplicate capture fails while preserving the first capture/overlay.
+Its synthetic captions remain rendering evidence only; real text/native Korean
+comes from the separately passing engine constituent above.
+
+### Remaining scope and preservation
+
+**Next unfinished B5a:** actual native capture-loss/permission-revocation handling
+with engines active, and a fresh production action restoring real ASR/native
+Korean/DOM after capture interruption. Navigation/tab/host closure evidence must
+not be mislabeled as independent native permission revocation or track loss.
+Physical toolbar clicking/speaker listening, protected-content behavior and zero
+initial acquisition interruption remain **UNVERIFIED**. B5a/B6 checkboxes stay
+unchecked; no required missing environment/device/permission blocker is established.
+
+Full `npm run test:framework:chrome` and unchanged strict quality/latency/ten-minute
+suites are **NOT RUN this partial iteration**. Full acceptance and new-default tab
+long/quality qualification remain required before Chrome stage completion.
+Historical B6 failures remain FAIL; this command supplies functional evidence and
+does not reopen B2 or tune B6. No framework/Safari/physical-iPhone completion.
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**. Only owned test-browser/profile cleanup;
+no agents, app install, push/publish, user apps/recordings/mounts/settings or profile
+changes. Published companion v0.1.0/install/build and selected-video paths are
+preserved. Related commit: `test: verify real Chrome tab interpretation`.
+
+Final audit: focused two-file Biome **PASS / exit 0 / 20 ms**; both harness syntax
+checks and `git diff --check` **PASS / exit 0**. Independent readback confirms
+append-only report/plan, unchanged checklists and unchanged runner. Stage only
+`package.json`, the new engine harness, full Chrome harness, report and plan;
+`.DS_Store` remains untracked/unstaged. No executable change follows the passing
+combined browser command. All intended changes are included in the related commit.

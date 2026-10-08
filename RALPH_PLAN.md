@@ -7451,3 +7451,74 @@ long-run criteria; historical failures remain FAIL. No stage/framework/Safari/
 physical-iPhone completion or required environment blocker; no terminal marker.
 AGENTS.md/requested runner log absent. `.DS_Store` preserved untracked/unstaged;
 no credentials, weights, user audio/transcripts or temporary .ralph state staged.
+
+### 2026-10-09 / chrome / iteration 4/20 — B5a real tab engine acceptance slice
+
+관련 commit: `test: verify real Chrome tab interpretation` (record included).
+**B5a stays first unfinished and unchecked; B6 tuning stays stopped.** Add
+`test:framework:chrome:tab-engine` for the unchanged production native action/tab
+host → real tab audio → smallFp16/WebGPU → native Korean → original-first
+comparison/page DOM. Japanese top-frame video, English cross-origin iframe video,
+English audio-only and Japanese Web Audio with no media elements all run; actual
+capture ranges label elapsed time. Offline recaptures check real unfinished ASR
+Stop, pending native translation Stop and original-tab reload during ASR, distinct
+session IDs, owned worker termination, capture release and no late DOM for two
+seconds. Individual video pause/seek leaves tab capture/session running.
+
+`test:framework:chrome:tab-capture` now combines retained `:tab-input`, `:tab-host`
+and new `:tab-engine`. Full Chrome acceptance invokes this aggregate; both prior
+input/host constituents and every existing selected-video/translation/quality/
+latency/ten-minute constituent and assertion remain. No production source,
+permission, model/VAD/decoder/default, companion/settings or acceptance-gate change.
+
+Actual failures retained: direct engine first run FAIL / exit 1 because the new
+oracle incorrectly assumes a single full-source Japanese native call; observed
+real ASR/native Korean/DOM precedes failure. Second `:tab-engine` FAIL / exit 1:
+Japanese exact ordered native-phrase/DOM check passes; English cross-origin case
+produces real ASR/native translation then fixture top page lacks `overlayTexts`
+(ReferenceError, two recorded page errors). Fix observation-only setup for all
+fixture documents; no engine result/readiness/text/PCM is substituted.
+
+Final executable `npm run test:framework:chrome:tab-capture` **PASS / exit 0**,
+all three constituents. Input units **3 passed / 0 failed/skipped/cancelled /
+49.518875 ms**, five real source modes, **10 × 20 contiguous 8192-byte chunks**,
+native playback/isolation/Stop/restart/closures/overflow and production native
+host checks pass. Largest other-tab marker **0.0000035325126547938583 < 0.001**,
+native-output deviation **0.969754035992898% < 12%**, overflow discard
+**213.33333333333331 ms**. New engine's four actual Japanese/English/native Korean/
+DOM cases pass with page errors **[]**; default Whisper model **487,960,440 bytes**,
+Silero **2,243,022 bytes**. First actual ASR jobs have **235008 / 128512 / 128512 /
+184832 samples**; worker inference **1459.5 / 823.3000000715256 /
+797.3000000715256 / 1149.7999999523163 ms** is not endpoint or accuracy acceptance.
+Companion/Ollama **8765 / 11434 ECONNREFUSED**, no endpoint use. ASR Stop and
+navigation each catch one real unfinished job, terminate its worker and reject
+late DOM; native translation Stop catches settled=false and real **AbortError**.
+Three offline recaptures use fresh identities and cached actual models.
+
+`npm run verify` **PASS / exit 0** during harness development: Biome **162 files /
+60 ms**, Ruff/typecheck/existing companion build, **161 JS passed / 0 failed/
+skipped/cancelled / 26761.042583 ms**, **222 Python passed / 66.93 s**. Later retained
+observer/lifecycle assertions are covered by the final browser command and final
+focused lint/syntax, not attributed to that earlier verify. Exact evidence is in
+[Chrome report](docs/verification/media-framework/chrome.md); ignored logs
+`chrome-tab-engine-iteration-4-{first,second,verify,typecheck}.log` and
+`chrome-tab-capture-iteration-4-first.log` under `.ralph/media-framework/`.
+
+**Next unfinished B5a:** actual independent native capture loss/revocation while
+engines run and fresh production-action ASR/native Korean/DOM recovery after
+interruption. Navigation/tab/host closure is not native permission-revocation
+proof. Physical toolbar click/speaker listening, protected-content behavior and
+zero initial acquisition interruption remain UNVERIFIED. Full Chrome and unchanged
+strict quality/latency/ten-minute suites NOT RUN this partial iteration; all full
+acceptance/new-default long/quality checks remain mandatory before completion.
+Historical B6 failures remain FAIL; no missing required environment/device/
+permission blocker or stage completion marker. Checklists and other stages unchanged.
+AGENTS.md/requested runner log absent; `.DS_Store` preserved untracked/unstaged.
+No agents/apps installed/push/publish, user profile/apps/media/mount changes or
+credentials/weights/user audio/transcripts/temporary `.ralph` state committed.
+
+Final audit PASS: two-file focused Biome **20 ms**, both harness syntax checks,
+whitespace, append-only report/plan, unchanged checklists and runner. Five-file
+staging whitelist covers only package scripts, new tab engine harness, full Chrome
+harness, report and plan; `.DS_Store` is preserved unstaged. No executable changes
+after passing final combined tab acceptance; all intended changes committed.
