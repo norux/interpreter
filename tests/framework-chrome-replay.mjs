@@ -47,7 +47,8 @@ for (const run of captured.runs) {
 }
 const output = resolve(".ralph/media-framework/chrome-replay-build");
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: {
-  outDir: output, rollupOptions: { input: { asr: resolve("packages/engines-browser/asr-host.ts") },
+  outDir: output, rollupOptions: { input: { asr: resolve("packages/engines-browser/asr-host.ts"),
+    "trace-worker": resolve("tests/fixtures/browser-asr-trace-worker.ts") },
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } },
 } });
 const server = createServer(async (request, response) => {
@@ -56,9 +57,15 @@ const server = createServer(async (request, response) => {
     response.setHeader("Content-Type", "text/html");
     response.end(`<button id="prepare">Prepare</button><script type="module">
       import {createAsrHost} from '/asr.js';
-      const NativeWorker = Worker; globalThis.workerCount = 0;
+      const NativeWorker = Worker; globalThis.workerCount = 0; globalThis.decodeTraces = [];
       globalThis.Worker = class extends NativeWorker {
-        constructor(...args) { super(...args); workerCount++; }
+        constructor(url, options) {
+          if (!new URL(url, location.href).pathname.includes('asr-worker')) throw new Error('Expected production ASR worker');
+          super('/trace-worker.js', options); workerCount++;
+          this.addEventListener('message', event => {
+            if (event.data.type === 'result') decodeTraces.push(event.data.decodeTrace);
+          });
+        }
       };
       globalThis.visibilityEvents = [];
       document.addEventListener('visibilitychange', () => visibilityEvents.push(document.visibilityState));
@@ -74,9 +81,12 @@ const server = createServer(async (request, response) => {
         const littleEndian = new Uint8Array(new Float32Array([1]).buffer)[3] === 63;
         if (!littleEndian) throw new Error('Replay requires Float32 little-endian');
         const digest = crypto.subtle.digest('SHA-256', pcm);
+        decodeTraces.length = 0;
         const started = performance.now(); const output = await host.recognize({...job, pcm});
         const hostRoundTripMs = performance.now()-started;
+        if (decodeTraces.length !== 1) throw new Error('Expected exactly one traced production result');
         return {...output, hostRoundTripMs, transferredBytes: pcm.byteLength,
+          decodeTrace: decodeTraces[0],
           inputSha256: [...new Uint8Array(await digest)].map(byte => byte.toString(16).padStart(2,'0')).join('')};
       };
       window.addEventListener('pagehide', () => host?.dispose());
@@ -178,6 +188,16 @@ try {
         assert.equal(result.revision.sourceRevision, 1); assert.equal(result.revision.final, true);
         assert.ok(Number.isFinite(result.inferenceMs) && result.inferenceMs >= 0);
         assert.ok(Number.isFinite(result.hostRoundTripMs) && result.hostRoundTripMs >= result.inferenceMs);
+        const trace = result.decodeTrace;
+        assert.equal(trace.decodedText, result.revision.text);
+        assert.equal(trace.inputs.length, 1, "The original single-pass job must stay single-pass");
+        assert.deepEqual(trace.inputs[0].stride, [job.samples/16000, 0, 0]);
+        assert.ok(Number.isSafeInteger(trace.timestampBegin) && trace.timestampBegin > 0);
+        assert.equal(trace.timePrecision, 0.02);
+        assert.ok(trace.inputs[0].tokens.length > 0 && trace.inputs[0].tokens.length <= 259);
+        assert.ok(trace.inputs[0].tokens.every(token => Number.isSafeInteger(token) && token >= 0));
+        assert.equal(typeof trace.inputs[0].rawText, "string");
+        assert.ok(Array.isArray(trace.decoded.chunks));
         replay.jobs.push({ ...job, ...result, identicalOriginalText: result.revision.text === job.originalText });
       }
       const text = replay.jobs.map(job => job.revision.text).join(" ");

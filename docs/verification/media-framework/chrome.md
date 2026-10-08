@@ -7583,3 +7583,200 @@ clean `git diff --check`. Final two-file Biome also PASS **2 ms / no findings**.
 No executable edit followed the successful verify or browser runs. Staged
 whitelist/exclusion/whitespace, commit and clean post-commit status are checked
 at delivery.
+
+## 2026-10-08 — B2 decoder provenance (chrome iteration 8/20)
+
+Related commit: `test: trace browser ASR decoder outputs`, containing this report.
+B2 remains next unfinished; B2–B6 stay unchecked and no default is selected.
+Repository AGENTS.md and the requested independent runner file
+`.ralph/media-framework/2026-10-08T07-45-37-544Z-chrome-verification.txt` are absent.
+Reviewed the supplied instructions, plan, architecture and Chrome report.
+
+Assumption: the previous exact replays reproduce Japanese errors, but discard
+information needed to distinguish generated text from timestamp decoding/merging.
+The smaller next step is provenance on the retained inputs rather than a new
+segmentation policy, model download candidate or unqualified decoding repair.
+Observable success for this change is one associated trace per replay result,
+preserved input/revision/model identity, unchanged historical text/accuracy gates,
+and deterministic traces between the two existing fresh-worker trials.
+
+Added a replay-only worker entry that imports the production ASR worker and
+observes the locked SDK's `WhisperTokenizer._decode_asr`. It snapshots generated
+IDs, original stride, raw text with prompt/timestamp tokens excluded, timestamp
+origin/precision, and the returned text/chunks. The original decoder receives
+its exact arguments once and its exact returned value continues to the pipeline.
+The existing host receives the normal version-1 result; only this test entry
+attaches diagnostic metadata to that response. The replay harness associates the
+metadata with the single result, validates trace shape/stride/token bounds and
+retains every original candidate, job, trial, integrity, meaning and error gate.
+No production module, contract, dependency, generation option, input sample,
+fixture, segmentation rule, prompt, logits or caption text is changed.
+
+The focused regression uses a fake tokenizer/transport to verify argument/output
+identity, non-mutation, timestamp exclusion from raw decoding and trace clearing
+after both results and errors. It proves the observer's behavior, not real ASR
+accuracy. Initial `npm run typecheck` failed, exit 1, with two TS2769 errors from
+the DOM overload for outgoing transfer arguments. The production worker sends
+result objects without transfer arguments; matching that actual call shape fixes
+the fixture. Subsequent typecheck, focused regression and three-file Biome run
+passes, exit 0: **1 test / 0 failed/skipped/cancelled / 245.931583 ms**, lint
+**4 ms / no findings** (direct tool output).
+
+### Actual commands and outcomes
+
+All following evidence files are ignored local `.ralph/media-framework/` files.
+Browser suites ran sequentially, once per distinct archive. Each keeps its two
+fresh-worker trials per candidate; no third unchanged accuracy attempt occurred.
+
+- **FAIL**, exit 1: `caffeinate -disu npm run test:framework:chrome:replay --
+  .ralph/media-framework/chrome-live-jobs-fsSZ3n`,
+  `chrome-20261008-restart-8-trace-small-archive.log`: **132 real WebGPU ASR
+  calls**, all eight original rounds; exactly two retained small Japanese
+  18-period meaning failures. Every other old and new trace assertion passes.
+- **FAIL**, exit 1: same command with `.ralph/media-framework/chrome-live-jobs-jHFVhY`,
+  `chrome-20261008-restart-8-trace-turbo-archive.log`: **104 real WebGPU ASR
+  calls**, all seven original rounds; exactly two retained turbo Japanese
+  18-period meaning failures. Every other old and new trace assertion passes.
+- **PASS**, exit 0: `uv run --locked python
+  .ralph/media-framework/chrome-20261008-restart-8-analyze.py`,
+  `chrome-20261008-restart-8-analysis.log` and `...-summary.json`:
+  **236/236** original PCM byte/hash/range/revision/model/text associations
+  match iteration 7. Every original score, meaning count and suite failure also
+  matches. Raw text equals final text in **236/236** results; concatenated
+  returned chunk texts also equal final text. All token/chunk traces are exactly
+  equal between the two fresh trials of each candidate/archive. This analysis
+  performs no inference and does not convert failed recognition into a pass.
+- **FAIL**, exit 1, once: `npm run test:framework:chrome`,
+  `chrome-20261008-restart-8-stage-acceptance.log`: missing full-stage script.
+  No placeholder, reduced gate or B2 replay substitute is added.
+
+### Recognition and newly observed provenance
+
+Both trials reproduce every value below. The <=20% CER/WER and exact meaning-count
+criteria remain unchanged. Aggregate error does not qualify lost/extra meanings.
+
+| Sustained Japanese archive | Small FP16 | Turbo FP16 |
+| --- | --- | --- |
+| `fsSZ3n`, 16 jobs / 18 periods | **31/720 CER (4.305556%); negation 19/18, reservation 16/18 — FAIL**; other five anchors 18 | **24/720 CER (3.333333%); every anchor 18 — PASS** |
+| `jHFVhY`, nine jobs / 18 periods | **21/720 CER (2.916667%); every anchor 18 — PASS** | **82/720 CER (11.388889%); meeting/negation/tomorrow/afternoon/station 20/18 — FAIL**; reservation/cancellation 18 |
+
+Every short original meaning/error gate passes; their scores/texts exactly match
+iteration 7. Both archived sustained English inputs/candidates are **19/418 WER
+(4.545455%)**, every anchor **19/19**, PASS. Neither candidate qualifies across
+both Japanese layouts, and there is **no accuracy improvement**.
+
+The failed meanings are already present in the generated token sequences, before
+`_decode_asr`, with raw text exactly equal to the returned pipeline/host text.
+This rules out introduction by timestamp text merging or later caption handling
+for these replays. It does **not** distinguish acoustic acquisition, segmentation,
+model/numerical inference or generation as the upstream cause.
+
+The observer now supplies more precise associations, unchanged in both trials:
+
+- Small `fsSZ3n` job 4, **25,600–36,000 ms**, digest
+  `6e52d6adc5095cd356fbaa96c270905c68a4b7c526bfdf86936331a51be1e74b`:
+  **61 total tokens**, three predicted segments ending at **4.88 / 9.40 /
+  10.40 seconds**. Two reservation substitutions are present in the raw text.
+  Job 5, **36,000–42,752 ms**, digest
+  `984d61a4794b666e057cd674d3e8b6e1b0f5a64d1023f41acca57956659d5b1b`:
+  **40 tokens**, predicted ends **3.72 / 6.44 seconds**, extra negation fragment
+  already in raw text; actual input duration **6.752 seconds**.
+- Turbo `jHFVhY` jobs 2 and 6, **14,720–28,640 / 70,496–84,416 ms**, digests
+  `9832bc0f279335df6e7e38580e89e99abd138320ff7e243a57cc45ab8027e151` /
+  `71dff3bc24f8304f5da4804996dfb42e2762edcc53eebcbcde7a5a54fafd9b5c`:
+  each **94 tokens**, identical raw text and three predicted ranges
+  **0–6.14 / 6.14–13.12 / 13.12–13.92 seconds**. The third range contains
+  duplicated meeting/negation/future-time/station meanings within a predicted
+  **800 ms** span, ending exactly at the **13.92-second** input duration.
+
+All these failed-job timestamps are within their PCM durations, monotonic and
+well below the existing token bound. This gives no observed basis for a duration
+cap or token-limit increase as a direct remedy for these particular failures.
+Across all traced jobs there are zero backwards timestamps and zero incomplete
+returned segments. Some *other* jobs predict timestamps beyond available audio:
+per trial, small **14/33 (`fsSZ3n`) / 13/26 (`jHFVhY`)**, turbo **4/33 / 5/26**.
+These are model predictions, not verified acoustic boundaries, an alignment
+qualification or proof of the failed meanings' cause. No timestamp-based trimming,
+reference-text correction or suppression of genuinely repeated speech is added.
+
+### Environment, timing and scope
+
+Same owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**,
+Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, project Python **3.12.15**,
+locked Transformers.js **4.3.0**. Same registered small
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`,
+seven files / **487,960,440 bytes**, and turbo
+`onnx-community/whisper-large-v3-turbo@360ebcde2559d60bb474678be3c1de9ef347d01a`,
+seven files / **1,621,338,971 bytes**. No new candidate/revision/dependency.
+Each fresh owned profile has **28 remote paths / requests**, only pinned
+artifacts/redirects; each cached second preparation and all ASR inference have
+**zero remote requests**. Browser page errors and visibility events are `[]`.
+This is an online cached replay, not a disconnected browser/offline interpretation.
+
+| Archive / candidate | Initial / cached Prepare, ms | Peak owned-tree RSS trial 1 / 2, KiB |
+| --- | --- | --- |
+| `fsSZ3n` small | 56,576.809541 / 1,218.913833 | 4,272,384 / 4,734,080 |
+| `fsSZ3n` turbo | 176,585.553250 / 3,298.347708 | 5,819,408 / 5,769,840 |
+| `jHFVhY` small | 55,217.404084 / 1,223.369083 | 5,079,952 / 4,901,136 |
+| `jHFVhY` turbo | 164,592.453334 / 2,956.055667 | 5,675,824 / 5,163,520 |
+
+Initial owned-tree RSS **1,296,896 / 1,298,752 KiB**. The unchanged 250 ms sampler
+includes shared pages, browser/GPU/model/archive/allocator/observer residency,
+can miss peaks and is not isolated allocation, pressure/leak or thermal evidence.
+
+Combined Japanese sustained ranges across both trials, **worker / document round
+trip ms**: `fsSZ3n` small **444.3–1,210.4 / 444.8–1,212.4**, turbo
+**985.5–1,563.5 / 986.0–1,565.0**; `jHFVhY` small
+**1,255.3–1,376.0 / 1,257.2–1,378.2**, turbo
+**1,543.9–1,810.7 / 1,546.0–1,813.0**. Worker durations include the observer's
+extra raw decoding; document round trips use one document clock. These omit
+live acquisition/VAD/boundary/submission waits and preparation. No endpoint or
+latency improvement is claimed; previous live turbo **2,187 / 2,132.5 /
+2,146.2 ms** endpoint failures remain unresolved.
+
+No new live PCM capture or VAD inference. Both original manifests, synthetic
+fixture hashes, contiguous <=20-second ranges and PCM bytes remain unchanged:
+`fsSZ3n` **33 jobs / 20,082,004 bytes** and `jHFVhY` **26 / 20,076,536 bytes**,
+manifest digests **d5ee81df396d4349bbafcc2858a80cb37333455bd06b72f6728ee80761723d6e** /
+**507fb85e56e5482568ed8ebed8a9f29c500a574871b4e23468d8c5f808413b2d**.
+Every PCM buffer is transferred/detached; no regeneration or failed-case deletion.
+
+Next B2: resolve the generated Japanese substitutions/extra meanings using a
+candidate/profile that passes both layouts and the preserved louder-noise/live
+endpoint gates. Predicted segment timing now narrows this investigation but
+establishes no repair. Original live/noise/quiet/no-pause/active-ASR Stop/GPU-loss/
+overload/sustained suites were **not rerun**. Natural speech, ten-minute live
+acquisition, pressure/storage/licensing and default selection remain unfinished.
+Full Chrome PCM → ASR → Korean translation → DOM, revision pairing, offline
+interpretation/standalone installation, B3–B6 and Safari/iPhone are **UNVERIFIED**.
+No required environment/device/permission is absent; these are implementation and
+qualification failures, with neither terminal marker warranted.
+
+Only this test observer, replay-harness extension, focused regression and
+append-only report/plan are intended for Git. Production ASR/core/companion
+v0.1.0/install/native messaging/server/user settings, prior checkboxes, fixtures,
+dependencies, runner, architecture and unrelated resources are preserved. No
+agents, stage advance, push/publish/app installation or browser-access/profile/
+permission bypass. Both owned browser/profile resources are cleaned up by their
+existing harness. No credentials, weights, user recordings/transcripts or temporary
+`.ralph` state enter Git. Final required verify and preservation evidence follows.
+
+Final-source `caffeinate -disu npm run verify` **PASS**, exit 0,
+`chrome-20261008-restart-8-verify.log`: Biome **121 files / 56 ms / no findings**,
+Ruff/typecheck, unchanged companion build **28 main / 10 content modules**,
+**120 JS tests / 22,246.048 ms / 0 failed/skipped/cancelled**, **222 Python /
+66.97 s**. The executable sources are those used in both real replay commands;
+only documentation changed afterward. An intermediate whitespace check while
+the report was still being appended failed, exit 2, for a draft blank EOF line;
+after completing the report, `git diff --check` passes, exit 0. Full-stage and
+semantic failures remain FAIL, all prior checkboxes unchanged. Final five-file
+scope/append-only history/staged exclusion, commit and post-commit clean status
+are checked at delivery.
+
+Final preservation assertions **PASS**, exit 0,
+`chrome-20261008-restart-8-preservation.log`: exactly five intended files,
+append-only report/plan, every prior checkbox unchanged, all **236** trace
+associations and both retained failure pairs, no tracked `.ralph` state and
+whitespace clean. No executable edit followed the successful verify or replay
+runs. Staged whitelist/exclusion/whitespace and post-commit cleanliness are
+verified at delivery.
