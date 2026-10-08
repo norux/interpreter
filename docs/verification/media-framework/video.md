@@ -964,3 +964,111 @@ including the separately requested runner recovery change: **PASS**, lint,
 typecheck/build, **127 JS / 222 Python** (66.90 s).
 Evidence: `.ralph/media-framework/loop-recovery-final-verify.log`.
 Commit: `fix: wait for video output samples before measuring volume`.
+
+
+## 2026-10-08 — video repair iteration 1/20: native audio discontinuity, blocked
+
+Result: **repair incomplete / Stage video blocked**. V5 is unchecked again;
+V1–V4 retain their completed evidence. No acceptance criterion was changed.
+Commit: `docs: record blocked video speech acceptance repair` containing this
+report and the plan progress entry. No production or fixture experiment is retained.
+
+The independent runner's
+`.ralph/media-framework/2026-10-08T12-25-58-328Z-video-verification.txt`
+passes ordinary verification, 15 Video unit tests and V1–V4, then fails V5's
+site-owned Japanese repeat capture: selected correlation **0.5008284170603916**
+(required >0.85), wrong correlation **0.17163535168062363**, selected/unselected
+isolation tags **0.06018197013972343 / 0.0003247718666917385**. Mapping error is
+**0.4336666666658857 ms**, with 58 consecutive 8192-byte chunks. Good ordering,
+tags and clock metadata do not establish waveform fidelity.
+
+### Regression and cause established so far
+
+A complete local `npm run test:framework:video` passed (exit 0, 15 unit tests and
+V1–V5). The matching algorithm and all gates were unchanged; a diagnostic-only
+sample export was added to the fixture while that command was running, before
+V5 loaded. This passing run is **not a repair**. An isolated V5 diagnostic also
+passed both graphs. Its saved-capture run passed too. These establish intermittency,
+not resolution. Evidence: `video-repair-1-before.log`,
+`video-repair-1-diagnostic.log`, `video-repair-1-alignment.log` under the ignored
+`.ralph/media-framework/` directory.
+
+Adding a one-second wait before the site-owned repeat Start reproduces the
+original assertion: **0.7188289784528917**, 58 chunks, mapping error
+**1.940333333333001 ms**, selected/unselected tags
+**0.06003149651430165 / 0.0005018336372661965**. Evidence:
+`video-repair-1-delayed-speech.log`; synthetic PCM/reference diagnostic JSON stays
+local and is not committed.
+
+An offline exhaustive single-sample alignment over the same ±250 ms interval
+returns exactly the same **0.7188289784528917**. The first three 100 ms segments
+match the selected reference with correlation **1.0** at offset
+**−67.42483333333439 ms**. The fourth is **0.8326839551486732**, and the fifth
+matches with **1.0** at **−70.09150000000045 ms**: a **128-sample / 2.6667 ms**
+content-alignment discontinuity inside the required half-second comparison.
+This rules out the coarse reference search for this reproduced failure.
+Evidence: `video-repair-1-exhaustive.log`. The exact native origin of this shift
+(playback, capture transport or context rendering) is **unverified**; it is not
+attributed to the production worklet or repaired by changing samples/timestamps.
+An additional offline search across clean decoded-reference windows returned
+minimum correlation **1.0** and did not reproduce a matcher defect.
+
+### Independent real-output blocker and rejected experiment
+
+A local bundled-input experiment requested `latencyHint: "playback"`; production
+source was never changed. It could not reach PCM capture. The first diagnostic's
+error reporter itself failed on an undefined sample export (exit 1,
+`ERR_INVALID_ARG_TYPE`), obscuring its earlier failure; that attempt is not
+classified as a known waveform failure.
+
+After fixing only that temporary reporter, two independent isolated browser
+attempts fail V5's original-output baseline before Start:
+
+| Local diagnostic | Actual outcome |
+| --- | --- |
+| `video-repair-1-buffered-diagnostic.log` | FAIL, exit 1; output tags **0.02136416815989941 / 0.012019691220835956**, outside the unchanged 12% bounds around **0.024 / 0.015** |
+| `video-repair-1-buffered-ready.log` | FAIL, exit 1; an additional 500 ms observation wait still gives **0.011633994368280378 / 0.0034248927050216137**; no PCM capture reached |
+
+The experimental context is created only on Start, so it had not been constructed
+at either baseline failure. Neither run tests whether its buffering would repair
+the speech discontinuity. The output deficit's exact native/device cause is
+**unverified**. Required reliable real browser playback/output verification is
+unavailable in these attempts. Stop after the second independently observed
+output blocker; do not retry for a lucky pass or change the user's audio device,
+apps, recordings, power settings or browser profiles. All temporary fixture,
+matcher/reporting and bundled-input edits were discarded.
+
+### Acceptance status and resume condition
+
+`npm run test:framework:video`: the full local attempt above **PASS**, but the
+runner and delayed regression **FAIL**, and the subsequent required real-output
+precondition fails twice. Final repair acceptance is **UNVERIFIED/BLOCKED**;
+no further same-environment audio attempt is made. V5 remains unfinished.
+The ordinary final-source verification result is recorded below.
+
+Resume with new evidence that the permitted test-owned Chromium's native audio
+rendering/output is stable at the original user volumes, or a repository repair
+that demonstrably removes the measured discontinuity. Then rerun the delayed
+site-owned Japanese regression and the complete unchanged Video acceptance,
+including full half-second >0.85 correlation, wrong-source/tag exclusion,
+time mapping, original-output levels and Stop/restart, followed by `npm run verify`.
+A waveform/time-window/threshold relaxation or a mock/offline playback substitute
+is not a resume condition. Do not recheck V5 until these actually pass.
+
+Environment: requested worktree, Darwin arm64, Node **v24.15.0**, npm **11.12.1**,
+existing Chromium **153.0.8010.12**. Repository `AGENTS.md` is absent; user-supplied
+instructions apply. No browser access was blocked or bypassed. The companion,
+installation paths, user settings, active apps/recordings/mounts and all other
+stages are preserved. No models, dependencies or apps were installed, no agents
+were launched, and no push/publication occurred. Physical speaker audibility,
+ASR/translation accuracy, Safari and iPhone remain **unverified**. All PCM is
+synthetic fixture data; no raw data or `.ralph` state enters the commit.
+
+
+Final `npm run verify`: **PASS**, exit 0; Biome **121 files / 56 ms**,
+Ruff/typecheck/build, **127 JavaScript passed / 0 failed / 0 skipped**
+(**25401.068584 ms**), **222 Python passed** (**66.97 s**).
+Evidence: `.ralph/media-framework/video-repair-1-verify.log`.
+Final unstaged and staged whitespace checks: **PASS**, exit 0.
+Only this report and `RALPH_PLAN.md` are committed; clean-worktree verification
+follows the commit. Stage video remains blocked, with no code repair claimed.

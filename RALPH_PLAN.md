@@ -174,7 +174,7 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 - [x] V2. 같은 출처 일반 영상의 Web Audio 입력을 구현한다. 영상이 이미 소유한 graph와 충돌을 처리하고, Stop·repeat Start 후 원래 재생/볼륨이 유지되는지 실제 소리를 확인한다.
 - [x] V3. playback anchor로 영상 시간과 PCM 시간을 연결한다. seek·pause/resume·rate/source 변경 시 epoch를 바꾸고 이전 작업 결과를 버린다. 서로 다른 context의 performance.now를 직접 빼지 않는다.
 - [x] V4. CORS 허용/미허용, 실제 무음, muted video, 교차 출처 iframe, blob/MSE·보호 영상 경로를 구분한다. 접근을 입증하지 못하면 원래 재생을 건드리지 않고 명시적으로 미지원 처리한다. crossOrigin 재설정/reload로 우회하지 않는다.
-- [x] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
+- [ ] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
 
 완료 검증: `npm run verify`, `npm run test:framework:video`.
 이 단계에서는 인식/번역 품질을 PCM 획득 성공과 혼동하지 않는다.
@@ -5167,3 +5167,41 @@ repair를 호출하지 않는 것을 확인했다. 구현 후 전체 runner 검�
 문서/README는 재검증 실패의 자동 복구 경로와 유한한 종료 조건에 맞춰 수정했다.
 체크리스트는 B2 완료, B3 다음인 기존 상태를 유지한다. Commit과 clean worktree
 확인 후 `all 20`으로 재개한다. 외부 push/publish/install/에이전트 위임은 없다.
+
+
+### 2026-10-08 / video / repair iteration 1/20 — blocked real speech/output verification
+
+Commit: `docs: record blocked video speech acceptance repair` containing this log
+and the [Video report](docs/verification/media-framework/video.md). Repair remains
+incomplete; V5 is unchecked again. V1–V4 and all other stage checkboxes are preserved.
+
+The requested runner log fails site-owned Japanese repeat speech correlation
+**0.5008284170603916** (required **>0.85**, assertion false), despite passing tags/ordering/map.
+One full local acceptance (15 unit checks, V1–V5) and two focused diagnostics
+pass with unchanged matching/gates; none establishes a repair. A one-second
+repeat-Start delay reproduces **0.7188289784528917**. Offline exhaustive alignment
+gets the identical failure. Three 100 ms segments match exactly; after a transition
+the reference offset shifts **128 samples / 2.6667 ms**. Native playback/capture/
+context origin is unverified. No matcher defect or safe sample/timestamp repair
+is proven. Logs and synthetic diagnostic data remain ignored under `.ralph`.
+
+A local bundled-context buffering experiment never reaches capture: after one
+reporter error, two independent V5 original-output baselines fail, including an
+extra 500 ms observation wait (**0.021364/0.012020**, then **0.011634/0.003425**,
+expected **0.024/0.015 ±12%**). The experimental context had not been constructed
+when either baseline failed. Stop repeating this real-output blocker. Discarded
+all temporary fixture/harness/bundle experiments; production, acceptance criteria,
+runner, companion, settings and unrelated files are preserved.
+
+Final repair Video acceptance is **UNVERIFIED/BLOCKED**, not satisfied by the
+intermittent passing run. General final-source verification is recorded below.
+Resume with new permitted real-audio stability evidence or a proven repository
+fix, then pass the delayed site-owned regression and the full original Video
+acceptance plus ordinary verification before rechecking V5. No ASR/translation,
+Safari/iPhone, whole-framework completion or next-stage work is claimed.
+
+Final `npm run verify`: **PASS**, exit 0, Biome 121 files/56 ms, Ruff,
+typecheck/build, **127 JS / 0 failed / 0 skipped** (25401.068584 ms),
+**222 Python** (66.97 s); `video-repair-1-verify.log`. Unstaged/staged whitespace
+checks PASS. Only plan/report progress is committed; clean worktree checked after
+commit. Required real-audio acceptance remains blocked and V5 unchecked.
