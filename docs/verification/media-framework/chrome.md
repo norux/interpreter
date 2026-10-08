@@ -10116,3 +10116,209 @@ temporary `.ralph` commit. Only owned test browsers/profiles are cleaned up.
 Commit: `test: preserve exact Chrome ASR input evidence`. Final staged scope,
 checkbox/whitespace preservation and clean committed worktree are checked at
 delivery; no Chrome/Safari/iPhone/whole-framework completion is claimed.
+
+
+## 2026-10-09 KST — B6 bounded text decoding (chrome iteration 9/20)
+
+**B6 remains unchecked.** This slice repairs the reproduced raw generation
+repetition on the retained 9,216 ms input. Full Chrome acceptance still fails
+Japanese white-noise meaning counts. Entry worktree was clean; repository
+`AGENTS.md` and requested independent runner file
+`2026-10-08T13-28-06-822Z-chrome-verification.txt` were absent. Reviewed the plan,
+architecture and Chrome evidence; no later stage or checklist is advanced.
+
+### Change and observable criterion
+
+The default smallFp16 worker now uses Whisper's text-only decoding for bounded
+jobs. Captions already use the unchanged job `audioRange`, not generated segment
+timestamps. The hypothesis was that predicting timestamp segments contributed
+to the archived repeated generation. This is a static decoding-profile change,
+with no model/backend fallback, text filtering, deduplication, expected-text
+prompt, PCM trimming, segmentation or VAD change. Core/host/revision contracts
+and video-time mapping are unchanged. q8 text baselines and turboFp16/
+smallTimestamped comparison profiles retain their existing decoding rules.
+
+The installed Transformers.js **4.3.0** pipeline supports `return_timestamps:
+false` and supplies its no-timestamps prompt. Its generation implementation does
+not implement beam branching; beam search was inspected, not attempted or added.
+Primary references checked: [SDK ASR API](https://huggingface.co/docs/transformers.js/api/pipelines#module_pipelines.AutomaticSpeechRecognitionPipeline)
+and [Whisper decoding](https://github.com/openai/whisper/blob/main/whisper/decoding.py).
+The improvement below is observed on identical PCM, not inferred from those docs.
+
+The replay's structural checks now require that the default has the fourth
+no-timestamps prompt token, no generated timestamp tokens, and no segment chunks.
+Its maximum sequence is **4 prompt + 256 generated tokens**; comparison profiles
+retain **3 + 256** and the original chunk assertion. The **256 generated-token
+budget**, every original **CER/WER <=20%**, exact meaning count, identity/hash,
+transfer, worker/cache/network check and all full-stage/endpoint gates remain.
+Contract tests cover text-only default/q8 and the two timestamped profiles; the
+latter still enforce monotonic positions and real-PCM duration bounds. No public
+configuration or dependency is introduced.
+
+### Failing baseline and identical-input improvement
+
+**FAIL baseline official default replay, exit 1**:
+`npm run test:framework:chrome:replay --
+.ralph/media-framework/chrome-live-jobs-4hf2rL --default-only`,
+`chrome-b6-9-baseline-replay.log`. Both fresh workers reproduce **38/38** original
+texts and the retained long Japanese **251/720 edits = 34.86111111111111% CER**;
+meeting/negation counts **23**, other five **24**, expected **18**. Four aggregate
+failures remain in this baseline. The 35,712–44,928 ms job has PCM SHA-256
+`9795b58c77d7d2d10c09f11668261c5514841ff03830d8f8c3e57bc4f416bd6a`,
+**259 total tokens**, and worker inference **4,531.199999988079 /
+4,576.100000023842 ms**. Raw repeated text still equals final decoded text.
+The worker bundle was built before the experimental source edit.
+
+**FAIL first contract regression, exit 1**, **4 PASS / 1 FAIL**:
+`node --import tsx --test tests/framework-browser-timestamps.test.ts`,
+`chrome-b6-9-decoding-before.log`: the old default returned timestamps when the
+new bounded text profile requires false. **PASS final contract check, exit 0**,
+same command, **5 PASS / 0 FAIL / 394.20675 ms**,
+`chrome-b6-9-contracts-final.log`. This is mocked preparation/inference with real
+SDK logits/tensors, not recognition accuracy. The final contract additionally
+asserts the unchanged 256-token budget for every profile.
+
+**PASS experiment replay, exit 0**, `node --import tsx
+ tests/framework-chrome-9-experiment.mjs
+ .ralph/media-framework/chrome-live-jobs-4hf2rL --default-only`,
+`chrome-b6-9-no-timestamps-replay.log`. That temporary test copy kept every
+accuracy/meaning/integrity gate and adapted only token/chunk checks to the new
+profile. Its exact contents were promoted to the existing replay harness and
+the temporary file removed. Both workers pass all **38 jobs / seven runs**.
+Independent analysis confirms **38 unchanged PCM/hash/range/identity associations
+per trial**, **13 changed texts**, raw generated text equals final text in all
+jobs, and both fresh-worker trials have identical texts and decoder traces.
+The first analysis attempt failed with system Python's unsupported `zip(strict=)`;
+replacing that call with explicit length assertions passes. Analysis performs no
+inference. Evidence: `chrome-b6-9-comparison.json`; original archive is unchanged.
+
+**PASS final official default replay, exit 0**, the original npm command above,
+`chrome-b6-9-final-replay.log` and `...-summary.json`. Two fresh production workers
+again pass all **38 jobs** and every original score/count gate. Long Japanese is
+**31/720 edits = 4.305555555555555% CER**, all seven meanings **18**; long English
+**19/418 = 4.545454545454546% WER**, all four **19**. One-period ja/en remain
+**1/40 CER / 1/22 WER**, three-period **3/120 CER / 3/66 WER**, every meaning
+exactly once/three. The offending 9,216 ms job produces **52 total tokens**,
+including its legitimate repeated clauses, in both workers; inference
+**951.6999999880791 / 983.5 ms**. Repetition is repaired in raw generation; no
+post-decoding text correction is used.
+
+Final replay preparation **52,536.098083 ms / 14 remote requests**, then
+**1,232.4878749999916 ms / 0 requests** in the cached fresh worker. Each trial has
+**0 inference remote requests**, page errors/visibility events **[]**; owned
+browser-tree peak RSS **3,887,216 / 4,235,152 KiB**. The earlier sequential
+experiment's offending-job inference is **997.3999999761581 / 960.5 ms**.
+Final official replay ran concurrently with verify; these are diagnostic replay
+measurements, not controlled performance comparisons or live speech endpoints.
+
+### Required full acceptance and retained noise failure
+
+**FAIL `npm run test:framework:chrome`, exit 1**, one complete invocation on final
+executable sources, `chrome-b6-9-stage.log` and `...-summary.json`:
+**12 constituents / 11 PASS / 1 FAIL / none skipped**, `passed: false` retained.
+
+| Constituent | Status / exit | Elapsed ms |
+| --- | --- | ---: |
+| `typecheck:framework` | PASS / 0 | 176.12425000000002 |
+| `test:framework:chrome:preparation` | PASS / 0 | 13730.7335 |
+| `test:framework:chrome:channel` | PASS / 0 | 10310.48075 |
+| `test:framework:chrome:overlay` | PASS / 0 | 7253.9701669999995 |
+| `test:framework:chrome:composition` | PASS / 0 | 2742.764707999999 |
+| `test:framework:chrome:translation` | PASS / 0 | 8006.128208000002 |
+| `test:framework:chrome:sustained` | PASS / 0 | 733414.361 |
+| `test:framework:chrome:live:gpu-recovery` | PASS / 0 | 210832.476625 |
+| `test:framework:chrome:eof` | PASS / 0 | 280773.772875 |
+| `test:framework:chrome:quiet` | PASS / 0 | 187594.22791599995 |
+| `test:framework:chrome:noise:learned` | FAIL / 1 | 201833.43979100022 |
+| `test:framework:chrome:live:sustained:learned` | PASS / 0 | 540378.1655000001 |
+
+Noise's Japanese white-noise case remains **9/120 edits = 7.5% CER**; meeting
+**2** and station **1**, expected **3** each, other five **3**. Endpoints
+**1,089.5999999642372 / 1,437 / 826 ms** pass their own gate; passing error and
+latency cannot excuse lost meanings. Exact original mixed input hash remains
+`38db530ee1d6884d13ed97b716f2ccc690317cf166268163bf5a4591838514e9`.
+**FAIL separate initial `npm run test:framework:chrome:noise:learned`, exit 1**,
+`chrome-b6-9-noise.log`: same sole omission/count failure; endpoints
+**1,097 / 1,426.300000011921 / 843.1999999880791 ms**, max pending **9,200 ms**.
+Both commands keep all ten cases and cached offline real ja/en ASR. No third
+unchanged noise attempt, new noise tuning, failed-source deletion or relaxed gate.
+These are quality failures; no missing environment/device/permission is observed.
+
+Fresh long live Japanese passes **23/720 = 3.194444444444444% CER**, all seven
+counts **18**, maximum labeled endpoint **1,930.9000000357628 ms**, maximum queue
+**18,100.6875 / 30,000 ms**, final pending/loss **0/0**. English passes
+**19/418 = 4.545454545454546% WER**, all four counts **19**, maximum endpoint
+**1,416.3999999761581 ms**, max queue **14,772.6875 ms**, final **0/0**.
+Host measurement durations **126,396.29999995232 / 127,771.69999998808 ms**.
+Two exact Japanese replay groups (**3 / 17 jobs**) reproduce those inputs'
+passing scores/counts with **0 remote requests**; replay is not live timing.
+All eight live rounds, ten GPU-recovery rounds/two replay groups, ten EOF and
+six quiet cases pass. Live evidence: `chrome-b6-9-stage-live.json` and ignored
+archive `chrome-live-jobs-Ih5DbZ`. Its fresh captures are separate from the fixed
+retained 9,216 ms input and do not erase any earlier failed recording.
+
+### Actual production extension and remaining qualification
+
+Actual extension first-download failure, online ja/en, cached offline Stop/
+restart, native Korean/source pairing, overlay/DOM, original playback and the
+ten-minute functional gates pass. Companion/Ollama ports **8765 / 11434 both
+ECONNREFUSED**, page errors **[]**. Ten-minute host interval
+**600,330.9000000358 ms**, PCM **600,191.9999999999 ms / 14,067 chunks /
+48 kHz / 28,809,216 samples**. Frozen snapshot **88 jobs / 88 results /
+88 paired rows**, first ASR start **32 ms**, last completed end **597,664 ms**,
+uncompleted tail **2,527.9999999998836 ms**. Coherent identity/epoch/clock,
+contiguous sequences/ranges, ack max **1 / limit 4 / final 0**, minute advancement,
+max queue **17,300.6875 / 30,000 ms**, running loss **0** all pass.
+
+Worker inference max **1,533 ms**, common-host last-PCM-delivery→source max
+**1,818.199999988079 ms**, source→paired max **64.30000001192093 ms**. Those
+host intervals remain distinct from labeled speech-endpoint latency. Minute RSS
+**3,481,824–4,183,472 KiB** includes shared pages, browser/GPU and observer copies;
+no isolated allocation/leak/pressure/mobile claim. Stop sees pending
+**4,447.375 ms**, loss **0**, no unfinished submitted jobs; cancellation leaves
+controller idle/queue **0**, history retained, no late captions, original playback.
+Ignored archive `chrome-extension-jobs-ZsI5wJ` preserves **88** completed sustained
+jobs plus the four short ja/en runs. Evidence: `chrome-b6-9-stage-extension.json`.
+
+This capture has zero store-phrase hallucinations, but the prior three offending
+production PCM windows are still unavailable. The present **88-job** segmentation
+is a different capture, not their exact reproduction or proof they are fixed.
+The 23,940 ms remux period still ends mid-phrase; multiplying the short reference
+by periods would yield invalid full-run expectations. Complete ten-minute
+CER/meaning/translation semantics remain **UNVERIFIED**; observed substitutions
+and clipped clauses are not silently declared accurate. Other retained input
+layouts, broader natural/site speech, physical speaker/native fullscreen,
+full offline browser restart/remote reload, Safari and physical iPhone are
+**UNVERIFIED in this slice**. Mocked composition, PCM acquisition, cache/model
+loading and replay speed are not recognition/translation accuracy.
+
+### Final verification and preservation
+
+**PASS `npm run verify`, exit 0**, after final executable edits,
+`chrome-b6-9-verify.log`: Biome **148 files / 86 ms / no findings**, Ruff/typecheck,
+unchanged companion build, **153 JS / 0 fail / 31,340.094 ms**,
+**222 Python / 66.98 s**. Five decoding contract checks pass; two old default
+segment-timestamp cases now apply only to the still-timestamped comparison
+profiles, while the default uses the text-profile assertions described above.
+Node harness syntax, focused three-file Biome and whitespace pass. No executable
+edit follows verify, final official replay or full stage acceptance.
+
+Environment: macOS **26.6.2 / 25G83 / arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, locked Transformers.js **4.3.0**.
+The same pinned small FP16 **487,960,440-byte** model and existing Silero/native
+components are used; no new candidate, model revision, weights or dependency.
+**B6 remains next and unchecked:** improve Japanese white-noise meeting/station
+recognition and complete actual long-run semantic/reference qualification,
+retaining **<=20%**, exact counts and **<2,000 ms**. No terminal completion or
+missing-environment blocker marker applies.
+
+Five intended files only: worker, decoding contract, replay shape, this report
+and plan log. Companion v0.1.0/native messaging/install/server/legacy extension/
+settings, runner, original fixtures, production permissions, core and all other
+stages are unchanged. User apps, recordings, mounted images and unrelated files
+are preserved. No agents, push, publish, app installation or access/profile
+workaround. No credentials, weights, user audio/transcripts or temporary `.ralph`
+state committed. Only owned test browser/profile resources are cleaned by the
+harnesses. Commit: `fix: use text decoding for bounded Chrome ASR`.
+Final staged whitelist, preserved checkboxes/history, whitespace and clean
+committed worktree are checked at delivery.

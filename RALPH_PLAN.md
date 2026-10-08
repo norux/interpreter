@@ -6189,3 +6189,104 @@ access workaround. No credentials/weights/user audio/transcripts/temporary
 `.ralph` state committed. Commit: `test: preserve exact Chrome ASR input evidence`.
 Final staged scope/checkbox/whitespace and clean committed worktree checked
 at delivery. No stage advancement or whole-framework/iPhone completion.
+
+
+### 2026-10-09 KST — chrome iteration 9/20: B6 bounded text decoding
+
+**B6 only, still unchecked.** Entry worktree clean; root AGENTS.md and requested
+independent acceptance file absent. Read plan/architecture/Chrome evidence.
+Default smallFp16 now decodes bounded jobs without generated timestamp segments;
+captions retain the original job/video-time range. Same pinned FP16 WebGPU model,
+VAD/input/queue/contracts/settings, 256 generated-token limit and all strict
+accuracy/meaning/endpoint gates. No filtering/deduplication, reference prompts,
+PCM trimming, segmentation, fallback or new model/dependency. Comparison
+profiles keep their existing timestamp constraints. The replay checks the new
+fourth no-timestamps prompt, absence of timestamp tokens/chunks and **4+256**
+sequence bound; timestamped profiles retain their **3+256**/chunk checks.
+
+**FAIL baseline official default replay / exit 1**, two workers / **38 original
+jobs each**, retained Japanese **251/720 = 34.86111111111111% CER / counts 23–24,
+expected 18**, four aggregate failures. Verified **9,216 ms** job digest
+`9795b58c77d7d2d10c09f11668261c5514841ff03830d8f8c3e57bc4f416bd6a` reaches
+259 tokens and **4,531.199999988079 / 4,576.100000023842 ms** inference.
+**FAIL pre-fix decoding regression / exit 1 / 4 PASS, 1 FAIL**. **PASS final
+contract / exit 0 / 5 checks**, mocked rule conformance only. Logs:
+`chrome-b6-9-baseline-replay.log`, `...-decoding-before.log`, `...-contracts-final.log`.
+
+**PASS experimental replay and final official replay / exit 0 each**.
+Final command: `npm run test:framework:chrome:replay --
+.ralph/media-framework/chrome-live-jobs-4hf2rL --default-only`,
+`chrome-b6-9-final-replay.log`. **38 jobs per fresh worker / two trials**, same
+PCM/hash/ranges/identities and all original gates. Japanese **31/720 =
+4.305555555555555% CER / every count 18**, English **19/418 =
+4.545454545454546% WER / every count 19**; all short/three-period gates pass.
+Offending job **52 tokens**, retaining legitimate repeats, inference
+**951.6999999880791 / 983.5 ms**. Raw equals final in every result, traces/texts
+identical between trials; **13 changed texts / 38** on unchanged input.
+Preparation **52,536.098083 ms / 14 requests**, cached **1,232.4878749999916 ms /
+0 requests**, inference **0 requests**, RSS peaks **3,887,216 / 4,235,152 KiB**.
+Replay timing is diagnostic, not live endpoint qualification; verify ran
+concurrently with final replay. Temporary experiment file removed after promotion.
+Initial analysis failed on system Python's unsupported zip keyword; explicit
+length checks resolve it. Original archives/failures remain unchanged.
+
+**FAIL `npm run test:framework:chrome` / exit 1**, one complete invocation,
+`chrome-b6-9-stage.log`: **12 / 11 PASS / 1 FAIL**, none skipped, false aggregate.
+Typecheck/preparation/channel/overlay/composition/translation/actual ten-minute
+extension/GPU recovery/EOF/quiet/sustained live pass. Noise fails: Japanese
+white-noise **7.5% CER (9/120)**, meeting **2**, station **1**, expected **3**;
+other five **3**, endpoints **1,089.5999999642372 / 1,437 / 826 ms**.
+Separate initial `npm run test:framework:chrome:noise:learned` also **FAIL / 1**,
+same sole count failure, endpoints **1,097 / 1,426.300000011921 /
+843.1999999880791 ms** (`chrome-b6-9-noise.log`). No third unchanged noise attempt.
+Report table records all twelve exact exits/durations; no quality gate weakened.
+
+Fresh sustained live Japanese **PASS / 23/720 = 3.194444444444444% CER / all counts
+18 / max labeled endpoint 1,930.9000000357628 ms**; English **PASS / 19/418 =
+4.545454545454546% WER / counts 19 / max endpoint 1,416.3999999761581 ms**.
+Max queues **18,100.6875 / 14,772.6875 ms**, final pending/loss **0/0**; two exact
+Japanese replay groups (**3/17 jobs**) pass with zero requests. No new capture
+substitutes for the separately repaired archived failure. Live archive
+`chrome-live-jobs-Ih5DbZ`; full scoped data `chrome-b6-9-stage-live.json`.
+
+Ten-minute actual extension **PASS / 733,414.361 ms constituent**, host
+**600,330.9000000358 ms**, PCM **600,191.9999999999 ms / 14,067 chunks /
+48 kHz / 28,809,216 samples**, frozen **88 jobs/results/paired rows**,
+zero running loss, max queue **17,300.6875 / 30,000 ms**, ack max **1/4**, final
+**0**. Inference max **1,533 ms**, common-host delivery→source max
+**1,818.199999988079 ms**, source→paired max **64.30000001192093 ms**;
+these are not labeled speech endpoints. RSS minutes **3,481,824–4,183,472 KiB**
+whole owned tree. Stop pending **4,447.375 ms**, no unfinished submitted jobs,
+idle/queue **0**, history/no late output/original playback preserved. Four short
+ja/en runs plus **88** sustained jobs saved in ignored
+`chrome-extension-jobs-ZsI5wJ`. Companion/Ollama **8765/11434 ECONNREFUSED**,
+page errors **[]**, real Korean/revision/DOM/overlay/offline/download-error gates
+pass. Full evidence `chrome-b6-9-stage-extension.json`.
+
+No store-phrase hallucination in this **different 88-job capture**; prior three
+production-window PCM still unavailable/unreproduced. Complete ten-minute
+reference/semantic quality stays **UNVERIFIED**: remux periods end mid-phrase,
+so simple repeated-short-reference expectations are invalid. Other historical
+layouts/broader natural or site speech, physical speaker/native fullscreen/full
+offline browser restart, Safari and physical iPhone are **UNVERIFIED in this
+slice**. Mocks/PCM/loading/replay speed do not qualify recognition/translation.
+
+**PASS `npm run verify` / exit 0**, final executable sources,
+`chrome-b6-9-verify.log`: Biome **148 / 86 ms**, Ruff/typecheck/unchanged companion
+build, **153 JS / 0 failures / 31,340.094 ms**, **222 Python / 66.98 s**.
+Final focused contracts, syntax, three-file Biome and whitespace pass. macOS
+**26.6.2 / 25G83 arm64**, Node **24.15.0**, npm **11.12.1**, headed owned Chromium
+**153.0.8010.12**, Transformers.js **4.3.0**. Same small FP16 **487,960,440 bytes**;
+no new candidate/dependency/model revision. No executable edits after checks.
+
+**Next remains B6:** Japanese white-noise meeting/station recognition, then
+complete long-run semantic/reference qualification with unchanged **<=20% / exact
+counts / <2,000 ms** gates. No missing environment/device/permission/access
+blocker or terminal marker; no Chrome/Safari/iPhone/whole-framework completion.
+Five scoped files; companion/install/settings/server/permissions/core/runner/
+original fixtures and other stages unchanged. Preserve apps/recordings/mounts/
+unrelated files; no agents/push/publish/app install/access workaround or committed
+credentials/weights/user audio/transcripts/temporary `.ralph` state.
+Commit: `fix: use text decoding for bounded Chrome ASR`. Final staged scope,
+checkbox/append-only history/whitespace and clean committed worktree checked
+at delivery. Detailed results are in the matching Chrome report section.

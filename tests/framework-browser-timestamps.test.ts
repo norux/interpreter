@@ -10,7 +10,7 @@ import { asrCandidates } from "../packages/engines-browser/model";
 // Execute the unexported worker with fake preparation/inference, but real SDK
 // logits/tensors. These checks establish decoding rules, not ASR accuracy.
 async function recognitionOptions(candidate: keyof typeof asrCandidates, samples = 16000) {
-  let options: { logits_processor?: LogitsProcessorList; return_timestamps?: boolean } | undefined;
+  let options: { logits_processor?: LogitsProcessorList; return_timestamps?: boolean; max_new_tokens?: number } | undefined;
   const pipeline = Object.assign(async (_pcm: Float32Array, value: typeof options) => {
     options = value;
     return { text: "synthetic result" };
@@ -38,10 +38,11 @@ async function recognitionOptions(candidate: keyof typeof asrCandidates, samples
   } } });
   assert.equal(replies.at(-1)?.type, "result");
   assert.ok(options);
+  assert.equal(options.max_new_tokens, 256, "All decoding profiles keep the generated-token budget");
   return options;
 }
 
-for (const candidate of ["smallFp16", "turboFp16", "smallTimestamped"] as const) {
+for (const candidate of ["turboFp16", "smallTimestamped"] as const) {
   test(`${candidate} timestamp decoding rejects backwards and zero-length segments without banning repeated speech`, async () => {
     const options = await recognitionOptions(candidate);
     assert.equal(options.return_timestamps, true);
@@ -66,15 +67,15 @@ for (const candidate of ["smallFp16", "turboFp16", "smallTimestamped"] as const)
   });
 }
 
-test("q8 baseline keeps non-timestamp decoding", async () => {
-  for (const candidate of ["tiny", "base", "small"] as const) {
+test("bounded default and q8 baselines keep non-timestamp decoding", async () => {
+  for (const candidate of ["tiny", "base", "small", "smallFp16"] as const) {
     const options = await recognitionOptions(candidate);
     assert.equal(options.return_timestamps, false);
     assert.equal(options.logits_processor, undefined);
   }
 });
 
-for (const candidate of ["smallFp16", "turboFp16", "smallTimestamped"] as const) {
+for (const candidate of ["turboFp16", "smallTimestamped"] as const) {
   test(`${candidate} timestamps cannot enter padded audio beyond the final PCM tick`, async () => {
     for (const samples of [1600, 16000, 16016, 16000 * 30]) {
       const options = await recognitionOptions(candidate, samples);

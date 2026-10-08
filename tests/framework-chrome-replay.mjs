@@ -212,10 +212,14 @@ try {
         assert.deepEqual(trace.inputs[0].stride, [job.samples/16000, 0, 0]);
         assert.ok(Number.isSafeInteger(trace.timestampBegin) && trace.timestampBegin > 0);
         assert.equal(trace.timePrecision, 0.02);
-        assert.ok(trace.inputs[0].tokens.length > 0 && trace.inputs[0].tokens.length <= 259);
+        assert.ok(trace.inputs[0].tokens.length > 0 && trace.inputs[0].tokens.length <= (candidate === "smallFp16" ? 260 : 259));
         assert.ok(trace.inputs[0].tokens.every(token => Number.isSafeInteger(token) && token >= 0));
         assert.equal(typeof trace.inputs[0].rawText, "string");
-        assert.ok(Array.isArray(trace.decoded.chunks));
+        if (candidate === "smallFp16") {
+          assert.equal(trace.decoded.chunks, undefined);
+          assert.ok(trace.inputs[0].tokens.every(token => token < trace.timestampBegin), "Default text decoding must not predict segment timestamps");
+          assert.equal(trace.inputs[0].tokens[3], trace.timestampBegin-1, "Default requires the no-timestamps prompt token");
+        } else assert.ok(Array.isArray(trace.decoded.chunks));
         replay.jobs.push({ ...job, ...result, identicalOriginalText: result.revision.text === job.originalText });
       }
       if (extensionInput) {
