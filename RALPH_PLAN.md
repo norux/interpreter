@@ -6648,3 +6648,93 @@ publish, browser/profile-access workaround or user-app/recording/mount changes;
 no credentials/weights/user media or temporary `.ralph` state staged. Detailed
 exact evidence/limits in Chrome report. Append-only history, unchanged checkboxes,
 staged scope/whitespace and post-commit clean status checked at delivery.
+
+
+### 2026-10-09 KST / chrome / iteration 3/20 — rejected early Japanese boundaries
+
+Commit: `test: diagnose browser replay preparation failures`, with matching Chrome
+report. Entry HEAD `7da8a2a` clean. Repository AGENTS.md and requested independent
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` absent. **B6 remains unchecked**;
+only Stage chrome selected. Preserve all existing failures, checklists and gates.
+
+Hypothesis: the measured early Japanese 160 ms pauses could improve exact noisy
+recognition if short-pause eligibility becomes **1 s rather than 10 s**, keeping
+five-frame onset, midpoint, detector, raw PCM, bounds, default model and decoder.
+The first attempt fails model preparation (`download-required`, no scored jobs,
+network cause unverified). Independent restored-production preparation succeeds;
+the subsequent fully evaluated experiment worsens Japanese recognition in both
+fresh workers. Reject and restore the production source byte for byte. No repeated
+failed hypothesis, altered fixture/assertion, acoustic filtering or text correction.
+
+Retain only replay preparation diagnostics: observe HTTPS request failures and
+HTTP >=400 responses, record origin/path + error code/status without signed URL
+queries, including failure summaries. Do not change requests, retry, runtime,
+options, ASR text or acceptance. Actual callback mock check **PASS / exit 0**:
+transport error/HTTP 429 recorded; local/success events and synthetic credential
+queries excluded. This is diagnostic conformance, not recognition accuracy.
+
+Three invocations of exact command:
+`npm run test:framework:chrome:replay -- .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --resegment`.
+All **FAIL / exit 1**: initial `chrome-iteration-3-one-second-resegment.log` fails
+before scoring (duration unmeasured); restored `...-preparation-diagnostics.log`
+(**77.5278455 s**) fails original noisy meanings; evaluated
+`...-one-second-evaluated.log` (**82.465195958 s**) fails worsened Japanese quality.
+Logs, matching summaries/status files and analysis are ignored `.ralph/media-framework/`
+evidence. Independent preparation recovery establishes no continuing environment
+blocker; the next replay tests the new boundary hypothesis after that recovery,
+without an access workaround.
+
+Restored baseline reproduces all **24 original jobs/texts**: Japanese quiet
+**3/120 CER**, all meanings **3**; white noise **9/120 CER**, meeting **2**, station
+**1**, other five **3**, expected **3** each. Both English controls **3/66 WER**,
+all meanings **3**. Evaluated experiment processes **44 real jobs**: quiet Japanese
+**12/120 = 10% CER**, meeting **2**; white noise **29/120 = 24.166666666666668% CER**,
+meeting **2**, tomorrow **2**, afternoon **1**, station **1**, other three **3**.
+Both English controls remain unchanged. No passing error/transport check excuses
+meaning loss. Two workers agree on every experimental range/text/score/count.
+
+Independent readback `python3 .ralph/media-framework/chrome-iteration-3-analysis.py`
+**PASS / exit 0**: **eight complete input comparisons**, **44 slice/hash/identity/
+raw-text associations**, **5,876 unchanged VAD frame** probabilities/decisions/
+ranges/padding. Original manifest/input digests unchanged. Preparation remote
+requests **16 / 0**, inference requests **0 / 0**, remote failure/page-error/
+visibility arrays **[]** for both scored commands. Baseline preparation
+**52,192.825542 / 1,329.1396249999962 ms**, RSS peaks **3,940,064 / 4,319,008 KiB**;
+experiment **52,421.104999999996 / 1,334.0769999999902 ms**, peaks
+**4,278,288 / 4,185,712 KiB**. RSS includes shared pages/browser/GPU/observer copies.
+No model-only, leak or mobile-pressure claim.
+
+Existing early-pause regression **FAIL / exit 1 / 0 pass, 1 fail / 110.2275 ms**
+with temporary source; unchanged expectation **PASS / exit 0 / 1 pass, 0 fail /
+54.747 ms** after restoration, plus final explicit pass. Final `npm run verify`
+**PASS / exit 0 / 94.86140104200001 s** on the same retained executable contents:
+Biome **148 / 50 ms**, Ruff/typecheck/unchanged companion build, **154 JS /
+0 failed/skipped/cancelled / 26,630.811041 ms**, **222 Python / 67.06 s**.
+Only the temporary threshold experiment follows that verify, then is restored
+byte for byte; focused regression/observer/syntax/Biome/whitespace subsequently
+pass. Exact command exits/durations: `chrome-iteration-3-focused-checks.json`.
+No additional retained executable changes. Environment/model pins unchanged:
+macOS **26.6.2 / 25G83 arm64**, Node **24.15.0**, npm **11.12.1**, owned headed
+Chromium **153.0.8010.12**, Transformers.js **4.3.0**, smallFp16/WebGPU
+**487,960,440 bytes** and pinned Silero **2,243,022 bytes**.
+
+**NOT RUN:** full `npm run test:framework:chrome` and unaffected long live/noise/
+quiet/EOF/ten-minute production-extension/native Korean/DOM/GPU suites in this
+partial diagnostic/rejected-policy iteration. Previous full-stage failures remain
+failures. Full acceptance remains mandatory before completion. Replay/unpaced VAD
+is not live endpoint/input pressure or native translation. Complete long-run
+semantic/reference qualification, retained Japanese omissions, broader natural/
+site speech and Safari/physical iPhone remain **UNVERIFIED**.
+
+Next unfinished **B6**: raw noisy Japanese meeting/station recognition with
+adequate phrase context; do not repeat rejected 1 s/3 s boundary or 4 kHz filter
+hypotheses. Qualify retained Japanese omissions and complete valid long-run ASR/
+Korean semantics, then full Chrome acceptance. Preserve exact counts, <=20%,
+<2,000 ms endpoint, queue/loss and failed inputs. No current environment/device/
+permission absence, no blocker/completion marker or later-stage advancement.
+Three intended files only; companion/install/settings, production/core/profiles/
+permissions/fixtures/runner and unrelated files/apps/recordings/mounts preserved.
+No agents, install/push/publish, access/profile workaround or credentials/weights/
+user media/temporary `.ralph` state committed. Detailed evidence/limits in Chrome
+report. Append-only histories, unchanged checkboxes, staged whitelist/whitespace
+and post-commit clean status checked at delivery.

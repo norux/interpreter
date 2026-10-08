@@ -171,7 +171,8 @@ const observations = { scope: extensionInput
   : defaultOnly ? "B6 default-profile exact archived ASR replay/decoder traces and original accuracy/meaning gates; no live endpoint or translation qualification"
   : "B2 exact archived synthetic selected-video ASR candidate comparison; no live capture/VAD/endpoint/translation/DOM qualification",
   archive, archiveManifestSha256: createHash("sha256").update(await readFile(resolve(archive, "manifest.json"))).digest("hex"),
-  originalModel: captured.model, archivedJobs: files.size, trials: [], failures: [] };
+  originalModel: captured.model, archivedJobs: files.size, trials: [], failures: [],
+  remoteRequestFailures: [], remoteResponseFailures: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page; let peakRssKiB = 0;
 const execute = promisify(execFile);
 async function sampleRss() {
@@ -215,6 +216,17 @@ try {
   page.on("pageerror", error => pageErrors.push(error.message));
   page.context().on("request", request => {
     if (request.url().startsWith("https://")) { remoteRequests++; const url = new URL(request.url()); remotePaths.add(url.origin+url.pathname); }
+  });
+  // Keep failed preparation observable without recording signed URL queries.
+  page.context().on("requestfailed", request => {
+    if (!request.url().startsWith("https://")) return;
+    const url = new URL(request.url());
+    observations.remoteRequestFailures.push({ path: url.origin+url.pathname, error: request.failure()?.errorText });
+  });
+  page.context().on("response", response => {
+    if (!response.url().startsWith("https://") || response.status() < 400) return;
+    const url = new URL(response.url());
+    observations.remoteResponseFailures.push({ path: url.origin+url.pathname, status: response.status() });
   });
   monitor = setInterval(() => { void sampleRss().catch(() => {}); }, 250);
   await page.goto(`http://127.0.0.1:${server.address().port}`); await page.waitForFunction(() => globalThis.makeHost);
