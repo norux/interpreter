@@ -1,7 +1,7 @@
 // Real production tab action/input → unchanged smallFp16/WebGPU → native Korean → DOM.
 // Functional B5a coverage only; strict B6 accuracy/latency/long-run gates stay separate.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -10,6 +10,7 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { build } from "vite";
 
+const captureLoss = process.argv.includes("--capture-loss");
 const output = resolve(".ralph/media-framework/chrome-tab-engine-build");
 const fixtures = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8")).clips;
 const media = new Map();
@@ -20,6 +21,9 @@ for (const fixture of fixtures) {
   media.set(`/${fixture.language}.webm`, bytes);
 }
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: { outDir: output } });
+if (captureLoss) await build({ configFile: false, root: resolve("tests/fixtures/tab-capture"), logLevel: "warn", build: {
+  outDir: output, emptyOutDir: false, rollupOptions: { input: { observer: resolve("tests/fixtures/tab-capture/output.html") }, output: { entryFileNames: "[name].js" } },
+} });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
 assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture"]);
 assert.equal(manifest.host_permissions, undefined);
@@ -83,7 +87,8 @@ try {
   observations.requiredComponents = components;
   browserProcess = spawn(chromium.executablePath(), ["--no-first-run", "--no-default-browser-check", `--user-data-dir=${profile}`,
     `--chrome-for-testing-config=${configuration}`, "--enable-unsafe-extension-debugging", "--remote-debugging-port=0",
-    "--window-position=0,30", "--window-size=700,700", "about:blank"], { stdio: "ignore" });
+    "--window-position=0,30", "--window-size=700,700",
+    ...(captureLoss ? ['--auto-select-tab-capture-source-by-title=Output under test', '--enable-usermedia-screen-capturing'] : []), "about:blank"], { stdio: "ignore" });
   browserExit = new Promise(done => {
     browserProcess.once("exit", (code, signal) => { observations.browserExit = { code, signal }; done(); });
     browserProcess.once("error", error => { observations.browserExit = { error: error.message }; done(); });
@@ -115,6 +120,19 @@ try {
     if (url.protocol === "https:" && !observations.modelRequests.includes(url.origin + url.pathname)) observations.modelRequests.push(url.origin + url.pathname);
   });
   await context.addInitScript(() => {
+    globalThis.captureObservations = [];
+    if (globalThis.chrome?.tabCapture) chrome.tabCapture.onStatusChanged.addListener(info => captureObservations.push({ type: 'status', ...info }));
+    if (navigator.mediaDevices) {
+      const getUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = async (...args) => {
+        const stream = await getUserMedia(...args);
+        stream.addEventListener('inactive', event => captureObservations.push({ type: 'inactive', trusted: event.isTrusted, active: stream.active, at: performance.now() }));
+        for (const track of stream.getTracks()) track.addEventListener('ended', event => {
+          captureObservations.push({ type: 'ended', trusted: event.isTrusted, state: track.readyState, active: stream.active, at: performance.now() });
+        });
+        return stream;
+      };
+    }
     globalThis.overlayTexts = [];
     addEventListener('DOMContentLoaded', () => {
       new MutationObserver(() => {
@@ -174,13 +192,46 @@ try {
       };
     }
   });
-  for (const scenario of [
+  async function observeOutput(surface) {
+    const title = await surface.title();
+    await surface.evaluate(() => { document.title = 'Output under test'; });
+    const observer = await context.newPage();
+    observer.on('pageerror', error => observations.pageErrors.push(error.message));
+    try {
+      await observer.goto(`chrome-extension://${extensionId}/output.html`);
+      await observer.getByRole('button').click();
+      console.log(JSON.stringify({ phase: 'native-output-requested', surface: surface.url(), marker: 6500 }));
+      await observer.waitForFunction(() => globalThis.outputReady || globalThis.error);
+      assert.equal(await observer.evaluate(() => globalThis.error), undefined);
+      const rate = await observer.evaluate(() => outputContext.sampleRate);
+      const deadline = performance.now() + 5000;
+      let amplitude;
+      do {
+        await observer.waitForTimeout(100);
+        const samples = await observer.evaluate(() => measure());
+        let sin = 0, cos = 0, weight = 0;
+        for (let i = 0; i < samples.length; i++) {
+          const taper = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (samples.length - 1));
+          const phase = 2 * Math.PI * 6500 * i / rate;
+          sin += samples[i] * taper * Math.sin(phase); cos += samples[i] * taper * Math.cos(phase); weight += taper;
+        }
+        amplitude = 2 * Math.hypot(sin, cos) / weight;
+      } while (Math.abs(amplitude / 0.06 - 1) >= 0.03 && performance.now() < deadline);
+      assert.ok(Math.abs(amplitude / 0.06 - 1) < 0.03, `Native output ${amplitude} must match fixture marker 0.06 within 3%`);
+      return amplitude;
+    } finally { await observer.close(); await surface.evaluate(title => { document.title = title; }, title); }
+  }
+  let interruptedHost;
+  let interruption;
+  const scenarios = captureLoss ? [{ language: "ja", mode: "web-audio", interrupt: true }, { language: "ja", mode: "web-audio", recover: true }] : [
     { language: "ja", mode: "video" }, { language: "en", mode: "iframe" },
     { language: "en", mode: "audio" }, { language: "ja", mode: "web-audio" },
-  ]) {
+  ];
+  for (const scenario of scenarios) {
     const run = { ...scenario }; observations.runs.push(run);
+    if (scenario.recover) await context.setOffline(true);
     page.on("pageerror", error => observations.pageErrors.push(error.message));
-    await page.goto(`${origin}/?mode=${scenario.mode}&language=${scenario.language}`);
+    if (!scenario.recover) await page.goto(`${origin}/?mode=${scenario.mode}&language=${scenario.language}`);
     const source = scenario.mode === "iframe" ? page.frameLocator("iframe") : page;
     if (scenario.mode !== "web-audio") await source.locator("video,audio").evaluate(element => new Promise(done => {
       if (element.readyState >= 2) done(); else element.addEventListener("loadeddata", done, { once: true });
@@ -222,12 +273,15 @@ try {
     const prepare = host.getByRole("button", { name: "Prepare selected language", exact: true });
     const start = host.getByRole("button", { name: "Start interpretation", exact: true });
     const stop = host.getByRole("button", { name: "Stop interpretation", exact: true });
+    await host.bringToFront();
+    await host.waitForFunction(() => document.visibilityState === "visible");
     const began = performance.now(); await prepare.click();
-    await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent === 'Start interpretation').disabled || document.querySelector('#app').textContent.includes('Preparation failed:'), undefined, { timeout: 240000, polling: 100 });
+    await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent === 'Start interpretation').disabled || document.querySelector('#app').textContent.includes('Preparation failed:') || document.querySelector('#connection').textContent.startsWith('Stopped.'), undefined, { timeout: 240000, polling: 100 });
     run.preparationMs = performance.now() - began; run.preparation = await host.locator("#app > section").first().innerText();
     assert.equal(await start.isEnabled(), true, run.preparation);
     console.log(JSON.stringify({ phase: "prepared", language: scenario.language, mode: scenario.mode, preparationMs: run.preparationMs }));
     await source.getByRole("button", { name: "Play speech", exact: true }).click();
+    await host.bringToFront();
     await start.click();
     await host.waitForFunction(() => rowObservations.some(event => event.rows.some(row => row.state === 'paired' && row.sourceFinal === 'true' && row.translationFinal === 'true')), undefined, { timeout: 40000 });
     await page.waitForFunction(() => overlayTexts.some(text => /[가-힣]/u.test(text)), undefined, { timeout: 10000 });
@@ -267,6 +321,62 @@ try {
     }
     if (scenario.mode === 'web-audio') assert.equal(await page.locator('video,audio').count(), 0);
     if (scenario.mode === 'audio') assert.equal(await page.locator('video').count(), 0);
+    if (scenario.recover) {
+      for (const model of ['onnx-community/whisper-small', 'onnx-community/silero-vad']) {
+        assert.ok(run.engine.some(event => event.type === 'status' && event.status.model.id === model && event.status.state === 'cached'));
+      }
+      assert.equal(run.engine.some(event => event.type === 'status' && event.status.state === 'downloading'), false);
+      run.nativeOutput = await observeOutput(host);
+      assert.ok(Math.abs(run.nativeOutput / interruption.nativeOutput - 1) < 0.12, 'Recaptured output must preserve the original fixture amplitude within 12%');
+      assert.notEqual(job.identity.sessionId, interruption.snapshot.pending[0].identity.sessionId);
+      assert.notEqual(job.identity.targetId, interruption.snapshot.pending[0].identity.targetId);
+      assert.ok(job.audioRange.startMs < interruption.snapshot.pending[0].audioRange.startMs, 'Fresh capture resets its elapsed timeline');
+      assert.equal(await interruptedHost.locator('#app tbody').innerText(), interruption.snapshot.rows);
+      assert.equal(await interruptedHost.locator('#app .interpreter-live').innerText(), '');
+      assert.equal(await interruptedHost.locator('#capture').isDisabled(), true);
+      assert.equal(await page.locator('video,audio').count(), 0);
+      run.recovery = 'Fresh native extension action on the same unreloaded tab restores actual ASR/native Korean/DOM with fresh session/target/capture elapsed';
+      await interruptedHost.close(); interruptedHost = undefined;
+    }
+    if (scenario.interrupt) {
+      run.nativeOutput = await observeOutput(host);
+      await host.waitForFunction(() => engineObservations.some(job => job.type === 'asr-job' && !engineObservations.some(result =>
+        result.type === 'asr-result' && result.workerId === job.workerId && result.requestId === job.requestId)), undefined, { timeout: 30000, polling: 10 });
+      const { processInfo } = await cdp.send('SystemInfo.getProcessInfo');
+      const audio = processInfo.filter(value => value.type === 'audio.mojom.AudioService');
+      assert.equal(audio.length, 1, 'Signal only the audio service reported by this owned browser CDP connection');
+      const ownedBrowser = processInfo.find(value => value.type === 'browser');
+      assert.equal(ownedBrowser.id, browserProcess.pid);
+      const parent = Number(execFileSync('ps', ['-p', String(audio[0].id), '-o', 'ppid='], { encoding: 'utf8' }).trim());
+      assert.equal(parent, browserProcess.pid, 'Never signal a user browser or an unrelated audio service');
+      const snapshot = await host.evaluate(() => ({ at: performance.now(), rows: document.querySelector('#app tbody').innerText,
+        pending: engineObservations.filter(job => job.type === 'asr-job' && !engineObservations.some(result =>
+          result.type === 'asr-result' && result.workerId === job.workerId && result.requestId === job.requestId)) }));
+      assert.equal(snapshot.pending.length, 1, 'Native capture loss must interrupt one actual unfinished ASR');
+      process.kill(audio[0].id, 'SIGTERM');
+      await host.waitForFunction(() => document.querySelector('#connection').textContent.includes('Tab capture ended'));
+      await page.locator('[data-interpreter-overlay]').waitFor({ state: 'detached' });
+      await host.waitForTimeout(2000);
+      const after = await host.evaluate(() => ({ engine: engineObservations, translations: translationObservations, capture: captureObservations }));
+      run.interruption = { audio, parent, snapshot, ...after };
+      const pendingJob = snapshot.pending[0];
+      assert.ok(after.capture.some(event => event.type === 'ended' && event.trusted && event.state === 'ended'));
+      assert.ok(after.capture.some(event => event.type === 'inactive' && event.trusted && !event.active));
+      assert.ok(after.capture.some(event => event.type === 'status' && event.status === 'stopped' && event.tabId === tab.id));
+      assert.ok(after.engine.some(event => event.type === 'terminated' && event.workerId === pendingJob.workerId));
+      assert.equal(after.engine.some(event => event.type === 'asr-result' && event.workerId === pendingJob.workerId && event.requestId === pendingJob.requestId), false);
+      assert.equal(after.engine.filter(event => event.type === 'terminated').length, 2);
+      assert.equal(await host.locator('#app tbody').innerText(), snapshot.rows);
+      assert.equal(await host.locator('#app .interpreter-live').innerText(), '');
+      for (const control of [prepare, start, host.locator('#capture'), host.locator('#language')]) assert.equal(await control.isDisabled(), true);
+      assert.equal(await worker.evaluate(async tabId => (await chrome.tabCapture.getCapturedTabs()).some(value => value.tabId === tabId && ['active', 'pending'].includes(value.status)), tab.id), false);
+      const restoredOutput = await observeOutput(page);
+      assert.ok(Math.abs(restoredOutput / run.nativeOutput - 1) < 0.12, 'Native-loss cleanup must restore site playback within 12%');
+      interruption = { audio, parent, snapshot, nativeOutput: run.nativeOutput, restoredOutput, ...after }; run.interruption = interruption;
+      interruptedHost = host; host = undefined;
+      console.log(JSON.stringify({ run }));
+      continue;
+    }
     if (scenario.mode === 'video') {
       await source.locator('video').evaluate(element => { element.pause(); element.currentTime = 8; });
       await host.waitForTimeout(250);
@@ -284,7 +394,7 @@ try {
     assert.equal(await host.locator('#app .interpreter-live').innerText(), '');
     assert.equal(await prepare.isDisabled(), true);
     assert.equal(await worker.evaluate(async tabId => (await chrome.tabCapture.getCapturedTabs()).some(value => value.tabId === tabId && ['active', 'pending'].includes(value.status)), tab.id), false);
-    if (scenario.mode === 'web-audio') {
+    if (scenario.mode === 'web-audio' && !captureLoss) {
       // Caches were populated by real runs above; recapture keeps the same tab,
       // while every cancelled inference uses a fresh production session/worker.
       await context.setOffline(true);
@@ -358,14 +468,14 @@ try {
     console.log(JSON.stringify({ run }));
     await host.close(); host = undefined;
   }
-  observations.checks.push('Four production-action runs: Japanese top video, English cross-origin iframe video, English audio-only and Japanese no-element Web Audio → real default ASR → native Korean → elapsed comparison and page DOM; Stop retires output/capture');
+  observations.checks.push(captureLoss ? 'Owned native audio service failure ends capture during real ASR, retires workers/live output and preserves history; fresh original-tab native action restores real Japanese ASR/native Korean/DOM' : 'Four production-action runs: Japanese top video, English cross-origin iframe video, English audio-only and Japanese no-element Web Audio → real default ASR → native Korean → elapsed comparison and page DOM; Stop retires output/capture');
   assert.ok(network.every(value => !/^https?:\/\/[^/]+:(8765|11434)(\/|$)/u.test(value)));
   assert.deepEqual(observations.pageErrors, []);
   console.log(JSON.stringify({ passed: true, ...observations }));
 } catch (error) {
   if (host) {
     observations.failureDom = await host.locator('body').innerText().catch(() => undefined);
-    observations.failureEngine = await host.evaluate(() => ({ engine: globalThis.engineObservations, rows: globalThis.rowObservations, translations: globalThis.translationObservations })).catch(() => undefined);
+    observations.failureEngine = await host.evaluate(() => ({ engine: globalThis.engineObservations, rows: globalThis.rowObservations, translations: globalThis.translationObservations, capture: globalThis.captureObservations })).catch(() => undefined);
   }
   console.error(JSON.stringify({ passed: false, ...observations, error: error.stack })); process.exitCode = 1;
 } finally {

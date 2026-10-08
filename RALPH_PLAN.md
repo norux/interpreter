@@ -7522,3 +7522,75 @@ whitespace, append-only report/plan, unchanged checklists and runner. Five-file
 staging whitelist covers only package scripts, new tab engine harness, full Chrome
 harness, report and plan; `.DS_Store` is preserved unstaged. No executable changes
 after passing final combined tab acceptance; all intended changes committed.
+
+### 2026-10-09 / chrome / iteration 5/20 — B5a native capture-loss progress blocked
+
+관련 commit: `test: exercise native Chrome capture interruption` (record included).
+**B5a stays first unfinished and unchecked; B6 tuning stays stopped.** Add focused
+`test:framework:chrome:tab-loss` and invoke it after all three retained constituents
+of tab-capture acceptance; full Chrome already invokes that aggregate. Extend only
+the real engine harness: native service failure identified by this owned browser's
+CDP process inventory and independently checked parent PID, trusted track-end and
+stream-inactive observations, active ASR cancellation, retained history/cleared
+live DOM, independent native output gates and fresh-action offline recovery
+assertions. No production/permission/engine/default/settings/companion/runner or
+other-stage change. No assertion/constituent removed or threshold lowered.
+
+Source renderer crash probe leaves capture active and is rejected as loss proof.
+Owned audio-service probe actually ends capture (exit 0, no engine accuracy claim).
+First engine attempt FAIL / exit 1 after visibility stops preparation and the
+owned browser is closed; retain foregrounding and prompt stopped-preparation
+failure. Second and metadata diagnostic `:tab-loss` attempts FAIL / exit 1 at a
+new oracle requiring stream inactivity within the track-ended callback. Diagnostic
+proves trusted track ended with stream active=true; correct observation to require
+separate trusted inactive event too. Both real gates stay required.
+
+Final two `:tab-loss` output attempts FAIL / exit 1 at the same **30000 ms** native
+site-output readiness timeout after the owned browser audio-service failure.
+First also has observation-script undefined mediaDevices error; guard that setup.
+Second runs final executable with page errors **[]** and reproduces the native
+output blocker. Stop browser attempts at this second independent confirmation;
+no output/permission/PCM mock or profile/access workaround is substituted.
+
+Actual final pre-blocker functional evidence: preparation **51265.983499999995 ms**,
+native 6,500 Hz captured output **0.059095759177363295** vs **0.06 within 3%**;
+first actual smallFp16/WebGPU ASR **235008 samples / 64–14752 ms**, real native
+Korean paired exactly in comparison/page DOM. Second unfinished ASR **160256
+samples / 14752–24768 ms** is cancelled with no corresponding result. Native
+trusted track-end **76615.29999995232 ms**, trusted stream inactive **76616.29999995232 ms**,
+exactly two ASR/VAD worker terminations, native stopped/no active capture, disabled
+old controls, retained history and cleared/no late DOM for two seconds. These
+observations are not accuracy/endpoint latency or recovery acceptance. Model
+identities/defaults and historical B6 FAIL evidence are preserved.
+
+`npm run verify` PASS / exit 0: Biome **162 files / 61 ms**, Ruff/typecheck/existing
+companion build, **161 JS passed / 0 failed/skipped/cancelled / 26855.621125 ms**,
+**222 Python passed / 66.85 s**. It precedes later harness-only changes and does
+not prove their acceptance. Focused tab-input ownership mocks PASS / exit 0,
+**3 passed / 0 failed/skipped/cancelled / 53.144833 ms**. Final focused lint/syntax/
+whitespace follow below; final real browser command remains FAIL. Full tab-capture,
+full Chrome and unchanged strict quality/latency/ten-minute suites NOT RUN this
+partial iteration; all full stage commands remain mandatory before completion.
+
+Exact commands/partial metrics/failures are in the
+[Chrome report](docs/verification/media-framework/chrome.md). Ignored logs:
+`chrome-native-loss-iteration-5-*` and `chrome-tab-loss-iteration-5-*` under `.ralph`.
+AGENTS.md/requested independent runner log absent. Preserve `.DS_Store` untracked,
+user apps/media/mounts/settings, published companion and all existing checklists.
+No agents/app install/push/publish, runner edit, credentials/weights/user media or
+temporary-state commit; only owned test browsers/profiles are cleaned.
+
+**BLOCKED / resume:** owned headed Chromium's independent native output path
+cannot be reacquired after audio-service termination in two attempts. Underlying
+browser/device/permission cause is unresolved; no permission-denial result is
+invented. Restore/revalidate that test-owned native output ready/error path, then
+resume B5a loss/playback restoration/fresh native-action offline real ASR/native
+Korean/DOM recovery and run the complete tab-capture aggregate. Post-loss native
+output/recovery, native translation cancellation across loss, permission revocation
+and physical/protected-content checks remain UNVERIFIED. Do not bypass through
+alternate browser/profile tools, remove gates or advance to B6. No stage completion.
+
+Final audit: focused harness Biome **PASS / exit 0 / 30 ms**, harness syntax and
+whitespace **PASS / exit 0**. Report/plan are append-only; checkboxes and runner
+unchanged. Four-file staging whitelist excludes `.DS_Store`, logs/profiles/models
+and user media. All retained changes are committed; browser acceptance stays FAIL.
