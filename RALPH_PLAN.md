@@ -7078,3 +7078,86 @@ companion v0.1.0/native messaging/install/settings, production/core/media/transl
 model inventory/permissions/fixtures/runner/unrelated files/apps/recordings/mounts
 unchanged. No agents/install/push/publish/access workaround or credentials/weights/
 user audio/temporary `.ralph` state staged. Only owned test browsers/profiles cleaned.
+
+
+### 2026-10-09 KST / chrome / iteration 8/20 — medium inference allocation failure
+
+Related commit: `test: record caught Chrome ASR runtime failures`. Entry HEAD
+`0b66a4b` clean; repository AGENTS.md and requested independent runner log absent.
+Read supplied instructions, plan, architecture and Chrome report. **B6 only,
+unchecked; app default remains smallFp16/WebGPU.** All checkboxes/history preserved.
+
+Hypothesis: compare public multilingual medium on identical retained noise jobs,
+using existing text decoding before a custom beam implementation. Public pinned
+`Xenova/whisper-medium` revision `8c5b90880ab9f79487ab33613413431bf661d595` metadata
+HTTP 200; seven files **1,533,989,445 bytes**, sizes/hashes/card link in stage report.
+Temporary candidate, worker forwarding and replay `--medium-only` preserve all
+PCM/hash/range/identity, token-budget, <=20%, exact-count and preparation gates.
+No default/fallback/settings/VAD/filter/text change. Both attempts reach ready,
+then fail first Japanese inference with zero scored jobs; all medium support/flag
+removed and production files restored byte for byte. Retain only replay console
+observer for caught `Browser ASR failed` exceptions, which do not reach pageerror
+or the host's generic reason. Second attempt validates this observer in real execution.
+
+Evidence under ignored `.ralph/media-framework/`:
+
+- Experimental `npm run test:framework:chrome:replay --
+  .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --medium-only`, twice:
+  **FAIL / exit 1 / 230.37073129200002 and 231.87855425 s**,
+  `chrome-iteration-8-medium-noise` / `chrome-iteration-8-medium-diagnostic`.
+  Preparation **225,250.106958 / 226,525.97941600002 ms**, HTTPS requests **14 / 14**,
+  exact loaded totals/identities; **0 ASR texts/scored jobs** in both. First generic
+  `engine-failed` cause unverified; second captures `OrtRun ERROR_CODE: 6,
+  ERROR_MESSAGE: std::bad_alloc` during encoder preparation. Stop after two attempts;
+  no third or broader medium suite. Actual allocation size/memory limit/physical or
+  GPU exhaustion unverified. No user apps closed or settings changed to fit it.
+  Request/HTTP failure arrays and visibility events **[]**. Baseline RSS
+  **1,295,328 / 1,296,352 KiB**; failed-trial peak/final network/page-error counters
+  unverified because early exit precedes serialization. No accuracy/latency claim.
+- Independent `python3 .ralph/media-framework/chrome-iteration-8-failure-readback.py`
+  **PASS / exit 0 / 0.132657583 s**: twelve original PCM hashes/sizes, pinned inventory,
+  exact ready/status/bytes, zero scored jobs, both failures and diagnostic exception.
+  Manifest SHA-256 unchanged:
+  `5e3e9af50dfaa98fc59f15c091a9deae2a5893e63c41bbf96bde34129cabbb89`.
+- Experimental typecheck (both replay invocations), focused contracts, syntax,
+  three-file Biome (**19 ms**), inventory **PASS / exit 0**. Restored focused
+  timestamp/ASR/model/trace tests **PASS / exit 0 / 13 passed / 0 failed/skipped/
+  cancelled / 418.8755 ms TAP** (wrapper **0.487409916 s**),
+  `chrome-iteration-8-restored-contracts`. Final syntax, one-file Biome (**26 ms**),
+  production Git-blob equality and whitespace **PASS**. Mocks are not ASR quality.
+  Final verify evidence follows in a separate append.
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, Transformers.js **4.3.0**. No required
+browser/device/permission absence established; optional candidate allocation failure
+is not a blocker for the required small application environment. No terminal marker.
+
+**NOT RUN:** full `npm run test:framework:chrome`, unchanged small/Turbo suites,
+medium long/quiet/live/Stop/GPU, selected-video/native Korean/ten-minute qualification.
+Historical app-default noise/full-acceptance failures stay FAIL; both plan acceptance
+commands remain required before completion. No candidate/default/quality pass or
+B6/Chrome/framework/Safari/physical iPhone completion. Retry this exact medium FP16
+route only with materially new memory/runtime evidence, never merely a ready status.
+
+Next **B6**: improve raw noisy Japanese recognition without retained long/quiet
+omissions/repetitions, qualify final-app live <2,000 ms endpoints and complete
+selected-video/native Korean/ten-minute acceptance. Keep strict <=20%, exact counts,
+queue/loss gates and failures. Three intended files only; companion/install/native
+messaging/settings, production/model inventory/permissions/fixtures/runner/unrelated
+files/apps/recordings/mounts unchanged. No agents/install/push/publish/access bypass
+or credentials/weights/user media/temporary state committed. Only owned browsers/
+profiles cleaned. Append-only, checkbox, scope and committed cleanliness checked.
+
+
+Final-source `npm run verify` **PASS / exit 0 / 92.706443667 s**,
+`chrome-iteration-8-verify.log` / `...-status.json`: Biome **148 files / 55 ms**,
+Ruff/typecheck/unchanged companion build, **153 JS passed / 0 failed/skipped/
+cancelled / 24,653.172916 ms**, **222 Python passed / 66.91 s**. No executable
+source changes follow this run. The retained observer already captured the actual
+runtime error during the second attempt; restoration retains that observer exactly.
+`git diff --check`, exact three-file whitelist, append-only report/plan history and
+unchanged checklist comparisons **PASS / exit 0**. Final staging/commit checks
+cover only these intended files. An untracked `.DS_Store` appeared during this
+iteration and is preserved, unstaged; the plan excludes it from runner cleanliness.
+Full Chrome acceptance remains NOT RUN this partial iteration; historical failure
+and unfinished B6 remain. No stage/framework/iPhone completion or terminal marker.

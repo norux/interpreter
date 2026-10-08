@@ -174,7 +174,7 @@ const observations = { scope: extensionInput
   : "B2 exact archived synthetic selected-video ASR candidate comparison; no live capture/VAD/endpoint/translation/DOM qualification",
   archive, archiveManifestSha256: createHash("sha256").update(await readFile(resolve(archive, "manifest.json"))).digest("hex"),
   originalModel: captured.model, archivedJobs: files.size, trials: [], failures: [],
-  remoteRequestFailures: [], remoteResponseFailures: [] };
+  remoteRequestFailures: [], remoteResponseFailures: [], asrErrors: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page; let peakRssKiB = 0;
 const execute = promisify(execFile);
 async function sampleRss() {
@@ -216,6 +216,12 @@ try {
   page = browser.contexts()[0].pages()[0]; page.setDefaultTimeout(10000);
   const pageErrors = []; const remotePaths = new Set(); let remoteRequests = 0;
   page.on("pageerror", error => pageErrors.push(error.message));
+  // Caught inference errors do not reach pageerror or the host's reason code.
+  page.on("console", message => {
+    if (message.type() === "error" && message.text().startsWith("Browser ASR failed")) {
+      observations.asrErrors.push(message.text());
+    }
+  });
   page.context().on("request", request => {
     if (request.url().startsWith("https://")) { remoteRequests++; const url = new URL(request.url()); remotePaths.add(url.origin+url.pathname); }
   });

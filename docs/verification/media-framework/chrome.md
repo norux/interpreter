@@ -11643,3 +11643,144 @@ Companion v0.1.0/native messaging/install/settings, production/core/media/transl
 permissions/fixtures/runner, unrelated files and running user apps/recordings/mounted
 images are preserved. No agents, push/publish, app install, credentials/weights/user
 media or temporary `.ralph` state staged. Only owned test browsers/profiles are cleaned.
+
+
+## 2026-10-09 KST — B6 medium inference allocation failure (chrome iteration 8/20)
+
+**B6 remains unchecked; the application still selects smallFp16/WebGPU.** Entry
+HEAD `0b66a4b` was clean. Repository AGENTS.md and requested independent runner log
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` are absent. Read the supplied
+instructions, plan, architecture and retained Chrome evidence. Only B6 is selected.
+
+### Hypothesis and retained change
+
+Compare a multilingual medium checkpoint on the identical retained noise jobs,
+using the existing text decoder, before considering a custom beam-search decoder.
+Prior FP32 small output was identical to FP16, and Turbo's long/quiet repetitions
+prevent default selection. A larger checkpoint's improvement is a hypothesis,
+not an assumed quality or latency pass. No reference prompt, text correction,
+PCM/VAD/segmentation/token-budget change, automatic fallback or setting change.
+
+Public [conversion card](https://huggingface.co/Xenova/whisper-medium) and
+[pinned metadata](https://huggingface.co/api/models/Xenova/whisper-medium/revision/8c5b90880ab9f79487ab33613413431bf661d595?blobs=true)
+return HTTP 200 for `Xenova/whisper-medium`, revision
+`8c5b90880ab9f79487ab33613413431bf661d595`. Card metadata declares Apache-2.0;
+this is not a new distribution or completed licensing review. Temporary FP16
+inventory contains five metadata/tokenizer files and these ONNX artifacts:
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `onnx/encoder_model_fp16.onnx` | 615,033,351 | `864b6cd5bf93f1558c5327ae95c3f74facbd2176b28a268fb67876c330ef0661` |
+| `onnx/decoder_model_merged_fp16.onnx` | 916,186,656 | `fe6170106d419388f5287e2d465fe0e594e84f5835118173dae213fd05ff47ba` |
+
+Seven-file total **1,533,989,445 bytes**. Local metadata:
+`.ralph/media-framework/chrome-iteration-8-medium-inventory.json`.
+Temporary worker forwarding and replay `--medium-only` select this pinned candidate
+without changing application composition. All original archive/fixture hashes,
+exact PCM/ranges/identity/revision, two-fresh-worker design, 256 generated-token
+budget, <=20% error, exact meaning counts, cache/network/visibility gates and
+240,000 ms preparation timeout remain. Neither invocation reaches the second
+worker or any scored recognition. Temporary candidate, worker support and flag
+are subsequently removed; production files are restored byte for byte.
+
+Retain only `tests/framework-chrome-replay.mjs`'s **caught ASR error observer**.
+Record console errors with the existing `Browser ASR failed` prefix in `asrErrors`;
+these caught exceptions do not reach `pageerror` or the host's generic reason code.
+The second real attempt validates the observer by recording the concrete runtime
+exception. It does not change requests, inference, retries, worker lifecycle,
+text, existing assertions or failure exits. No production behavior change remains.
+
+### Actual attempts and independent readback
+
+Both experimental invocations use:
+`npm run test:framework:chrome:replay --
+ .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --medium-only`.
+Ignored local logs, summary JSON and timed-wrapper status files are under
+`.ralph/media-framework/`; none are committed.
+
+| Evidence basename | Result / exit | Elapsed seconds | Preparation ms | Preparation HTTPS requests | Completed ASR jobs |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `chrome-iteration-8-medium-noise` | **FAIL / 1** | 230.37073129200002 | 225,250.106958 | 14 | 0 |
+| `chrome-iteration-8-medium-diagnostic` | **FAIL / 1** | 231.87855425 | 226,525.97941600002 | 14 | 0 |
+
+Both actually download/cache/load **1,533,989,445 bytes** and report ready with the
+exact selected identity. The first Japanese job then rejects with `engine-failed`.
+The initial invocation has no caught-runtime diagnostics; its underlying cause
+is unverified. The second independent attempt adds the observer and captures:
+`failed to call OrtRun(). ERROR_CODE: 6, ERROR_MESSAGE: std::bad_alloc`, with the
+stack entering `_prepare_encoder_decoder_kwargs_for_generation`.
+This establishes an inference allocation failure for this candidate/run, not its
+allocation size, which memory limit was reached, or physical/GPU memory exhaustion.
+No apps are closed or browser/system settings changed to make the model fit.
+Stop this route after these two independent attempts; no third attempt or long/
+quiet/live medium suite is run. Retry this pinned FP16 route only with materially
+new memory/runtime evidence; a ready status alone is insufficient.
+
+Request/HTTP failure arrays are **[]**; the document stays visible with **[]**
+visibility events. Trial baseline owned-tree RSS is **1,295,328 / 1,296,352 KiB**;
+failed-trial peak RSS, final request counters, inference-network count and page-error
+arrays are not serialized by the early failure path and remain **UNVERIFIED**.
+RSS includes shared/browser/GPU/harness pages, not isolated model allocation.
+No CER/WER, meaning count, generated text, inference/endpoint latency, Korean/DOM,
+selected-video or ten-minute quality is established by these attempts.
+
+`python3 .ralph/media-framework/chrome-iteration-8-failure-readback.py`
+**PASS / exit 0 / 0.132657583 s**, wrapped log/status basename
+`chrome-iteration-8-failure-readback`, output
+`chrome-iteration-8-failure-readback.json`: independently verifies all **12 original
+PCM files/sizes/digests**, pinned seven-file byte total, both exact model/status
+associations, ready/downloaded bytes, visible documents, zero completed jobs,
+non-success exits and the single diagnostic exception. Manifest SHA-256 remains
+`5e3e9af50dfaa98fc59f15c091a9deae2a5893e63c41bbf96bde34129cabbb89`.
+Readback passes forensic consistency; it does not supply recognition acceptance.
+
+### Restored-source verification and remaining B6 work
+
+Production model/worker Git-blob equality **PASS**; only the observer remains in
+executable sources. Experimental focused timestamp/ASR/model/trace contracts,
+harness syntax, three-file Biome (**19 ms**) and pinned inventory readback
+**PASS / exit 0**. After restoration, the same four-file focused command
+`node --import tsx --test tests/framework-browser-timestamps.test.ts
+ tests/framework-browser-asr.test.ts tests/framework-browser-model.test.ts
+ tests/framework-browser-asr-trace.test.ts` **PASS / exit 0**, **13 passed /
+0 failed/skipped/cancelled / 418.8755 ms TAP** (wrapper **0.487409916 s**),
+`chrome-iteration-8-restored-contracts.log` / status. Mocks establish contracts,
+not acoustic quality. Final harness syntax, one-file Biome (**26 ms**) and
+whitespace checks **PASS / exit 0**. Final `npm run verify` evidence follows.
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, locked Transformers.js **4.3.0**.
+No required browser/device/permission absence is established. This optional
+candidate's runtime failure does not establish a blocker for the required
+smallFp16 application environment; B6 remains unfinished with no terminal marker.
+
+**NOT RUN:** full `npm run test:framework:chrome`, unchanged small/Turbo browser
+suites, medium long/quiet/live/Stop/GPU, selected-video/native Korean/ten-minute
+qualification. Both full plan acceptance commands remain required before completion;
+historical default noise/full-acceptance failures remain FAIL. No checkbox or
+later stage advances. No medium model selection or acoustic improvement retained.
+
+Next unfinished **B6**: recover raw noisy Japanese meanings while preserving the
+retained long/quiet counterexamples; qualify an improved final application profile's
+live <2,000 ms endpoints and full selected-video/native Korean/ten-minute acceptance.
+Preserve <=20%, exact counts, bounded/drained queues, loss accounting and failed inputs.
+Related commit: `test: record caught Chrome ASR runtime failures`. Three intended
+files: replay observer and append-only report/plan. Companion v0.1.0/native messaging/
+install/settings, production engines/core/media/translation/model inventory,
+permissions/fixtures/runner and unrelated files/apps/recordings/mounts are preserved.
+No agents/install/push/publish/access workaround or credentials/weights/user media/
+temporary state staged. Only owned test browsers/profiles are cleaned.
+
+
+Final-source `npm run verify` **PASS / exit 0 / 92.706443667 s**,
+`chrome-iteration-8-verify.log` / `...-status.json`: Biome **148 files / 55 ms**,
+Ruff/typecheck/unchanged companion build, **153 JS passed / 0 failed/skipped/
+cancelled / 24,653.172916 ms**, **222 Python passed / 66.91 s**. No executable
+source changes follow this run. The retained observer already captured the actual
+runtime error during the second attempt; restoration retains that observer exactly.
+`git diff --check`, exact three-file whitelist, append-only report/plan history and
+unchanged checklist comparisons **PASS / exit 0**. Final staging/commit checks
+cover only these intended files. An untracked `.DS_Store` appeared during this
+iteration and is preserved, unstaged; the plan excludes it from runner cleanliness.
+Full Chrome acceptance remains NOT RUN this partial iteration; historical failure
+and unfinished B6 remain. No stage/framework/iPhone completion or terminal marker.
