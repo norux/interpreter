@@ -12,10 +12,19 @@ export async function verifyVideoSpeech(browser, origin) {
     assert.equal(createHash("sha256").update(bytes).digest("hex"), clip.sha256);
   }
   const observations = [];
-  for (const owned of [false, true]) {
+  for (const { owned, delayedOutput } of [
+    { owned: false, delayedOutput: false }, { owned: true, delayedOutput: false }, { owned: false, delayedOutput: true },
+  ]) {
     const page = await browser.newPage(); page.setDefaultTimeout(10000);
     const errors = []; page.on("pageerror", (error) => errors.push(error.message));
     try {
+      if (delayedOutput) {
+        const fixture = await readFile("tests/fixtures/video-speech.html", "utf8");
+        const connect = "outputContext.createMediaStreamSource(outputStream).connect(observer);";
+        assert.ok(fixture.includes(connect), "Delayed loopback regression must intercept the real output connection");
+        await page.route(`${origin}/speech?owned=${owned}`, route => route.fulfill({ contentType: "text/html",
+          body: fixture.replace(connect, "const source = outputContext.createMediaStreamSource(outputStream); setTimeout(() => source.connect(observer), 1000);") }));
+      }
       await page.goto(`${origin}/speech?owned=${owned}`);
       await page.waitForFunction(() => globalThis.ready);
       const candidates = await page.evaluate(() => globalThis.candidates());
@@ -53,6 +62,8 @@ export async function verifyVideoSpeech(browser, origin) {
         const target = candidates[selectedIndex].target;
         await page.locator("select").selectOption(target.id);
         await page.getByRole("button", { name: "Use selected video", exact: true }).click();
+        // Exercise repeat capture after the interval that exposed a native clock discontinuity.
+        if (owned && round === 1) await page.waitForTimeout(1000);
         await page.getByRole("button", { name: "Start selected capture", exact: true }).click();
         await page.waitForFunction(() => globalThis.chunks.length >= 50 || globalThis.captureError);
         assert.equal(await page.evaluate(() => globalThis.captureError), undefined);
@@ -82,7 +93,7 @@ export async function verifyVideoSpeech(browser, origin) {
       const times = await page.evaluate(() => globalThis.times());
       assert.ok(times.every((time, index) => time > initialTimes[index] + 6), "Both original videos must advance through repeat Start and selected-target switch");
       assert.deepEqual(errors, []);
-      observations.push({ siteOwnedGraphs: owned, referenceTags, outputSettings: settings, baselineOutputTags: baseline, rounds, playbackAdvanceSeconds: times.map((time, index) => time - initialTimes[index]), pageErrors: errors });
+      observations.push({ siteOwnedGraphs: owned, delayedOutput, referenceTags, outputSettings: settings, baselineOutputTags: baseline, rounds, playbackAdvanceSeconds: times.map((time, index) => time - initialTimes[index]), pageErrors: errors });
     } catch (error) {
       console.error(JSON.stringify({ scope: "V5", siteOwnedGraphs: owned, pageErrors: errors,
         state: await page.evaluate(() => ({ outputError: globalThis.outputError, captureError: globalThis.captureError, chunks: globalThis.chunks?.length, media: globalThis.state?.() })) }));

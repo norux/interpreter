@@ -174,10 +174,13 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 - [x] V2. 같은 출처 일반 영상의 Web Audio 입력을 구현한다. 영상이 이미 소유한 graph와 충돌을 처리하고, Stop·repeat Start 후 원래 재생/볼륨이 유지되는지 실제 소리를 확인한다.
 - [x] V3. playback anchor로 영상 시간과 PCM 시간을 연결한다. seek·pause/resume·rate/source 변경 시 epoch를 바꾸고 이전 작업 결과를 버린다. 서로 다른 context의 performance.now를 직접 빼지 않는다.
 - [x] V4. CORS 허용/미허용, 실제 무음, muted video, 교차 출처 iframe, blob/MSE·보호 영상 경로를 구분한다. 접근을 입증하지 못하면 원래 재생을 건드리지 않고 명시적으로 미지원 처리한다. crossOrigin 재설정/reload로 우회하지 않는다.
-- [ ] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
+- [x] V5. 일본어/영어 일반 영상 fixture와 동시에 소리가 나는 두 영상 fixture를 추가한다. 선택한 영상의 PCM만 수집되는 것과 재생 유지·시간 매핑을 `test:framework:video`로 검증하고 수치/보고서를 남긴다.
 
 완료 검증: `npm run verify`, `npm run test:framework:video`.
 이 단계에서는 인식/번역 품질을 PCM 획득 성공과 혼동하지 않는다.
+실제 오디오 입력/재생 검증은 test-owned headed Chromium에서 수행한다.
+화면 없는 실행에서 발생한 native 출력/파형 실패를 합격으로 바꾸지 않으며,
+제품이 사용하는 실제 브라우저 경로의 PCM·출력·시간·재시작 조건을 검증한다.
 
 ## Stage chrome
 
@@ -5205,3 +5208,38 @@ typecheck/build, **127 JS / 0 failed / 0 skipped** (25401.068584 ms),
 **222 Python** (66.97 s); `video-repair-1-verify.log`. Unstaged/staged whitespace
 checks PASS. Only plan/report progress is committed; clean worktree checked after
 commit. Required real-audio acceptance remains blocked and V5 unchecked.
+
+
+### 2026-10-08 / video / headed native-audio acceptance and V5 readiness repair
+
+관련 commit: 이 기록을 포함한 `fix: run video audio acceptance in headed Chromium`.
+목표: 루프가 성공적으로 완료될 때까지 감독한다는 사용자 요청에 따라 자동 복구
+중단 이후 V5를 직접 조사했다. 브라우저 설정/사용자 오디오 장치/앱을 변경하지 않았다.
+
+기존 headless 재검증은 waveform 0.5008/0.7188 및 출력 baseline 실패로 중단됐다.
+새 비교에서도 headless PCM 0.519658과 매우 낮은 출력값을 확인했다. playback
+latencyHint bundle 실험은 한 번 통과했으나 다른 시작 phase에서 capture 이전
+baseline이 실패했고, 변경 없는 동일 입력도 통과하여 production buffering fix로
+채택할 근거가 부족했다. 모든 production/model/worklet/PCM/fixture byte는 유지한다.
+
+V5 outputReady도 고정 500 ms 기다림이 실제 loopback 도착을 보장하지 못했다.
+실제 연결 1초 지연 회귀에서 기존 baseline은 [0,0]으로 실패했다. 이제 실제
+samples 도착을 최대 5초 기다린 후 8192-frame 관측창 하나를 채우고 기존 측정을
+한다. 기대 음량에 맞을 때까지 재시도하지 않는다. 지연 관측 사례를 추가하고,
+site-owned 일본어 repeat Start에 앞서 실패한 1초 간격을 영구 회귀로 남겼다.
+
+작은 harness 변경으로 오디오 V2–V5만 headed Chromium으로 실행한다. catalog
+검사는 headless 유지. 같은 fixture/production 코드의 headed 비교에서 9회 원래
+검사와 별도 1초 간격 6회 검사가 모두 correlation 1.0과 출력/손실/시간/원문 상태
+조건을 통과했다. Headless의 128-sample native shift 원인 자체는 확정하지 않았으며
+이 환경의 headless 오디오 성공을 주장하지 않는다. 실제 사용자 브라우저 실행을
+검증하는 profile 변경이다. 실제 스피커 청취·ASR/번역 품질을 이 검증으로 대체하지 않는다.
+
+최종 `caffeinate -disu npm run test:framework:video` **PASS**, 15 unit checks와
+V1–V5 실제 브라우저 검증 전부 통과. V5 9회 selected correlation 모두 **1.0**,
+최대 mapping error **5.204 ms**, 기존 >0.85/<0.35/12%/tag/PCM gates 유지.
+`caffeinate -disu npm run verify` **PASS**, lint/typecheck/build, **127 JS /
+222 Python (66.94 s)**. 로그 `video-followup-final-acceptance.log`,
+`video-followup-final-verify.log`; 비교 및 실패 로그도 `.ralph/media-framework/`에 보존.
+V5를 재체크했다. B2 완료/B3 다음과 다른 모든 stage checkbox를 유지하고,
+commit/clean 확인 뒤 `all 20` 재개한다. No push/publish/install/delegation.

@@ -1072,3 +1072,51 @@ Evidence: `.ralph/media-framework/video-repair-1-verify.log`.
 Final unstaged and staged whitespace checks: **PASS**, exit 0.
 Only this report and `RALPH_PLAN.md` are committed; clean-worktree verification
 follows the commit. Stage video remains blocked, with no code repair claimed.
+
+
+## 2026-10-08 — headed native-audio qualification and V5 output readiness
+
+This supersedes the preceding blocked status for the supported **headed**
+Chromium audio profile. Headless native-audio failures and diagnostics remain
+recorded as failures. Their exact 128-sample native origin is still unverified.
+No source waveform, tag, matching rule or numerical gate has been relaxed.
+Commit: `fix: run video audio acceptance in headed Chromium`.
+
+Follow-up headless runs reproduced selected correlation **0.5196580021872939**
+and low baseline output, even before any proposed input-context modification.
+A playback-latency bundle experiment passed once, but another restart phase
+failed at baseline; the unchanged context also passed a comparison. Therefore
+no production AudioContext buffering change was justified or retained.
+Evidence: `video-followup-ready-fixed.log`, `video-followup-ready-buffered.log`,
+`video-followup-buffered-offset.log`, `video-followup-unbuffered.log`.
+
+Separately, V5's fixed 500 ms output preparation was demonstrably insufficient.
+Injecting a one-second loopback connection delay yields **[0,0]** and fails the
+old baseline. Evidence: `video-followup-ready-before.log`. The fixture now waits
+for actual loopback samples (five-second timeout) and then fills one complete
+8192-frame observation window before the original five measurements. Availability
+is distinct from amplitude: the expected-level assertions still run unchanged.
+A third delayed-output scenario exercises all original speech/capture/Stop gates.
+The site-owned repeat Start also retains the one-second interval that exposed
+the previous waveform discontinuity.
+
+The audio harness now launches test-owned headed Chromium, using the same pinned
+browser, media and production input. The V1 DOM-only browser remains headless.
+Headed comparison: **9 captures PASS**, all selected correlations **1.0**, maximum
+mapping error **5.152 ms** (`video-followup-headed.log`). Separate delayed restart:
+**6 captures PASS**, all correlations **1.0**, maximum mapping error **2.886 ms**
+(`video-followup-headed-delayed.log`). These are real browser PCM and tab-output
+checks, not fake/offline playback substitutions or retries until an amplitude
+matches. The test-owned browser/profile is closed by the existing cleanup.
+
+Final source: `caffeinate -disu npm run test:framework:video` **PASS**, 15 unit tests
+and V1–V5 browser acceptance. All **9** V5 captures, including delayed observation
+and delayed site-owned restart, correlate **1.0**; maximum mapping error
+**5.204 ms**. Existing >0.85 selected correlation, <0.35 wrong-source correlation,
+12% output preservation and source tags/identity/order/sample accounting all pass.
+Evidence: `.ralph/media-framework/video-followup-final-acceptance.log`.
+`caffeinate -disu npm run verify`: **PASS**, lint/typecheck/build, **127 JS /
+222 Python** (66.94 s). Evidence: `video-followup-final-verify.log`.
+Whitespace and intended staged scope are checked before commit. V5 is rechecked;
+Chrome B3 and subsequent stages remain unfinished. No physical speaker, ASR,
+translation, Safari/iPhone or headless-audio success claim is made.

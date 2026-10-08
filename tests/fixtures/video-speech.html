@@ -78,8 +78,15 @@
       globalThis.outputSettings = outputStream.getAudioTracks()[0].getSettings();
       outputContext = new AudioContext(); observer = outputContext.createAnalyser(); observer.fftSize = 8192;
       outputContext.createMediaStreamSource(outputStream).connect(observer); await outputContext.resume();
-      // Allow tab-loopback transport and the 8192-frame observation window to fill.
-      await new Promise((done) => setTimeout(done, 500));
+      // Wait for actual loopback data, then fill one complete observation window.
+      const deadline = performance.now() + 5000;
+      const samples = new Float32Array(observer.fftSize);
+      do {
+        if (performance.now() >= deadline) throw new Error('Tab output audio did not arrive within 5 seconds');
+        await new Promise(done => setTimeout(done, 25));
+        observer.getFloatTimeDomainData(samples);
+      } while (samples.every(sample => sample === 0));
+      await new Promise(done => setTimeout(done, observer.fftSize / outputContext.sampleRate * 1000));
       globalThis.outputReady = true;
     } catch (error) { globalThis.outputError = error.message; }
   };

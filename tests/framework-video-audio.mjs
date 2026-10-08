@@ -45,7 +45,8 @@ const server = createServer(async (request, response) => {
 await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
 let browser;
 try {
-  browser = await chromium.launch({ channel: "chromium", headless: true, ignoreDefaultArgs: ["--mute-audio"],
+  // Playback/output acceptance needs the native headed browser audio path.
+  browser = await chromium.launch({ channel: "chromium", headless: false, ignoreDefaultArgs: ["--mute-audio"],
     args: ["--auto-select-tab-capture-source-by-title=Video audio acceptance", "--enable-usermedia-screen-capturing"] });
   const generator = await browser.newPage();
   await generator.goto(`http://127.0.0.1:${server.address().port}/generate`);
