@@ -179,3 +179,70 @@ test("translation idle wait includes queued finals and releases immediately on c
   f.calls[2].result.resolve("late"); await tick();
   assert.equal(f.queue.snapshot().find(c => c.source.utteranceId === "three")?.translation.state, "pending");
 });
+
+
+test("Japanese ASR phrase breaks preserve one complete translation revision", async () => {
+  const f = fixture();
+  try {
+    const prepared = f.host.prepare(); f.loads[0].resolve(f.native); await prepared;
+    const input = { ...source("phrases", 2, true), text: "今日は会議をしません 明日午後三時に駅で会いましょう 予約は取り消さないでください" };
+    const iterator = f.host.translate(input, pair)[Symbol.asyncIterator](); const pending = iterator.next();
+    assert.equal(f.calls[0].text, "今日は会議をしません");
+    f.calls[0].result.resolve("오늘 회의하지 않습니다."); await tick();
+    assert.equal(f.calls[1].text, "明日午後三時に駅で会いましょう");
+    f.calls[1].result.resolve("내일 오후 세 시에 역에서 만납시다."); await tick();
+    assert.equal(f.calls[2].text, "予約は取り消さないでください");
+    f.calls[2].result.resolve("예약을 취소하지 마세요.");
+    const translated = (await pending).value as TranslationRevision;
+    assert.equal(translated.text, "오늘 회의하지 않습니다. 내일 오후 세 시에 역에서 만납시다. 예약을 취소하지 마세요.");
+    assert.equal(translated.sourceRevision, 2); assert.equal(translated.final, true);
+    assert.equal(translated.translationRevision, 1); assert.deepEqual(translated.identity, identity);
+    assert.equal((await iterator.next()).done, true);
+    assert.equal(input.text, "今日は会議をしません 明日午後三時に駅で会いましょう 予約は取り消さないでください");
+    assert.ok(f.calls.every(call => call.signal === f.calls[0].signal));
+  } finally { await f.host.close(); }
+});
+
+test("cancelling a Japanese phrase translation discards all parts and suppresses remaining native calls", async () => {
+  const f = fixture();
+  try {
+    const prepared = f.host.prepare(); f.loads[0].resolve(f.native); await prepared;
+    const pending = f.host.translate({ ...source(), text: "最初です 次です 最後です" }, pair)[Symbol.asyncIterator]().next();
+    f.calls[0].result.resolve("첫째"); await tick();
+    assert.equal(f.calls[1].text, "次です");
+    await f.host.cancel(identity); assert.equal(f.calls[1].signal.aborted, true);
+    f.calls[1].result.resolve("늦은 둘째");
+    await assert.rejects(pending, { name: "AbortError" }); assert.equal(f.calls.length, 2);
+    const fresh = f.host.translate(source("fresh", 2, true), pair)[Symbol.asyncIterator]();
+    const current = fresh.next(); f.calls[2].result.resolve("현재");
+    assert.equal(((await current).value as TranslationRevision).translationRevision, 1);
+    await fresh.return?.();
+  } finally { await f.host.close(); }
+});
+
+test("phrase translation rejects an empty part and bounds the complete Korean result", async () => {
+  for (const second of ["", "x".repeat(8193)]) {
+    const f = fixture();
+    try {
+      const prepared = f.host.prepare(); f.loads[0].resolve(f.native); await prepared;
+      const pending = f.host.translate({ ...source(), text: "最初です 次です" }, pair)[Symbol.asyncIterator]().next();
+      f.calls[0].result.resolve("x".repeat(8192)); await tick();
+      f.calls[1].result.resolve(second);
+      await assert.rejects(pending, /Invalid translation result/);
+    } finally { await f.host.close(); }
+  }
+});
+
+
+test("Japanese sentence boundaries retain word spacing and polite questions", async () => {
+  for (const text of ["明日の 午後 三時に 駅で 会いましょう", "行きませんか 今は 三時です"]) {
+    const f = fixture();
+    try {
+      const prepared = f.host.prepare(); f.loads[0].resolve(f.native); await prepared;
+      const iterator = f.host.translate({ ...source(), text }, pair)[Symbol.asyncIterator]();
+      const pending = iterator.next(); assert.equal(f.calls[0].text, text);
+      f.calls[0].result.resolve("합성 결과"); await pending;
+      assert.equal(f.calls.length, 1); await iterator.return?.();
+    } finally { await f.host.close(); }
+  }
+});

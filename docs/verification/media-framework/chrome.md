@@ -49,12 +49,14 @@ unresolved B6 work. Recent replay timing is not a live endpoint pass. Default
 selection may change after B6 evaluation. B5 integration is complete; B6 and the complete Chrome acceptance remain
 unfinished. No Chrome-stage completion marker is authorized by B5 measurements.
 
-B6 also has a reproduced **native Korean semantic omission**: the actual B5
-long Japanese source contains two future-time/station clauses, but its translation
-retains only one. The existing native translation command checks Hangul and
-revision pairing; ASR CER/WER checks cannot qualify Korean meaning. Add a permanent
-real-native regression for the exact source below and evaluate negation,
-cancellation, time, future intent and repetitions before checking B6 complete.
+B6's reproduced **native Korean semantic omission** is now covered by permanent
+real-native semantic-count regressions in iteration 7 below. Japanese sentence
+boundaries preserve both negations and both future-time/station clauses from the
+unchanged actual B5 source. Ten focused native cases pass, including repetitions,
+spaced time expressions and opposite polarity. ASR CER/WER still cannot qualify
+Korean meaning, and these text/native results do not qualify every application
+utterance. The strict noise ASR omission and newly measured sustained Japanese repetition/
+endpoint failures keep B6 and full-stage acceptance unfinished.
 
 
 Verification of this scope update: existing runner tests **20 PASS**, ASR transport
@@ -9566,3 +9568,263 @@ B6 semantic regression coverage; do not substitute the passing full repetitions.
 The probe checks only selected repeated future-time/station meanings, not PCM,
 ASR, complete Korean semantic quality or full-stage acceptance. B6 remains
 unchecked, including its Japanese white-noise ASR failure and this native omission.
+
+
+## 2026-10-09 KST — B6 native semantic boundaries (chrome iteration 7/20)
+
+Entry worktree clean at `11b300d`. Repository AGENTS.md and requested independent
+runner acceptance file are absent. Read plan, full architecture and Chrome
+verification history, including retained B5 and supervised native failure.
+Only next item **B6** is selected; no checkbox is changed by this slice.
+
+### Implementation and scope
+
+Retain the exact synthetic B5 failed source as a permanent native regression,
+distinct from complete Japanese/English repetitions. Extend the existing real
+native translation acceptance from two language controls to **ten cases**:
+original ja/en, two complete periods with and without punctuation, Japanese
+word-spaced time expression, ja/en opposite negation/cancellation/meeting polarity,
+and the exact B5 clipped repeated prefix. Every case retains trusted preparation,
+actual native creation/Korean output, original-first/latest final revision,
+identity, unchanged full source, Stop suppression and owned cleanup assertions.
+
+Five labeled Korean meaning counters require exact counts for today's meeting
+negation, tomorrow, afternoon three, positive future station meeting and the
+instruction not to cancel the reservation. Repetitions require **two** of each;
+the exact B5 source requires **2 / 2 / 2 / 2 / 1**, reflecting its one reservation.
+Opposite-polarity controls require **0 / 1 / 1 / 0 / 0**, distinguishing positive
+meeting/cancellation from the original negatives. Counters accept observed valid
+Korean forms, including absent meeting (`회의가 없어`) and honorific meeting
+(`뵙겠습니다`); they do not change any required occurrence. Matches are local to
+clause anchors and do not greedily swallow repeated unpunctuated Korean clauses.
+This is labeled synthetic text/native quality, not a general Korean semantic
+validator, ASR accuracy, PCM or full application transcript qualification.
+
+The document adapter translates Japanese sentence spans sequentially and joins
+all results into **one** translation for the unchanged full source/revision.
+Japanese punctuation and recognized polite endings followed by a new Han or
+Katakana clause delimit spans, including unpunctuated concatenations. Internal
+word/time spaces and polite question continuations remain intact. English keeps
+its existing whole-input native call. No source text, meaning or punctuation is
+manufactured. This is a narrow Japanese boundary heuristic, not a general
+sentence parser or proof for every Japanese register/quotation/context.
+
+One operation/signal owns all native calls. Each completion checks cancellation;
+no partial joined output is published, canceled parts cannot schedule later calls,
+and a new operation retains the existing revision/identity rules. Every native
+part and the combined result preserve the **16,384-character** output limit.
+Four added mocked contract tests cover one complete revision/full source, shared
+signal, cancellation mid-operation/no subsequent call/no revision consumed,
+empty part/aggregate size rejection, time word spacing and polite questions.
+Mocks establish these contracts only. Source-to-paired timing uses **one browser
+document's performance clock**, including stale partial work before its final;
+it is not real speech-endpoint latency.
+
+### Retained failures and rejected approach
+
+**FAIL `npm run test:framework:chrome:translation`, exit 1**, validated baseline
+counters on unchanged production adapter,
+`chrome-b6-native-baseline.log`. Seven native cases execute, all preparation/
+revision/Stop assertions pass; **five meaning assertions fail**. Punctuation-free
+Japanese complete repetitions retain **one / expected two** negated-today
+meetings. Exact B5 source retains **one / expected two** of negated-today,
+tomorrow, afternoon-three and station meeting; its single reservation remains.
+Original ja/en, punctuated repetitions and unpunctuated English pass all five
+meaning counts. This matches the prior supervised failure; model loading is
+not credited as semantic success.
+
+Initial measurement drafts also exit 1 (`chrome-b6-native-before.log`,
+`chrome-b6-native-regression-before.log`). Their greedy counters undercount some
+correct repetitions, and their today matcher misses valid absent-meeting Korean;
+these drafts are not authoritative accuracy evidence. Correct the new metric
+before the final baseline above. Do not alter sources, expected occurrence counts
+or existing gates to make them pass.
+
+Rejected Japanese whitespace splitting: **FAIL / exit 1**,
+`chrome-b6-native-phrase-attempt-1.log`, seven cases; repeated future-time/station
+counts recover, but the exact joined B5 negation still occurs **one / expected two**.
+**FAIL / exit 1**, `chrome-b6-native-phrase-boundaries.log`, ten cases; the same
+negation omission remains and internal time-word splitting changes `午後` into
+`대낮`, losing the required afternoon-three anchor. This approach is not retained.
+No required environment/device/permission or browser-access blocker occurs.
+
+Sentence-boundary first trial: **FAIL / exit 1**,
+`chrome-b6-native-sentence-attempt-1.log`, ten native cases. Exact B5 Korean
+actually retains both future station meetings with the valid honorific
+`뵙겠습니다`; the new matcher omits that equivalent and reports **0 / expected two**.
+All other meaning assertions pass. Add that precise future-meeting form to the
+new metric, retaining the opposite-polarity controls and every required count.
+Do not reinterpret the command's nonzero exit as PASS.
+
+### Focused passing evidence
+
+**PASS `npm run test:framework:chrome:translation`, exit 0**,
+`chrome-b6-native-sentence-final.log`: typecheck, **11 mocked contract tests /
+0 fail / 48.990792 ms**, and **ten real native cases**, all five counts exact,
+all source/revision/lifecycle assertions pass, page errors **[]**. Native
+preparation **136.762375–147.791708 ms**, excluding owned component startup.
+Final timing instrumentation is subsequently exercised by full-stage acceptance;
+no production adapter edit follows this focused pass.
+
+Exact B5 output retains **two negated-today / two tomorrow / two afternoon-three /
+two positive station meetings / one reservation-not-cancelled**. Its full source
+is unchanged, source/translation revisions are paired at **2**, with original
+pending first and no stale pair. Genuine Korean output is:
+
+```text
+나는 오늘 회의를 하지 않을 것이다 내일 오후 3시에 역에서 뵙겠습니다 예약을 취소하지 마십시오 나는 오늘 회의를 하지 않을 것이다 내일 오후 3시에 역에서 뵙겠습니다
+```
+
+Environment: macOS **26.6.2 / 25G83 / arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**. Same existing browser-managed TranslateKit
+en-ja/en-ko components/cache; no new ASR model/library or fallback. Native API
+still does not expose authoritative loaded pack identity/version. Only owned
+profiles/builds/components and local logs under ignored `.ralph/media-framework`.
+No user profile/access restriction is bypassed.
+
+**PASS `npm run verify`, exit 0**, `chrome-b6-verify.log`: Biome **147 files /
+54 ms / no findings**, Ruff/typecheck, unchanged companion **28 main / 10 content
+modules**, **154 JS / 0 fail / 25,821.158916 ms**, **222 Python / 66.93 s**.
+Production/test source is final; only verification documentation remains to edit.
+**PASS** focused Biome (**3 files / 5 ms / no findings**), native harness Node
+syntax and current whitespace review. Full-stage results follow after execution.
+
+
+### Required full-stage result on final executable source
+
+**FAIL `npm run test:framework:chrome`, exit 1**, exactly one complete invocation,
+`chrome-b6-stage-acceptance.log`. All **12** constituents execute: **10 PASS /
+2 FAIL**, none skipped. Overall `passed: false` is preserved. Do not turn this
+into a stage pass using the successful native or sustained-functional command.
+
+| Constituent npm command | Exact status / exit | Recorded elapsed ms |
+| --- | --- | ---: |
+| `typecheck:framework` | PASS / 0 | 136.724834 |
+| `test:framework:chrome:preparation` | PASS / 0 | 13425.86275 |
+| `test:framework:chrome:channel` | PASS / 0 | 7610.724042000002 |
+| `test:framework:chrome:overlay` | PASS / 0 | 7255.052917000001 |
+| `test:framework:chrome:composition` | PASS / 0 | 2662.2455420000006 |
+| `test:framework:chrome:translation` | PASS / 0 | 7853.431874999998 |
+| `test:framework:chrome:sustained` | PASS / 0 | 739715.7660000001 |
+| `test:framework:chrome:live:gpu-recovery` | PASS / 0 | 215363.25274999999 |
+| `test:framework:chrome:eof` | PASS / 0 | 280873.68820800004 |
+| `test:framework:chrome:quiet` | PASS / 0 | 187776.45337500004 |
+| `test:framework:chrome:noise:learned` | FAIL / 1 | 201375.561125 |
+| `test:framework:chrome:live:sustained:learned` | FAIL / 1 | 546349.946375 |
+
+Final native constituent **PASS / 0**: all **ten real cases**, all **50** exact
+meaning-count expectations, original/full-source/revision/Stop assertions, and
+**11** mocked contract regressions. Common document final-source→paired timing
+**23.19999998807907–89.89999997615814 ms**; exact B5 case
+**73.90000003576279 ms**, retaining **2 / 2 / 2 / 2 / 1**. No preparation time,
+worker time, PCM delivery or independent context clock is substituted for it.
+
+Final sustained extension constituent **PASS / 0**: retained first-download
+failure, real online ja/en, cached offline ja/en restart and Stop during unfinished
+ASR all pass. Companion/Ollama **8765 / 11434 ECONNREFUSED**, no requests to those
+endpoints or native-messaging permission; page errors **[]**, expected injected
+VAD download failure **one console error**. Default small FP16 **487,960,440 bytes**
+and learned VAD **2,243,022 bytes** remain pinned at the existing revisions.
+Offline and ten-minute scenarios add **zero remote requests**.
+
+Ten-minute host interval **600,204.3000000119 ms**, actual captured PCM
+**600,106.6666666666 ms**, **14,065 chunks / 48 kHz / 28,805,120 mono float samples**.
+One session/target/epoch/capture clock; sequence/range/ack checks pass, maximum
+outstanding **1 / limit 4**, final unacknowledged **0**. Frozen snapshot
+**87 jobs / 87 completed results / 87 paired rows**, source revision **1**, exact
+translation revisions **1–87**, original ASR text/full source preserved.
+Contiguous ASR range **32–598,528 ms**; uncompleted snapshot tail
+**1,578.6666666666279 ms** remains pending, not claimed transcribed. Every minute
+advances with **zero reported running loss**, maximum pending **19,338 ms /
+30,000 ms bound**, RSS **3,309,280–3,727,984 KiB** for the whole owned browser tree.
+Stop later observes **3,498 ms** pending and **no unfinished submitted job**;
+explicit tail cancellation, idle controller/queue **0**, retained history,
+no late captions and unchanged ordinary playback all pass. This is functional
+input/revision/queue/cancellation acceptance, not long transcript quality.
+
+Maximum actual worker inference **4,633.900000035763 ms**; same-host
+last-PCM-delivery→source **787.2999999523163–5,328.399999976158 ms**,
+source→paired **8.800000011920929–76.20000004768372 ms**. These are recorded as
+measurements, **not endpoint-to-text passes**. In particular, the long functional
+run includes slow/hallucinated ASR output; genuine paired Korean and zero loss
+cannot qualify its recognition/meaning quality. Full ten-minute semantic counts
+are **UNVERIFIED**. Stop queue zero does not establish normal recognizer EOF drain.
+
+GPU recovery **PASS**: **10 live rounds / 2 exact-job replay groups**, actual
+ja/en runtime GPU loss and explicit fresh recovery/late-result/cancel/input/queue
+assertions; page errors **[]**. EOF **10 cases PASS**, quiet **6 cases PASS**, with
+all original exact counts, CER/WER, <2,000 ms endpoint and normal drain/loss gates.
+These decoded synthetic/noise/quiet cases are not real native Korean quality or
+application DOM runs. Earlier mock composition/overlay results remain mocks.
+
+**Noise FAIL / 1**: all **10 cases** and cached offline ASR execute. Sole retained
+failure `ja/speech-white-noise: every preserved meaning must occur exactly three
+times`. Actual **7.5% CER / 9 edits / 120 units**, meeting count **2**, station
+count **1**, both expected **3**; other five anchors exactly **3**. Outcome
+completed, max pending **9,300 ms**, endpoint intervals
+**1,129.2999999523163 / 1,461.699999988079 / 898 ms**. No-speech ja/en noise/hum
+produce no transcripts. No new CER, latency, normal loss, offline or queue failure
+is reported by this constituent. Passing CER does not excuse the meaning loss.
+
+**Sustained live FAIL / 1**: all **8 live rounds / 2 exact-job replay groups**
+execute. Japanese **18 periods**, **2,009,088 normalized actual samples**, host
+**126,487.5 ms**, **34.86111111111111% CER / 251 edits / 720 units**, exceeding 20%.
+Meeting and negation counts **23**; tomorrow/afternoon/station/reservation/
+not-cancelled counts **24**; every anchor must occur **18**, so all seven fail.
+One common-host full endpoint is **4,934.899999976158 ms**, exceeding 2,000 ms:
+audio **35,712–44,928 ms**, PCM SHA-256
+`9795b58c77d7d2d10c09f11668261c5514841ff03830d8f8c3e57bc4f416bd6a`,
+submission wait **258.80000001192093 ms**, invocation **4,676.099999964237 ms**,
+dispatch **0 ms**. Final packet→text **919.6999999880791 ms** does not erase the
+other endpoint failure. Max pending **14,164.6875 ms**, final normal controller
+pending/loss **0 / 0**, owned-tree peak RSS **4,085,728 KiB**; functional queue/
+drain assertions pass despite these quality/performance failures.
+
+Exact-input replay of all **21** Japanese jobs from that long session reproduces
+**identical text for every job**, **251/720 CER**, and the same **23 / 24** counts,
+with **zero remote requests**. The earlier three-period replay (**2 jobs**) retains
+**2.5% CER / each count 3**. Replay establishes reproducibility of actual collected
+PCM/inference, **not live endpoint timing**. Archived synthetic job PCM/provenance
+stay only in the existing ignored local archive printed by the command; no such
+bytes/text dumps or model weights enter Git. This selected-video ASR-only suite
+does not instantiate the document translator changed here. Do not attribute
+its repeatability to the native semantic change without evidence or erase the
+previous B5 passing sustained-live record.
+
+Long English **19 periods**, **2,027,520 normalized samples**, host
+**127,876.20000004768 ms**, **4.545454545454546% WER / 19 edits / 418 words**,
+all four required phrase counts **19**, max full endpoint
+**1,526.1000000238419 ms**, final packet→text **1,162 ms**, max pending
+**14,879.375 ms**, final normal pending/loss **0 / 0**, owned-tree peak RSS
+**4,107,280 KiB**. Its assertions pass; the constituent still exits 1 on the five
+retained Japanese live/replay aggregate assertions. No averaging conceals them.
+
+### Checklist, unverified scope and next item
+
+**B6 remains unchecked; no checkbox changes.** This slice fixes/evaluates native
+Japanese repetition/negation boundaries while preserving the exact failed source
+and existing acceptance. Next B6 work is default-profile Japanese white-noise
+meeting/station omissions and sustained ASR repetition/CER/endpoint performance,
+using the recorded failing inputs and unchanged **20% / exact counts / <2 s**
+criteria. Do not reopen B2 or advance to Safari/iPhone. No absent required device,
+environment, permission or blocked browser access is observed; no blocker or
+completion marker is claimed and no failed quality suite is rerun to hide it.
+
+**UNVERIFIED/not run**: general Japanese sentence parsing beyond the evaluated
+polite/punctuated cases, quoted/informal/other-register contextual translation,
+semantic quality for every ten-minute app row, complete qualification on external
+sites, English ten-minute application session, physical speaker/native-fullscreen,
+offline full browser restart/remote reload, Safari and physical iPhone. No such
+pass follows from these labeled synthetic sources, PCM or resident models.
+
+Final **PASS** Node native harness syntax, Biome (**3 files / 20 ms / no findings**)
+and whitespace review. **Five intended files** only, including this report and
+plan log. Published companion v0.1.0/native messaging/install/server/legacy
+extension/settings, runner, original media/manifest, model/profile/dependency
+inventory and all pre-existing strict assertions are unchanged. User apps,
+recordings, mounted images and unrelated files are preserved. No agents, push,
+publish, app installation or blocked-access workaround. Credentials, weights,
+user audio/transcripts and temporary `.ralph` state are not committed. Only owned
+acceptance browser profiles/processes are cleaned up by their harnesses. Final
+staged scope/checkbox preservation/whitespace and clean committed worktree are
+checked at delivery. Commit: `fix: preserve repeated Japanese translation clauses`.

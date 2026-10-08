@@ -52,8 +52,21 @@ export function createDocumentTranslator(document: Document, languages: Language
       const operation = { identity, controller: new AbortController() };
       active = operation;
       try {
-        const text = await translator.translate(source.text, { signal: operation.controller.signal });
-        operation.controller.signal.throwIfAborted();
+        // ASR can omit punctuation between Japanese polite sentence endings.
+        // Keep spaces within time phrases; splitting every word loses context.
+        const phrases = pair.source === "ja" ? source.text.split(
+          /(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u,
+        ).map(phrase => phrase.trim()).filter(Boolean) : [source.text];
+        const native = translator;
+        let text = "";
+        for (const phrase of phrases) {
+          operation.controller.signal.throwIfAborted();
+          const part = await native.translate(phrase, { signal: operation.controller.signal });
+          operation.controller.signal.throwIfAborted();
+          if (typeof part !== "string" || !part.trim() || part.length > 16384) throw new Error("Invalid translation result");
+          text += `${text ? " " : ""}${part}`;
+          if (text.length > 16384) throw new Error("Invalid translation result");
+        }
         if (!eligible()) throw new Error("execution-context-unavailable");
         if (typeof text !== "string" || !text.trim() || text.length > 16384) throw new Error("Invalid translation result");
         yield { identity, utteranceId, sourceRevision, translationRevision: ++translationRevision,
