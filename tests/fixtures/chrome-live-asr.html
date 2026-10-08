@@ -61,6 +61,7 @@
     globalThis.transcripts = []; globalThis.queueStatuses = []; globalThis.liveError = undefined; globalThis.finished = false;
     globalThis.raw = {chunks: 0, samples: 0, rates: [], selectedTagPower: 0, otherTagPower: 0, windows: 0, maxMapErrorMs: 0};
     globalThis.normalized = {chunks: 0, samples: 0, first: undefined, last: undefined};
+    globalThis.normalizedDeliveries = [];
     let detectorSamples = 0;
     const detector = learned ? { stop: () => vad.stop(), detect: async frame => {
       const snapshot = frame.slice();
@@ -79,6 +80,7 @@
       const playback = videos.map(video => video.play());
       handle = await input.open(target, identity); await Promise.all(playback);
       globalThis.playbackBefore = state();
+      globalThis.liveStartedAtMs = performance.now();
       const selected = catalog.resolve(target);
       const samples = async function* () {
         try {
@@ -125,12 +127,14 @@
           normalized.chunks++; normalized.samples += event.pcm.byteLength/4;
           normalized.first ??= {audioRange: event.audioRange, capture: event.capture};
           normalized.last = {audioRange: event.audioRange, capture: event.capture};
+          if (vad) normalizedDeliveries.push({audioEndMs: event.audioRange.endMs, atMs: performance.now()});
           yield event;
         }
       };
       for await (const revision of recognizer.run(measured())) transcripts.push({...revision, observedAtMs: performance.now(), mapped: timeline.map(revision.audioRange)});
       globalThis.playbackAfter = state(); globalThis.timesAfter = videos.map(video => video.currentTime);
       globalThis.finished = true;
+      globalThis.liveFinishedAtMs = performance.now();
     } catch(error) { globalThis.liveError = error.message; }
   };
   document.querySelector('#stop').onclick = async () => { await recognizer.cancel(identity); await handle?.close(); };

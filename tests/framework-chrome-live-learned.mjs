@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 import { build } from "vite";
 
 // B2 learned live-input qualification only; no Korean translation/caption DOM.
+const sustained = process.argv.includes("--sustained-input");
 const output = resolve(".ralph/media-framework/chrome-live-learned-build");
 const manifest = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8"));
 for (const clip of manifest.clips) {
@@ -40,9 +41,10 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", liveRuns: [], failures: [] };
+const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, generatedMedia: [], liveRuns: [], failures: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page;
 let peakRssKiB = 0;
+let sustainedMemory;
 const execute = promisify(execFile);
 async function sampleRss() {
   // Sum RSS only for this test browser's process tree. Shared pages can be counted
@@ -56,6 +58,14 @@ async function sampleRss() {
   }
   const rss = processes.filter(([pid]) => owned.has(pid)).reduce((sum, [, , memory]) => sum + memory, 0);
   peakRssKiB = Math.max(peakRssKiB, rss);
+  if (sustainedMemory) {
+    const elapsedMs = performance.now() - sustainedMemory.start;
+    if (Math.floor(elapsedMs/60000) >= sustainedMemory.samples.length) {
+      const sample = { elapsedMs, rssKiB: rss };
+      sustainedMemory.samples.push(sample);
+      console.log(JSON.stringify({ sustainedLiveMemory: { language: sustainedMemory.language, ...sample } }));
+    }
+  }
   return rss;
 }
 function errors(reference, hypothesis, language) {
@@ -90,10 +100,75 @@ try {
   monitor = setInterval(() => { void sampleRss().catch(() => {}); }, 250);
   await page.goto(`${origin}/live`); await page.waitForFunction(() => globalThis.ready);
   observations.baselineRssKiB = await sampleRss();
-  for (const [round, language] of ["ja", "ja", "ja", "en", "ja", "en"].entries()) {
-    const clip = manifest.clips.find(clip => clip.language === language);
-    const periods = round >= 4 ? 3 : 1;
+  if (sustained) {
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
+    // Record longer owned test videos from complete original decoded periods.
+    // Inference still receives actual video playback through production input.
+    const generated = await page.evaluate(async clips => {
+      const context = new AudioContext({ sampleRate: 48000 }); await context.resume();
+      const recordings = [];
+      try {
+        for (const clip of clips) {
+          const decoded = await context.decodeAudioData(await (await fetch(`/${clip.language}.webm`)).arrayBuffer());
+          const samples = Math.round(clip.speechDurationSeconds*48000);
+          if (decoded.sampleRate !== 48000 || decoded.length < samples) throw new Error('Sustained fixture must retain one complete original period');
+          const period = context.createBuffer(1, samples, 48000);
+          period.copyToChannel(decoded.getChannelData(0).subarray(0, samples), 0);
+          const periodSha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', period.getChannelData(0).buffer))]
+            .map(byte => byte.toString(16).padStart(2,'0')).join('');
+          const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 180;
+          const image = canvas.getContext('2d'); image.fillStyle = '#426'; image.fillRect(0, 0, 320, 180);
+          image.fillStyle = 'white'; image.fillText(`${clip.language} synthetic sustained fixture`, 20, 70);
+          const source = context.createBufferSource(); source.buffer = period; source.loop = true;
+          const destination = context.createMediaStreamDestination(); source.connect(destination);
+          const stream = canvas.captureStream(5); stream.addTrack(destination.stream.getAudioTracks()[0]);
+          const recorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp8,opus', audioBitsPerSecond:128000});
+          const parts = []; recorder.ondataavailable = ({data}) => parts.push(data);
+          const stopped = new Promise((done, reject) => { recorder.onstop = done; recorder.onerror = () => reject(new Error('Sustained fixture recording failed')); });
+          const timer = setInterval(() => image.fillRect(0, 0, 1, 1), 200);
+          recordings.push({language:clip.language, samples, periodSha256, periods:Math.ceil(120/clip.speechDurationSeconds),
+            source, stream, recorder, parts, stopped, timer});
+        }
+        for (const recording of recordings) { recording.recorder.start(); recording.source.start(); }
+        // Keep playback open through the two-second result gate and the capture
+        // detach observation; this extra media is outside the ASR capture window.
+        const durationMs = Math.max(...recordings.map(recording => recording.periods*recording.samples/48))+5000;
+        await new Promise(done => setTimeout(done, durationMs));
+        for (const recording of recordings) recording.recorder.stop();
+        await Promise.all(recordings.map(recording => recording.stopped));
+        return await Promise.all(recordings.map(async recording => {
+          const bytes = new Uint8Array(await new Blob(recording.parts).arrayBuffer());
+          let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
+          return {language:recording.language, samples:recording.samples, periodSha256:recording.periodSha256,
+            periods:recording.periods, durationMs, base64:btoa(binary)};
+        }));
+      } finally {
+        for (const recording of recordings) {
+          clearInterval(recording.timer);
+          if (recording.recorder.state !== 'inactive') recording.recorder.stop();
+          recording.source.stop(); for (const track of recording.stream.getTracks()) track.stop();
+        }
+        await context.close();
+      }
+    }, manifest.clips);
+    for (const { base64, ...media } of generated) {
+      const bytes = Buffer.from(base64, "base64"); assert.ok(bytes.length > 10000);
+      await writeFile(resolve(output, `${media.language}-sustained.webm`), bytes);
+      observations.generatedMedia.push({ ...media, bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") });
+    }
+    console.log(JSON.stringify({ generatedMedia: observations.generatedMedia }));
+  }
+  for (const [round, language] of ["ja", "ja", "ja", "en", "ja", "en", ...(sustained ? ["ja", "en"] : [])].entries()) {
+    const clip = manifest.clips.find(clip => clip.language === language);
+    const periods = round >= 6 ? Math.ceil(120/clip.speechDurationSeconds) : round >= 4 ? 3 : 1;
+    await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
+    if (round === 6) await page.evaluate(async () => {
+      await Promise.all([...document.querySelectorAll('video')].map(video => new Promise((done, reject) => {
+        video.pause(); video.addEventListener('loadeddata', done, {once:true});
+        video.addEventListener('error', () => reject(new Error('Sustained fixture media failed')), {once:true});
+        video.src = `/${video.id}-sustained.webm`; video.load();
+      })));
+    });
     await page.evaluate(({ language, duration, round }) => configure(language, duration, round, true), { language, duration: clip.speechDurationSeconds * periods, round });
     // Keep trusted activation without moving the pointer beside native media
     // volume controls; playback-state equality remains required in every round.
@@ -102,14 +177,17 @@ try {
     await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 120000, polling: 100 });
     assert.equal(await page.evaluate(() => prepareError), undefined);
     const live = { round, language, periods, preparationMs: performance.now()-preparationStart, baselineRssKiB: await sampleRss() }; peakRssKiB = live.baselineRssKiB;
+    if (round >= 6) sustainedMemory = { language, start: performance.now(), samples: [] };
     await page.locator("#start").press("Enter");
     if (round === 1) {
       await page.waitForFunction(() => normalized.chunks >= 20 || globalThis.liveError, undefined, { polling: 100 });
       await page.locator("#stop").press("Enter");
     }
-    await page.waitForFunction(() => globalThis.finished || globalThis.liveError, undefined, { timeout: 30000, polling: 100 });
+    await page.waitForFunction(() => globalThis.finished || globalThis.liveError, undefined, { timeout: round >= 6 ? clip.speechDurationSeconds*periods*1000+10000 : 30000, polling: 100 });
     Object.assign(live, await page.evaluate(() => ({ error: liveError, raw, normalized, identity, transcripts, queueStatuses,
-      lastDelivery, invocations, statuses, vadStatuses, detectorFrames, playbackBefore, playbackAfter: state(), timesAfter: [...document.querySelectorAll('video')].map(video => video.currentTime), visibilityEvents })), { peakRssKiB, finalRssKiB: await sampleRss() });
+      lastDelivery, invocations, statuses, vadStatuses, detectorFrames, playbackBefore, playbackAfter: state(), timesAfter: [...document.querySelectorAll('video')].map(video => video.currentTime), visibilityEvents,
+      normalizedDeliveries, liveStartedAtMs, liveFinishedAtMs: globalThis.liveFinishedAtMs })), { peakRssKiB, finalRssKiB: await sampleRss(), memorySamples: sustainedMemory?.samples });
+    sustainedMemory = undefined;
     observations.liveRuns.push(live);
     assert.equal(live.statuses.at(-1).state, "ready");
     assert.equal(live.statuses.at(-1).requiredBytes, 487960440);
@@ -201,6 +279,27 @@ try {
     live.lastPacketToResultMs = live.transcripts.at(-1).observedAtMs - live.lastDelivery.atMs;
     if (periods === 1) assert.ok(live.lastPacketToResultMs >= 0 && live.lastPacketToResultMs < 2000);
     else if (!(live.lastPacketToResultMs >= 0 && live.lastPacketToResultMs < 2000)) observations.failures.push(`${language}/live-${periods}-periods: last-packet-to-text ${live.lastPacketToResultMs} ms exceeds preserved latency gate`);
+    if (round >= 6) {
+      assert.ok(live.normalized.samples/16 >= 120000, "Each sustained language must supply at least two minutes of actual selected-video PCM");
+      live.hostDurationMs = live.liveFinishedAtMs-live.liveStartedAtMs;
+      assert.ok(live.hostDurationMs >= 120000);
+      assert.ok(live.memorySamples.length >= 3, "Sample owned browser RSS at the start and both minute boundaries");
+      live.inferenceOverlapJobs = live.invocations.filter(job => job.deliveredAtEndMs > job.deliveredAtStartMs+100).length;
+      assert.ok(live.inferenceOverlapJobs >= live.invocations.length-1, "Selected-video capture must continue during every nonfinal sustained ASR job");
+      live.endpointLatenciesMs = live.transcripts.map(revision => {
+        const delivery = live.normalizedDeliveries.find(packet => packet.audioEndMs >= revision.audioRange.endMs);
+        assert.ok(delivery, "Each ASR endpoint must have an actual normalized delivery observation");
+        return revision.observedAtMs-delivery.atMs;
+      });
+      if (live.endpointLatenciesMs.some(ms => ms < 0 || ms >= 2000)) observations.failures.push(`${language}/live-${periods}-periods: an endpoint exceeds the preserved 2000 ms gate`);
+      live.minuteQueues = Array.from({ length: Math.ceil(live.hostDurationMs/60000) }, (_, minute) => {
+        const start = live.liveStartedAtMs+minute*60000;
+        const statuses = live.queueStatuses.filter(status => status.atMs >= start && status.atMs < start+60000);
+        assert.ok(statuses.length, "Every sustained minute must contain actual queue observations");
+        return { minute: minute+1, maxPendingAudioMs: Math.max(...statuses.map(status => status.queue.pendingAudioMs)),
+          finalPendingAudioMs: statuses.at(-1).queue.pendingAudioMs, droppedAudioMs: statuses.at(-1).queue.droppedAudioMs };
+      });
+    }
     await page.waitForTimeout(200);
     assert.equal(await page.evaluate(() => raw.chunks), live.raw.chunks, "Capture must detach after completion while playback continues");
     console.log(JSON.stringify({ scoredLive: live }));

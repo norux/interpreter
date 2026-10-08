@@ -4961,3 +4961,211 @@ verification does not override missing full Chrome acceptance or the historical
 Japanese noise failure. B2–B6 remain unchecked. Final document-inclusive unstaged/
 staged whitespace, exact four-file scope and post-commit cleanliness are checked
 before delivery; only harness, package command, report and plan enter the commit.
+
+
+## 2026-10-08 — B2 sustained learned live acquisition (iteration 15/20)
+
+Related commit: `test: expose sustained learned live ASR failures`, containing this
+report. **B2 remains unchecked; no ASR default is selected.** Only B2 advances.
+
+### Scope and observable acceptance
+
+Assumption: iteration 14's paced decoded-input results do not establish sustained
+selected-element acquisition. Extend the existing learned live harness rather
+than add another engine. Added `test:framework:chrome:live:sustained:learned`,
+retaining all six original rounds and adding at least two minutes per language:
+**18 Japanese / 19 English complete periods**. Existing commands retain their
+case sets. No production engine/profile/model/dependency/default/settings changes.
+
+The original hash-checked 24-second videos are too short for these new cases.
+The owned test document decodes one original period at 48 kHz, including its
+isolation carrier, and repeats it into an owned VP8/Opus MediaRecorder fixture.
+Both recordings run concurrently and are written only to ignored local test
+build output. These are **new re-encoded synthetic videos**, not byte-identical
+copies of the original media or captured PCM. Source-period and generated-file
+hashes/bytes are recorded. No microphone, user recording, installed voice, new
+model, transcript prompt or source text supplies inference. The reference text
+scores results afterward. The longer media plays through the actual production
+catalog/input → 48-to-16 kHz normalizer → WASM VAD → FP16 WebGPU ASR path.
+
+All original error/meaning/isolation/mapping/playback/Stop/restart/cache/identity/
+exact-ASR-slice/coverage/queue gates remain: **<=20% CER/WER**, each meaning exactly
+the period count, **<=100 ms leading / <20 ms trailing**, **<=20 s jobs / <=30 s
+pending / zero reported loss / drained queues**, complete detector coverage and
+**<10% input duration in VAD inference**. New sustained checks require >=120 s
+of actually captured normalized PCM and document runtime, capture overlap in all
+but at most one ASR job, queue observations in every minute, start/60/120-second
+RSS samples, and **<2,000 ms at every actual normalized endpoint delivery**.
+Original live final-packet latency and both-video playback preservation still
+apply. Document clocks measure capture/recognition; Node clocks measure RSS;
+worker clocks measure VAD inference. No cross-context origin subtraction.
+
+This is sustained synthetic ASR, not natural speakers/noise, pressure/GPU-loss
+recovery, offline streaming, Korean translation/DOM or ten-minute interpretation.
+
+### First invocation and fixture correction
+
+FAIL: `caffeinate -disu npm run test:framework:chrome:live:sustained:learned`,
+**exit 1**, `chrome-20261008-15-sustained-live-first.log` in ignored local
+`.ralph/media-framework/`: typecheck, **27 focused port tests / 0 failed/skipped/
+cancelled / 259.018709 ms**, build, six original rounds and sustained Japanese
+pass. Japanese captured **6,027,264 raw / 2,009,088 normalized samples**,
+**18/720 = 2.5% CER**, every meaning 18, ten jobs, endpoint latency
+**809.300–1,676.600 ms**, max pending **15,604.6875 ms**, zero loss/drained queue.
+English also returns ten actual jobs over **2,027,520 normalized samples**, then
+fails the unchanged playback-state assertion **before its quality/coverage/
+latency scoring**. Do not count those unreached assertions as passes.
+
+The failure snapshot shows both test videos naturally ended and paused at
+**127.633601 / 127.600929 s**, with readyState 4, no seeking/media error. English's
+last-packet-to-returned-text observation is **1,081.400 ms**. Its generated media
+lasts only the longest requested speech window plus **1,000 ms**; that is too
+short to keep playback open through recognition and the capture-detach check.
+This is a new fixture-duration defect, not a lost user permission/device or an
+adapter playback regression. Extend only the uncollected recording suffix from
+**1,000 to 5,000 ms**, keeping both acquisition stop positions, every period,
+original case, quality gate and playback equality assertion. A corrected second
+invocation follows; no unchanged retry or assertion relaxation.
+
+PASS: first `node --check tests/framework-chrome-live-learned.mjs`, targeted
+Biome **two files / 25 ms / no findings** and preliminary `git diff --check`,
+**exit 0**. Earlier targeted Biome exits 0 with three template-style infos; those
+are corrected before the first browser invocation. Required full Chrome
+acceptance is FAIL, **exit 1**, once, `chrome-20261008-15-stage-acceptance.log`:
+`Missing script: "test:framework:chrome"`. B5's full selected-video PCM → ASR →
+Korean translation → DOM harness is still unimplemented. No B2 substitute or
+placeholder is added. Corrected real-browser and final repository evidence follow.
+
+
+### Corrected invocation: retained qualification failures
+
+FAIL: second/final `caffeinate -disu npm run test:framework:chrome:live:sustained:learned`,
+**exit 1**, `chrome-20261008-15-sustained-live-final.log`: typecheck,
+**27 focused tests / 0 failed/skipped/cancelled / 271.912458 ms**, build,
+**eight actual rounds / 9,844 WASM VAD frames / 32 FP16 WebGPU ASR jobs**.
+All original rounds and sustained English pass. Both sustained runs complete
+all their assertions; the only final failures are Japanese's exact-18 meaning
+count and per-endpoint latency. No third browser invocation.
+
+| Sustained live input | Actual raw 48 kHz / normalized samples | Captured / document runtime ms | Error | Meaning counts | Jobs / overlapping jobs | Endpoint-to-text ms | Peak pending ms | Baseline / peak / final RSS KiB |
+| --- | --- | --- | --- | --- | --- | --- | ---: | --- |
+| Japanese / 18 periods — FAIL | 6027264 / 2009088 | 125568 / 127025.500 | 34/720 = 4.722222% CER | 駅 19; other six 18 | 15 / 14 | 764.700–2099.400 — FAIL | 18271.375 | 2576096 / 2580464 / 1646640 |
+| English / 19 periods — PASS | 6082560 / 2027520 | 126720 / 127796.500 | 19/418 = 4.545455% WER | All 19 | 10 / 9 | 1078.100–1494.800 | 14826 | 2752752 / 2753600 / 1656096 |
+
+Every long nonfinal job overlaps actual selected-video acquisition. All scored
+runs have exact admitted normalized PCM slices, complete contiguous ASR ranges,
+complete detector coverage, <=20-second jobs, zero reported loss and final pending
+zero. Long leading context is **32 ms**, trailing context **zero**. Selected tag
+amplitudes **0.059997429 / 0.059926197**, unselected **0.000343946 / 0.000606309**,
+map error **59.063667 / 48.230333 ms**. VAD totals **2426.500 / 2502.500 ms**
+are below the unchanged 10% duration gate. Both videos preserve source, volume,
+mute, rate and advancing playback after completion; capture detach checks pass.
+
+Japanese's failed endpoint is **63,648–79,808 ms**, **16,160 ms** of actual input,
+not a forced 20-second job. Its host call is **1,843.300 ms**, but endpoint-to-text
+is **2,099.400 ms**. The preserved final-packet metric **1,464.900 ms** cannot
+replace that failing endpoint gate. Its extra station occurrence also fails
+meaning despite <=20% CER and zero queue loss. First-run Japanese passed with
+ten jobs; corrected-run Japanese has fifteen. Source-period hashes/sample/repeat
+counts match between invocations, but new MediaRecorder output and live captures
+are not byte-identical; no causal attribution to suffix, segmentation, codec or
+natural noise is established. The failures remain failures.
+
+Japanese boundaries ms:
+`32, 14720, 25760, 35648, 46688, 56576, 63648, 79808, 84672, 86784, 91648, 98304, 105376, 106848, 112448, 125568`.
+English boundaries ms:
+`32, 11168, 21408, 34720, 48064, 61408, 74720, 88064, 101408, 114720, 126720`.
+
+Minute queue peak/end pending ms: Japanese **16436.6875/3412.6875,
+18271.375/7530, 13120/0**; English **14815.375/11924.6875, 14826/5258, 12000/0**.
+Every window reports zero loss. Window three covers only final partial-minute
+input/drain. Start/60/120-second RSS KiB: Japanese
+**2580464 / 2221984 / 2243584**, English **2753600 / 2566000 / 2477216**;
+boundary samples occur within **242.614 ms** of their nominal Node-clock minute.
+RSS samples every 250 ms sum only the owned browser tree, including shared-page
+double counting, renderers/GPU, allocator/model residency and harness PCM/media.
+Case baselines/peaks start after preparation. These diagnostics do not establish
+isolated model memory, preparation peak, leak freedom, pressure/storage handling
+or mobile performance. Latencies exclude preparation, speech accumulation,
+translation and display; these are observations, not population percentiles.
+
+Five original scored rounds retain Japanese **1/40, 1/40, 3/120 CER**, English
+**1/22, 3/66 WER**, every meaning once/three times, last-packet-to-text
+**826.200–1068.700 ms**, zero loss/drained queues. Stop observes real detector
+processing, reports `cancelled`, **863.375 ms** intentionally discarded, zero
+pending/no transcript and detached capture; restart passes. Native visibility
+and page errors are `[]`. Pinned model paths/requests **16 / 16**.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**,
+Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**. Locked Transformers.js **4.3.0**
+and ORT unchanged. Same small FP16 WebGPU
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`
+(**seven files / 487,960,440 bytes**) and Silero WASM
+`onnx-community/silero-vad@e71cae966052b992a7eca6b17738916ce0eca4ec`
+(**one file / 2,243,022 bytes**). One fresh inventory each per invocation,
+then cached fresh workers; two invocations total, no new model. Final initial
+preparation **53,753.264792 ms**, cached **1,223.167041–1,627.839250 ms**;
+these are model loading, not transcription latency. Final initial owned-tree
+RSS **1,440,608 KiB**, case peak **3,900,432 KiB**, with the limitations above.
+
+Final generated media: Japanese **2,191,142 bytes**, SHA-256
+`bb602501cd05377f81338d050e529fdaa0f30f3326c6d61ef81670579e7a7486`;
+English **2,193,135 bytes**, SHA-256
+`5a9f74ce421d8a57684a3dd63db7b8f32897fe02798a02d92e626e850e41d03f`.
+Source-period 48 kHz samples/hash: Japanese **334667** /
+`62849952bbacc0aef37547d98da09920ed70a8afa5f3f7ebf9004f1a5ccd3886`,
+English **319991** /
+`0d6a8683900044ef06ced7717b879e05d4eeb772e611fce41cc389447ea6b856`.
+Both final recording durations requested **131663.104167 ms**. Files stay ignored;
+recording timestamps/codec output are not asserted reproducible across runs.
+
+PASS: explicit Python assertions over recorded results, **exit 0**, tool output:
+all eight playback/cache/accounting checks, all scored input/coverage/error-rate/
+queue checks, every long nonfinal capture overlap, exactly the two Japanese
+qualification failures, and final generated-file hashes/bytes. Separate assertions
+confirm both source-period hashes/sample/repeat counts match between invocations
+and requested recording suffix alone increases by **4,000 ms**. This is evidence
+analysis, not another inference run or a passing browser acceptance outcome.
+PASS: final harness syntax, targeted Biome **two files / 32 ms / no findings**
+and preliminary document-inclusive whitespace, **exit 0**.
+
+### Next unfinished item and preservation
+
+**B2 remains next:** resolve the new sustained Japanese repetition/endpoint
+failures while retaining these cases/gates, along with the historical louder-noise
+Japanese meeting/station failure; qualify no-pause/quiet phoneme boundaries,
+natural speakers/noise, sustained learned live GPU/pressure recovery, ten-minute
+live processing, memory/storage and conversion/distribution licensing before
+choosing a default. Original noise/full-candidate/stream/EOF/quiet/paced-sustained/
+VAD/B1 commands are not rerun; prior evidence stays historical. Offline learned
+streaming/full interpretation, Korean translation/revisions/DOM, B3–B6,
+installation and Safari/iPhone remain **unverified**. B2–B6 stay unchecked.
+No stage/framework/iPhone completion claim. No required environment/device/
+permission is absent; failed qualification/incomplete implementation warrants
+neither terminal marker.
+
+Supplied instructions/plan/architecture/prior report read; root/nested AGENTS.md
+and requested independent runner evidence are absent. Work stays in this worktree;
+companion v0.1.0/install/native messaging/server/settings and unrelated files/apps/
+recordings/mounted images are preserved. No agents, runner edit, stage advance,
+push/publish/app installation or blocked browser/profile/permission bypass. Only
+owned test browser/profile/recorder resources are cleaned up. Credentials, weights,
+user audio/transcripts and ignored temporary state stay out of the commit.
+Required repository verification and commit checks follow after execution.
+
+
+### Final required verification and Git checks
+
+PASS: `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-15-verify.log`: Biome **115 files / 57 ms / no findings**, Ruff,
+typecheck, unchanged companion build (**28 main / 10 content modules**),
+**113 JS passed / 0 failed/skipped/cancelled / 21,180.684167 ms**,
+**222 Python passed / 66.91 s**, Python **3.12.15**. It runs after both real
+browser invocations; later changes finish only Markdown evidence. This repository
+pass does not override the Japanese sustained meaning/endpoint failures or missing
+full Chrome acceptance. B2–B6 remain unchecked.
+
+Document-inclusive unstaged/staged whitespace, the exact five-file commit scope
+and post-commit worktree cleanliness are checked before delivery. Only package
+command, learned live harness, shared test fixture, report and plan enter the
+commit; ignored temporary evidence/media/models/profiles and user data are excluded.
