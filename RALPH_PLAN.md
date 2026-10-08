@@ -7380,3 +7380,74 @@ No required environment/permission blocker or completion marker. AGENTS.md and
 requested independent runner log absent. Only owned test browsers/profiles cleaned;
 `.DS_Store` preserved untracked. No agents/app installs/push/publish, temporary
 state/model/user media/credentials commits or user apps/recordings/mounts changes.
+
+### 2026-10-09 / chrome / iteration 3/20 — B5a production tab host slice
+
+관련 commit: `feat: connect Chrome tab capture to production host` (record included).
+**B5a stays first unfinished and unchecked; B6 tuning stays stopped.** Production
+native action now opens a persistent tab host; standalone permissions add only
+`tabCapture`. Capture/output starts before model loading and optional page injection,
+with no video discovery or selection. Original-tab controls, language-change
+recapture, Stop, navigation/host teardown, capture-elapsed comparison and optional
+no-video page overlay connect to the existing composition/policy. Selected-video
+host/adapters remain built; their retained harnesses explicitly use the former
+selected action in a test copy. Companion/settings, runner, other stages and strict
+quality/latency/loss criteria are preserved.
+
+Actual regressions established before fixes: tab composition FAIL / exit 1 at
+30,000 ms; scope units **28 passed / 4 failed / 333.171791 ms**, exit 1, because
+normalizer/speech reject `tab-mix`. Fix accepts both declared scopes, preserves
+scope through unchanged resampling/segmentation and rejects mid-session scope
+changes as audio-gap; unknown scope/format/payload gates stay intact. Scope units
+PASS / exit 0, **32 passed / 313.679209 ms**. Composition PASS / exit 0, **15 unit
+passed / 55.867667 ms** plus actual DOM with MOCKED input/workers/native translator:
+elapsed labels, paired synthetic revisions and late translation retirement; no
+real accuracy claim. Temporary guard-refactor typecheck FAIL (TS18046/TS2345/TS2322,
+individual exit unverified); subsequent typecheck PASS / exit 0.
+
+Production `npm run test:framework:chrome:tab-host`: initial and language-change
+runs PASS / exit 0; added duplicate-native-action regression FAIL / exit 1 because
+rejected capture disconnected the first host's overlay. Final executable behavior
+PASS / exit 0 after injection is gated by capture success. Actual native duplicate
+capture failure now preserves the first capture/overlay. No-video actual Web Audio,
+production permission/action grant, real playback before models, two Stop/recapture
+cycles, language change, host closure and navigation pass; pageErrors []. Independent
+native 440 Hz output: preparation **0.10000009952263322**, repeat capture
+**0.09912049883570978 / 0.10000010339440445**, restored Stop
+**0.10000010555836819 / 0.10000010636711823**, restored host closure
+**0.10000011120378101**; known output within 3% and repeat ratio within 12%.
+Synthetic original/Korean page DOM/fullscreen/clear/late-message checks are rendering
+and transport evidence only. Native toolbar physical click/speaker listening/zero
+initial interruption/independent permission revocation remain UNVERIFIED.
+
+PASS / exit 0: retained `:tab-input` (typecheck, **3 unit passed / 45.687791 ms**,
+real headed five fixtures, **10 × 20 contiguous 8192-byte chunks**, original-tab
+isolation, Stop/playback restoration, recapture/host/navigation/tab closure).
+Maximum other-tab marker **0.00000971611769894719 < 0.001**, native-output deviation
+**2.5244578661980377% < 12%**, overflow **213.33333333333331 ms discarded** and
+actual restored output **0.10000010637403689**. `:channel` passes retained real
+selected-video PCM (two × 24 chunks); `:overlay` passes retained selected rendering
+(4 units / 1164.261709 ms, synthetic revisions). Final input/output/scope units
+**40 passed / 0 failed/skipped/cancelled / 1186.012125 ms**, exit 0.
+
+`npm run verify` PASS / exit 0: initial **160 JS / 222 Python**; final after the
+new duplicate-host hypothesis/fix **161 JS passed / 0 failed/skipped/cancelled /
+26637.424458 ms**, **222 Python passed / 66.98 s**, Biome **161 files / 57 ms**,
+Ruff/typecheck/existing companion build. Final focused lint, harness syntax and
+whitespace PASS. Exact failures/passes and scalar measurements are in the
+[Chrome report](docs/verification/media-framework/chrome.md), with ignored logs
+`chrome-tab-{host,composition,scopes,contracts,selected-channel,selected-overlay,input}-iteration-3*`
+under `.ralph/media-framework/`. No model/dependency download, app install, agent,
+push/publish, user-profile workaround or user-app/media/mount changes.
+
+The full Chrome command adds both focused tab-input and production-host checks
+without removing any existing constituent. Full Chrome/unchanged model/native/
+quality/ten-minute suites NOT RUN this partial iteration. Required
+`test:framework:chrome:tab-capture` remains unimplemented; next B5a is real
+Japanese/English tab PCM → smallFp16 ASR → native Korean → comparison/page DOM,
+actual stale inference/capture interruption/revocation and full tab acceptance.
+Then B6 must qualify the new default against all retained strict quality/latency/
+long-run criteria; historical failures remain FAIL. No stage/framework/Safari/
+physical-iPhone completion or required environment blocker; no terminal marker.
+AGENTS.md/requested runner log absent. `.DS_Store` preserved untracked/unstaged;
+no credentials, weights, user audio/transcripts or temporary .ralph state staged.

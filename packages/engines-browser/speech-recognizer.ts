@@ -55,6 +55,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       let active = false;
       let ended = false;
       let sequence: number | undefined;
+      let scope: AudioChunk["scope"] | undefined;
       let endMs: number | undefined;
       let clockId: string | undefined;
       let captureEndMs: number | undefined;
@@ -172,18 +173,18 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
             if (!next || next.done) break;
             const chunk = next.value;
             if (!sameIdentity(selected, chunk.identity)) { stop("audio-gap"); return; }
-            if (!validAudio(chunk) || chunk.scope !== "selected-video" || chunk.sampleRate !== 16000
+            if (!validAudio(chunk) || !["selected-video", "tab-mix"].includes(chunk.scope) || chunk.sampleRate !== 16000
               || chunk.channels !== 1 || chunk.sampleFormat !== "pcm-f32le" || !(chunk.pcm instanceof ArrayBuffer) || chunk.pcm.byteLength > 12800) {
               stop("engine-failed"); return;
             }
             const pcm = new Float32Array(chunk.pcm);
             if (!pcm.every(sample => Number.isFinite(sample) && Math.abs(sample) <= 1)) { stop("engine-failed"); return; }
-            if (sequence !== undefined && (chunk.sequence !== sequence + 1 || Math.abs(chunk.audioRange.startMs - (endMs as number)) > 0.001
+            if (sequence !== undefined && (chunk.sequence !== sequence + 1 || chunk.scope !== scope || Math.abs(chunk.audioRange.startMs - (endMs as number)) > 0.001
               || chunk.capture.clockId !== clockId || Math.abs(chunk.capture.startMs - (captureEndMs as number)) > 0.001)) {
               // A gap invalidates all affected context; never concatenate across it.
               stop("audio-gap"); return;
             }
-            sequence = chunk.sequence; endMs = chunk.audioRange.endMs;
+            scope = chunk.scope; sequence = chunk.sequence; endMs = chunk.audioRange.endMs;
             clockId = chunk.capture.clockId; captureEndMs = chunk.capture.endMs;
             bufferedSamples += pcm.length;
             if (bufferedSamples > 16000 * 30) { stop("overloaded"); return; }

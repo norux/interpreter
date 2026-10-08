@@ -5,6 +5,8 @@ import { spawn } from "node:child_process";
 const commands = [
   "typecheck:framework",
   "test:framework:chrome:preparation",
+  "test:framework:chrome:tab-input",
+  "test:framework:chrome:tab-host",
   "test:framework:chrome:channel",
   "test:framework:chrome:overlay",
   "test:framework:chrome:composition",

@@ -12,8 +12,12 @@ const output = resolve(".ralph/media-framework/chrome-channel-build");
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: { outDir: output } });
 await build({ configFile: false, logLevel: "warn", build: { outDir: output, emptyOutDir: false,
   rollupOptions: { input: { channel: resolve("apps/chrome/channel.ts"), timeline: resolve("packages/core/timeline.ts") }, preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } } } });
+// Preserve selected-video regressions under a test-owned action. The default
+// production action is verified separately by the tab-host harness.
+await build({ configFile: false, logLevel: "warn", build: { outDir: output, emptyOutDir: false,
+  rollupOptions: { input: { "service-worker": resolve("tests/fixtures/selected-action.ts") }, output: { entryFileNames: "[name].js" } } } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
-assert.deepEqual(manifest.permissions, ["activeTab", "scripting"]);
+assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture"]);
 assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.action.default_popup, undefined);
 assert.equal(manifest.key, undefined);
@@ -70,7 +74,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 // Keep the exact production permission mask. Native action grants this tab.
 const profile = await mkdtemp(resolve(".ralph/media-framework/chrome-channel-profile-"));
 let context;
-const observations = { pageErrors: [], productionPermissions: ["activeTab", "scripting"],
+const observations = { actionEntry: "test-owned selected-video action; production tab action is checked by :tab-host", pageErrors: [], productionPermissions: manifest.permissions,
   hostPermissions: manifest.host_permissions ?? [], toolbarActiveTabGrant: "native action dispatch; physical toolbar click unverified", runs: [] };
 try {
   context = await chromium.launchPersistentContext(profile, { channel: "chromium", headless: false,

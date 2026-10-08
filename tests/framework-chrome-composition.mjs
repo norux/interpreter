@@ -52,6 +52,7 @@ const server = createServer(async (request, response) => {
         }
       }});
       globalThis.opened = []; globalThis.closedInputs = 0;
+      globalThis.tabMode = false;
       globalThis.input = {probe: async () => ({state:'available'}), async open(target, identity) {
         const state = {target, identity, closed:false}; opened.push(state);
         state.interrupt = type => {
@@ -60,13 +61,13 @@ const server = createServer(async (request, response) => {
         };
         const close = async () => {if (!state.closed) {state.closed=true; closedInputs++; state.wake?.()}};
         return {close, events: {async *[Symbol.asyncIterator]() {
-          yield {identity, sequence:0, type:'play', anchor:{clockId:'fixture-clock', monotonicMs:100, mediaTimeMs:12000, playbackRate:1}};
+          if (!tabMode) yield {identity, sequence:0, type:'play', anchor:{clockId:'fixture-clock', monotonicMs:100, mediaTimeMs:12000, playbackRate:1}};
           for (let sequence=0; sequence<80 && !state.closed; sequence++) {
             await new Promise(resolve => setTimeout(resolve, 3));
             if (state.closed) return;
             if (state.event) {yield state.event;return}
             const pcm = new Float32Array(512).fill(sequence<30 ? 0.2 : 0);
-            yield {identity, scope:'selected-video', sequence, sampleRate:16000, channels:1, sampleFormat:'pcm-f32le',
+            yield {identity, scope:tabMode ? 'tab-mix' : 'selected-video', sequence, sampleRate:16000, channels:1, sampleFormat:'pcm-f32le',
               audioRange:{startMs:sequence*32, endMs:(sequence+1)*32},
               capture:{clockId:'fixture-clock', startMs:100+sequence*32, endMs:100+(sequence+1)*32}, pcm:pcm.buffer};
           }
@@ -237,6 +238,36 @@ try {
   assert.equal(correctedOriginal.text, "교정 원문");
   observations.checks.push("First translation and corrected pending source start at their own beginning after measured long-text paging");
 
+  // A no-video tab has elapsed sample time and no playback anchor. These are
+  // synthetic contract results, not real tab ASR/native translation acceptance.
+  await page.evaluate(async () => {
+    await app.dispose(); deferPreparation=false; tabMode=true;
+    const {createChromeComposition}=await import('/composition.js');
+    globalThis.tabApp=createChromeComposition(document.querySelector('#app'),input,undefined,undefined,'tab-mix');
+    await tabApp.select({id:'tab-target',documentId:'tab-host',frameId:'tab'},'en');
+  });
+  await prepare.click(); await page.waitForFunction(() => !document.querySelector('#app button:nth-child(2)').disabled);
+  await start.click(); await page.waitForFunction(() => translations.length===3);
+  const tabRow=page.locator('#app tbody tr'); await tabRow.waitFor();
+  assert.equal(await page.locator('#app th').nth(1).textContent(),'Capture elapsed');
+  assert.match(await tabRow.locator('td').nth(1).textContent(),/^0\.0–/);
+  assert.equal(await page.locator('video').count(),0);
+  await page.evaluate(() => translations[2].resolve('합성 탭 번역'));
+  await page.waitForFunction(() => document.querySelector('#app tbody tr').dataset.translationState==='paired');
+  assert.equal(await tabRow.locator('td').nth(2).textContent(),'합성 탭 번역');
+  await stop.click(); assert.equal(await prepare.isDisabled(),true);
+  await page.evaluate(async () => {await tabApp.select({id:'tab-target',documentId:'tab-host',frameId:'tab'},'en')});
+  await prepare.click(); await page.waitForFunction(() => !document.querySelector('#app button:nth-child(2)').disabled);
+  await start.click(); await page.waitForFunction(() => translations.length===4);
+  await page.evaluate(() => tabApp.select(null,'en'));
+  await page.evaluate(() => translations[3].resolve('late tab translation'));
+  await page.waitForTimeout(100);
+  assert.equal(await tabRow.last().getAttribute('data-translation-state'),'pending');
+  assert.equal(await page.locator('#app .interpreter-live').textContent(),'');
+  assert.equal(await page.evaluate(() => translations[3].signal.aborted),true);
+  assert.equal(await start.isDisabled(),true); assert.equal(await prepare.isDisabled(),true);
+  observations.checks.push('No-video tab composition uses capture elapsed, pairs synthetic revisions, requires recapture after Stop and rejects late translation after tab retirement');
+  await page.evaluate(async () => {await tabApp.dispose()});
   await page.evaluate(async () => {await app.dispose();policy.dispose();view.dispose()});
   assert.equal(await page.locator("#app section").count(), 0); assert.equal(await page.locator("#view section").count(), 0);
   assert.deepEqual(observations.pageErrors, []);

@@ -71,3 +71,18 @@ test("page output validates envelopes, selected document and exact source/transl
     wire.receive(value); assert.equal(wire.disconnected, 1); assert.equal(unsubscribed, 1); assert.equal(wire.sent.length, 0);
   }
 });
+
+test("tab page output validates mixed-input identity and forbids fabricated video ranges before DOM", () => {
+  const tab = { ...target, frameId: "tab", scope: "tab-mix", tabId: 12 };
+  for (const value of [
+    { version: 1, sequence: 0, type: "activate", target, identity },
+    { version: 1, sequence: 0, type: "activate", target: { ...tab, scope: "selected-video" }, identity },
+    { version: 1, sequence: 0, type: "activate", target: { ...tab, tabId: 0 }, identity },
+    { version: 1, sequence: 0, type: "activate", target: tab, identity: { ...identity, targetId: "other" } },
+    { version: 1, sequence: 0, type: "caption", caption: { ...caption, videoRange: { startMs: 0, endMs: 1000 } } },
+  ]) {
+    const wire = port();
+    serveVideoOutput(wire as unknown as chrome.runtime.Port, undefined, {} as Document);
+    wire.receive(value); assert.equal(wire.disconnected, 1); assert.equal(wire.sent.length, 0);
+  }
+});

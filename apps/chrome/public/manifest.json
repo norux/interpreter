@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Interpreter — selected video",
+  "name": "Interpreter — tab audio",
   "version": "0.1.0",
-  "description": "Local selected-video interpretation development build.",
+  "description": "Local whole-tab audio interpretation development build.",
   "minimum_chrome_version": "138",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "tabCapture"],
   "background": { "service_worker": "service-worker.js", "type": "module" },
-  "action": { "default_title": "Interpret selected video" },
+  "action": { "default_title": "Interpret tab audio" },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co"
   },

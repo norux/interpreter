@@ -12214,3 +12214,202 @@ Final audit: append-only report/plan and unchanged checklists PASS; final focuse
 Biome (4 ms), syntax and whitespace PASS. Five-file staging whitelist contains
 only the harness, two observer fixtures, report and plan; `.DS_Store` stays
 untracked and unstaged, as required by the plan. All intended work is committed.
+
+## 2026-10-09 KST — B5a production tab host (chrome iteration 3/20)
+
+**B5a remains first unfinished and unchecked. B6 tuning remains stopped.** Entry
+HEAD `a632960` had only the preserved untracked `.DS_Store`. Repository AGENTS.md
+and requested independent runner log
+`2026-10-08T21-59-42-338Z-chrome-verification.txt` are absent. Read the supplied
+instructions, plan, architecture and retained Chrome scope/evidence. This is a
+partial production-input/presentation integration, not full B5a acceptance.
+
+### Retained implementation and observable scope
+
+The production action now opens `tab-host.html` and the standalone manifest adds
+only `tabCapture` to its existing `activeTab`/`scripting` permission mask. There
+are no host permissions, microphone/system capture or offscreen permission. The
+persistent extension host immediately obtains/consumes the stream in its own
+document and restores playback before optional page injection and model loading.
+Capture does not depend on media discovery, iframe injection or a selected video.
+The service worker carries no PCM or inference. The existing persistent-document
+approach is sufficient in the actual browser measured below.
+
+The host binds to the original tab. Language changes and explicit recapture retire
+old input/engines; Stop requires recapture before preparing again. Navigation,
+original-tab closure or adapter interruption retires the composition synchronously
+and requires a fresh extension action. Host closure releases owned capture.
+Composition now awaits input cancellation alongside engine/controller cleanup.
+Comparison shows **Capture elapsed** from the source audio range, with no
+fabricated video anchor. Selected-video views retain **Video time** and explicit
+Unavailable when no anchor exists. History/revisions and shared caption policy
+remain in the existing composition/presentation modules.
+
+`tab-content.js` provides an optional page overlay with no media catalog or input
+graph. It uses the existing validated bounded output protocol, a separate tab
+channel and tab-scope/identity validation, rejecting fabricated video ranges.
+It renders at the page bottom and inside ordinary fullscreen containers; native
+media fullscreen hides it and keeps the host comparison available. Losing this
+optional output channel reports its limitation without cancelling tab input.
+Page injection occurs only after capture succeeds, so a rejected competing host
+cannot replace a running host's overlay. Existing selected-video host/input/output
+remain built and tested. Retained selected-video channel and extension harnesses
+use an explicitly test-owned former action; they do not claim to test the new
+production action. Their original PCM/model/quality assertions remain intact.
+
+The new tab composition regression reproduced an actual engine-boundary defect:
+normalization and speech ingestion rejected `tab-mix`. Four failing unit
+regressions were established before correcting it. Both accepted scopes now pass
+through the unchanged resampling/segmentation algorithms, normalization preserves
+input scope, and a scope change mid-session fails as `audio-gap`. Unknown scopes,
+formats, clocks, queues and payload bounds remain rejected. Existing tests that
+rejected tab input now reject unknown scopes; this implements the newly authorized
+input scope and does not relax any quality, amplitude, latency or loss criterion.
+No model/VAD/decoder tuning or default change is retained.
+
+### Actual commands, failures and passing evidence
+
+All evidence below is ignored under `.ralph/media-framework/`; no logs, profiles,
+weights, user audio/transcripts or temporary state are committed.
+
+- `npm run test:framework:chrome:tab-host`, `chrome-tab-host-iteration-3-first.log`:
+  **PASS / exit 0**, real production native action/host, initial no-video/output/
+  Stop/closure/navigation and synthetic page output coverage.
+- Same command, `...-final.log`: **PASS / exit 0**, adds English language-change
+  recapture. Neither run loads ASR or native Translator.
+- Same command, `...-duplicate-baseline.log`: **FAIL / exit 1**, the second native
+  action correctly reports actual `active stream` capture failure, but its optional
+  injection disconnects the first host's page output. First capture remains active;
+  old overlay availability assertion fails. This is a functional regression,
+  not an absent browser permission/environment blocker.
+- Same command, **final executable behavior**, `...-duplicate-fixed.log`:
+  **PASS / exit 0** after moving optional injection behind capture success.
+  Duplicate failure leaves the first capture and overlay connection intact. Native
+  action grant is real `Extensions.triggerAction`, not a manually called listener.
+  Physical toolbar clicking remains **UNVERIFIED**. Page errors **[]**.
+- `npm run test:framework:chrome:composition`,
+  `chrome-tab-composition-iteration-3-first.log`: **FAIL / exit 1**, 15 unit tests
+  pass (57.959791 ms), but new tab browser case times out at 30,000 ms because
+  `tab-mix` is rejected before translation. Existing selected/layout checks pass.
+- `node --import tsx --test tests/framework-browser-normalize.test.ts tests/framework-browser-speech.test.ts`,
+  `chrome-tab-scopes-iteration-3-baseline.log`: **FAIL / exit 1**, **28 passed /
+  4 failed / 333.171791 ms**. All four new scope regressions fail before the fix.
+  `...-fixed.log`: **PASS / exit 0**, **32 passed / 0 failed / 313.679209 ms**.
+- `npm run test:framework:chrome:composition`, `...-fixed.log`: **PASS / exit 0**,
+  typecheck, **15 unit passed / 0 failed / 55.867667 ms**, Chrome build and actual
+  headless DOM. Selected-video mapping/replay remains intact; no-video tab rows use
+  elapsed time, exact synthetic paired revisions, Stop/recapture requirements and
+  late translation suppression. All workers, native translator and input in this
+  harness are explicitly **MOCKED**; page errors **[]**. No accuracy claim.
+- `npm run test:framework:chrome:channel`,
+  `chrome-tab-selected-channel-iteration-3.log`: **PASS / exit 0**, typecheck,
+  retained selected-input unit tests and real headed extension PCM transport.
+  Two runs each have **24 contiguous 8,192-byte chunks**, target-only acquisition,
+  video mapping, native playback and unauthorized-tab rejection. This uses the
+  test-owned selected action with the exact new production permission mask.
+- `npm run test:framework:chrome:overlay`,
+  `chrome-tab-selected-overlay-iteration-3.log`: **PASS / exit 0**, typecheck,
+  **4 unit passed / 0 failed / 1164.261709 ms**, real selected-video overlay
+  layout/fullscreen/retirement with synthetic captions and test-only localhost
+  presentation permission. No tab/ASR/translation accuracy claim.
+- `node --import tsx --test tests/framework-chrome-overlay.test.ts tests/framework-chrome-tab-input.test.ts tests/framework-browser-normalize.test.ts tests/framework-browser-speech.test.ts`,
+  `chrome-tab-contracts-iteration-3-final.log`: **PASS / exit 0**, **40 passed /
+  0 failed/skipped/cancelled / 1186.012125 ms**, including new tab-wire rejection
+  of selected targets, wrong scope/tab identity and fabricated video ranges.
+  Earlier input/output-only run: **7 passed / 0 failed / 1237.939916 ms**.
+- A temporary overlay type-guard refactor reports TS18046, TS2345 and TS2322 in
+  `npm run typecheck` (**FAIL**, individual exit was not captured separately from
+  the following passing lint command). Direct predicate narrowing corrects it;
+  subsequent standalone typecheck **PASS / exit 0**. Initial and final focused
+  Biome runs **PASS**, latest **42 files / 22 ms**, with no fixes.
+
+### Real production and retained input measurements
+
+Final production-host native output uses an independent test-owned
+`getDisplayMedia` observer with local playback suppression, AGC, echo cancellation
+and noise suppression disabled. Expected 440 Hz amplitude is **0.1**, readiness
+within **3%**, repeat-output preservation within **12%**. Actual final measurements:
+
+| Production surface/transition | Actual 440 Hz amplitude |
+| --- | --- |
+| Captured host before model preparation | 0.10000009952263322 |
+| English language change / original-tab recapture | 0.1000001002529646 |
+| Site output after Stop 1 / Stop 2 | 0.10000010555836819 / 0.10000010636711823 |
+| Host output after recapture 1 / recapture 2 | 0.09912049883570978 / 0.10000010339440445 |
+| Site output after live production-host closure | 0.10000011120378101 |
+
+The source has **zero video/audio elements** and actually plays Web Audio. All
+capture Start/Stop controls operate in the real production host without models.
+Synthetic pending/Korean revisions traverse actual validated extension ports into
+page DOM; text is safe, fullscreen-container output is visible, clear rejects late
+output, and deliberate overlay-port loss leaves real capture active. These are
+rendering/transport checks, not real Japanese/English transcription or translation.
+
+`npm run test:framework:chrome:tab-input`, `chrome-tab-input-iteration-3.log`:
+**PASS / exit 0**, typecheck, **3 unit passed / 0 failed/skipped/cancelled /
+45.687791 ms**, retained headed actual-input/output harness. Remove its duplicate
+addition of `tabCapture` now that the production manifest contains that permission.
+It still uses a test-owned action/input host and does not replace production e2e.
+
+| Actual tab input | PCM marker, two rounds | Site output after Stop, two rounds | Site output after host closure |
+| --- | --- | --- | --- |
+| No-video Web Audio, 440 Hz | 0.09990303341873008 / 0.09969963522783112 | 0.10000011460789751 / 0.10000011458648755 | 0.10000010552281516 |
+| Top + cross-origin Web Audio, 440 Hz | 0.0998848409883112 / 0.09993325651873526 | 0.10000018600952593 / 0.10000042374640196 | 0.09999951275391879 |
+| Top-frame video, 6,500 Hz | 0.05972712141803144 / 0.06014174690804598 | 0.06006643089772431 / 0.06029924602287055 | 0.05959414350792713 |
+| Audio element, 6,500 Hz | 0.05952662154789484 / 0.05771114151554874 | 0.05997423248708121 / 0.05925558433659794 | 0.05890740253722924 |
+| Cross-origin iframe video, 6,500 Hz | 0.05352114732288356 / 0.059732056300280965 | 0.06001364300132732 / 0.05937442991225355 | 0.05962164374372794 |
+
+Mixed iframe 660 Hz PCM is **0.09988006203539963 / 0.09993243741424823**. Ten
+main rounds each deliver **20 contiguous chunks** with stable run clocks and fresh
+restart clocks. Retained **>0.04 PCM**, **<0.001 other-tab 11 kHz**, known-output
+within 3% and preservation within 12% gates pass. Largest other-tab marker across
+recorded input/output is **0.00000971611769894719**; largest during/preparation
+native-output deviation is **2.5244578661980377%**. Five host closures restore
+output; five navigation and original-tab closure cases retire actual PCM. Overflow
+reports **213.33333333333331 ms discarded** and restores actual site output
+**0.10000010637403689**. Media properties remain unchanged; page errors **[]**.
+
+Chrome's documented action authorization, short-lived stream consumption and
+output reconnection rules were checked against the primary
+[tabCapture reference](https://developer.chrome.com/docs/extensions/reference/api/tabCapture)
+and [capture guide](https://developer.chrome.com/docs/extensions/how-to/web-platform/screen-capture).
+Physical speaker listening, zero acquisition interruption and independent native
+permission revocation/track loss remain **UNVERIFIED**.
+
+### Remaining work and preservation
+
+Add the focused `:tab-input` and new `:tab-host` commands to full Chrome acceptance
+without removing any existing constituent or quality assertion. The required
+**`test:framework:chrome:tab-capture` is still NOT IMPLEMENTED**: neither partial
+command qualifies real tab PCM → ASR → native Korean → DOM. That path, actual
+stale ASR/native translation across capture interruption, independent revocation
+and new-default long/quality qualification remain unfinished B5a/B6 work.
+The full `npm run test:framework:chrome`, unchanged real model/translation/quality/
+ten-minute suites are **NOT RUN this partial iteration**. Historical B6 failures
+remain FAIL, and all full acceptance commands remain mandatory before completion.
+No environment/device/permission blocker or completion marker is established.
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed/headless Chromium **153.0.8010.12**. No model/dependency download,
+app install, agents, push/publish or profile-access workaround. Only test-owned
+browser/profile cleanup occurs. Published companion v0.1.0, its install/build,
+user settings/apps/recordings/mounts, core/video and Safari/iPhone scope are preserved.
+B5a/B6 and later-stage checkboxes remain unchanged. Related commit:
+`feat: connect Chrome tab capture to production host`.
+
+Verification audit: initial `npm run verify`,
+`chrome-tab-host-iteration-3-verify.log`, **PASS / exit 0** — Biome **161 files /
+105 ms**, Ruff/typecheck/existing companion extension build, **160 JS passed /
+0 failed/skipped/cancelled / 26856.475458 ms**, **222 Python passed / 66.94 s**.
+The extra tab-wire unit regression was added after that run began and is covered
+by the final 40-test focused run and final verify below. Repeat verify is justified
+by the newly reproduced duplicate-host failure and retained injection-order fix.
+`npm run verify`, `chrome-tab-host-iteration-3-verify-final.log`, **PASS / exit 0**:
+Biome **161 files / 57 ms**, Ruff, typecheck, existing companion extension build,
+**161 JS passed / 0 failed/skipped/cancelled / 26637.424458 ms**, **222 Python
+passed / 66.98 s**. No runtime behavior changes follow; only indentation,
+selected-test observation labels and append-only documentation. Final three-file
+focused Biome **PASS / exit 0 / 10 ms**, new/changed harness syntax and
+`git diff --check` **PASS / exit 0**. Selected extension/ten-minute behavior after
+the test-owned action change remains NOT RUN; the changed bootstrap is exercised
+by the passing selected PCM channel, with new default bootstrap separately verified.

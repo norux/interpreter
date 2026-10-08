@@ -1,4 +1,4 @@
-// B4 production extension path, real selected-video PCM/ASR/native translation.
+// Retained B4 selected-video path under a test-owned action, real selected-video PCM/ASR/native translation.
 // --lifecycle adds B5 download failure, cached offline ASR/translation and active
 // inference Stop/restart. --sustained also measures a continuous ten-minute
 // selected-video session; B6 strict quality qualification remains separate.
@@ -34,15 +34,20 @@ for (const fixture of fixtures) {
 }
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: { outDir: output } });
 const archive = sustained ? await mkdtemp(resolve(".ralph/media-framework/chrome-extension-jobs-")) : undefined;
+// Preserve selected-video regressions under a test-owned action. The default
+// production action is verified separately by the tab-host harness.
+await build({ configFile: false, logLevel: "warn", build: { outDir: output, emptyOutDir: false,
+  rollupOptions: { input: { "service-worker": resolve("tests/fixtures/selected-action.ts") }, output: { entryFileNames: "[name].js" } } } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
-assert.deepEqual(manifest.permissions, ["activeTab", "scripting"]);
+assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture"]);
 assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.key, undefined);
 const observations = { scope: sustained
   ? "B5 real extension offline lifecycle plus ten-minute Japanese selected-video PCM → ASR → native Korean → DOM, continuous identity/queues/loss/timing/memory; B6 quality gates separate"
   : lifecycle
   ? "B5 real extension first-download failure, cached offline Japanese/English PCM → ASR → native Korean → DOM, active inference Stop/restart; no ten-minute or B6 final quality acceptance"
-  : "B4 real production extension selected-video PCM → smallFp16/WebGPU → native Korean translation → comparison/live/overlay DOM; no B5 ten-minute or B6 final quality acceptance",
+  : "B4 real selected-video adapter/host under test-owned action: PCM → smallFp16/WebGPU → native Korean translation → comparison/live/overlay DOM; no B5 ten-minute or B6 final quality acceptance",
+  actionEntry: "test-owned selected-video action; production tab action is checked by :tab-host",
   archive, generatedMedia, pageErrors: [], consoleErrors: [], checks: [], runs: [], productionPermissions: manifest.permissions, modelRequests: [], companionEndpoints: [] };
 const server = createServer(async (request, response) => {
   try {
@@ -242,7 +247,7 @@ try {
     en:typeof Translator==='undefined'?null:await Translator.availability({sourceLanguage:'en',targetLanguage:'ko'}) }));
   assert.equal(observations.context.secure, true); assert.equal(observations.context.visible, "visible");
   assert.equal(observations.context.translator, "function"); assert.equal(observations.context.gpu, true);
-  observations.checks.push("Exact production permissions/native action grant; real secure visible extension Translator/WebGPU context");
+  observations.checks.push("Exact production permission mask/test-owned selected-video native action grant; real secure visible extension Translator/WebGPU context");
   const prepare = host.getByRole("button", { name:"Prepare selected language", exact:true });
   const start = host.getByRole("button", { name:"Start interpretation", exact:true });
   const stop = host.getByRole("button", { name:"Stop interpretation", exact:true });

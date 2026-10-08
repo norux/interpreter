@@ -15,7 +15,7 @@ await build({ configFile: false, root: resolve("tests/fixtures/tab-capture"), lo
   }, output: { entryFileNames: "[name].js" } },
 } });
 const production = JSON.parse(await readFile("apps/chrome/public/manifest.json", "utf8"));
-const permissions = [...production.permissions, "tabCapture"];
+const permissions = production.permissions;
 await writeFile(`${output}/manifest.json`, JSON.stringify({ ...production, permissions,
   background: { service_worker: "action.js", type: "module" } }));
 await writeFile(`${output}/pcm-worklet.js`, await readFile("packages/media-web/pcm-worklet.js"));

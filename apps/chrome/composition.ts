@@ -8,7 +8,7 @@ import type { SelectedVideoOutput } from "./overlay";
 
 // The platform host supplies the selected-page input. This module owns no tab,
 // native bridge, site permission or persistent transcript storage.
-export function createChromeComposition(container: HTMLElement, input: VideoInput, cancelInput?: () => void, pageOutput?: SelectedVideoOutput) {
+export function createChromeComposition(container: HTMLElement, input: VideoInput, cancelInput?: () => void | Promise<void>, pageOutput?: SelectedVideoOutput, scope: "selected-video" | "tab-mix" = "selected-video") {
   const document = container.ownerDocument;
   const window = document.defaultView;
   if (!window) throw new Error("Chrome composition requires a live document");
@@ -21,7 +21,7 @@ export function createChromeComposition(container: HTMLElement, input: VideoInpu
   const modelInfo = document.createElement("p");
   modelInfo.textContent = `${model.model.id} @ ${model.model.version}; FP16 / WebGPU; model files ${model.files.reduce((bytes, file) => bytes + file.bytes, 0)} bytes. Runtime and speech-detector storage are additional.`;
   controls.append(prepare, start, stop, modelInfo, preparation); container.append(controls);
-  const output = createComparisonView(container);
+  const output = createComparisonView(container, scope === "tab-mix" ? "capture" : "video");
   let selection: { target: MediaTarget; language: "ja" | "en" } | undefined;
   let engine: ReturnType<typeof createChromeEngine> | undefined;
   let policy: ReturnType<typeof createPresentationPolicy> | undefined;
@@ -58,12 +58,13 @@ export function createChromeComposition(container: HTMLElement, input: VideoInpu
 
   function stopSession(): Promise<void> {
     if (stopping) return stopping;
+    if (scope === "tab-mix") selection = undefined;
     generation++; start.disabled = true; prepare.disabled = true;
-    cancelInput?.();
+    const cancelled = cancelInput?.();
     const owned = engine; engine = undefined;
     // Controller invalidation happens before asynchronous resource cleanup.
     const stopped = controller.stop(); policy?.clear();
-    stopping = Promise.allSettled([stopped, owned?.port.close()]).then(results => {
+    stopping = Promise.allSettled([stopped, cancelled, owned?.port.close()]).then(results => {
       const failure = results.find(result => result.status === "rejected");
       if (failure?.status === "rejected") preparation.textContent = `Cleanup failed: ${String(failure.reason)}`;
       else preparation.textContent = "Stopped. Model cache and comparison history are retained.";
@@ -78,7 +79,7 @@ export function createChromeComposition(container: HTMLElement, input: VideoInpu
     const owned = engine; prepare.disabled = true;
     owned.prepareFromGesture().then(() => {
       if (current !== generation || disposed) return;
-      preparation.textContent = "Ready: small FP16 / WebGPU and selected native translator. Play the selected video, then Start."; start.disabled = false;
+      preparation.textContent = `Ready: small FP16 / WebGPU and selected native translator. ${scope === "tab-mix" ? "Tab audio is captured; press Start." : "Play the selected video, then Start."}`; start.disabled = false;
     }).catch(error => {
       if (current !== generation || disposed) return;
       preparation.textContent = `Preparation failed: ${error.message}. Press Stop before retrying.`;
@@ -102,7 +103,7 @@ export function createChromeComposition(container: HTMLElement, input: VideoInpu
       if (disposed) return;
       selection = target ? { target: { ...target }, language } : undefined;
       prepare.disabled = !selection || !!engine;
-      preparation.textContent = selection ? `Selected ${language} → Korean. Prepare before Start.` : "Confirm one video before preparing.";
+      preparation.textContent = selection ? `Selected ${language} → Korean. Prepare before Start.` : (scope === "tab-mix" ? "Capture tab audio before preparing." : "Confirm one video before preparing.");
     },
     async dispose() {
       if (disposed) return; disposed = true;

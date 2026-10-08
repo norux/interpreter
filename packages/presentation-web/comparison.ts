@@ -2,7 +2,7 @@ import type { CaptionRevision, DisplayProgress, OutputSink, PresentationEvent, S
 import { sameIdentity } from "../core/identity";
 import { captionHistoryLimit } from "../core/presentation-policy";
 
-export function createComparisonView(container: HTMLElement) {
+export function createComparisonView(container: HTMLElement, timeBasis: "video" | "capture" = "video") {
   const document = container.ownerDocument;
   const window = document.defaultView;
   if (!window) throw new Error("Comparison view requires a live document");
@@ -25,7 +25,7 @@ export function createComparisonView(container: HTMLElement) {
   cue.append(text, measure);
   const table = document.createElement("table"); table.className = "interpreter-comparison";
   const head = document.createElement("thead"); const headings = document.createElement("tr");
-  for (const label of ["Original", "Video time", "Korean"]) { const cell = document.createElement("th"); cell.scope = "col"; cell.textContent = label; headings.append(cell); }
+  for (const label of ["Original", timeBasis === "capture" ? "Capture elapsed" : "Video time", "Korean"]) { const cell = document.createElement("th"); cell.scope = "col"; cell.textContent = label; headings.append(cell); }
   head.append(headings); const body = document.createElement("tbody"); table.append(head, body);
   host.append(style, status, cue, table); container.append(host);
   const rows = new Map<string, HTMLTableRowElement>();
@@ -109,8 +109,9 @@ export function createComparisonView(container: HTMLElement) {
       row.dataset.sourceRevision = `${caption.source.sourceRevision}`; row.dataset.sourceFinal = `${caption.source.final}`;
       row.dataset.translationState = caption.translation.state;
       row.cells[0].textContent = caption.source.text;
-      // Absence of an anchor stays explicit; session elapsed time is not video time.
-      row.cells[1].textContent = caption.videoRange ? `${(caption.videoRange.startMs / 1000).toFixed(1)}–${(caption.videoRange.endMs / 1000).toFixed(1)} s` : "Unavailable";
+      // Tab sample time and a selected video's anchored time are separate bases.
+      const range = timeBasis === "capture" ? caption.source.audioRange : caption.videoRange;
+      row.cells[1].textContent = range ? `${(range.startMs / 1000).toFixed(1)}–${(range.endMs / 1000).toFixed(1)} s` : "Unavailable";
       row.cells[2].textContent = caption.translation.state === "paired" ? caption.translation.revision.text : "Translation pending";
       row.dataset.translationRevision = caption.translation.state === "paired" ? `${caption.translation.revision.translationRevision}` : "";
       row.dataset.translationFinal = caption.translation.state === "paired" ? `${caption.translation.revision.final}` : "false";

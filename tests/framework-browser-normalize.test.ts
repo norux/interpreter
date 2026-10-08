@@ -77,9 +77,9 @@ test("normalizer rejects gaps before any sample across a changed sequence/clock/
   }
 });
 
-test("normalization rejects unsupported formats, shared/oversized/nonfinite PCM and tab mixes", async () => {
+test("normalization rejects unsupported formats, shared/oversized/nonfinite PCM and unknown scopes", async () => {
   const chunk = packets(new Float32Array(2048), 48000, 2048)[0];
-  for (const invalid of [{ ...chunk, scope: "tab-mix" as const }, { ...chunk, channels: 2 },
+  for (const invalid of [{ ...chunk, scope: "unknown" as AudioChunk["scope"] }, { ...chunk, channels: 2 },
     { ...chunk, sampleRate: 24000 }, { ...chunk, sampleFormat: "pcm-s16le" as const },
     { ...chunk, pcm: new SharedArrayBuffer(8192) as unknown as ArrayBuffer },
     { ...chunk, pcm: new Float32Array(2048).fill(Number.NaN).buffer },
@@ -101,4 +101,20 @@ test("return closes the input during an outstanding read and never emits its lat
   read({ done: false, value: packets(new Float32Array(2048), 48000, 2048)[0] });
   assert.equal((await pending).done, true);
   assert.throws(() => stream[Symbol.asyncIterator](), /one consumer/);
+});
+
+
+test("tab normalization preserves mixed-input scope, clocks and every resampled sample", async () => {
+  const chunks = packets(Float32Array.from({length:48000},(_,i)=>0.2*Math.sin(2*Math.PI*1000*i/48000)),48000,2048);
+  const video = await collect(normalizeSelectedAudio(identity,source(chunks)));
+  const tab = await collect(normalizeSelectedAudio(identity,source(chunks.map(chunk=>({...chunk,scope:"tab-mix"})))));
+  assert.deepEqual(tab.pcm,video.pcm);
+  assert.deepEqual(tab.chunks,video.chunks.map(chunk=>({...chunk,scope:"tab-mix"})));
+});
+
+test("normalization retires context if input scope changes mid-session", async () => {
+  const chunks = packets(new Float32Array(4096).fill(0.1),48000,2048);
+  const iterator = normalizeSelectedAudio(identity,source([chunks[0],{...chunks[1],scope:"tab-mix"}]))[Symbol.asyncIterator]();
+  assert.equal((await iterator.next()).done,false);
+  await assert.rejects(iterator.next(),/audio-gap/);
 });

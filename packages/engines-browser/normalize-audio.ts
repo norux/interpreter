@@ -33,12 +33,12 @@ export function normalizeSelectedAudio(identity: SessionIdentity, audio: AsyncIt
       }
       function append(chunk: AudioChunk) {
         if (!sameIdentity(selected, chunk.identity)) throw new Error("audio-gap");
-        if (!validAudio(chunk) || chunk.scope !== "selected-video" || chunk.channels !== 1
+        if (!validAudio(chunk) || !["selected-video", "tab-mix"].includes(chunk.scope) || chunk.channels !== 1
           || chunk.sampleFormat !== "pcm-f32le" || ![16000, 44100, 48000].includes(chunk.sampleRate)
           || !(chunk.pcm instanceof ArrayBuffer) || chunk.pcm.byteLength > 8192) throw new Error("engine-failed");
         const pcm = new Float32Array(chunk.pcm);
         if (!pcm.every(sample => Number.isFinite(sample) && Math.abs(sample) <= 1)) throw new Error("engine-failed");
-        if (previous && (chunk.sequence !== previous.sequence + 1 || chunk.sampleRate !== previous.sampleRate
+        if (previous && (chunk.sequence !== previous.sequence + 1 || chunk.scope !== previous.scope || chunk.sampleRate !== previous.sampleRate
           || chunk.capture.clockId !== previous.capture.clockId
           || Math.abs(chunk.audioRange.startMs - previous.audioRange.endMs) > 0.001
           || Math.abs(chunk.capture.startMs - previous.capture.endMs) > 0.001)) throw new Error("audio-gap");
@@ -87,7 +87,7 @@ export function normalizeSelectedAudio(identity: SessionIdentity, audio: AsyncIt
         const endMs = outputSamples / 16;
         const keepFrom = Math.max(0, Math.floor(outputSamples * rate / 16000) - (rate === 16000 ? 0 : 31));
         retained = retained.slice(keepFrom - base); base = keepFrom;
-        return { identity: { ...selected }, scope: "selected-video", sequence: sequence++,
+        return { identity: { ...selected }, scope: first.scope, sequence: sequence++,
           audioRange: { startMs: first.audioRange.startMs + startMs, endMs: first.audioRange.startMs + endMs },
           capture: { clockId: first.capture.clockId, startMs: first.capture.startMs + startMs, endMs: first.capture.startMs + endMs },
           sampleRate: 16000, channels: 1, sampleFormat: "pcm-f32le", pcm: pcm.buffer };

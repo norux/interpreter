@@ -62,8 +62,8 @@ test("gap, duplicate, epoch and clock changes discard context without joining au
   }
 });
 
-test("speech boundary rejects tab mixes, non-normalized, oversized and nonfinite input", async () => {
-  for (const invalid of [{ ...chunk(0), scope: "tab-mix" as const }, { ...chunk(0), sampleRate: 24000 },
+test("speech boundary rejects unknown scopes, non-normalized, oversized and nonfinite input", async () => {
+  for (const invalid of [{ ...chunk(0), scope: "unknown" as AudioChunk["scope"] }, { ...chunk(0), sampleRate: 24000 },
     { ...chunk(0), channels: 2 }, { ...chunk(0), pcm: new Float32Array(1600).fill(Number.NaN).buffer },
     { ...chunk(0), pcm: new Float32Array(1600).fill(1.01).buffer },
     { ...chunk(0), pcm: new SharedArrayBuffer(6400) as unknown as ArrayBuffer }, chunk(0, true, 3201)]) {
@@ -574,4 +574,20 @@ test("learned English splits confirmed short pauses after six seconds without cu
     assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
     assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 0);
   }
+});
+
+
+test("tab speech uses the same bounded segmentation without fabricating a video timeline", async () => {
+  const chunks = Array.from({length:30},(_,i)=>chunk(i,i>=3 && i<19,701));
+  const video=setup(),tab=setup();
+  const expected=await collect(video.recognizer.run(source(chunks)));
+  const actual=await collect(tab.recognizer.run(source(chunks.map(chunk=>({...chunk,scope:"tab-mix"})))));
+  assert.deepEqual(actual,expected);assert.deepEqual(tab.jobs,video.jobs);
+  assert.equal(tab.statuses.at(-1)?.queue?.droppedAudioMs,0);
+});
+
+test("speech rejects a changed input scope before joining sample context", async () => {
+  const fixture=setup();
+  await assert.rejects(collect(fixture.recognizer.run(source([chunk(0),{...chunk(1),scope:"tab-mix"}]))),/audio-gap/);
+  assert.equal(fixture.jobs.length,0);assert.equal(fixture.statuses.at(-1)?.queue?.droppedAudioMs,100);
 });

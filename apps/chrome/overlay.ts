@@ -5,7 +5,7 @@ import { createComparisonView } from "../../packages/presentation-web/comparison
 
 // Each surface measures its own lines; the shared policy supplies cadence,
 // revision acceptance, reading order and expiry in that document's clock.
-export function createVideoOverlay(document: Document, video: HTMLVideoElement, identity: SessionIdentity) {
+export function createVideoOverlay(document: Document, video: HTMLVideoElement | null, identity: SessionIdentity) {
   const viewWindow = document.defaultView;
   if (!viewWindow) throw new Error("Overlay requires a live video document");
   const window = viewWindow;
@@ -14,7 +14,7 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement, 
   const shadow = host.attachShadow({ mode: "open" });
   const container = document.createElement("div");
   container.style.width = "100%";
-  const view = createComparisonView(container); view.activate(identity);
+  const view = createComparisonView(container, video ? "video" : "capture"); view.activate(identity);
   const style = document.createElement("style");
   style.textContent = `table, p { display:none } .interpreter-live { color:white; background:rgba(0,0,0,.85);
     text-align:center; min-height:0; border-radius:4px; } .interpreter-live:has(span:first-child:empty) { visibility:hidden }`;
@@ -28,6 +28,13 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement, 
   function position() {
     if (disposed) return;
     const fullscreen = document.fullscreenElement;
+    if (!video) {
+      const parent = fullscreen && !(fullscreen instanceof window.HTMLMediaElement) ? fullscreen : document.documentElement;
+      if (host.parentElement !== parent) parent.append(host);
+      host.style.display = fullscreen instanceof window.HTMLMediaElement ? "none" : "flex";
+      host.style.left = "0"; host.style.top = "0"; host.style.width = "100%"; host.style.height = "100%";
+      return;
+    }
     const parent = fullscreen && fullscreen !== video && fullscreen.contains(video) ? fullscreen : document.documentElement;
     if (host.parentElement !== parent) parent.append(host);
     const rect = video.getBoundingClientRect();
@@ -36,7 +43,7 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement, 
     host.style.display = !video.isConnected || rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth || (fullscreen !== null && (fullscreen === video || !fullscreen.contains(video))) ? "none" : "flex";
     host.style.left = `${rect.left}px`; host.style.top = `${rect.top}px`; host.style.width = `${rect.width}px`; host.style.height = `${rect.height}px`;
   }
-  const resize = new window.ResizeObserver(position); resize.observe(video);
+  const resize = new window.ResizeObserver(position); if (video) resize.observe(video);
   window.addEventListener("scroll", position, true); window.addEventListener("resize", position);
   document.addEventListener("fullscreenchange", position); position();
   return {
