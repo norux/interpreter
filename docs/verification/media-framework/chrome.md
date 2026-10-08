@@ -3211,3 +3211,207 @@ PASS: final document-inclusive `git diff --check` and `git diff --cached --check
 **exit 0**. Only the plan, this report, recognizer, regression tests and new
 long-silence harness are staged. The intended commit and post-commit clean
 worktree are checked before delivery; ignored `.ralph` state is excluded.
+
+
+## 2026-10-08 — B2 learned live selected-video qualification (iteration 7/20)
+
+Related commit: `test: qualify learned ASR on live selected video`, containing
+this report. **B2 remains unchecked; no default model is selected.** Only B2
+advances. Earlier noisy Japanese meaning failures remain unresolved.
+
+### Change and acceptance scope
+
+Assumption: the experimental learned profile must be measured with the existing
+selected-element acquisition and normalization, beyond its decoded-input tests.
+The simpler approach reuses the established live fixture. Added
+`npm run test:framework:chrome:live:learned` and an independent owned-browser
+harness; the fixture opts into the existing real WASM detector with a fourth
+argument. Its default remains the energy profile. Neither production engines,
+contracts/core, models/dependencies nor user settings change. Existing energy,
+noise, comparison, sustained and full-stage acceptance are not replaced.
+
+Six rounds use the unchanged hash-checked Japanese/English synthetic WebM files:
+Japanese Start, active-input Stop, Japanese restart, English Start, then three
+complete speech periods per language. Both media elements play concurrently.
+Actual selected-element 48 kHz PCM passes through the production 16 kHz
+normalizer, learned VAD and FP16 WebGPU ASR. No decoded/oracle PCM, microphone,
+companion, Ollama, translation or caption DOM supplies the inference input.
+Fixture text scores outputs only; no expected-text prompt or blacklist.
+
+Declared gates retain **<=20% CER/WER**, every original meaning exactly once or
+three times, raw selected tag within **12% of 0.06**, unselected tag **<0.003**,
+video-time map error **<150 ms**, exact normalization sample/clock accounting,
+contiguous ASR ranges and exact captured PCM slices, **<=20 s** segments,
+**<=30 s** retained audio, zero reported loss/drained queues on completed runs,
+**<2,000 ms** last-packet-to-final-text, leading skipped context **<=100 ms** and
+trailing context **<20 ms**. Every normalized sample must reach the real detector;
+only its last frame may receive detector-only padding. Detector inference must
+use **<10%** of input duration. Stop requires cancellation, discarded-duration
+status, no transcript, stopped capture and continuing original playback. Japanese
+long input must keep acquiring PCM during actual ASR. The repeated meaning gate
+is stricter than the original live harness's minimum-count check, without editing
+that original check.
+
+A new segment-count calculation initially counted all captured samples, including
+already-permitted leading quiet context, and falsely required two jobs for a
+**19,989.3125 ms** admitted English window. Corrected it to count the contiguous
+admitted window; the separate **<=100 ms** leading/**<20 ms** trailing and each
+**<=20 s** job checks remain. No numerical threshold, fixture, original acceptance
+or model behavior changes. A count failure now accumulates diagnostics before
+nonzero exit so remaining quality/coverage results are retained.
+
+### Command ledger and failed evidence
+
+All evidence paths below are ignored local `.ralph/media-framework/` files.
+No model/runtime weights, captured PCM, credentials or temporary state enter Git.
+
+- FAIL: first `caffeinate -disu npm run test:framework:chrome:live:learned`,
+  **exit 1**, `chrome-20261008-7-live-learned.log`. Typecheck and **22 focused tests /
+  0 failed / 126.421583 ms** pass. The new segment-count assertion interrupts
+  final English scoring. Japanese single/restart **1/40 CER**; English single
+  **1/22 WER**; Japanese three-period **10/120 CER**, all corresponding meanings
+  once/three times. English input **320,853 samples / 20,053.3125 ms**, ASR range
+  **32–20,032 ms**. Its rejected final context is **21.3125 ms**, above the retained
+  **<20 ms** gate, although that assertion is not reached. This derived coverage
+  observation is preserved; no speech-loss or quiet-phoneme label is inferred.
+- FAIL: diagnostic same command, **exit 1**,
+  `chrome-20261008-7-live-learned-final.log`. Typecheck and **22 tests** pass; all
+  six real rounds complete, with all meanings and error/latency/coverage gates
+  passing except the erroneous count calculation. English range **64–20,053.3125
+  ms**, admitted duration **19,989.3125 ms**, no rejected EOF context. Japanese
+  three-period **7/120 CER**, English **3/66 WER**, all meanings exactly three.
+  This new evidence identifies the harness arithmetic error; a corrected run
+  follows, rather than a third unchanged attempt at that assertion.
+- PASS: `caffeinate -disu node .ralph/media-framework/chrome-20261008-7-energy-live-control.mjs`,
+  **exit 0**, `chrome-20261008-7-energy-live-control.log`. Explicit local control
+  extracts the existing stream harness's complete six-round live block and owned
+  server/browser setup, invoking the shared fixture without the learned argument.
+  Its original assertions, including two long-input jobs, remain intact. All
+  playback/Stop/restart/isolation/accounting/meaning/error/latency checks pass:
+  Japanese **1/40, 1/40, 3/120 CER**, English **1/22, 3/66 WER**; every meaning
+  once/three times. Completed runs report zero loss/final pending, maximum
+  pending **13,060.6875 ms**, final-packet latency **824–1,058.800 ms**. This is
+  a fresh default live-path control, **not** a rerun of the full decoded/sustained/
+  GPU-loss stream command. The temporary control source stays ignored.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-7-stage-acceptance.log`: missing script. B5's full selected-video
+  PCM → ASR → Korean translation → DOM acceptance is unfinished; no placeholder.
+- PASS: final harness syntax (`node --check`), targeted Biome (**34 ms / no
+  findings**) and preliminary `git diff --check`, **exit 0**. Final required
+  verify and document-inclusive Git checks are recorded below after execution.
+
+### Corrected final real browser results
+
+PASS: final `caffeinate -disu npm run test:framework:chrome:live:learned`,
+**exit 0**, `chrome-20261008-7-live-learned-corrected.log`: typecheck,
+**22 focused tests / 0 failed/skipped/cancelled / 134.290166 ms**, build, six
+live rounds, **1,960 actual detector calls / six actual ASR jobs**, all declared
+checks. Mock unit results establish protocol/segmentation behavior only; the
+following accuracy measurements come from the real models and acquired video PCM.
+
+| Round / language / periods | Actual normalized samples | ASR ranges ms | CER/WER | Last-packet-to-final-text ms | Peak pending ms | VAD inference total ms |
+| --- | ---: | --- | --- | ---: | ---: | ---: |
+| 0 / ja / 1 | 111,957 | 64–6,997.3125 | 1/40 = 2.5% | 969.400 | 6,933.3125 | 166.800 |
+| 2 / ja / 1, restart | 112,640 | 64–7,040 | 1/40 = 2.5% | 1,050.800 | 6,976 | 160.000 |
+| 3 / en / 1 | 107,861 | 64–6,741.3125 | 1/22 = 4.545455% | 847.100 | 6,677.3125 | 160.600 |
+| 4 / ja / 3 | 335,872 | 64–20,064 / 20,064–20,992 | 10/120 = 8.333333% | 1,556.800 | 20,928 | 455.100 |
+| 5 / en / 3 | 320,853 | 64–20,053.3125 | 3/66 = 4.545455% | 1,652.100 | 19,989.3125 | 459.200 |
+
+Every meaning occurs exactly once/three times. All completed runs have zero
+reported dropped audio, zero final pending and zero rejected EOF context; all
+start after **64 ms** of below-energy leading context. Each job is an exact slice
+of the actual normalized live input. ASR sample counts are **110,933 / 111,616 /
+106,837 / (320,000 + 14,848) / 319,829**. Complete raw samples are **335,872 /
+337,920 / 323,584 / 1,007,616 / 962,560**, and normalized counts are exactly
+`floor(raw/3)` with the original capture clock. Detector calls are **219 / 220 /
+211 / 656 / 627**; final padding **171 / 0 / 171 / 0 / 171** samples, never ASR
+padding. Maximum observed detector inference is **10.400 ms**. Video mapping
+errors **27.210–51.265 ms**; selected tag amplitudes **0.060024–0.060092**, other
+video tag **0.000280–0.000605**.
+
+Stop round 1 captures **43,008 raw / 14,336 normalized samples**, completes **27**
+real detector calls, emits no ASR job/text, reports **831.375 ms** deliberately
+cancelled input and zero pending, then detaches capture. Both videos retain the
+same source/volume/rate/mute/playback state and continue playing in every round;
+no new independent speaker-output-level measurement is claimed. Native visibility
+events/page errors are `[]`. Only the owned browser/profile is closed/removed.
+
+Observed ASR host call durations **331.200–2,120.000 ms**. The earlier Japanese
+20-second job takes **2,120.000 ms**, exceeding two seconds of inference; the
+preserved live gate is last-packet-to-final-text, not a per-job two-second promise.
+Long-input final latency includes waiting for earlier work. These numbers use one
+document clock, exclude speech accumulation/model preparation/Korean translation/
+display and are finite observations, not population percentiles. Twenty seconds
+of accumulation can still precede the first long-input text. VAD durations use
+its worker clock separately; RSS uses Node time, without subtracting clock origins.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, unchanged locked
+Transformers.js/ORT. Actual small FP16 WebGPU ASR remains
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven
+files/**487,960,440 bytes**; actual WASM detector remains
+`onnx-community/silero-vad@e71cae966052b992a7eca6b17738916ce0eca4ec`, one file/
+**2,243,022 bytes**. Three learned browser invocations each download one inventory
+of each in a fresh owned cache, then reuse it for fresh workers. The separate
+energy control downloads one ASR inventory. Final first preparation
+**67,553.088875 ms**, fresh cached workers **1,223.875334–1,423.112625 ms**; these
+are load times, not ASR latency. All later ASR/VAD statuses contain `cached`, no
+`downloading`. All **16** final remote paths/requests are pinned artifact/allowed
+redirect paths; no remote inference, companion or Ollama.
+
+Final owned-browser-tree RSS baseline **1,437,920 KiB**, 250 ms sampling. Per-round
+baseline/peak/final KiB: **3,324,736/3,418,576/2,063,136**;
+**3,246,240/3,246,240/2,846,192** (Stop);
+**3,752,688/3,752,688/1,535,504**;
+**3,743,584/3,760,832/1,897,248**;
+**3,793,744/3,801,536/1,451,888**;
+**2,914,400/2,914,400/1,602,544**. Case sampling starts after preparation and
+includes browser/renderers/GPU, shared-page double counting, allocators, resident
+models and the harness's bounded captured-PCM snapshots. This is not isolated
+GPU/model memory, preparation peak, pressure limits, leak freedom or mobile evidence.
+
+### Remaining acceptance and preservation
+
+**Next unfinished item remains B2:** improve retained louder-noise Japanese
+meaning; qualify natural speakers/noise/word boundaries and live EOF alignments,
+including the first run's **21.3125 ms** rejected context. A passing later capture
+with different alignment does not fix that historical observation or prove quiet
+phoneme recall. Add sustained learned live input, queue/GPU-loss recovery under
+pressure, storage/memory qualification and Whisper conversion/distribution license
+confirmation, then select a default only from passing evidence. Original noise,
+full comparison/stream/sustained, isolated VAD and B1 preparation commands are not
+rerun; their historical passes/failures stay historical. No third unchanged noisy
+Japanese quality attempt is made.
+
+Offline speech/full interpretation, Korean translation/revisions/DOM, ten-minute
+live Korean captions, B3–B6, installation and Safari/iPhone remain **unverified**.
+Required full Chrome acceptance fails as recorded. No required environment,
+device or permission is absent; incomplete implementation/quality qualification
+warrants neither terminal marker. No checkbox or stage/framework/iPhone claim.
+
+Root/nested AGENTS.md and requested independent runner evidence file are absent
+at initial read. Supplied instructions, plan, architecture and prior report were
+read. Work stays here; companion v0.1.0/install/native messaging/server/settings
+and unrelated files/apps/recordings/mounted images are preserved. No agents,
+runner edit, stage advance, push/publish/app installation or browser access/
+profile/permission bypass. Credentials, model weights, user audio/transcripts and
+temporary ignored `.ralph` state are excluded from the commit.
+
+
+### Final required verification
+
+PASS: `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-7-verify.log`: Biome **114 files / 52 ms / no findings**, Ruff,
+typecheck, unchanged companion build (**28 main / 10 content modules**),
+**108 JS passed / 0 failed/skipped/cancelled / 24,828.208084 ms**,
+**222 Python passed / 66.89 s**, Python **3.12.15**. It runs after all actual
+browser/model invocations; subsequent changes only finish Markdown evidence.
+This does not supersede the missing full Chrome acceptance, earlier rejected EOF
+context or louder-noise Japanese meaning failure.
+
+
+PASS: document-inclusive `git diff --check` and `git diff --cached --check`,
+**exit 0**. Staged paths are only this report, the plan, package scripts, the live
+fixture and the learned live harness. No `.ralph` evidence/state, credentials,
+weights or user data are staged. Commit and post-commit cleanliness are checked
+before delivery.

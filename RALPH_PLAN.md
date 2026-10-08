@@ -2601,3 +2601,121 @@ PASS: final document-inclusive unstaged/staged whitespace checks, **exit 0**.
 Only the plan/report/recognizer/unit tests/new silence harness are staged;
 ignored `.ralph` state is excluded. Intended commit and post-commit cleanliness
 are checked before delivery.
+
+
+### 2026-10-08 / chrome / iteration 7/20 — B2 learned live selected-video qualification
+
+Related commit: `test: qualify learned ASR on live selected video`, containing
+this entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no default model is selected.** Only B2 advances.
+
+Changes: added `npm run test:framework:chrome:live:learned`, an independent owned
+browser harness and an opt-in learned detector in the existing live fixture.
+Real selected-element 48 kHz PCM → production 16 kHz normalization → WASM VAD →
+FP16 WebGPU ASR is measured with two simultaneously playing, unchanged hash-checked
+synthetic videos. Production engines/core/contracts/models/dependencies and
+settings are unchanged. The default fixture still uses the energy profile.
+No oracle/decoded PCM or expected-text prompt enters inference; fixture text only
+scores results. Korean translation/DOM and full-stage acceptance are not supplied.
+
+Gates retain <=20% CER/WER, all meaning anchors once/exactly three times, selected
+and other-video tag isolation, <150 ms video mapping error, exact normalization/
+clock/sample and ASR input/range accounting, <=20 s segments, <=30 s retained
+budget, zero completed-run loss/drained queues, <2 s final-packet-to-text, <=100 ms
+leading skipped context and <20 ms trailing context. Real detector coverage/
+padding/inference budget, actual Stop/restart/playback preservation and capture
+continuing during Japanese long-input inference are asserted. No prior acceptance,
+fixture or threshold is weakened.
+
+Commands/evidence under ignored `.ralph/media-framework/`:
+
+- FAIL: first `caffeinate -disu npm run test:framework:chrome:live:learned`,
+  **exit 1**, `chrome-20261008-7-live-learned.log`: typecheck/**22 unit tests /
+  126.421583 ms** pass; a new segment-count check interrupts final English scoring.
+  Japanese single/restart 1/40 CER, English single 1/22 WER, Japanese long 10/120
+  CER, all their meanings pass. English 320,853 captured samples, ASR range
+  32–20,032 ms, rejected EOF context 21.3125 ms. That context exceeds the retained
+  <20 ms criterion (not reached before the assertion); no speech-loss/phoneme
+  label is inferred, and this historical alignment remains qualification work.
+- FAIL: diagnostic same command, **exit 1**,
+  `chrome-20261008-7-live-learned-final.log`: typecheck/**22 unit tests**, all six
+  real rounds complete. Japanese long 7/120 CER, English long 3/66 WER and every
+  meaning exactly three, no rejected tail. Sole failure is the new count calculation:
+  it falsely demands two jobs for the admitted English 64–20,053.3125 ms window
+  by counting already-permitted leading quiet audio. Corrected it to count the
+  contiguous admitted window, retaining all leading/trailing/segment/coverage
+  limits. This is new diagnostic evidence; no third unchanged attempt is made.
+- PASS: `caffeinate -disu node .ralph/media-framework/chrome-20261008-7-energy-live-control.mjs`,
+  **exit 0**, `chrome-20261008-7-energy-live-control.log`. Explicit local control
+  extracts the existing stream harness's complete six-round live block and owned
+  setup, with its original assertions and default fixture call unchanged. Every
+  gate passes, including two jobs for both long inputs, Stop/restart, playback,
+  isolation, meaning and <=20% error. Japanese 1/40, 1/40, 3/120 CER; English
+  1/22, 3/66 WER; final-packet latency 824–1,058.800 ms, peak pending 13,060.6875
+  ms, zero completed-run loss/final pending. This is not a full stream/sustained/
+  GPU-loss rerun; the temporary control source is not committed.
+- PASS: corrected final learned command, **exit 0**,
+  `chrome-20261008-7-live-learned-corrected.log`: typecheck/**22 tests / 0 failed/
+  skipped/cancelled / 134.290166 ms**, six actual live rounds/**1,960 VAD calls /
+  six ASR jobs**, all declared gates. Japanese single/restart 1/40 CER, long
+  10/120 CER; English single 1/22 WER, long 3/66 WER; all meanings once/three
+  times. Completed runs have zero reported loss/final pending/rejected EOF context.
+  Leading skipped context is 64 ms; all remaining captured input equals contiguous
+  actual ASR slices. Long Japanese ranges 64–20,064 / 20,064–20,992 ms; English
+  64–20,053.3125 ms. Final-packet-to-text 847.100–1,652.100 ms, peak pending
+  20,928 ms, video map error <=51.265 ms, max VAD inference 10.400 ms. Earlier
+  Japanese 20 s ASR call takes 2,120 ms; the final-packet gate is not a per-job
+  two-second or first-caption latency claim. Full raw/sample/padding/RSS tables
+  and preserved failures are in the report.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-7-stage-acceptance.log`: missing script, B5 full selected-video
+  PCM → ASR → Korean translation → DOM unimplemented. No placeholder/substitute.
+- PASS: final harness syntax, targeted Biome (34 ms/no findings) and preliminary
+  whitespace, **exit 0**.
+- PASS: `caffeinate -disu npm run verify`, **exit 0**,
+  `chrome-20261008-7-verify.log`: Biome 114 files/52 ms/no findings, Ruff/typecheck,
+  unchanged companion build (28 main/10 content modules), **108 JS passed /
+  0 failed/skipped/cancelled / 24,828.208084 ms**, **222 Python passed / 66.89 s**,
+  Python 3.12.15. Runs after all actual browser/model invocations; subsequent
+  changes only complete Markdown evidence.
+
+Environment: owned headed Chromium 153.0.8010.12, macOS 26.6.2/25G83 arm64,
+Node v24.15.0/npm 11.12.1/uv 0.12.23, unchanged locked Transformers.js/ORT.
+Same pinned small FP16 WebGPU ASR (487,960,440 bytes/seven files) and Silero WASM
+VAD (2,243,022 bytes/one file); three fresh learned browser caches download one
+inventory of each, then reuse it for fresh workers. The default control downloads
+one ASR inventory. Final first/cached preparation 67,553.088875 /
+1,223.875334–1,423.112625 ms, distinct from transcription latency. All 16 final
+remote paths/requests are pinned artifacts/allowed redirects; page errors/native
+visibility events are empty. RSS baseline 1,437,920 KiB, case peak 3,801,536 KiB
+(after preparation), sampled at 250 ms for only the owned browser tree including
+shared pages/allocators/GPU/models and test PCM snapshots; not isolated memory,
+preparation peak, pressure/leak or phone evidence. Stop discards 831.375 ms with
+no text/pending, and detaches capture while both original videos continue.
+Latencies use one document clock and exclude utterance accumulation/loading/
+Korean translation/display; 20 s accumulation can precede first long-input text.
+
+**Next remains B2:** retained louder-noise Japanese meaning failure, natural
+speaker/noise/word boundaries and live EOF alignments (including the first run's
+21.3125 ms tail), sustained learned live acquisition/recovery under pressure,
+storage/memory, conversion/distribution licensing and evidence-based default
+selection. A later passing alignment does not fix that earlier observation.
+Original noise/full comparison/stream/sustained/VAD/B1 UI commands are not rerun;
+historical results are not fresh full-profile passes. Offline speech/full
+interpretation, Korean translation/revisions/DOM, ten-minute live Korean captions,
+B3–B6, installation and Safari/iPhone remain unverified. No absent required
+environment/device/permission, terminal marker, checkbox or completion claim.
+
+Root/nested AGENTS.md/requested runner evidence are absent at initial read;
+supplied instructions/plan/architecture/prior report read. Only this worktree is
+changed. Published companion/install/native messaging/server/settings and unrelated
+files/apps/recordings/mounted images are preserved. No agents, runner edit,
+stage advance, push/publish/app installation or blocked-browser access/profile/
+permission bypass. Only owned test browsers/profiles cleaned up. No credentials,
+weights, user audio/transcripts or temporary ignored `.ralph` state enter Git.
+
+
+PASS: document-inclusive unstaged/staged whitespace checks, **exit 0**. Only the
+plan/report/package scripts/live fixture/new learned live harness are staged;
+ignored `.ralph` state is excluded. Commit and post-commit cleanliness are checked
+before delivery.

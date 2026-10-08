@@ -25,13 +25,26 @@
   globalThis.visibilityEvents = [];
   document.addEventListener('visibilitychange', () => visibilityEvents.push({state: document.visibilityState, atMs: performance.now()}));
   globalThis.state = () => videos.map(video => ({src: video.src, volume: video.volume, muted: video.muted, rate: video.playbackRate, paused: video.paused}));
-  globalThis.configure = async (language, durationSeconds, round) => {
-    globalThis.host?.dispose(); globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
+  globalThis.configure = async (language, durationSeconds, round, learned = false) => {
+    globalThis.host?.dispose(); globalThis.vad?.dispose(); globalThis.vad = undefined; globalThis.vadStatuses = [];
+    globalThis.detectorFrames = []; globalThis.normalizedPcm = [];
+    if (learned) {
+      const { createVadHost } = await import('/vad.js');
+      globalThis.vad = createVadHost(document, status => vadStatuses.push(status));
+    }
+    globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
     globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => statuses.push(status));
     globalThis.invocations = [];
     const recognize = host.recognize;
     host.recognize = async job => {
       const invocation = {audioRange: {...job.audioRange}, samples: job.pcm.length, atMs: performance.now(), deliveredAtStartMs: normalized.samples/16};
+      if (learned) {
+        const captured = new Float32Array(normalized.samples);
+        let offset = 0;
+        for (const packet of normalizedPcm) { captured.set(packet, offset); offset += packet.length; }
+        const start = Math.round((job.audioRange.startMs-normalized.first.audioRange.startMs)*16);
+        invocation.exactInput = job.pcm.every((sample,i) => sample === captured[start+i]);
+      }
       invocations.push(invocation);
       try { return await recognize(job); }
       finally { invocation.settledAtMs = performance.now(); invocation.deliveredAtEndMs = normalized.samples/16; }
@@ -48,9 +61,18 @@
     globalThis.transcripts = []; globalThis.queueStatuses = []; globalThis.liveError = undefined; globalThis.finished = false;
     globalThis.raw = {chunks: 0, samples: 0, rates: [], selectedTagPower: 0, otherTagPower: 0, windows: 0, maxMapErrorMs: 0};
     globalThis.normalized = {chunks: 0, samples: 0, first: undefined, last: undefined};
-    recognizer = createSpeechRecognizer(identity, language, host, status => queueStatuses.push({...status, atMs: performance.now()}));
+    let detectorSamples = 0;
+    const detector = learned ? { stop: () => vad.stop(), detect: async frame => {
+      const snapshot = frame.slice();
+      const result = await vad.detect(frame);
+      if (!frame.every((sample,i) => sample === snapshot[i])) throw new Error('Detector altered ASR PCM');
+      detectorFrames.push({...result, startSample: detectorSamples, atMs: performance.now()});
+      detectorSamples += frame.length;
+      return result;
+    }} : undefined;
+    recognizer = createSpeechRecognizer(identity, language, host, status => queueStatuses.push({...status, atMs: performance.now()}), detector);
   };
-  document.querySelector('#prepare').onclick = () => host.prepare().then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
+  document.querySelector('#prepare').onclick = () => Promise.all([host.prepare(), vad?.prepare()]).then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
   document.querySelector('#start').onclick = async () => {
     try {
       videos[0].volume = 0.4; videos[1].volume = 0.25;
@@ -99,6 +121,7 @@
       const normalizedStream = normalizeSelectedAudio(identity, samples());
       const measured = async function* () {
         for await (const event of normalizedStream) {
+          if (vad) normalizedPcm.push(new Float32Array(event.pcm).slice());
           normalized.chunks++; normalized.samples += event.pcm.byteLength/4;
           normalized.first ??= {audioRange: event.audioRange, capture: event.capture};
           normalized.last = {audioRange: event.audioRange, capture: event.capture};
@@ -111,7 +134,7 @@
     } catch(error) { globalThis.liveError = error.message; }
   };
   document.querySelector('#stop').onclick = async () => { await recognizer.cancel(identity); await handle?.close(); };
-  window.addEventListener('pagehide', () => { void recognizer?.close(); void handle?.close(); host?.dispose(); catalog.dispose(); });
+  window.addEventListener('pagehide', () => { void recognizer?.close(); void handle?.close(); host?.dispose(); vad?.dispose(); catalog.dispose(); });
   await Promise.all(videos.map(video => video.readyState >= 2 ? Promise.resolve() : new Promise(done => video.addEventListener('loadeddata', done, {once:true}))));
   globalThis.ready = true;
 </script>
