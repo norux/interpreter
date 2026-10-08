@@ -6478,3 +6478,99 @@ stages and no whole-framework/iPhone completion claim.
 Pre-commit staged four-file whitelist, append-only history and unchanged-checkbox
 assertions: **PASS / exit 0**. `git diff --cached --check`: **PASS / exit 0**.
 No temporary data, credentials, weights or user media are staged.
+
+
+### 2026-10-09 KST / chrome / iteration 1/20 (new runner cycle) — repeated English speech
+
+Commit: `fix: preserve repeated English browser speech`, with matching Chrome
+report. **B6 remains unchecked**; only Stage chrome is selected. Entry `0ef9053`
+was clean; repository AGENTS.md and requested independent runner log
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` were absent. Read supplied
+instructions, plan, architecture and Chrome history; preserve all prior evidence.
+
+Change: learned English permits the existing confirmed 160 ms pause after **6 s**
+instead of 10 s. Japanese retains 10 s; five-frame onset confirmation/midpoint,
+ordinary pauses, 20 s maximum, 30 s retained-audio/two-pending-job limits,
+PCM/model/VAD/decoder/cancel/settings remain. No forced six-second cut, filtering,
+reference prompt, text correction, model/backend fallback or new public option.
+Existing replay gains a test-only `--resegment` mode: validate original archive,
+real fresh VAD via actual Prepare gestures, enumerate jobs with empty transport
+revisions, then score only real default WebGPU ASR. Complete admitted sample sum/
+ranges/slice hashes/identity/transfer/token/cache gates stay strict; unpaced
+snapshot queues/replay timing are not live pressure or endpoint evidence.
+
+Before: focused new regression **FAIL / exit 1** (old 9,280 ms job vs expected
+6,496 ms English cut); final ports **PASS / 0 / 29 tests / 333.049375 ms**.
+Exact original `chrome-live-jobs-pI0asc --default-only` replay **FAIL / 1**, both
+workers reproduce all **27 texts**, English **61/418 = 14.5933014354067% WER**,
+each meaning **17 / 19**. Before-edit `--resegment` also **FAIL / 1** and reproduces
+all ten English hashes/ranges; fresh VAD separately yields Japanese **60/720 CER**,
+all meanings **17 / 18**, nine jobs. Preserve that failed layout.
+
+Final same-input resegmentation **FAIL aggregate / 1** only for that unchanged
+Japanese layout. English now **19 jobs / 19/418 = 4.545454545454546% WER**, all
+four meanings **19** in both workers; shorter English controls pass. All Japanese
+job hashes/texts equal the fresh-VAD baseline. Independent comparison **PASS / 0**
+for all 14 run/trial combined inputs and generated slices/raw-text associations;
+no samples/text edited. A one-byte owned-copy corruption is correctly rejected
+**exit 1** before browser/build/model; independent digest validation **PASS / 0**,
+copy removed/original archives unchanged. No unchanged baseline repeated.
+
+Final affected checks, serial, each once (`chrome-iteration-1-focused-checks.json`):
+
+| Exact command | Status / exit | Seconds |
+| --- | --- | ---: |
+| `npm run test:framework:chrome:noise:learned` | **FAIL / 1** | 203.02049875 |
+| `npm run test:framework:chrome:quiet` | **PASS / 0** | 187.51254224999997 |
+| `npm run test:framework:chrome:eof` | **PASS / 0** | 277.465204584 |
+| `npm run test:framework:chrome:live:sustained:learned` | **PASS / 0** | 538.542428667 |
+| `npm run verify` | **PASS / 0** | 92.70391316700011 |
+
+Noise's sole failure is unchanged Japanese white-noise: **9/120 = 7.5% CER**,
+meeting **2**, station **1**, expected **3**, other five **3**. Endpoints
+**1,103.6000000238419 / 1,438 / 845.5 ms**. All ten cases/offline ja/en execute;
+English quiet/white noise pass **3/66 WER**, all meanings **3**, maximum endpoints
+**1,228.6999999284744 / 1,307.6000000238419 ms**. All six quiet and ten EOF cases
+pass original scores/counts/endpoint/sample/queue gates. No failed meaning is
+excused by passing error/latency, and no Japanese tuning/third unchanged attempt.
+
+Actual live suite passes all eight rounds, including selected-video isolation/
+mapping/playback, VAD Stop and cached restart. Long ja/en respectively:
+**18/720 = 2.5% CER / 19/418 = 4.545454545454546% WER**, every meaning
+**18 / 19**, jobs **10 / 19**, maximum labeled endpoints **1,694 / 1,142 ms**,
+max pending **15,615.375 / 9,183.375 ms**, final pending/loss **0/0** each.
+Host intervals **126,938.59999990463 / 127,365 ms**, normalized samples
+**2,009,770 / 2,028,202**. Owned-tree RSS peaks **4,007,552 / 4,012,528 KiB**
+are not isolated model/leak/mobile-pressure measurements. Two exact Japanese
+replay groups pass their counts/error; replay is not live latency. Owned synthetic
+archive `chrome-live-jobs-TewYsn` retains the new captures separately from failures.
+Metrics extraction twice fails on incorrect/optional JSON keys, then passes on
+existing logs without new browser/inference commands; detailed report records it.
+
+Final verify: **154 JS / 0 failed / 24,454.1375 ms**, **222 Python / 67.01 s**,
+Biome **148 / 67 ms**, Ruff/typecheck/unchanged companion build. Explicit final
+`npm run build:chrome` **PASS / 0 / 337 ms**; decoder/trace **6 PASS / 0 /
+415.600917 ms**, Node syntax/three-file Biome/whitespace pass. No executable edit
+afterward. macOS **26.6.2 / 25G83 arm64**, Node **24.15.0**, npm **11.12.1**,
+owned Chromium **153.0.8010.12**, locked Transformers.js **4.3.0**; unchanged
+smallFp16 model revision/487,960,440 bytes and Silero pin/2,243,022 bytes.
+
+Full `npm run test:framework:chrome` and unchanged long production-extension/
+native translation/DOM/GPU suites are **NOT RUN in this partial iteration**;
+previous aggregate failure is preserved. Full stage acceptance remains required
+before completion. Complete ten-minute ASR/meaning/native Korean semantics,
+new English production-extension/native translation qualification, historical
+unavailable hallucination windows, other layouts/natural/site speech and
+Safari/physical iPhone remain **UNVERIFIED**. The clipped production remux does
+not provide a valid whole-run reference. No whole-framework/device claim.
+
+Next unfinished **B6**: Japanese white-noise meanings, retained fresh-VAD Japanese
+omissions, valid complete long-run semantic reference/quality and full Chrome
+acceptance. Keep <=20%, exact counts, <2,000 ms and queue/loss gates. Environment/
+device/permission is available; no blocker/completion marker applies. No other
+stage advances. Five owned files only; preserve companion/install/settings,
+permissions/models/decoder/VAD/fixtures/runner, user apps/recordings/mounts and
+unrelated files. No agents, install, push/publish, access/profile workaround,
+credentials/weights/user media or temporary `.ralph` state committed. Detailed
+commands, results, limits and local paths are in the Chrome report. Final staged
+scope/history/checkbox/whitespace and post-commit clean status are verified.

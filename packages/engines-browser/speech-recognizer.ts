@@ -6,8 +6,9 @@ import type { AsrJob } from "./asr-protocol";
 
 // Experimental 16 kHz profiles: energy-only 20 ms frames/500 ms endpoint and
 // speech-band pause cuts after 10 s; learned 32 ms frames/500 ms detected pauses,
-// shortened to five frames (160 ms) after 10 s to avoid forcing a cut through
-// later quiet speech whose detected pause can shrink by one or two frames.
+// shortened to five frames (160 ms) after 6 s for English / 10 s for Japanese
+// to avoid forcing a cut through quiet speech whose detected pause can shrink
+// by one or two frames.
 // Both keep a 20 s maximum segment and 10 s queue headroom during inference.
 // Learned short pauses split near their midpoint after 160 ms of sustained
 // onset, avoiding cuts on isolated detector hits inside quiet words. After
@@ -122,7 +123,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
         if (detector) {
           if (!activity) { pauseCut = undefined; onsetSamples = 0; }
           else {
-            if (detectedSpeech && quietSamples >= (segmentLength >= 16000 * 10 ? 2560 : 8000)) {
+            if (detectedSpeech && quietSamples >= (segmentLength >= 16000 * (language === "en" ? 6 : 10) ? 2560 : 8000)) {
               pauseCut = segmentLength - Math.floor(quietSamples / (2 * frameSamples)) * frameSamples;
             }
             if (pauseCut !== undefined) {

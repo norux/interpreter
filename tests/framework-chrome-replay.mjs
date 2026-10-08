@@ -8,12 +8,13 @@ import { promisify } from "node:util";
 import { chromium } from "playwright";
 import { build } from "vite";
 import { validAsrJob } from "../packages/engines-browser/asr-protocol.ts";
-import { asrCandidates, registeredCandidate } from "../packages/engines-browser/model.ts";
+import { asrCandidates, registeredCandidate, vadCandidate } from "../packages/engines-browser/model.ts";
 
 // Compare candidates on identical captured jobs, without regenerating input or
 // replacing the original live accuracy/endpoint acceptance with replay timing.
 const extensionInput = process.argv[3] === "--extension-input";
-const defaultOnly = extensionInput || process.argv[3] === "--default-only";
+const resegment = process.argv[3] === "--resegment";
+const defaultOnly = extensionInput || resegment || process.argv[3] === "--default-only";
 assert.equal(process.argv.length, defaultOnly ? 4 : 3, "Supply one synthetic live-job archive directory");
 const archive = resolve(process.argv[2]);
 assert.ok(archive.startsWith(resolve(extensionInput ? ".ralph/media-framework/chrome-extension-jobs-" : ".ralph/media-framework/chrome-live-jobs-")));
@@ -60,36 +61,41 @@ for (const run of captured.runs) {
     assert.equal(typeof job.originalText, "string");
   }
 }
-const output = resolve(".ralph/media-framework/chrome-replay-build");
+const output = resolve(resegment ? ".ralph/media-framework/chrome-resegment-build" : ".ralph/media-framework/chrome-replay-build");
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: {
   outDir: output, rollupOptions: { input: { asr: resolve("packages/engines-browser/asr-host.ts"),
-    "trace-worker": resolve("tests/fixtures/browser-asr-trace-worker.ts") },
+    "trace-worker": resolve("tests/fixtures/browser-asr-trace-worker.ts"),
+    ...(resegment ? { speech: resolve("packages/engines-browser/speech-recognizer.ts"),
+      vad: resolve("packages/engines-browser/vad-host.ts") } : {}) },
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } },
 } });
 const server = createServer(async (request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
   if (path === "/") {
     response.setHeader("Content-Type", "text/html");
-    response.end(`<button id="prepare">Prepare</button><script type="module">
+    response.end(`<button id="prepare">Prepare</button>${resegment ? '<button id="prepare-vad">Prepare fresh VAD</button>' : ''}<script type="module">
       import {createAsrHost} from '/asr.js';
+      ${resegment ? "import {createSpeechRecognizer} from '/speech.js'; import {createVadHost} from '/vad.js';" : ""}
       const NativeWorker = Worker; globalThis.workerCount = 0; globalThis.decodeTraces = [];
       globalThis.Worker = class extends NativeWorker {
         constructor(url, options) {
-          if (!new URL(url, location.href).pathname.includes('asr-worker')) throw new Error('Expected production ASR worker');
-          super('/trace-worker.js', options); workerCount++;
+          const asr = new URL(url, location.href).pathname.includes('asr-worker');
+          if (!asr && !(${resegment} && new URL(url, location.href).pathname.includes('vad-worker'))) throw new Error('Unexpected replay worker');
+          super(asr ? '/trace-worker.js' : url, options); workerCount++;
           this.addEventListener('message', event => {
-            if (event.data.type === 'result') decodeTraces.push(event.data.decodeTrace);
+            if (asr && event.data.type === 'result') decodeTraces.push(event.data.decodeTrace);
           });
         }
       };
       globalThis.visibilityEvents = [];
       document.addEventListener('visibilitychange', () => visibilityEvents.push(document.visibilityState));
       globalThis.makeHost = candidate => {
-        globalThis.host?.dispose(); globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
+        globalThis.host?.dispose(); globalThis.vad?.dispose(); globalThis.statuses = []; globalThis.vadStatuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
         globalThis.host = createAsrHost(document, candidate, 'webgpu', status => statuses.push(status));
+        ${resegment ? "globalThis.vad = createVadHost(document, status => vadStatuses.push(status));" : ""}
       };
       document.querySelector('button').onclick = () => {
-        host.prepare().then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
+        Promise.all([host.prepare(), ${resegment ? 'vad.prepare()' : 'undefined'}]).then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
       };
       globalThis.replayJob = async ({job, base64}) => {
         const pcm = new Float32Array(Uint8Array.from(atob(base64), byte => byte.charCodeAt(0)).buffer);
@@ -104,7 +110,41 @@ const server = createServer(async (request, response) => {
           decodeTrace: decodeTraces[0],
           inputSha256: [...new Uint8Array(await digest)].map(byte => byte.toString(16).padStart(2,'0')).join('')};
       };
-      window.addEventListener('pagehide', () => host?.dispose());
+      ${resegment ? `document.querySelector('#prepare-vad').onclick = () => {
+        vad.dispose(); globalThis.vadStatuses = []; globalThis.vadPrepared = false; globalThis.vadError = undefined;
+        globalThis.vad = createVadHost(document, status => vadStatuses.push(status));
+        vad.prepare().then(() => {globalThis.vadPrepared = true}, error => {globalThis.vadError = error.message});
+      };
+      globalThis.resegmentRun = async ({identity, language, startMs, base64}) => {
+        // Only enumerate production VAD/segmentation jobs here. Real ASR below
+        // scores them; the empty transport revisions never enter that score.
+        const pcm = new Float32Array(Uint8Array.from(atob(base64), byte => byte.charCodeAt(0)).buffer);
+        const jobs = []; const statuses = [];
+        const recognizer = createSpeechRecognizer(identity, language, {
+          async recognize(job) {
+            const inputSha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', job.pcm))]
+              .map(byte => byte.toString(16).padStart(2,'0')).join('');
+            jobs.push({utteranceId:job.utteranceId, audioRange:job.audioRange, samples:job.pcm.length, inputSha256});
+            return {revision:{identity, utteranceId:job.utteranceId, audioRange:job.audioRange,
+              sourceRevision:1, final:true, text:''}, inferenceMs:0};
+          }, stop() {},
+        }, status => statuses.push(status), {detect:frame => vad.detect(frame), stop() {}});
+        async function* chunks() {
+          for (let offset = 0, sequence = 0; offset < pcm.length; offset += 1600, sequence++) {
+            const part = pcm.slice(offset, offset+1600);
+            const first = startMs+offset/16; const last = first+part.length/16;
+            yield {identity, scope:'selected-video', sequence, audioRange:{startMs:first,endMs:last},
+              capture:{clockId:'archived-resegmentation',startMs:first,endMs:last}, sampleRate:16000,
+              channels:1, sampleFormat:'pcm-f32le', pcm:part.buffer};
+            // Let the snapshot executor drain; this is unpaced segmentation,
+            // never a real-time queue/endpoint qualification.
+            await new Promise(done => setTimeout(done, 0));
+          }
+        }
+        for await (const _ of recognizer.run(chunks())) {}
+        return {jobs, statuses};
+      };` : ''}
+      window.addEventListener('pagehide', () => {host?.dispose(); globalThis.vad?.dispose();});
     </script>`); return;
   }
   const file = resolve(output, `.${path}`);
@@ -118,6 +158,7 @@ const server = createServer(async (request, response) => {
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const observations = { scope: extensionInput
   ? "B6 exact production-extension synthetic ASR input replay/decoder traces; no new capture, whole-run accuracy, native translation or endpoint qualification"
+  : resegment ? "B6 identical archived PCM resegmented by production learned VAD; real default ASR accuracy/meaning gates only, no live capture/queue/endpoint/translation qualification"
   : defaultOnly ? "B6 default-profile exact archived ASR replay/decoder traces and original accuracy/meaning gates; no live endpoint or translation qualification"
   : "B2 exact archived synthetic selected-video ASR candidate comparison; no live capture/VAD/endpoint/translation/DOM qualification",
   archive, archiveManifestSha256: createHash("sha256").update(await readFile(resolve(archive, "manifest.json"))).digest("hex"),
@@ -183,7 +224,11 @@ try {
     assert.equal(await page.evaluate(() => prepareError), undefined);
     measured.preparationMs = performance.now()-started; measured.preparationRemoteRequests = remoteRequests-requestsBefore;
     measured.statuses = await page.evaluate(() => statuses);
-    assert.equal(await page.evaluate(() => workerCount), workersBefore+1, "Each trial requires a fresh production worker");
+    if (resegment) {
+      measured.vadStatuses = await page.evaluate(() => vadStatuses);
+      assert.equal(measured.vadStatuses.at(-1).state, "ready");
+    }
+    assert.equal(await page.evaluate(() => workerCount), workersBefore+(resegment ? 2 : 1), "Each trial requires a fresh production worker");
     assert.deepEqual(measured.statuses.at(-1).model, selected.model); assert.equal(measured.statuses.at(-1).state, "ready");
     if (trial === 2) {
       assert.equal(measured.preparationRemoteRequests, 0); assert.ok(measured.statuses.some(status => status.state === "cached"));
@@ -191,11 +236,50 @@ try {
     }
     console.log(JSON.stringify({ replayPreparation: measured }));
     const inferenceRequestsBefore = remoteRequests;
-    for (const run of captured.runs) {
+    for (const [runIndex, run] of captured.runs.entries()) {
       const replay = { round: run.round, language: run.language, periods: run.periods, jobs: [] };
       measured.runs.push(replay);
-      for (const job of run.jobs) {
-        const bytes = await readFile(resolve(archive, job.file));
+      let jobs = run.jobs;
+      let combined;
+      if (resegment) {
+        if (runIndex) {
+          const workersBefore = await page.evaluate(() => workerCount);
+          const requestsBefore = remoteRequests;
+          await page.locator("#prepare-vad").press("Enter");
+          await page.waitForFunction(() => globalThis.vadPrepared || globalThis.vadError, undefined, { timeout: 30000 });
+          assert.equal(await page.evaluate(() => vadError), undefined);
+          assert.equal(await page.evaluate(() => workerCount), workersBefore+1, "Each run starts a fresh detector with no earlier state");
+          assert.equal(remoteRequests, requestsBefore, "Fresh detectors must use the prepared cache");
+        }
+        replay.vadStatuses = await page.evaluate(() => vadStatuses);
+        assert.equal(replay.vadStatuses.at(-1).state, "ready");
+        const parts = await Promise.all(run.jobs.map(job => readFile(resolve(archive, job.file))));
+        for (const [index, part] of parts.entries()) {
+          assert.equal(part.length, run.jobs[index].samples*4);
+          assert.equal(createHash("sha256").update(part).digest("hex"), run.jobs[index].inputSha256);
+        }
+        combined = Buffer.concat(parts);
+        replay.combinedInputSha256 = createHash("sha256").update(combined).digest("hex");
+        const segmented = await page.evaluate(snapshot => resegmentRun(snapshot), {
+          identity: run.identity, language: run.language, startMs: run.jobs[0].audioRange.startMs, base64: combined.toString("base64"),
+        });
+        jobs = segmented.jobs; replay.segmentationStatuses = segmented.statuses;
+        assert.ok(jobs.length > 0);
+        assert.equal(jobs[0].audioRange.startMs, run.jobs[0].audioRange.startMs, "Resegmentation must preserve the admitted beginning");
+        assert.equal(jobs.at(-1).audioRange.endMs, run.jobs.at(-1).audioRange.endMs, "Resegmentation must preserve the admitted EOF");
+        assert.equal(jobs.reduce((sum, job) => sum+job.samples, 0)*4, combined.length, "Every archived sample must be admitted exactly once");
+        assert.equal(segmented.statuses.at(-1).queue.pendingAudioMs, 0);
+        assert.equal(segmented.statuses.at(-1).queue.droppedAudioMs, 0);
+      }
+      for (const [index, job] of jobs.entries()) {
+        if (resegment) {
+          assert.equal(job.utteranceId, `speech-${index+1}`);
+          if (index) assert.equal(job.audioRange.startMs, jobs[index-1].audioRange.endMs);
+          assert.equal(job.audioRange.endMs-job.audioRange.startMs, job.samples/16);
+          assert.ok(job.samples >= 1600 && job.samples <= 320000);
+        }
+        const offset = resegment ? (job.audioRange.startMs-run.jobs[0].audioRange.startMs)*64 : 0;
+        const bytes = resegment ? combined.subarray(offset, offset+job.samples*4) : await readFile(resolve(archive, job.file));
         assert.equal(createHash("sha256").update(bytes).digest("hex"), job.inputSha256);
         const result = await page.evaluate(snapshot => replayJob(snapshot), {
           job: { identity: run.identity, utteranceId: job.utteranceId, language: run.language, audioRange: job.audioRange }, base64: bytes.toString("base64"),
@@ -220,7 +304,7 @@ try {
           assert.ok(trace.inputs[0].tokens.every(token => token < trace.timestampBegin), "Default text decoding must not predict segment timestamps");
           assert.equal(trace.inputs[0].tokens[3], trace.timestampBegin-1, "Default requires the no-timestamps prompt token");
         } else assert.ok(Array.isArray(trace.decoded.chunks));
-        replay.jobs.push({ ...job, ...result, identicalOriginalText: result.revision.text === job.originalText });
+        replay.jobs.push({ ...job, ...result, ...(resegment ? {} : { identicalOriginalText: result.revision.text === job.originalText }) });
       }
       if (extensionInput) {
         replay.identicalOriginalJobs = replay.jobs.filter(job => job.identicalOriginalText).length;
@@ -241,7 +325,7 @@ try {
     }
     measured.inferenceRemoteRequests = remoteRequests-inferenceRequestsBefore; assert.equal(measured.inferenceRemoteRequests, 0);
     measured.peakRssKiB = peakRssKiB;
-    await page.evaluate(() => host.dispose());
+    await page.evaluate(() => { host.dispose(); globalThis.vad?.dispose(); });
     console.log(JSON.stringify({ replayTrial: measured }));
   }
   observations.remoteRequests = remoteRequests; observations.remotePaths = [...remotePaths]; observations.pageErrors = pageErrors;
@@ -251,7 +335,9 @@ try {
     const { model } = asrCandidates[candidate];
     return path.startsWith(`https://huggingface.co/${model.id}/resolve/${model.version}/`)
       || path.startsWith(`https://huggingface.co/api/resolve-cache/models/${model.id}/${model.version}/`);
-  }) || path.startsWith("https://us.aws.cdn.hf.co/xet-bridge-us/")), "Only pinned model artifacts/redirects may be remote");
+  }) || (resegment && (path.startsWith(`https://huggingface.co/${vadCandidate.model.id}/resolve/${vadCandidate.model.version}/`)
+    || path.startsWith(`https://huggingface.co/api/resolve-cache/models/${vadCandidate.model.id}/${vadCandidate.model.version}/`)))
+    || path.startsWith("https://us.aws.cdn.hf.co/xet-bridge-us/")), "Only pinned model artifacts/redirects may be remote");
   console.log(JSON.stringify({ passed: observations.failures.length === 0, ...observations }));
   assert.deepEqual(observations.failures, [], extensionInput
     ? "Every captured production job must reproduce its original output in both fresh default-worker trials"

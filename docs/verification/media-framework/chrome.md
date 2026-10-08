@@ -10525,3 +10525,229 @@ weights, user audio/transcripts or temporary `.ralph` state committed; only owne
 test-browser/profile resources cleaned. Related commit:
 `test: archive noisy Chrome ASR inputs`. Final staged whitelist, unchanged
 checklists/history, whitespace and clean committed worktree are checked at delivery.
+
+
+## 2026-10-09 KST — B6 preserve repeated English speech (chrome iteration 1/20, new runner cycle)
+
+**B6 remains unchecked.** This partial iteration improves the retained English
+omission without changing the model, detector, decoder, PCM or quality gates.
+Entry HEAD was `0ef9053`, with a clean worktree. Repository AGENTS.md and the
+requested `.ralph/media-framework/2026-10-08T19-41-49-982Z-chrome-verification.txt`
+were absent. Read the supplied instructions, plan, framework architecture and
+Chrome history. Only Stage chrome / B6 is selected; previous checkboxes and
+failed evidence are preserved.
+
+### Change and observable criterion
+
+Learned English segmentation now accepts the existing short detected pause after
+**six seconds**, instead of ten. Japanese retains ten seconds. A qualifying
+pause still needs **five inactive 32 ms frames / 160 ms**, followed by **five
+active frames / 160 ms** of confirmed onset, and splits at the existing aligned
+midpoint. This is an earlier eligible pause, **not a forced six-second cut**.
+The ordinary 500 ms pause, 20-second maximum, 30-second retained-audio bound,
+two-pending-job limit, first-result confidence rule, silence/EOF handling,
+identity/cancel contracts and original PCM all remain. The smaller approach is
+to change this existing local rule rather than add another model or decoder.
+No reference prompts, text corrections, repetition suppression, filtering,
+public settings or automatic backend/model fallback are added.
+
+The observable criterion is to preserve **19 occurrences of each original
+English meaning** on the retained failing PCM, then pass the existing real
+quiet/EOF/noise-English and sustained-live error, count, latency and loss gates.
+A fake-executor regression first **FAILS / exit 1** at the expected English
+6,496 ms cut (old output is one 9,280 ms job),
+`chrome-iteration-1-pause-before.log`. The final focused command
+`node --import tsx --test tests/framework-browser-speech.test.ts
+ tests/framework-browser-vad.test.ts tests/framework-browser-normalize.test.ts`
+**PASSES / exit 0 / 29 tests / 333.049375 ms**,
+`chrome-iteration-1-pause-after.log`. The new cases preserve every marked sample,
+EOF, frame count and zero final queue/loss, with Japanese and four-frame-pause
+controls. These unit outputs establish segmentation/transport, not accuracy.
+
+### Deterministic archive resegmentation and exact input comparison
+
+`npm run test:framework:chrome:replay -- <owned-archive> --resegment` is a new
+**test-only default-profile mode**. Existing exact-job/default/extension/candidate
+modes and their strict score, count, token, identity and cache gates remain.
+The new mode validates all original sizes/hashes/fixtures/models and contiguous
+ranges before joining admitted PCM. Real production Silero VAD runs with a fresh
+detector and actual Prepare gesture for every run. A snapshot executor enumerates
+jobs using empty transport revisions; those revisions **never enter scoring**.
+Every resulting job is then recognized by the real production WebGPU ASR worker.
+Independent slice hashes, preserved start/EOF, complete sample sum, contiguous
+ranges, identity, transfer, decoder, queue and cache assertions reject omissions,
+overlap or altered input. No new captured video or reference is substituted.
+Resegmentation is unpaced and its snapshot executor has no real inference load;
+its queue observations and timing **do not qualify live pressure or endpoints**.
+
+All local evidence below is ignored `.ralph/media-framework/` state. Original
+archive `chrome-live-jobs-pI0asc` manifest SHA-256 remains
+`7f86a10753945aa7d60dc7fc102d8fac56ad2e2992a7720249a4db9db08020e5`.
+
+- **FAIL / exit 1**, `npm run test:framework:chrome:replay --
+  .ralph/media-framework/chrome-live-jobs-pI0asc --default-only`,
+  `chrome-iteration-1-english-baseline.log` / `...-summary.json`.
+  Both fresh workers reproduce **all 27 original job texts**. Long English is
+  **61/418 edits = 14.5933014354067% WER**, all four meanings **17 / expected 19**.
+  All other archived runs pass, including original long Japanese **18/720 CER**,
+  every meaning **18**. Preparation **53,359.379917 / 1,232.4867079999967 ms**,
+  remote requests **14 / 0**, inference remote requests **0** in both trials;
+  peak owned-tree RSS **4,385,984 / 4,444,816 KiB**.
+- **FAIL / exit 1**, same archive with `--resegment` before the production edit,
+  `chrome-iteration-1-resegment-baseline.log` / `...-summary.json`.
+  Both workers reconstruct **all ten original English job hashes/ranges** and
+  reproduce **17/19** meanings and **61/418 WER**. Fresh detector state starts at
+  the first archived admitted sample; earlier unarchived detector-only context
+  is unavailable. Long Japanese therefore has a distinct **nine-job** layout,
+  **60/720 = 8.333333333333332% CER**, every meaning **17 / expected 18**.
+  This is a separate failed segmentation baseline, not exact-job reproduction
+  or a new production regression. All five shorter controls pass.
+- **FAIL aggregate / exit 1**, final source, same `--resegment` command,
+  `chrome-iteration-1-resegment-six-seconds.log` / `...-summary.json`.
+  Both fresh workers process **36 jobs / seven runs**. Long English becomes
+  **19 jobs / 19/418 = 4.545454545454546% WER / every meaning 19**; three-period
+  English becomes three jobs, **3/66 WER / every meaning 3**; one-period English
+  remains **1/22 WER / every meaning 1**. Japanese job hashes/texts/scores/counts
+  exactly match the failed fresh-VAD baseline; its two long meaning-count
+  failures remain the only aggregate failures. Do not label this command PASS.
+  Preparation **51,800.29479199999 / 1,433.3384169999918 ms**, remote requests
+  **16 / 0**, inference remote requests **0** each; peak owned-tree RSS
+  **4,022,576 / 4,116,128 KiB**, page errors and visibility events **[]**.
+
+Independent readback/comparison **PASS / exit 0**:
+`chrome-iteration-1-resegment-analysis.json`, all **14 run/trial input comparisons**,
+all generated slices/raw-decoder associations. Long English combined PCM SHA-256
+is unchanged `b4b4d5a91b947096997c7189f3350365d0f596ab456d27be96316926681c28de`.
+Raw generated text equals final decoded/source text; the improvement occurs in
+recognition of the smaller jobs, without editing text or samples.
+
+A one-byte mutation of an owned synthetic archive copy is **correctly rejected**
+by `npm run test:framework:chrome:replay --
+ .ralph/media-framework/chrome-live-jobs-resegment-corrupt-agexahgb --resegment`,
+**exit 1**, at the original digest assertion (replay line 55), before build,
+browser/model/inference. Expected original and altered digests are independently
+verified **PASS / exit 0** in `chrome-iteration-1-negative-analysis.txt` and the
+existing `...-corrupt-resegment.log`. The copy is removed; original archives
+remain unchanged. No unchanged baseline or failed hypothesis is repeated.
+
+### Final-source affected acceptance checks
+
+Commands run serially once, on the retained English rule, using owned headed
+Chromium. Exact exit/duration evidence: `chrome-iteration-1-focused-checks.json`.
+The batch exits **1** because noise fails; constituent passes remain separate.
+
+| Command | Result / exit | Elapsed seconds |
+| --- | --- | ---: |
+| `npm run test:framework:chrome:noise:learned` | **FAIL / 1** | 203.02049875 |
+| `npm run test:framework:chrome:quiet` | **PASS / 0** | 187.51254224999997 |
+| `npm run test:framework:chrome:eof` | **PASS / 0** | 277.465204584 |
+| `npm run test:framework:chrome:live:sustained:learned` | **PASS / 0** | 538.542428667 |
+| `npm run verify` | **PASS / 0** | 92.70391316700011 |
+
+Noise executes all ten original cases and cached offline ja/en ASR. The sole
+failure remains Japanese white-noise meeting **2**, station **1**, expected **3**
+each; other five **3**, **9/120 = 7.5% CER**. Endpoints
+**1,103.6000000238419 / 1,438 / 845.5 ms**, max pending **9,300 ms**.
+Original mixed input SHA-256 remains
+`38db530ee1d6884d13ed97b716f2ccc690317cf166268163bf5a4591838514e9`.
+English quiet/white noise both retain every meaning **3**, **3/66 WER**,
+maximum endpoints **1,228.6999999284744 / 1,307.6000000238419 ms**, maximum
+pending **9,000 / 8,800 ms**. All six speech-free controls produce zero ASR jobs/
+text. Offline ja/en preserve all once-only meanings, **1/40 CER / 1/22 WER**,
+**856.6999999284744 / 651.2999999523163 ms** host round trips, zero remote requests.
+Page errors/visibility **[]**. Evidence: `chrome-iteration-1-noise.log` / `...-summary.json`.
+No Japanese acoustic tuning or third unchanged noise attempt is made.
+
+Quiet's six cases (ja/en, gain **1 / 0.25 / 0.1**) and EOF's ten cases (ja/en,
+tails **0 / 341 / 511 / 853 / 1,365 samples**) pass every original gate. Quiet
+Japanese is **3/120 CER** throughout; English **3/66, 3/66, 1/66 WER**, every
+meaning **3**. Max endpoints **1,573.5 / 1,333.6000000238419 ms** (ja/en),
+max pending **16,268 / 12,468 ms**. EOF ja/en are **3/120 CER / 3/66 WER** for
+all tails, every meaning **3**, max endpoints **1,397.6999999284744 /
+1,337.3000000715256 ms**, max pending **13,068 / 12,468 ms**. Final queue/loss
+zero; page errors/visibility **[]**. Evidence: `chrome-iteration-1-quiet.log`,
+`...-eof.log` and corresponding `...-summary.json` files.
+
+The sustained live command passes all **eight rounds**, including real selected-
+video PCM, isolation/mapping/playback, Stop during VAD and cached restart. Seven
+scored runs preserve all counts/error gates; deliberate Stop explicitly discards
+**863.375 ms**, clears its queue and never becomes a scored complete phrase.
+
+| Actual sustained input | Japanese | English |
+| --- | ---: | ---: |
+| Reference periods / ASR jobs | 18 / 10 | 19 / 19 |
+| Error | **18/720 = 2.5% CER** | **19/418 = 4.545454545454546% WER** |
+| Every original meaning count | **18** | **19** |
+| Maximum labeled endpoint-to-text ms | **1,694** | **1,142** |
+| Last-packet-to-text ms | 1,359.5 | 629.5 |
+| Maximum pending / final pending / loss ms | 15,615.375 / 0 / 0 | 9,183.375 / 0 / 0 |
+| Host measured interval ms | 126,938.59999990463 | 127,365 |
+| Raw 48 kHz samples / normalized 16 kHz samples | 6,029,312 / 2,009,770 | 6,084,608 / 2,028,202 |
+| Initial / peak / final owned-tree RSS KiB | 4,007,552 / 4,007,552 / 2,237,744 | 3,989,696 / 4,012,528 / 2,301,392 |
+
+The original **<2,000 ms** gate uses actual normalized endpoint delivery and
+source observation on one document clock, including submission wait/inference/
+dispatch. Acquisition overlaps inference; contiguous admitted samples and
+**<=30,000 ms** queue gates pass. Two exact Japanese replay groups (**2 / 10 jobs**)
+retain their passing counts/error with no remote inference; replay is not live
+latency. Complete synthetic decoded-period hashes match historical references;
+this fresh live capture differs from the fixed archive and does not erase it.
+Evidence: `chrome-iteration-1-live.log` / `...-summary.json`, final numeric
+`...-live-analysis.json`, ignored archive `chrome-live-jobs-TewYsn`.
+Two initial metrics extractors **FAIL / exit 1** on incorrect `runs` and optional
+`endpointLatenciesMs` keys; the corrected extractor **PASSES / exit 0** on the
+existing successful log. No browser/inference command is repeated.
+
+### Verification, qualification limits and remaining B6 work
+
+Final `npm run verify` **PASS / exit 0**: Biome **148 files / 67 ms**, Ruff,
+typecheck, unchanged companion build, **154 JS / 0 failed/skipped/cancelled /
+24,454.1375 ms**, **222 Python / 67.01 s**. `npm run build:chrome` **PASS / exit 0**,
+`chrome-iteration-1-build-final.log`, Vite **337 ms**; the earlier same successful
+build's shell wrapper did not isolate its exit status, so this explicit command
+is the final build evidence. Focused Node syntax, three-file Biome (**8 ms**) and
+whitespace checks **PASS / exit 0**. Six unchanged decoder/trace contracts
+**PASS / exit 0 / 415.600917 ms**, `chrome-iteration-1-decoder-contracts.log`.
+No executable edit follows final verification.
+
+Environment: macOS **26.6.2 / 25G83 / arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, locked Transformers.js **4.3.0**.
+Same smallFp16/WebGPU `onnx-community/whisper-small`, revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 model bytes**; same
+Silero revision `e71cae966052b992a7eca6b17738916ce0eca4ec`, **2,243,022 bytes**.
+No new candidate, revision, dependency or weights. RSS includes shared browser/
+GPU pages and observers; no isolated allocation/leak/mobile-pressure claim.
+
+**NOT RUN this partial iteration:** full `npm run test:framework:chrome`, the
+unchanged ten-minute Japanese production-extension suite, native translation/
+DOM/GPU-recovery constituents and other unchanged long suites. The plan requires
+full acceptance before completion; its previous recorded aggregate FAIL is not
+converted to PASS. Changed English segmentation is measured by affected checks
+above, not by repeating the unchanged entire browser suite.
+
+**UNVERIFIED:** complete ten-minute default-profile ASR/meaning/native Korean
+semantics, new English segmentation's full production-extension/native translation
+qualification, historical unavailable hallucination windows, other retained
+layouts and broader natural/site speech. The clipped 23,940 ms production remux
+still cannot supply a valid multiplied whole-run reference. PCM acquisition,
+loading/caching, empty snapshot revisions and replay timing are not translation
+or live recognition accuracy. Physical-speaker/fullscreen, complete offline
+browser restart, Safari and physical iPhone are not qualified in this slice.
+
+**Next remains B6:** repair Japanese white-noise meanings, qualify the preserved
+fresh-VAD Japanese omission layout, and establish valid complete long-run semantic
+reference/quality plus full Chrome acceptance. Keep **CER/WER <=20%**, exact
+meaning counts, **endpoint <2,000 ms**, queue/loss and every failed input/assertion.
+No required environment/device/permission is absent; neither blocker nor stage-
+completion marker applies. No later stage advances.
+
+Five intended files only: speech recognizer, its regression, existing replay
+harness, this report and plan log. Companion v0.1.0/native messaging/install/
+server/legacy extension/settings, production permissions, model/decoder/VAD,
+runner, original fixtures and unrelated files/apps/recordings/mounts remain.
+No agents, push, publish, app installation or browser/profile-access workaround.
+No credentials, model weights, user audio/transcripts or temporary `.ralph` state
+are committed. Only owned test browsers/profiles/corruption copy are cleaned.
+Related commit: `fix: preserve repeated English browser speech`. Final staged
+whitelist, unchanged checkboxes/history, whitespace and clean committed worktree
+are checked at delivery.

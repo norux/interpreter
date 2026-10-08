@@ -544,3 +544,34 @@ test("learned admission retains quiet onset context before delayed speech detect
     assert.ok(statuses.every(status => (status.queue?.pendingAudioMs ?? 0) <= 20000));
   }
 });
+
+test("learned English splits confirmed short pauses after six seconds without cutting Japanese or shorter pauses", async () => {
+  for (const language of ["en", "ja"] as const) for (const pauseFrames of [4, 5, 7]) {
+    const jobs: AsrJob[] = []; const statuses: SessionStatus[] = []; let frame = 0;
+    const supplied = Float32Array.from({ length: 290 * 512 }, (_, i) => (i % 127) / 1270);
+    const recognizer = createSpeechRecognizer(identity, language, {
+      async recognize(job) {
+        jobs.push(structuredClone(job));
+        return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+      }, stop() {},
+    }, status => statuses.push(status), {
+      async detect() { const index = frame++; return { speech: index < 200 || index >= 200 + pauseFrames }; }, stop() {},
+    });
+    async function* packets() {
+      for (let i = 0; i < 290; i++) yield { ...chunk(i, true, 512), pcm: supplied.slice(i * 512, (i + 1) * 512).buffer };
+    }
+    await collect(recognizer.run(packets()));
+    const cut = (200 + Math.ceil(pauseFrames / 2)) * 32;
+    assert.deepEqual(jobs.map(job => job.audioRange), language === "en" && pauseFrames >= 5
+      ? [{ startMs: 0, endMs: cut }, { startMs: cut, endMs: 9280 }]
+      : [{ startMs: 0, endMs: 9280 }]);
+    let offset = 0;
+    for (const job of jobs) {
+      assert.deepEqual(job.pcm, supplied.slice(offset, offset + job.pcm.length));
+      offset += job.pcm.length;
+    }
+    assert.equal(offset, supplied.length); assert.equal(frame, 290);
+    assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+    assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 0);
+  }
+});
