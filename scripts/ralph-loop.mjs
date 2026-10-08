@@ -48,12 +48,14 @@ function finished(plan, selected) {
   return /^- \[x\] /m.test(text) && !/^- \[ \] /m.test(text);
 }
 
-function prompt(iteration, verificationLog = '.ralph/media-framework/<run>-verification.txt', selected = stage) {
+function prompt(iteration, verificationLog = '.ralph/media-framework/<run>-verification.txt', selected = stage, repairFailure) {
   return `Work only in ${root}. Read AGENTS.md if present, RALPH_PLAN.md,
 docs/architecture/media-framework.md and docs/verification/media-framework/${selected}.md if it exists.
 Read ${verificationLog} if it exists for independent runner acceptance failures.
 This is the media-framework Ralph stage ${selected}, iteration ${iteration}/${limit}.
-Implement the next unfinished item in Stage ${selected} only. Follow the full framework
+${repairFailure ? `Repair the failed acceptance in Stage ${selected} only: ${repairFailure}
+Read the failure log, establish the cause, fix and verify it, and commit the repair.
+Do not restart completed feature work or tune unrelated quality targets.` : `Implement the next unfinished item in Stage ${selected} only.`} Follow the full framework
 architecture and preserve the published companion and existing user settings.
 Run acceptance checks, record exact passing/failing/unverified evidence in the stage
 report and plan progress log, check only actually completed items, and commit the work.
@@ -84,7 +86,7 @@ function verify(logPath, selected = stage) {
   if (!existsSync(report) || !readFileSync(report, 'utf8').trim()) return 'Stage verification report is missing.';
   const commands = [...(selected === stage ? ['verify'] : []), `test:framework:${selected}`];
   if (selected === 'core') commands.push('test:captions-correction-browser', 'test:transcript-browser');
-  writeFileSync(logPath, '');
+  if (!existsSync(logPath)) writeFileSync(logPath, '');
   for (const script of commands) {
     const result = run('npm', ['run', script], { stdio: 'pipe' });
     const output = `npm run ${script}\n${result.stdout ?? ''}${result.stderr ?? ''}\n`;
@@ -155,12 +157,17 @@ function main() {
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
   let noProgress = 0;
   let failedVerifications = 0;
+  let repairFailure;
   const verificationLog = join(logs, `${runId}-${stage}-verification.txt`);
   if (finished(plan, stage)) {
     const failure = verify(verificationLog);
-    if (failure) throw new Error(failure);
-    finishStage(logs, runId);
-    return;
+    if (!failure) {
+      finishStage(logs, runId);
+      return;
+    }
+    console.error(`${failure} Attempting automatic repair.`);
+    writeFileSync(verificationLog, `${existsSync(verificationLog) ? readFileSync(verificationLog, 'utf8') : ''}\n${failure}\n`);
+    repairFailure = failure;
   }
   for (let iteration = 1; iteration <= limit; iteration++) {
     const before = git(['rev-parse', 'HEAD']).trim();
@@ -170,7 +177,7 @@ function main() {
     const result = run('codex', [
       '--search', '--ask-for-approval', 'never', '--sandbox', 'danger-full-access',
       '--cd', root, 'exec', '--output-last-message', messagePath, '-',
-    ], { input: prompt(iteration, verificationLog), stdio: ['pipe', 'inherit', 'inherit'] });
+    ], { input: prompt(iteration, verificationLog, stage, repairFailure), stdio: ['pipe', 'inherit', 'inherit'] });
     if (result.status !== 0) throw new Error(`Codex exited ${result.status}; plan preserved.`);
     if (!existsSync(planPath)) throw new Error('Agent removed the plan; inspect the changes.');
     if (readFileSync(runnerPath, 'utf8') !== runnerSource) throw new Error('Runner changed during iteration; stopped.');
@@ -183,7 +190,7 @@ function main() {
     const last = readFileSync(messagePath, 'utf8').trim().split('\n').at(-1);
     if (last === blocked) throw new Error(`Stage ${stage} blocked; see the plan and ${messagePath}.`);
     noProgress = git(['rev-parse', 'HEAD']).trim() === before ? noProgress + 1 : 0;
-    if (last === complete) {
+    if (last === complete || repairFailure) {
       const failure = verify(verificationLog);
       if (!failure) {
         finishStage(logs, runId);
@@ -191,6 +198,7 @@ function main() {
       }
       console.error(failure);
       writeFileSync(verificationLog, `${existsSync(verificationLog) ? readFileSync(verificationLog, 'utf8') : ''}\n${failure}\n`);
+      repairFailure = failure;
       failedVerifications++;
       if (failedVerifications >= 2) throw new Error('Completion verification failed twice; stopped with plan preserved.');
     } else failedVerifications = 0;

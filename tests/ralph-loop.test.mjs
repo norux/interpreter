@@ -39,6 +39,7 @@ const cp = require('node:child_process');
 const prompt = fs.readFileSync(0, 'utf8');
 const stage = prompt.match(/Ralph stage ([a-z]+),/)[1];
 fs.mkdirSync('.ralph', {recursive:true});
+fs.writeFileSync('.ralph/last-prompt', prompt);
 if (fs.existsSync('.ralph/sleep-guard-pid')) {
   process.kill(Number(fs.readFileSync('.ralph/sleep-guard-pid', 'utf8')), 0);
   fs.appendFileSync('.ralph/guard-stage-calls', stage + '\\n');
@@ -71,6 +72,11 @@ fs.mkdirSync('.ralph', {recursive:true});
 const script = process.argv[3];
 fs.appendFileSync('.ralph/npm-calls', script + '\\n');
 console.log('Runner test fixture command: ' + script);
+if (script === process.env.RALPH_TEST_FAIL_ONCE_SCRIPT && !fs.existsSync('.ralph/failed-once')) {
+  fs.writeFileSync('.ralph/failed-once', script);
+  console.log('Fixture acceptance failed once');
+  process.exit(1);
+}
 if (script === process.env.RALPH_TEST_FAIL_SCRIPT) process.exit(1);
 `;
   const fakeCaffeinate = `#!/usr/bin/env node
@@ -178,7 +184,50 @@ test('all cannot skip failing acceptance of an already-completed stage', (t) => 
   const result = f.run(['all', '1'], { RALPH_TEST_ACTION: 'complete', RALPH_TEST_FAIL_SCRIPT: 'test:framework:core' });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Acceptance failed: npm run test:framework:core/);
-  assert.deepEqual(f.calls('codex'), []);
+  assert.equal(f.calls('codex').length, 1);
+  assert.deepEqual(f.calls('stage'), ['core']);
+  assert.ok(existsSync(join(f.root, 'RALPH_PLAN.md')));
+});
+
+test('completed-stage acceptance failure invokes a repair and then advances all stages', (t) => {
+  const f = fixture(t, ['core', 'video']);
+  const result = f.run(['all', '5'], {
+    RALPH_TEST_ACTION: 'complete', RALPH_TEST_FAIL_ONCE_SCRIPT: 'test:framework:video',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.calls('stage'), ['video', 'chrome', 'safari', 'iphone']);
+  const logs = f.calls('npm');
+  assert.equal(logs.filter(script => script === 'test:framework:video').length, 3);
+  assert.equal(existsSync(join(f.root, 'RALPH_PLAN.md')), false);
+  assert.equal(f.git('status', '--porcelain'), '');
+});
+
+test('repair targets the failed acceptance even without a completion marker and preserves its log', (t) => {
+  const f = fixture(t, ['core']);
+  const result = f.run(['core', '5'], {
+    RALPH_TEST_ACTION: 'partial', RALPH_TEST_FAIL_ONCE_SCRIPT: 'test:framework:core',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(f.calls('codex').length, 1);
+  const prompt = readFileSync(join(f.root, '.ralph/last-prompt'), 'utf8');
+  assert.match(prompt, /Repair the failed acceptance in Stage core/);
+  assert.match(prompt, /Acceptance failed: npm run test:framework:core/);
+  assert.doesNotMatch(prompt, /Implement the next unfinished item/);
+  const logPath = prompt.match(/Read (.+-verification\.txt) if it exists/)[1];
+  assert.match(readFileSync(logPath, 'utf8'), /Fixture acceptance failed once/);
+  assert.deepEqual(f.calls('npm'), ['verify', 'test:framework:core', 'verify', 'test:framework:core',
+    'test:captions-correction-browser', 'test:transcript-browser']);
+});
+
+test('persistent completed-stage failure stops after two repair attempts', (t) => {
+  const f = fixture(t, ['core']);
+  const result = f.run(['core', '5'], {
+    RALPH_TEST_ACTION: 'partial', RALPH_TEST_FAIL_SCRIPT: 'test:framework:core',
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Completion verification failed twice/);
+  assert.equal(f.calls('codex').length, 2);
+  assert.equal(f.calls('npm').filter(script => script === 'test:framework:core').length, 3);
   assert.ok(existsSync(join(f.root, 'RALPH_PLAN.md')));
 });
 
@@ -256,12 +305,13 @@ test('completed checkbox cannot bypass a failing independent acceptance command'
   assert.ok(existsSync(join(f.root, 'RALPH_PLAN.md')));
 });
 
-test('missing report blocks already-completed stage verification', (t) => {
+test('missing report is offered for repair but cannot bypass stage verification', (t) => {
   const f = fixture(t, ['core']);
   f.git('rm', 'docs/verification/media-framework/core.md');
   f.git('commit', '-m', 'test: remove fixture report');
   assert.match(f.run().stderr, /report is missing/);
-  assert.deepEqual(f.calls('codex'), []);
+  assert.equal(f.calls('codex').length, 2);
+  assert.deepEqual(f.calls('npm'), []);
 });
 
 test('unselected stage changes, runner changes and uncommitted work stop the run', (t) => {

@@ -27,7 +27,10 @@ stages. After `npm ci` and `uv sync --locked`, preview all stages with
 The limit is per stage; each stage must pass acceptance before the next starts.
 On macOS, the runner keeps the display and system awake for the entire run,
 including iteration and stage transitions, and releases that assertion on exit.
-It stops on a blocker, failure or iteration limit. Rerun the same command to recheck
+Failed acceptance during a completed-stage recheck is sent to Codex for repair;
+the runner verifies the repair before advancing and preserves the failure logs.
+It stops after two unsuccessful repair verifications, or on a blocker, CLI failure,
+missing commit progress or iteration limit. Rerun the same command to recheck
 completed stages and resume unfinished work. Use a stage name instead of `all` to
 run only that stage. After final verification it deletes the plan and commits
 cleanup. It does not push or publish. This new plan has not been started.

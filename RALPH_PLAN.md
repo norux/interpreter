@@ -39,6 +39,10 @@ node scripts/ralph-loop.mjs all 5
 한 단계가 완료 검증을 통과하면 다음 단계로 넘어간다. 횟수 소진·차단·실패 시에는
 즉시 멈추며 다음 단계를 시작하지 않는다. 같은 `all` 명령으로 재개하면 완료된
 단계의 검증을 다시 통과한 뒤 미완료 단계부터 구현을 이어간다.
+완료된 단계의 재검증이 실패하면 즉시 종료하는 대신 실패 로그를 Codex에 넘겨
+해당 단계만 수정·검증·커밋하도록 한다. 독립 재검증이 통과해야 다음 단계로
+진행한다. 복구 작업도 단계 iteration 한도에 포함되며, 최초 재검증 실패 이후
+수정 후 검증이 연속 두 번 실패하면 종료한다. 실패·복구 로그는 함께 보존한다.
 `--dry-run`은 모든 단계의 프롬프트를 순서대로 출력할 뿐
 Codex 호출·검증 실행·파일 변경을 하지 않는다. 이후 단계 프롬프트의 미리보기가
 앞 단계 완료를 의미하지는 않는다.
@@ -116,7 +120,8 @@ Ralph 시작 안내 블록을 제거한 뒤 `chore: remove completed framework R
 ```
 
 동일한 원인의 실패를 새 근거 없이 반복하지 않는다. 두 번의 독립 시도에서 같은
-차단이 확인되면 위 marker로 종료한다. runner도 완료 검증 연속 두 번 실패,
+차단이 확인되면 위 marker로 종료한다. runner는 선택 단계의 완료 검증 실패를
+다음 iteration의 수정 작업으로 전달하고, 수정 후 완료 검증 연속 두 번 실패,
 두 iteration 연속 커밋 진척 없음, CLI 실패, 선택한 단계 변경 또는 횟수 한도에서
 종료하고 plan과 로그를 보존한다. 이 종료들은 완료가 아니다.
 수동 실기 검증은 실제 증거가 없으면 미완료다. 사용자 접근/권한 제한을 다른
@@ -5130,3 +5135,35 @@ V1–V5 실제 브라우저 검증 전부 통과, 지연 baseline RMS 0.04243701
 222 Python (66.90 s)**. 이 JS 결과에는 별도로 요청받은 runner 자동 복구 회귀도
 포함된다. 로그: `video-baseline-final-fixed.log`, `loop-recovery-final-verify.log`.
 Targeted Biome/whitespace 통과. 모델·번역·후속 stage 완료를 의미하지 않는다.
+
+
+### 2026-10-08 / runner / repair failed completed-stage acceptance automatically
+
+관련 commit: 이 기록을 포함한 `fix: repair failed Ralph stage verification automatically`.
+사용자가 문제 발생 시 루프가 셀프 해결하고 계속 진행하도록 요청했다.
+기존 runner는 완료 checkbox 단계의 최초 재검증 실패에서 Codex를 호출하지
+않고 즉시 종료했다. 미완료 단계의 완료 검증 실패도 다음 항목 구현 지시만
+계속 전달했다. 실제 Video baseline 실패가 이 경로로 Chrome B3 진입을 막았다.
+
+변경: 완료 단계의 재검증 실패와 iteration 완료 검증 실패에 전용 repair prompt를
+전달한다. 실패 로그를 읽고 해당 단계의 원인·수정·검증·커밋만 수행하게 하며,
+완료 기능 재구현이나 다른 품질 목표 조정을 하지 않는다. 복구 중에는 marker가
+없어도 독립 acceptance를 다시 실행한다. 최초 실패와 이후 검증 로그를 append해
+보존한다. 수정 후 두 번 연속 검증 실패/커밋 무진척/iteration 한도에서는 종료한다.
+기기·권한 부재, CLI 실패, dirty worktree, unselected stage/branch/runner 변경과
+최종 전체 재검증·정리 보호는 유지한다. 실패 검증을 생략하거나 기준을 낮추지 않는다.
+
+회귀 먼저 FAIL: `node --test --test-name-pattern='completed-stage|repair targets|
+already-completed|missing report' tests/ralph-loop.test.mjs`, **5 failed**, 기존 runner가
+repair를 호출하지 않는 것을 확인했다. 구현 후 전체 runner 검사 **23 PASS**:
+완료 Video 실패→repair→Chrome 이후 stage 진행, marker 없는 repair 재검증,
+실패 로그 보존, 두 번 미해결 시 종료와 모든 기존 보호를 검증했다.
+이는 fake Codex/npm을 쓰는 runner 제어 흐름 검사이며 실제 모델/기기 성공은 아니다.
+로그: `.ralph/media-framework/runner-repair-before.log`, `runner-repair-after.log`.
+
+최종 `caffeinate -disu npm run verify` **PASS**, lint/typecheck/build,
+**127 JS / 222 Python (66.90 s)**; 로그 `loop-recovery-final-verify.log`.
+실제 Video acceptance도 V1–V5와 15 unit checks PASS (`video-baseline-final-fixed.log`).
+문서/README는 재검증 실패의 자동 복구 경로와 유한한 종료 조건에 맞춰 수정했다.
+체크리스트는 B2 완료, B3 다음인 기존 상태를 유지한다. Commit과 clean worktree
+확인 후 `all 20`으로 재개한다. 외부 push/publish/install/에이전트 위임은 없다.
