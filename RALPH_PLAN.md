@@ -3138,3 +3138,140 @@ push/publish/app installation or browser/profile/permission bypass. Only owned
 test browsers/profiles cleaned up. Commit scope: recognizer, regression tests,
 report and plan; no credentials/weights/user data/temporary `.ralph` state.
 Post-commit cleanliness checked before delivery.
+
+
+### 2026-10-08 / chrome / iteration 12/20
+
+Related commit: `fix: confirm browser speech onset before pause cuts`, containing
+this entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no ASR default is selected.** Only B2 advances.
+
+Assumption: retained quiet English meaning loss first needs boundary inspection,
+before a model change. Prior active blips cause cuts at **448 / 13,856 ms** inside
+meeting negation. Add bounded local state to confirm resumed onset with **five
+consecutive frames / 160 ms**, then submit the stored pause midpoint. Inactivity
+cancels an unconfirmed candidate. Pause eligibility **500 ms before ten seconds /
+160 ms afterward**, learned threshold/context, immediate **1,500 ms** silence/
+**256 ms** context, **20 s** jobs/**30 s** queue, pending/result limits and energy
+comparison stay unchanged. No harness/fixture/hash/sentence/gate/model/backend/
+dependency/default/settings change; admitted ASR PCM remains contiguous/unfiltered.
+
+Exact command evidence (ignored local `.ralph/media-framework/` logs):
+
+- FAIL before fix: speech regression command, **exit 1 / 20 passed / 1 failed /
+  289.832916 ms**, `chrome-20261008-12-regression.log`: isolated active frame
+  prematurely cuts at **2,880 ms**. The tail-log shell wrapper exits 0; actual
+  test fails. New regression crosses 1/2/4/5 active frames, later real onset,
+  exact concatenated PCM/detector coverage/bounds and zero final loss/pending.
+- FAIL initial targeted tests, **exit 1 / 26 passed / 1 failed / 277.623625 ms**,
+  `chrome-20261008-12-unit-initial.log`: exact overload discard expectation needs
+  **4,128 → 4,256 ms** for four extra acquired frames. Only this exact timing is
+  updated; the same pending-job bound/failure/late-result assertions remain.
+- PASS: speech/VAD/normalization tests, **exit 0 / 27 passed /
+  272.377667 ms**, `chrome-20261008-12-unit.log`. Fake transport only.
+- PASS: `caffeinate -disu npm run test:framework:chrome:quiet`, **exit 0**, once,
+  `chrome-20261008-12-quiet.log`: typecheck/build, **six actual cases / 3,849 WASM
+  VAD calls / 19 FP16 WebGPU ASR jobs**. Every unchanged gate passes. Quiet
+  English gains 0.25/0.1 improve from **4/66 → 3/66 WER**, meeting-negation count
+  **2 → 3**; all meanings three. Baseline English **3/66**, Japanese gain
+  1/0.25/0.1 **3/120, 3/120, 6/120 CER**. Endpoints **424.300–1,652.000 ms**,
+  **32 ms leading / zero trailing**, exact contiguous PCM through EOF,
+  **zero loss/pending**, peak pending **16,368 ms**. Case ranges/RSS/VAD/latency
+  details are preserved in the report.
+- PASS: explicit recorded-result Python assertions, **exit 0**, tool output:
+  all six input hashes and every VAD probability/activity/sample position match
+  iteration 11; current quality/meaning/latency/jobs/EOF/queue pass. Initial
+  reporting **exit 1 / TypeError** uses unsupported `zip(strict=True)` in system
+  Python **3.9.6**; explicit equal lengths correct it. No inference rerun.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-12-stage-acceptance.log`: B5 full selected-video PCM → ASR →
+  Korean translation → DOM harness remains missing. No placeholder/substitute/
+  weakened gate or unchanged retry.
+- PASS: targeted Biome **two files / 21 ms / no findings** and preliminary
+  whitespace, **exit 0**. Original EOF/live and final verification follow.
+
+Actual quiet scope: paced attenuated decoded synthetic PCM and real learned VAD/
+ASR, no natural quiet/noisy speakers or Korean translation/DOM. Owned Chromium
+**153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm
+**11.12.1**, uv **0.12.23**, locked Transformers.js **4.3.0**/ORT unchanged.
+One fresh inventory each of unchanged small FP16 WebGPU ASR **487,960,440 bytes /
+seven files** and Silero WASM **2,243,022 bytes / one file**; cached fresh workers
+follow. Quiet initial preparation **53,364.752291 ms**, cached
+**1,220.161167–1,326.351166 ms**, 16 pinned paths, no page errors/visibility
+events/remote inference/companion/Ollama. RSS baseline **1,297,712 KiB**, peak
+**3,943,904 KiB**; 250 ms owned-tree samples include browser/renderers/GPU/shared
+pages/allocators/models/harness PCM. Not isolated memory, leaks, pressure or mobile.
+
+
+Original EOF acceptance:
+
+- PASS: `caffeinate -disu npm run test:framework:chrome:eof`, **exit 0**, once,
+  `chrome-20261008-12-eof.log`: **ten unchanged cases / 6,419 real VAD calls /
+  20 ASR jobs**, all gates pass. Japanese **2.5% CER**, English **4.545455% WER**,
+  every meaning three, **885.200–1,485.800 ms per endpoint**, **32 ms leading /
+  zero trailing**, exact contiguous PCM through every tail, peak pending
+  **13,168 ms**, zero loss/drained queue. Recorded-result Python assertions,
+  **exit 0**, confirm all ten input hashes/VAD probabilities match iteration 11
+  and all quality/latency/coverage/queue gates pass. No inference rerun.
+- Same owned browser/OS/models; one fresh inventory each, cached fresh workers,
+  initial preparation **54,996.201917 ms**, cached **1,217.726000–1,421.138916 ms**,
+  16 pinned paths, empty page errors/visibility events. RSS baseline
+  **1,292,544 KiB**, peak **3,877,552 KiB**, same limitations as above.
+
+
+Live selected-video acceptance:
+
+- PASS: `caffeinate -disu npm run test:framework:chrome:live:learned`, **exit 0**,
+  once, `chrome-20261008-12-live.log`: typecheck/**27 tests / 257.395500 ms**,
+  **six actual rounds / 1,959 real VAD calls / seven ASR jobs**. Japanese
+  short/three-period **2.5% CER**, English **4.545455% WER**, every meaning
+  once/three times; **812.600–1,005.800 ms last-packet-to-text**, **32–64 ms
+  leading / zero trailing**, completed runs zero loss/pending, max mapping
+  error **45.885667 ms**. Long Japanese split **14,752 ms**, peak pending
+  **16,490 ms**; captured input differs from historical runs. Finite capture
+  advances **15,060.6875–16,554 ms** during its first actual inference.
+  Stop interrupts **27 detector frames**, discards **831.375 ms**, emits no
+  text, drains/detaches and preserves playback; fresh Start passes. Isolation,
+  input identity/exact slices/playback state/cached worker gates pass.
+- PASS: recorded-result live assertions, **exit 0**, tool output, for every
+  scored meaning/accuracy/latency/queue and Stop/playback. Initial metadata
+  display **exit 0** uses `rounds` and prints excessive `liveRuns` output;
+  corrected extraction selects six rounds/scalars. Reporting only, no rerun.
+- Live initial preparation **53,956.750250 ms**, cached workers
+  **1,319.228791–1,327.095000 ms**; one fresh inventory each of the unchanged
+  candidates, then reuse, 16 pinned paths/requests and empty page errors/
+  visibility events. RSS baseline **1,430,096 KiB**, case peak **3,791,824 KiB**;
+  case measurements start after preparation and share the stated limitations.
+
+**Next remains B2:** no-pause/quiet phoneme boundaries, natural speakers/noise,
+earlier louder-noise Japanese meaning, sustained learned live queue/GPU recovery,
+memory/storage, conversion/distribution licensing and default selection. The
+retained quiet-English synthetic meaning failures now pass, but no checkbox is
+completed. Noise/full-candidate/stream/sustained/VAD/B1 commands are not rerun;
+prior evidence stays historical. Offline full interpretation, Korean translation/
+revisions/DOM, ten-minute captions, B3–B6, installation and Safari/iPhone remain
+unverified. No required environment/device/permission is absent; incomplete
+qualification/implementation warrants neither terminal marker.
+
+Root/nested AGENTS.md and requested independent runner evidence are absent;
+supplied instructions/plan/architecture/prior report read. Only this worktree
+changes; companion/install/native messaging/server/settings and unrelated user
+files/apps/recordings/mounted images preserved. No agents, runner edit, stage
+advance, push/publish/app installation or browser/profile/permission bypass.
+Only owned test browsers/profiles cleaned up. Commit scope: recognizer,
+regression tests, report and plan; no credentials/weights/user data/temporary
+`.ralph` state. Final required verification/whitespace/commit cleanliness follow.
+
+
+Final required verification:
+
+- PASS: `caffeinate -disu npm run verify`, **exit 0**,
+  `chrome-20261008-12-verify.log`: Biome **115 files / 54 ms**, Ruff/typecheck,
+  unchanged companion **28 main / 10 content modules**, **113 JS passed /
+  0 failed/skipped/cancelled / 21,813.770292 ms**, **222 Python passed / 66.94 s**,
+  Python **3.12.15**. Runs after all three actual browser/model invocations;
+  subsequent changes only finish Markdown evidence. Required full Chrome
+  acceptance still fails; B2–B6 remain unchecked.
+- PASS: final document-inclusive unstaged/staged `git diff --check`, exact
+  four-file commit scope and post-commit worktree cleanliness checked before
+  delivery. Only recognizer, regression tests, report and plan are committed.

@@ -9,7 +9,8 @@ import type { AsrJob } from "./asr-protocol";
 // shortened to five frames (160 ms) after 10 s to avoid forcing a cut through
 // later quiet speech whose detected pause can shrink by one or two frames.
 // Both keep a 20 s maximum segment and 10 s queue headroom during inference.
-// Learned short pauses split at the next onset near their midpoint. After
+// Learned short pauses split near their midpoint after 160 ms of sustained
+// onset, avoiding cuts on isolated detector hits inside quiet words. After
 // 1,500 ms of detected silence, submit without another onset/EOF, retaining
 // 256 ms of context for the next segment. Neither path filters ASR samples.
 // The original energy-only profile remains a comparison, never a fallback.
@@ -61,6 +62,8 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       let segmentStartMs = 0;
       let quietSamples = 0;
       let boundaryQuietSamples = 0;
+      let pauseCut: number | undefined;
+      let onsetSamples = 0;
       let continueSegment = false;
       const filterAlpha = 1 - Math.exp(-2 * Math.PI * 2000 / 16000);
       let filterFirst = 0;
@@ -105,15 +108,27 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
         segment.copyWithin(0, length, segmentLength);
         segmentLength -= length; segmentStartMs += length / 16;
         detectedSpeech = false; quietSamples = 0; boundaryQuietSamples = 0;
+        pauseCut = undefined; onsetSamples = 0;
         continueSegment = continuous;
       }
       async function consumeFrame() {
         const activity = detector ? (await detector.detect(frame.slice(0, frameLength))).speech : false;
         if (stopped) return;
         if (typeof activity !== "boolean") throw new Error("Invalid speech detector result");
-        if (detector && activity && detectedSpeech && quietSamples >= (segmentLength >= 16000 * 10 ? 2560 : 8000)) {
-          finishSegment(true, segmentLength - Math.floor(quietSamples / (2 * frameSamples)) * frameSamples);
-          if (stopped) return;
+        if (detector) {
+          if (!activity) { pauseCut = undefined; onsetSamples = 0; }
+          else {
+            if (detectedSpeech && quietSamples >= (segmentLength >= 16000 * 10 ? 2560 : 8000)) {
+              pauseCut = segmentLength - Math.floor(quietSamples / (2 * frameSamples)) * frameSamples;
+            }
+            if (pauseCut !== undefined) {
+              onsetSamples += frameLength;
+              if (onsetSamples >= 2560) {
+                finishSegment(true, pauseCut);
+                if (stopped) return;
+              }
+            }
+          }
         }
         let energy = 0;
         let boundaryEnergy = 0;
