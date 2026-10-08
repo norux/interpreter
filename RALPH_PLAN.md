@@ -178,12 +178,49 @@ GPU·메모리·발열·네이티브 전체화면을 검증했다고 표시하�
 
 목표: companion/Ollama 서버 없이 실제 영상 음성 인식·번역·자막이 동작하는 Chrome 빌드.
 
+### 현재 작업 순서와 B2 종료 조건 (2026-10-08 사용자 확정)
+
+B2의 엔진 비교·연결과 최종 품질·성능 개선을 분리한다. 현재 순서는
+**B3 번역 → B4 화면 연결 → B5 통합·장시간 검증 → B6 품질·성능 개선**이다.
+아래 규칙이 Progress log와 Chrome 보고서의 과거 “B2 유지/default 미선택”
+지시보다 우선한다. 최종 수치가 미달한다는 이유로 B2를 다시 열거나 B3–B5에서
+모델·VAD·디코더 비교를 반복하지 않는다. 각 항목의 연결·취소·revision 등 기능
+오류는 해당 항목에서 수정한다.
+
+B2 종료에는 실제 일본어/영어 인식 결과, WebGPU/WASM 후보 비교, 메모리·지연·
+오류율 증거, 큐/과부하/GPU loss/cancel 계약 검증과 기본 모델 선택이 필요하다.
+모델 로드만으로 완료하지 않는다. 기존 실측·회귀 검증이 이 범위를 충족하므로
+B2를 완료 처리하고 다음 항목을 B3로 정한다. 모든 품질 fixture의 최종 합격이나
+B5의 아직 없는 전체 Chrome acceptance 명령은 B2 종료 조건이 아니다.
+
+구현용 기본 선택은 **`smallFp16` / WebGPU**다. 모델은
+`onnx-community/whisper-small`, revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, 모델 파일 **487,960,440 bytes**다.
+최근 동일 입력 비교에서 일본어 CER **4.306% / 2.917%**, 영어 WER **4.545%**,
+작업당 replay 추론 **0.459–1.391초**로 Turbo보다 작고 빠르다. B4가 이 선택을
+실제 Chrome 앱의 engine composition에 연결한다. 기존 B1 tiny 준비 화면은
+기본 모델을 사용하는 완성 앱이 아니며, WebGPU 미지원 시 자동 WASM/model 전환을
+추가하지 않는다. B6 실측 결과에 따라 기본 모델을 다시 선택할 수 있다.
+
+남아 있는 일본어 예약 누락·부정/문장 중복, louder-noise 의미 실패와 실시간
+지연 목표는 **B6의 미해결 문제**다. 저장된 PCM replay 속도는 실제 endpoint
+지연의 합격 증거가 아니다. 과거 실패와 기존 엄격한 harness/assertion은 보존한다.
+B5에는 정상 입력의 보존·큐 한도/배출, Stop/GPU/cancel 시 명시적 폐기와 이전
+revision 차단 등 기능 조건이 계속 적용된다. B5 종료는 이 기능 조건의 통과와
+실제 10분 측정 기록으로 판단한다. 품질·지연
+assertion만 실패한 경우 그 실패를 B6 미해결 목록에 남기고 B6로 진행한다.
+복합 검증 명령의 비성공 exit를 성공으로 표시하지 않는다. B6의 최종 품질 합격
+대상은 앱이 사용하는 기본 모델/profile이며, 비교용 후보의 실패를 삭제하거나
+모든 후보를 합격시키려고 반복하지 않는다. B5가 수치를 수집했다고 B6를
+완료 처리하지 않으며, B6와 전체 acceptance까지 통과해야 Chrome stage 완료
+marker를 낼 수 있다.
+
 - [x] B1. browser engine의 execution host/worker와 model repository를 구현한다. 모델 준비의 ID·버전·다운로드·캐시·실제 로드 상태를 표시하고 document/user activation 제약을 처리한다.
-- [ ] B2. 일본어/영어를 지원하는 browser ASR 후보를 비교한다. WebGPU/WASM 실제 실행, 메모리와 지연·정확도 증거를 남기고 기본 모델을 선택한다. 큐 과부하·GPU loss·cancel을 검증한다.
+- [x] B2. 일본어/영어 browser ASR 후보의 실제 WebGPU/WASM 실행과 메모리·지연·정확도를 비교하고 구현용 기본 모델을 선택한다. bounded queue·과부하·GPU loss·cancel 계약을 검증한다. 최종 품질·성능 합격은 B6에서 검증한다.
 - [ ] B3. Chrome Translator document adapter를 구현하고 실제 일본어/영어 → 한국어 지원을 검사한다. 최신 원문 revision과 번역을 정확히 짝짓고 원문을 먼저 표시하며 final 작업이 partial에 밀리지 않게 한다.
 - [ ] B4. 새 Chrome 단독 빌드에 선택 영상 입력·엔진·공통 정책·원문/시간/번역 화면을 연결한다. 기존 companion 빌드의 native messaging/설치 경로는 보존하며 새 빌드에는 필요한 권한만 포함한다.
-- [ ] B5. `test:framework:chrome`이 companion/Ollama가 없는 환경에서 실제 영상 PCM → ASR → 번역 → DOM을 검증하게 한다. 캐시된 모델 offline run, 첫 다운로드 오류, Stop/재시작, 10분 재생의 backlog/지연/손실을 측정한다.
-- [ ] B6. 일본어 부정·취소·시간·미래 의도와 긴 문장 경계, 영어 fixture 품질을 평가하고 수용 기준을 수치와 함께 문서화한다. 실패 문장을 삭제하거나 테스트를 약화시키지 않는다. 기준을 못 맞추면 개선 또는 차단으로 보고한다.
+- [ ] B5. `test:framework:chrome`이 companion/Ollama가 없는 환경에서 실제 영상 PCM → ASR → 번역 → DOM을 검증하게 한다. 캐시된 모델 offline run, 첫 다운로드 오류, Stop/재시작, 10분 재생의 backlog/지연/손실을 측정한다. B5는 연결·수명주기·입력 보존을 검증하고 품질·성능 수치를 기록하며, 수치 목표를 맞추기 위한 최적화는 B6에서 수행한다.
+- [ ] B6. Chrome 기능 연결과 B5 통합 검증 뒤 마지막으로 ASR·번역 품질과 성능을 개선한다. 일본어 부정·취소·시간·미래 의도, 긴 문장 경계·반복·누락, 영어 fixture와 잡음·작은 음성·연속 발화를 평가한다. 기존 CER/WER ≤20%, 핵심 표현의 기대 횟수 일치, 실시간 endpoint-to-text <2초 기준과 장시간 backlog·손실 검증을 통과하고 수치·메모리·수용 기준을 문서화한다. 실패 문장·기록을 삭제하거나 테스트·기준을 약화시키지 않는다. 기준을 못 맞추면 개선 또는 차단으로 보고한다.
 
 완료 검증: `npm run verify`, `npm run test:framework:chrome`.
 모델 smoke 성공만으로 B5/B6를 체크하지 않는다.
@@ -5029,3 +5066,42 @@ B2 active; detailed B6 quality and B5 ten-minute integration have expanded this
 work's practical scope. Before another long run, clarify B2's finite completion
 boundary and which remaining issues belong to B5/B6. This checkpoint does not
 silently check B2 or authorize skipping it. B3–B6/Safari/iPhone remain unfinished.
+
+
+### 2026-10-08 / chrome / B2 종료와 B6 품질·성능 작업 분리
+
+관련 commit: 이 기록을 포함한 `docs: separate ASR integration from final quality tuning`.
+사용자가 B2의 종료 조건과 세부 성능 개선을 분리하고 개선은 마지막에 수행하도록
+요청했다. 실행 중인 Ralph/Codex-exec/browser ASR 검증 프로세스는 없다.
+
+변경: 위 Stage chrome에 유한한 B2 종료 조건과 우선하는 현재 작업 순서를
+명시하고 B2만 체크했다. 기존 실제 인식·후보 비교·큐/GPU/cancel 검증을 근거로
+small FP16/WebGPU를 구현용 기본 모델로 선택했다. 실제 앱 구성은 B4에서 연결한다.
+B5는 전체 경로·수명주기·10분 입력/큐/손실과 성능 수치를 검증하고, B6는 최종
+품질·지연 목표 달성을 맡는다. 다음 미완료 항목은 **B3 Translator adapter**다.
+B3–B6/Safari/iPhone과 Chrome stage 전체는 미완료다.
+
+근거: 2026-10-07 active GPU loss/recovery 실측에서 동일 small FP16의 명시적
+GPU loss/폐기, 수동 cached Prepare와 fresh-epoch 인식 성공을 확인했다.
+같은 날 continuous-input 시험에서 과부하/Stop/cancel 계약과 정상 손실 0,
+큐 배출을 검증했다. 2026-10-08 restart iteration 6 live 시험은 실제 일본어/영어
+PCM·시간 매핑·입력 보존·bounded queue/배출을 통과했으나 일본어 의미 검사는
+실패했다. 최신 iteration 10 비교는 Small/Turbo/q8의 속도·오류·실패를 보존했다.
+이 실패들은 해결했다고 표시하지 않고 B6로 이관한다.
+
+검증: 문서 범위·체크리스트와 Chrome dry-run, 기존 runner 및 ASR/queue 회귀
+검증을 실행하고 아래에 결과를 기록한다. 모델 실측은 이번 문서 변경으로
+재실행하지 않는다. 기존 harness/fixture/assertion/threshold, production 코드,
+runner, dependency, companion과 사용자 설정은 변경하지 않는다.
+
+
+실행 결과:
+
+- PASS: `node --test tests/ralph-loop.test.mjs`, **20 passed / 0 failed**.
+- PASS: `node --import tsx --test tests/framework-browser-asr.test.ts
+  tests/framework-browser-speech.test.ts`, **24 passed / 0 failed**.
+- PASS: `node scripts/ralph-loop.mjs chrome 5 --dry-run`, exit 0; 실제 loop 실행 없음.
+- PASS: 현재 checklist의 다음 미완료 항목 **B3**, B2만 미완료→완료 변경,
+  나머지 stage 내용과 production/harness/기준 파일 보존 확인; `git diff --check`.
+- 미실행: 새 실제 모델/실시간/10분/전체 Chrome acceptance. 이번에는 계획·보고서만
+  변경했고, 위 과거 실측을 근거로 작업 경계를 확정했다. B6의 실패는 미해결이다.

@@ -1,5 +1,62 @@
 # Chrome stage — B1 preparation and B2 ASR evaluation
 
+## Current scope and next work — 2026-10-08
+
+The user explicitly separated B2 engine integration/model selection from final
+quality/performance tuning. This status and the current Stage chrome section in
+`RALPH_PLAN.md` supersede historical “B2 remains next/default unselected” entries
+below. Historical observations and failed tests are preserved, not reclassified
+as passes.
+
+**B2 is complete within the revised integration scope; next is B3.** Existing
+Japanese/English real recognition, WebGPU/WASM comparison, measured memory/error/
+latency and bounded queue/overload/GPU-loss/cancellation evidence establish the
+integration contracts. Use **smallFp16 / WebGPU** as the implementation default:
+`onnx-community/whisper-small` at
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 model bytes**.
+The latest two captured layouts give **4.306% / 2.917% Japanese CER**, **4.545%
+English WER**, **0.459–1.391 s replay worker latency**. It is smaller and faster
+than Turbo in this comparison. The full application will consume this decision
+in B4; the B1 tiny preparation document remains a separate preparation fixture.
+No automatic backend/model fallback is authorized by this decision.
+
+Evidence includes the 2026-10-07 continuous-input and active GPU recovery reports,
+2026-10-08 restart iteration 6 actual live PCM/queue/lifecycle measurements, and
+the latest iteration 10 identical-input candidate comparison below. Earlier real
+browser evidence and current transport regressions cover different scopes;
+regression mocks alone do not prove current recognition quality.
+
+Work order: **B3 translation → B4 application/display composition → B5 full-path
+and ten-minute integration verification → B6 final quality/performance tuning**.
+B5 retains functional PCM coverage/identity/revision/cancellation, bounded/drained
+queues and explicit audio loss accounting; it also records quality and latency.
+B6 owns achieving the existing **CER/WER ≤20%, exact required-phrase counts and
+live endpoint-to-text <2,000 ms** gates, including noise/quiet/long-speech cases.
+Do not reopen B2 or repeatedly tune models/VAD/decoding during B3–B5 merely because
+those final numerical targets still fail. Fix functional defects in their own
+integration item. B5 completes after its functional conditions and actual ten-minute
+measurements are recorded; a quality/latency-only assertion failure moves to B6.
+Keep the combined command's nonzero exit reported as FAIL. B6 qualifies the final
+application default/profile, not every rejected comparison candidate. All strict
+harnesses, thresholds and failure evidence remain; the full Chrome command must
+pass before stage completion.
+
+Small's retained Japanese reservation omissions/extra negation, louder-noise
+meaning failures, Turbo's repetition and previously late live endpoints are still
+unresolved B6 work. Recent replay timing is not a live endpoint pass. Default
+selection may change after B6 evaluation. B3–B6 and the complete Chrome acceptance
+remain unfinished; B2 completion does not authorize a stage-complete marker.
+
+
+Verification of this scope update: existing runner tests **20 PASS**, ASR transport
+and speech queue/cancellation regressions **24 PASS**; Chrome dry-run exits 0.
+Checklist review confirms only B2 changed to complete and B3 is next; all other
+stage sections, executable code, harnesses and thresholds are unchanged. Whitespace
+check passes. No new live/model/ten-minute/full-stage run was performed for this
+document-only update. Commit: `docs: separate ASR integration from final quality tuning`.
+
+## Historical verification records
+
 2026-10-06. Commit: the `feat: add browser model preparation host` commit containing
 this report. The original B1 blocker was resolved on 2026-10-07 as recorded below;
 no B2–B6 or whole-framework/iPhone completion is claimed. Neither this report nor successful model construction replaces ASR,
