@@ -3388,3 +3388,101 @@ Final required verification and commit checks:
 - PASS: final document-inclusive unstaged/staged `git diff --check`, exact
   three-file commit scope and post-commit worktree cleanliness checked before
   delivery. Only noise harness, report and plan are committed.
+
+
+### 2026-10-08 / chrome / iteration 14/20 — B2 sustained learned qualification
+
+Related commit: `test: qualify sustained learned browser ASR`, containing this
+entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no ASR default is selected.** Only B2 advances.
+
+Assumption: earlier sustained energy-detector evidence does not qualify longer
+learned-VAD processing. Extend the existing EOF harness with
+`test:framework:chrome:sustained:learned`, retaining all ten original EOF cases,
+then adding five periods and >=two minutes per language. Reuse unchanged,
+hash-checked decoded synthetic PCM with no extra interperiod gaps; production
+models/segmentation/queue limits/dependencies/settings/fixtures remain unchanged.
+Keep every original accuracy, exact meaning-count, per-endpoint latency,
+coverage, sample identity, loss, queue, cache, remote-path and lifetime gate.
+New assertions require input exceeding the complete queue budget, inference/
+delivery overlap, minute queue observations and start/60/120-second RSS samples.
+No beam-search fix: installed generation still has an unimplemented beam branch.
+
+Exact command evidence (ignored local `.ralph/media-framework/` logs):
+
+- PASS: `caffeinate -disu npm run test:framework:chrome:sustained:learned`,
+  **exit 0**, once, `chrome-20261008-14-sustained-learned.log`: typecheck,
+  **22 port tests / 257.540292 ms**, build, **14 real cases / 16,440 WASM VAD
+  frames / 46 FP16 WebGPU ASR jobs**, all retained/new gates pass. Ten retained
+  EOF cases: Japanese **3/120 = 2.5% CER**, English **3/66 = 4.545455% WER**,
+  every meaning exactly three, endpoints **904.500–1,470.500 ms**.
+- New five-period Japanese/English: **5/200 CER / 5/110 WER**, every meaning
+  **5**, three jobs each, endpoints **1,306.700–1,472.100 /
+  1,071.500–1,427.000 ms**, peak pending **13,261.1875 / 12,568 ms**.
+- New sustained Japanese **18 periods / 2,009,031 samples / 125,564.4375 ms**:
+  **18/720 = 2.5% CER**, every meaning **18**, ten jobs, endpoint latency
+  **837.000–1,643.800 ms**, max pending **15,636 ms**. English **19 periods /
+  2,027,639 samples / 126,727.4375 ms**: **19/418 = 4.545455% WER**, every
+  meaning **19**, ten jobs, endpoints **915.100–1,695.300 ms**, max pending
+  **18,092 ms**. Every long nonfinal job overlaps paced delivery. Both actual
+  host durations exceed input duration; minute queues have zero loss and drain.
+- All 14: **32 ms leading / zero trailing**, no original tail omission, exact
+  contiguous admitted PCM, complete detector coverage, zero reported loss/
+  final pending. Report retains exact long boundaries, hashes, minute queues,
+  memory samples and preparation/model/environment details. Real paced decoded
+  synthetic recognition, not sustained live input/natural noise/translation/DOM.
+- PASS: recorded-result Python assertions, **exit 0**, tool output, confirm all
+  14 score/meaning/latency/coverage/queue checks and every long nonfinal overlap.
+  All ten retained PCM/period hashes, scores/counts and every VAD probability/
+  activity/sample position match iteration 12. Analysis only, no inference rerun.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-14-stage-acceptance.log`: missing full B5 selected-video PCM
+  → ASR → Korean translation → DOM script. No substitute/retry/weakening.
+- PASS: `node --check tests/framework-chrome-eof.mjs`, targeted Biome **one file /
+  6 ms / no findings**, preliminary whitespace, **exit 0**. Final verify follows.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**; unchanged locked
+Transformers.js **4.3.0** / ORT / small FP16 WebGPU ASR **487,960,440 bytes** /
+Silero WASM **2,243,022 bytes**. One fresh inventory each then cached workers;
+initial preparation **52,330.776833 ms**, cached **1,218.948458–1,437.474166 ms**,
+**16 pinned paths**, no page errors/native visibility events. Owned-tree baseline
+RSS **1,300,592 KiB**, case peak **3,872,176 KiB**. 250 ms process-tree samples
+include preparation/shared pages/renderers/GPU/allocators/models/harness PCM;
+not isolated memory, leaks, pressure or mobile evidence. Per-case and minute
+measurements are copied into the report; document and worker latency clocks
+are kept separate, with no cross-context timestamp subtraction.
+
+**Next remains B2:** retained louder-noise Japanese meaning failure, no-pause/
+quiet phoneme boundaries, natural speakers/noise, sustained learned live queue/
+GPU recovery, memory/storage pressure, conversion/distribution licensing and
+passing default comparison. Noise suite is not rerun; iteration 13's two quality
+failures remain. Other candidate/stream/live/quiet/VAD/B1 evidence stays historical.
+Full offline learned streaming/interpretation, Korean translation/revisions/DOM,
+ten-minute live captions, B3–B6, installation and Safari/iPhone remain unverified.
+B2–B6 stay unchecked. No required device/environment/permission is absent;
+incomplete qualification/implementation warrants neither terminal marker.
+
+Instructions/plan/architecture/prior report read; root/nested AGENTS.md and the
+requested independent runner evidence are absent. Only this worktree changes;
+companion/install/native messaging/server/settings and unrelated files/apps/
+recordings/mounted images preserved. No agents, runner edit, stage advance,
+push/publish/app installation or browser/profile/permission bypass. Owned test
+browsers/profiles cleaned up. Commit scope: EOF harness, package command, report,
+plan. Credentials/weights/user data/ignored temporary state excluded. Final
+verification, whitespace and commit cleanliness checks follow.
+
+
+Final required verification:
+
+- PASS: `caffeinate -disu npm run verify`, **exit 0**,
+  `chrome-20261008-14-verify.log`: Biome **115 files / 61 ms**, Ruff/typecheck,
+  unchanged companion **28 main / 10 content modules**, **113 JS passed /
+  0 failed/skipped/cancelled / 21,016.428500 ms**, **222 Python passed / 66.87 s**,
+  Python **3.12.15**. Runs after the actual browser/model suite; later changes
+  complete Markdown evidence only. Required full Chrome acceptance remains
+  missing, and historical Japanese noise meaning failures remain failures.
+  B2–B6 stay unchecked.
+- Final document-inclusive unstaged/staged whitespace, exact four-file commit
+  scope and post-commit worktree cleanliness are checked before delivery.
+  Only EOF harness, package command, report and plan are committed.

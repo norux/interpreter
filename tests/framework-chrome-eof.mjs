@@ -11,6 +11,8 @@ import { build } from "vite";
 // B2 fixed EOF alignment qualification only. Real models receive paced decoded
 // synthetic PCM, not live acquisition, natural speech or Korean caption input.
 const quiet = process.argv.includes("--quiet-input");
+const sustained = process.argv.includes("--sustained-input");
+assert.ok(!(quiet && sustained), "Quiet and sustained qualifications must run separately");
 const cases = quiet ? [1, 0.25, 0.1].map(gain => ({ gain, tailSamples: 511 }))
   : [0, 341, 511, 853, 1365].map(tailSamples => ({ gain: 1, tailSamples }));
 const output = resolve(".ralph/media-framework/chrome-eof-build");
@@ -68,10 +70,11 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 fixed EOF alignment coverage/accuracy; real WASM VAD and FP16 WebGPU ASR over paced decoded synthetic PCM, no live acquisition/translation/DOM", quiet, runs: [], failures: [] };
+const observations = { scope: "B2 fixed EOF alignment and optional sustained learned coverage/accuracy; real WASM VAD and FP16 WebGPU ASR over paced decoded synthetic PCM, no live acquisition/translation/DOM", quiet, sustained, runs: [], failures: [] };
 const execute = promisify(execFile);
 let browser; let browserProcess; let browserExit; let profile; let page; let monitor;
 let peakRssKiB = 0;
+let sustainedMemory;
 async function sampleRss() {
   const { stdout } = await execute("ps", ["-axo", "pid=,ppid=,rss="]);
   const processes = stdout.trim().split("\n").map(line => line.trim().split(/\s+/).map(Number));
@@ -81,7 +84,16 @@ async function sampleRss() {
     for (const [pid, parent] of processes) if (owned.has(parent) && !owned.has(pid)) { owned.add(pid); added = true; }
   }
   const rss = processes.filter(([pid]) => owned.has(pid)).reduce((sum, [, , memory]) => sum + memory, 0);
-  peakRssKiB = Math.max(peakRssKiB, rss); return rss;
+  peakRssKiB = Math.max(peakRssKiB, rss);
+  if (sustainedMemory) {
+    const elapsedMs = performance.now() - sustainedMemory.start;
+    if (Math.floor(elapsedMs/60000) >= sustainedMemory.samples.length) {
+      const sample = { elapsedMs, rssKiB: rss };
+      sustainedMemory.samples.push(sample);
+      console.log(JSON.stringify({ sustainedMemory: { language: sustainedMemory.language, periods: sustainedMemory.periods, ...sample } }));
+    }
+  }
+  return rss;
 }
 function errors(reference, hypothesis, language) {
   const normalize = text => text.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, " ").trim();
@@ -115,9 +127,12 @@ try {
   await page.goto(origin); await page.waitForFunction(() => globalThis.prepare);
   observations.baselineRssKiB = await sampleRss();
   monitor = setInterval(() => { void sampleRss().catch(() => {}); }, 250);
-  for (const clip of manifest.clips) for (const { gain, tailSamples } of cases) {
+  for (const clip of manifest.clips) for (const { gain, tailSamples, periods } of [
+    ...cases.map(value => ({ ...value, periods: 3 })),
+    ...(sustained ? [5, Math.ceil(120/clip.speechDurationSeconds)].map(periods => ({ gain: 1, tailSamples: 511, periods })) : []),
+  ]) {
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
-    const run = { language: clip.language, gain, tailSamples, baselineRssKiB: await sampleRss() };
+    const run = { language: clip.language, gain, tailSamples, periods, baselineRssKiB: await sampleRss() };
     observations.runs.push(run); peakRssKiB = run.baselineRssKiB;
     const preparationStart = performance.now();
     await page.locator("#prepare").focus(); await page.locator("#prepare").press("Enter");
@@ -131,16 +146,17 @@ try {
       assert.ok(statuses.every(status => status.state !== "downloading"));
     }
     assert.equal(status.error, undefined); assert.equal(status.last.state, "ready"); assert.equal(status.last.requiredBytes, 487960440);
-    const measured = await page.evaluate(async ({ clip, gain, tailSamples }) => {
+    if (periods > 3) sustainedMemory = { language: clip.language, periods, start: performance.now(), samples: [] };
+    const measured = await page.evaluate(async ({ clip, gain, tailSamples, periods }) => {
       const original = await readClip(clip);
       // Controlled quieter input, including its original carrier. No trimming,
       // denoising or gain restoration occurs in the detector or ASR pipeline.
       const scaled = original.map(sample => sample * gain);
-      // Keep every sample position in three complete periods. Only known zero
+      // Keep every sample position in complete periods. Only known zero
       // context is prepended/appended; the recognizer never receives labels.
       const prefixSamples = 512;
-      const pcm = new Float32Array(prefixSamples + original.length*3 + tailSamples);
-      for (let repeat = 0; repeat < 3; repeat++) pcm.set(scaled, prefixSamples + repeat*original.length);
+      const pcm = new Float32Array(prefixSamples + original.length*periods + tailSamples);
+      for (let repeat = 0; repeat < periods; repeat++) pcm.set(scaled, prefixSamples + repeat*original.length);
       const digest = async samples => [...new Uint8Array(await crypto.subtle.digest('SHA-256', samples.buffer))]
         .map(byte => byte.toString(16).padStart(2,'0')).join('');
       const inputSha256 = await digest(pcm);
@@ -186,16 +202,17 @@ try {
       const rejectedTailPeak = rejectedTail.reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0);
       const rejectedTailRms = rejectedTail.length ? Math.sqrt(rejectedTail.reduce((sum, sample) => sum+sample*sample, 0)/rejectedTail.length) : 0;
       return {outcome,rejectedTailPeak,rejectedTailRms,originalSamples:original.length,inputSamples:pcm.length,inputDurationMs:pcm.length/16,
-        originalSha256,scaledPeak,scaledRms,inputSha256,prefixSamples,originalEndSample:prefixSamples+original.length*3,hostDurationMs:performance.now()-start,transcripts,invocations,deliveries,statuses,detectorFrames};
-    }, { clip, gain, tailSamples });
-    Object.assign(run, measured, { peakRssKiB, finalRssKiB: await sampleRss() });
-    const fail = message => observations.failures.push(`${clip.language}/gain-${gain}/tail-${tailSamples}: ${message}`);
+        originalSha256,scaledPeak,scaledRms,inputSha256,prefixSamples,originalEndSample:prefixSamples+original.length*periods,hostDurationMs:performance.now()-start,transcripts,invocations,deliveries,statuses,detectorFrames};
+    }, { clip, gain, tailSamples, periods });
+    Object.assign(run, measured, { peakRssKiB, finalRssKiB: await sampleRss(), memorySamples: sustainedMemory?.samples });
+    sustainedMemory = undefined;
+    const fail = message => observations.failures.push(`${clip.language}/gain-${gain}/tail-${tailSamples}/periods-${periods}: ${message}`);
     assert.ok(run.scaledPeak > 0 && run.scaledPeak <= gain);
     assert.ok(run.scaledRms > 0 && run.scaledRms <= run.scaledPeak);
     const previous = observations.runs.find(other => other !== run && other.language === clip.language);
     if (previous) assert.equal(run.originalSha256, previous.originalSha256);
     if (run.outcome !== "completed") fail(run.outcome);
-    assert.equal(run.inputSamples, 512 + run.originalSamples*3 + tailSamples);
+    assert.equal(run.inputSamples, 512 + run.originalSamples*periods + tailSamples);
     assert.equal(run.detectorFrames.length, Math.ceil(run.inputSamples/512));
     let covered = 0;
     for (const frame of run.detectorFrames) {
@@ -231,13 +248,31 @@ try {
     if (!(run.trailingContextMs >= 0 && run.trailingContextMs < 20)) fail(`trailing context ${run.trailingContextMs} ms exceeds preserved <20 ms gate`);
     if (run.originalTailNotSubmittedSamples) fail(`${run.originalTailNotSubmittedSamples} original tail samples did not reach ASR`);
     const text = run.transcripts.map(revision => revision.text).join(" ");
-    run.accuracy = errors(Array(3).fill(clip.text).join(" "), text, clip.language);
+    run.accuracy = errors(Array(periods).fill(clip.text).join(" "), text, clip.language);
     if (run.accuracy.rate > 0.2) fail(`${run.accuracy.metric} exceeds preserved 20% gate`);
     const normalized = text.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, clip.language === "ja" ? "" : " ");
     const anchors = clip.language === "ja" ? ["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
       : ["not meet today", "station tomorrow", "in the afternoon", "not cancel the reservation"];
     run.meaningCounts = Object.fromEntries(anchors.map(anchor => [anchor, normalized.split(anchor).length-1]));
-    if (Object.values(run.meaningCounts).some(count => count !== 3)) fail("every preserved meaning must occur exactly three times");
+    if (Object.values(run.meaningCounts).some(count => count !== periods)) fail(`every preserved meaning must occur exactly ${periods} times`);
+    if (periods > 3) {
+      assert.ok(run.inputDurationMs > 30000, "Long learned input must exceed the complete queue budget");
+      assert.ok(run.transcripts.length >= Math.ceil((run.inputDurationMs-run.leadingContextMs-run.trailingContextMs)/20000));
+      const overlaps = run.invocations.filter(job => run.deliveries.some(packet => packet.atMs > job.atMs && packet.atMs < job.settledAtMs));
+      assert.ok(overlaps.length >= run.invocations.length-1, "Paced acquisition must continue during every nonfinal ASR job");
+      run.inferenceOverlapJobs = overlaps.length;
+      run.minuteQueues = Array.from({ length: Math.ceil(run.inputDurationMs/60000) }, (_, minute) => {
+        const start = run.deliveries[0].atMs-100+minute*60000;
+        const statuses = run.statuses.filter(status => status.atMs >= start && status.atMs < start+60000);
+        assert.ok(statuses.length, "Every sustained minute must contain actual queue observations");
+        return { minute: minute+1, maxPendingAudioMs: Math.max(...statuses.map(status => status.queue.pendingAudioMs)),
+          finalPendingAudioMs: statuses.at(-1).queue.pendingAudioMs, droppedAudioMs: statuses.at(-1).queue.droppedAudioMs };
+      });
+      if (periods > 5) {
+        assert.ok(run.originalSamples*periods/16 >= 120000, "Each sustained language must receive at least two minutes of actual speech periods");
+        assert.ok(run.memorySamples.length >= 3, "Sample owned process RSS at the start and both minute boundaries");
+      }
+    }
     console.log(JSON.stringify({ run }));
   }
   observations.pageErrors = pageErrors;

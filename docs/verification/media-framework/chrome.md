@@ -4803,3 +4803,161 @@ full Chrome acceptance. B2–B6 remain unchecked. Final document-inclusive unsta
 staged whitespace, exact three-file commit scope and post-commit worktree
 cleanliness are checked before delivery. Only noise harness, report and plan
 are committed; credentials/weights/user data/temporary state are excluded.
+
+
+## 2026-10-08 — B2 sustained learned speech qualification (iteration 14/20)
+
+Related commit: `test: qualify sustained learned browser ASR`, containing this
+report. **B2 remains unchecked; no ASR default is selected.** Only B2 advances.
+
+### Scope and observable acceptance
+
+Assumption: longer paced learned-VAD processing needs its own evidence; earlier
+sustained energy-detector runs do not qualify the learned path. Extend the existing
+EOF harness rather than introduce another engine or speculative decoding change.
+Installed Transformers.js 4.3.0 `src/models/modeling_utils.js` still marks beam
+search as TODO and breaks after the first sampled token; no beam-search fix or
+model-quality improvement is claimed here.
+
+Added `npm run test:framework:chrome:sustained:learned`. It retains all ten
+three-period EOF cases and their original gains, tail sizes and assertions, then
+adds five periods and at least two minutes per language. The same hash-checked
+synthetic videos are decoded to the same 16 kHz periods and repeated without new
+interperiod gaps. Each new case uses gain 1, the existing 512-sample zero prefix
+and 511-sample zero tail. Every ASR job must equal its corresponding supplied
+PCM slice. No reference text enters inference. Production recognizer, model,
+backend, dependencies, segmentation, queue limits, settings and fixtures are
+unchanged. Existing EOF/quiet commands retain their original case sets.
+
+New long-run assertions require more than the entire 30-second queue budget of
+paced input, segment count consistent with the 20-second maximum, delivery during
+all but at most one ASR job, actual queue observations in every minute, and RSS
+samples at the start and both minute boundaries for the two-minute cases. They
+retain **<=20% CER/WER**, every meaning **exactly the supplied period count**,
+**<2,000 ms per endpoint**, <=30-second pending audio, zero reported loss, drained
+queues, complete detector coverage, exact contiguous admitted ASR samples,
+<=100 ms leading / <20 ms trailing context, every original tail sample reaching
+ASR, cached fresh-worker and pinned-download/visibility/page-error assertions.
+
+This is real WASM VAD and FP16 WebGPU ASR over **paced decoded synthetic PCM**.
+It does not establish sustained live acquisition, natural speakers/noise,
+GPU-loss recovery, Korean translation/DOM or ten-minute interpretation. Endpoint
+latency uses delivery/result observations in one document clock and excludes
+preparation/accumulation/translation/display. VAD inference spans use the worker
+clock; RSS minute spans use the Node clock. No cross-context timestamp subtraction.
+
+### Exact executed evidence
+
+PASS: `caffeinate -disu npm run test:framework:chrome:sustained:learned`, **exit 0**,
+once, `chrome-20261008-14-sustained-learned.log` in ignored local
+`.ralph/media-framework/`: typecheck, **22 port tests / 0 failed/skipped/cancelled /
+257.540292 ms**, build, **14 actual cases / 16,440 WASM VAD frames / 46 WebGPU
+ASR jobs**, all retained and new gates pass. Ten retained EOF cases score Japanese
+**3/120 = 2.5% CER**, English **3/66 = 4.545455% WER**, every meaning exactly
+three; endpoints **904.500–1,470.500 ms** and maximum pending **13,168 ms**.
+
+| New case | Samples / input duration ms | Error | Every meaning | Jobs / overlapping jobs | Endpoint latency ms | Peak pending ms | Baseline / peak / final RSS KiB |
+| --- | --- | --- | ---: | --- | --- | ---: | --- |
+| Japanese / 5 periods | 558803 / 34925.1875 | 5/200 = 2.5% CER | 5 | 3 / 2 | 1306.700–1472.100 | 13261.1875 | 1652608 / 3808640 / 1646304 |
+| Japanese / 18 periods | 2009031 / 125564.4375 | 18/720 = 2.5% CER | 18 | 10 / 9 | 837.000–1643.800 | 15636 | 1650160 / 3785344 / 1438784 |
+| English / 5 periods | 534343 / 33396.4375 | 5/110 = 4.545455% WER | 5 | 3 / 2 | 1071.500–1427.000 | 12568 | 1656384 / 3632368 / 1676896 |
+| English / 19 periods | 2027639 / 126727.4375 | 19/418 = 4.545455% WER | 19 | 10 / 9 | 915.100–1695.300 | 18092 | 1677056 / 3617952 / 1668848 |
+
+All 14 cases have **32 ms leading / zero trailing**, no original tail omission,
+zero reported loss and final pending zero. Every new nonfinal ASR job overlaps
+actual paced delivery. Long host durations are **126,401.500 ms** Japanese and
+**127,644.000 ms** English, at least their real-time input durations. Long VAD
+inference totals **2,134.500 / 2,147.700 ms**, below the unchanged 10% gate.
+Five-period totals are **644.200 / 628.300 ms**.
+
+Japanese 18-period ASR boundaries ms:
+`32, 11776, 21664, 35616, 49536, 63520, 77440, 91392, 105344, 119296, 125564.4375`.
+English 19-period boundaries ms:
+`32, 11200, 21408, 37856, 51200, 61408, 77856, 91200, 101408, 117856, 126727.4375`.
+All job ranges are contiguous and <=20 seconds. Japanese original period remains
+**111,556 samples**, SHA-256
+`015684bdb023e8a53ea991d73b4e2ff56266c94a9876a8239a2940521b213d8c`;
+English **106,664 samples**, SHA-256
+`f19362f78f79ac81c6c0b2189753ce6c17b640f340184443ed2b08270c0b93a8`.
+
+New input SHA-256, ordered as the table:
+`a2fd039980f0392c4d95f06f009458042d3b369e70f236c034a88442efc43293`,
+`39691b3fc4d04ec6364240d06ad448fa9be6e355cbb8f453995713dce615d9c6`,
+`7ce74119ff6e39ac32e1fe812469f0de5ceecac8b3ad3aea8354ef178260960e`,
+`2f258189da7bcbf46afc7ca6112a2086c87b64877415d5b93c1c897df4a78405`.
+
+Long minute queue peak/end pending ms: Japanese
+**15636/10364, 15580/14556, 15556/0**; English
+**18092/8700, 18092/2044, 8871.4375/0**. The third window contains the final
+5.6/6.7 seconds and drain, not another full minute. Every window reports zero
+loss. RSS start/60/120-second samples KiB: Japanese
+**2840416 / 2293536 / 1491024**, English **3609360 / 2212848 / 2184064**.
+These diagnostic samples do not establish memory-pressure handling or leak freedom.
+
+PASS: explicit Python assertions over the recorded results, **exit 0**, tool
+output: all 14 accuracy/meaning/latency/coverage/queue checks pass; every long
+nonfinal job overlaps delivery. **All ten retained input hashes, decoded period
+hashes, recognition scores/meaning counts and every detector probability/activity/
+sample position match iteration 12's EOF run.** This is evidence analysis, not
+another inference invocation or a claim that clocks/RSS match.
+
+Owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, uv **0.12.23**; locked Transformers.js **4.3.0** /
+ORT unchanged. Same pinned small FP16 WebGPU
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`
+(**seven files / 487,960,440 bytes**) and Silero WASM
+`onnx-community/silero-vad@e71cae966052b992a7eca6b17738916ce0eca4ec`
+(**one file / 2,243,022 bytes**). One fresh inventory each, then cached fresh
+workers; initial preparation **52,330.776833 ms**, cached
+**1,218.948458–1,437.474166 ms**, **16 pinned paths**, page errors/native
+visibility events `[]`. Owned-tree RSS baseline **1,300,592 KiB**, case peak
+**3,872,176 KiB**. Every 250 ms the harness sums only its owned browser tree,
+including shared pages, renderers/GPU, preparation, allocators/models and harness
+PCM. Case baselines precede preparation; minute samples follow it. Not isolated
+model allocations, storage/memory pressure, leak freedom or mobile performance.
+
+### Required acceptance, remaining work and preservation
+
+FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+`chrome-20261008-14-stage-acceptance.log`: `Missing script: "test:framework:chrome"`.
+B5's full selected-video PCM → ASR → Korean translation → DOM harness remains
+unimplemented. No substitute, placeholder, unchanged retry or weakened acceptance.
+PASS: preliminary `node --check tests/framework-chrome-eof.mjs`, targeted Biome
+**one file / 6 ms / no findings** and `git diff --check`, **exit 0**.
+
+**Next unfinished item remains B2:** improve the retained louder-noise Japanese
+meeting/station meaning failure; qualify no-pause/quiet phoneme boundaries,
+natural speakers/noise, sustained learned live acquisition/queue/GPU recovery,
+memory/storage pressure, conversion/distribution licensing and a passing default
+comparison. The noise suite is **not rerun** and iteration 13's two independent
+meaning failures remain failures. Other candidate/stream/live/quiet/VAD/B1 commands
+are not rerun; their evidence remains historical. Full offline learned streaming/
+interpretation, Korean translation/revisions/DOM, ten-minute live captions,
+B3–B6, installation and Safari/iPhone remain **unverified**. B2–B6 stay unchecked.
+No stage/framework/iPhone completion claim. No required environment/device/
+permission is absent; incomplete qualification/implementation warrants neither
+terminal marker.
+
+Supplied instructions/plan/architecture/prior report were read; root/nested
+AGENTS.md and requested independent runner evidence
+`2026-10-08T01-12-31-094Z-chrome-verification.txt` are absent. Only this worktree
+changes. Companion v0.1.0/install/native messaging/server/settings and unrelated
+files/apps/recordings/mounted images are preserved. No agents, runner changes,
+stage advance, push/publish/app installation or browser/profile/permission bypass.
+Only owned test browsers/profiles are cleaned up. Credentials, model weights,
+user audio/transcripts and ignored temporary `.ralph` state are excluded from
+commits. Final repository verification and commit checks follow.
+
+
+### Final required verification
+
+PASS: `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-14-verify.log`: Biome **115 files / 61 ms / no findings**, Ruff,
+typecheck, unchanged companion build (**28 main / 10 content modules**),
+**113 JS passed / 0 failed/skipped/cancelled / 21,016.428500 ms**,
+**222 Python passed / 66.87 s**, Python **3.12.15**. Executed after the real
+browser/model suite; later changes finish Markdown evidence only. Repository
+verification does not override missing full Chrome acceptance or the historical
+Japanese noise failure. B2–B6 remain unchecked. Final document-inclusive unstaged/
+staged whitespace, exact four-file scope and post-commit cleanliness are checked
+before delivery; only harness, package command, report and plan enter the commit.
