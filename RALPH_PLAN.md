@@ -1939,3 +1939,22 @@ recordings/mounts preserved. No agents, runner edits, stage advance, push/publis
 app installation or browser access/profile/permission bypass. Logs/state/weights/
 credentials/user audio/transcripts excluded from the commit; only owned test
 browser/profile resources are cleaned up.
+
+
+### 2026-10-08 / video / completed-stage recheck repair
+
+The next `all` invocation stopped before Chrome in V3's source-replacement output
+check: RMS 0.03538971938093776 versus baseline 0.04246887152389713 exceeded the
+12% bound while replacement playback was only 0.191086 seconds old. Require
+actual replacement playback >=0.5 seconds before the existing output observation;
+all tolerances and production behavior remain unchanged. Exact original
+transport/decoder cause is unverified. Regression: the runner's
+`2026-10-08T00-52-38-744Z-video-verification.txt`; final
+`caffeinate -disu npm run test:framework:video` PASS, 13 unit tests and V1–V5,
+including both graphs' replacement output. A pre-fix broader diagnostic's V5
+correlation failure is documented in the video report; no V5 change was made.
+No checklist changed; Chrome B2 and later work remain incomplete.
+Full `caffeinate -disu npm run verify` PASS: lint/typecheck/build, 100 JS and
+222 Python tests (66.91 s); evidence `video-transition-verify.log`. Targeted
+Biome and whitespace checks PASS. Commit this repair so the runner can restart
+with a clean worktree.

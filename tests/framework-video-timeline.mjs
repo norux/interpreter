@@ -83,6 +83,8 @@ export async function verifyVideoTimeline(browser, origin) {
       assert.equal(await page.evaluate(() => globalThis.data.statuses.at(-1).reason), "target-invalidated");
       await emit(resumed, "late-source");
       await page.evaluate(() => video.play());
+      // play() can resolve before decoded audio fills the independent tab loopback.
+      await page.waitForFunction(() => video.currentTime >= 0.5);
       await checkOutput();
       assert.equal(await page.evaluate(() => globalThis.data.chunks.some((chunk) => chunk.identity.epoch === 5)), false, "Source replacement cannot automatically adopt the new video");
       await page.getByRole("button", { name: "Start timeline session", exact: true }).click();

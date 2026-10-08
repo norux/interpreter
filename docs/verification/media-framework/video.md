@@ -820,3 +820,44 @@ runner, companion, user settings, unrelated files, existing apps/recordings/moun
 images and later-stage checkboxes are preserved. No installation, other agents,
 push or publishing occurred. Credentials, weights, user audio/transcripts and all
 temporary `.ralph` state are excluded from the commit.
+
+
+## 2026-10-08 — completed-video recheck: replacement-output startup
+
+The `all` run passed its core recheck, then stopped in the completed video's V3
+acceptance before starting Chrome. The regression was
+`Original output through transition` at the replacement source's first output
+measurement: ordinary playback baseline **0.04246887152389713**, replacement
+**0.03538971938093776** (16.67% lower), exceeding the unchanged 12% bound.
+The failure snapshot placed replacement playback at **0.191086 seconds**.
+Evidence: `.ralph/media-framework/2026-10-08T00-52-38-744Z-video-verification.txt`.
+
+The harness awaited `video.play()` and a 250 ms wall-clock observation delay,
+without first requiring the replacement's decoded playback to advance.
+`play()` completion alone does not establish a filled independent loopback
+observation window. V3 now waits for actual replacement playback to reach
+0.5 seconds before the existing measurement. A stalled replacement still fails
+Playwright's bounded wait; the output/volume/mute/PCM/epoch assertions remain.
+Production playback/input, output gain, fixture content and runner are unchanged.
+The original low sample's exact transport/decoder cause is unverified; this
+change removes the missing playback-readiness precondition, rather than claiming
+an established production gain defect.
+
+An unchanged diagnostic V3 run passed both graphs; a no-input diagnostic passed
+20 source replacements. Neither reproduces a persistent gain loss. The first
+broader diagnostic later failed V5 selected-Japanese PCM correlation
+(**0.8269517449646506**, required >0.85). Its cause is unverified; V5 was not changed.
+Evidence: `video-transition-before.log` and `video-replacement-before.log` under
+ignored `.ralph/media-framework/`.
+
+Final `caffeinate -disu npm run test:framework:video`: **PASS**, all 13 port/worklet
+tests and V1–V5 browser gates. Ordinary replacement output was
+**0.042373914364523646**, baseline **0.04237058498067174**; site-owned graph
+replacement **0.04221966343690239**, baseline **0.04239380953340751**.
+V3 maximum mapping errors were **67.849 ms / 28.061333333334005 ms**, below 150 ms.
+Evidence: `.ralph/media-framework/video-transition-fixed.log`.
+Targeted Biome and `git diff --check`: **PASS**.
+`caffeinate -disu npm run verify`: **PASS**, Biome 106 files, Ruff, typecheck,
+build, **100 JavaScript / 222 Python tests** (Python 66.91 s).
+Evidence: `.ralph/media-framework/video-transition-verify.log`.
+Later stages remain incomplete.
