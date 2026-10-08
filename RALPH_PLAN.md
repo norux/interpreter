@@ -4486,3 +4486,74 @@ endpoint and required full-stage command failures remain failures; no checkbox
 changes. Final append-only/four-file scope/checkbox/original-source preservation,
 syntax/targeted lint/whitespace, staged whitelist/whitespace and post-commit
 clean state are verified at delivery. Ignored artifacts are excluded.
+
+
+### 2026-10-08 / chrome / iteration 5/20 (identical-input candidate comparison)
+
+관련 commit: 이 기록을 포함한 `test: compare browser ASR on identical captured jobs`.
+B2 remains next unfinished; B2–B6 remain unchecked and no default is selected.
+
+수행한 변경: `test:framework:chrome:replay` and its real-browser harness compare
+all 26 iteration-4 captured synthetic jobs on existing pinned small/turbo FP16,
+two fresh production-worker trials each. Archive format/model/fixtures/references,
+all byte counts/digests, finite PCM/identity/ranges and <=20-second contiguous jobs
+are validated before browser launch. Original bytes transfer unchanged; no remote
+requests during inference/cached second Prepare. Existing <=20% CER/WER and exact
+meaning-count gates apply to every candidate/round; failures remain aggregate
+failures. No original gate, production decoder/segmentation, fixture, default or
+user setting changes. Replay is distinct from live endpoint/translation/DOM.
+
+실행한 명령과 결과:
+
+- FAIL: `caffeinate -disu npm run test:framework:chrome:replay --
+  .ralph/media-framework/chrome-live-jobs-jHFVhY`, exit 1, once,
+  `chrome-20261008-restart-5-replay.log`: four fresh workers / **104 actual
+  WebGPU ASR calls**, all seven archived rounds each. Exactly two failures:
+  turbo Japanese sustained meaning count, once per trial. Small passes every
+  archived accuracy/meaning gate twice. No third invocation.
+- PASS: inline Python JSON/input comparisons, exit 0,
+  `chrome-20261008-restart-5-analysis.log` and `...-summary.json`: all 104 hashes/
+  transfers/identity/ranges and original endpoint records; 26/26 texts identical
+  between fresh-worker trials per candidate. This is analysis, not new inference.
+- PASS: separate one-byte corruption guard, parent exit 0; child exit 1 with
+  actual hash mismatch before build/browser/inference, `...-integrity-guard.log`.
+  Original archive preserved; only owned temporary synthetic copy removed.
+- FAIL: required `npm run test:framework:chrome`, exit 1, missing full-stage
+  script, `chrome-20261008-restart-5-stage-acceptance.log`. No weaker substitute.
+- PASS: harness syntax, one-file Biome (5 ms/no findings), existing package
+  command/dependency/field preservation. Final `npm run verify` evidence follows.
+
+실제 PCM/모델/화면/실기 중 검증한 범위: real model execution on hash-identical
+previously captured synthetic selected-video PCM; **no new live acquisition/VAD**,
+Korean translation or caption DOM. Japanese 18-period small **21/720 CER /
+all seven anchors 18** in each trial; turbo **82/720 CER / five anchors 20**
+in each trial (reservation/cancellation 18). Exact job-2/job-6 small meeting/
+tomorrow/station counts two versus turbo three. English 19-period both **19/418
+WER / all anchors 19**. Both short original languages and three-period rounds
+pass. Turbo 26/26 outputs equal original archived texts in each trial.
+Japanese sustained replay worker time small **1,262.7–1,385.7 ms**, turbo
+**1,549.2–1,812.7 ms**; these cannot qualify full endpoint latency. Original
+**2,187 / 2,132.5 / 2,146.2 ms** Japanese endpoints remain FAIL. Actual model
+inventory, preparation/cache/RSS limitations/environment and per-trial clocks
+are in `docs/verification/media-framework/chrome.md`.
+
+다음 미완료 항목: B2 small FP16 live sustained/louder-noise/full-endpoint
+requalification, remaining original/natural/quiet/no-pause/overload/ten-minute/
+pressure/storage/licensing qualification before default selection. Historical
+semantic failures remain preserved; prior live/lifecycle/quiet/offline suites
+not rerun. Full Chrome/B3–B6/Safari/iPhone unverified. No environment/device/
+permission absent; no blocked or complete marker. All prior checkboxes unchanged.
+Only new harness/command and append-only report/plan retained. Existing product,
+runner/dependencies/fixtures/acceptance/settings/user resources preserved. No
+agents/stage advance/push/publish/install/access bypass; models/user/temporary
+state excluded. Final verification and preservation checks follow below.
+
+
+Final-source `caffeinate -disu npm run verify` PASS, exit 0,
+`chrome-20261008-restart-5-verify.log`: Biome **118 files / 55 ms**, Ruff/typecheck,
+unchanged companion **28 main / 10 content modules**, **116 JS / 21,573.570208 ms /
+0 failed/skipped/cancelled**, **222 Python / 66.93 s**. Replay turbo meanings and
+missing full Chrome command remain FAIL; no completed checkbox is added.
+Final four-file scope, append-only history/unchanged checkboxes, old commands/
+dependencies/product/tests/runner preservation, syntax/lint/whitespace and staged
+exclusion are checked before commit; commit/post-commit cleanliness at delivery.

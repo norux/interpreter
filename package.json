@@ -47,7 +47,8 @@
     "test:framework:chrome:sustained:learned": "npm run typecheck && node --import tsx --test tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts && node tests/framework-chrome-eof.mjs --sustained-input",
     "test:framework:chrome:vad": "npm run typecheck && node tests/framework-chrome-vad.mjs",
     "test:framework:chrome:live:asr-stop:turbo": "npm run typecheck && node --import tsx --test tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts tests/framework-browser-normalize.test.ts && node tests/framework-chrome-live-learned.mjs --asr-stop --turbo",
-    "test:framework:chrome:live:sustained:gpu-recovery:turbo": "npm run typecheck && node --import tsx --test tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts tests/framework-browser-normalize.test.ts && node tests/framework-chrome-live-learned.mjs --sustained-gpu-recovery --turbo"
+    "test:framework:chrome:live:sustained:gpu-recovery:turbo": "npm run typecheck && node --import tsx --test tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts tests/framework-browser-normalize.test.ts && node tests/framework-chrome-live-learned.mjs --sustained-gpu-recovery --turbo",
+    "test:framework:chrome:replay": "npm run typecheck && node --import tsx tests/framework-chrome-replay.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
