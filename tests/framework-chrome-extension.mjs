@@ -1,38 +1,52 @@
 // B4 production extension path, real selected-video PCM/ASR/native translation.
 // --lifecycle adds B5 download failure, cached offline ASR/translation and active
-// inference Stop/restart. Ten-minute measurements and B6 quality remain separate.
+// inference Stop/restart. --sustained also measures a continuous ten-minute
+// selected-video session; B6 strict quality qualification remains separate.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createConnection } from "node:net";
 import { resolve } from "node:path";
+import { promisify } from "node:util";
+import { repeatSpeechVideo } from "./fixtures/video-speech/repeat.mjs";
 import { chromium } from "playwright";
 import { build } from "vite";
 
-const lifecycle = process.argv.includes("--lifecycle");
+const sustained = process.argv.includes("--sustained");
+const lifecycle = sustained || process.argv.includes("--lifecycle");
+const longMedia = new Map();
+const generatedMedia = [];
 const output = resolve(".ralph/media-framework/chrome-extension-build");
 const fixtures = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8")).clips;
 for (const fixture of fixtures) {
   const bytes = await readFile(`tests/fixtures/video-speech/${fixture.language}.webm`);
   assert.equal(bytes.length, fixture.bytes);
   assert.equal(createHash("sha256").update(bytes).digest("hex"), fixture.sha256);
+  if (sustained) {
+    const remux = repeatSpeechVideo(bytes, 26);
+    longMedia.set(`/${fixture.language}-sustained.webm`, remux.bytes);
+    generatedMedia.push({ language:fixture.language, periods:26, periodMs:remux.periodMs, packets:remux.packets,
+      bytes:remux.bytes.length, sha256:createHash("sha256").update(remux.bytes).digest("hex"), originalSha256:fixture.sha256 });
+  }
 }
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: { outDir: output } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
 assert.deepEqual(manifest.permissions, ["activeTab", "scripting"]);
 assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.key, undefined);
-const observations = { scope: lifecycle
+const observations = { scope: sustained
+  ? "B5 real extension offline lifecycle plus ten-minute Japanese selected-video PCM → ASR → native Korean → DOM, continuous identity/queues/loss/timing/memory; B6 quality gates separate"
+  : lifecycle
   ? "B5 real extension first-download failure, cached offline Japanese/English PCM → ASR → native Korean → DOM, active inference Stop/restart; no ten-minute or B6 final quality acceptance"
   : "B4 real production extension selected-video PCM → smallFp16/WebGPU → native Korean translation → comparison/live/overlay DOM; no B5 ten-minute or B6 final quality acceptance",
-  pageErrors: [], consoleErrors: [], checks: [], runs: [], productionPermissions: manifest.permissions, modelRequests: [], companionEndpoints: [] };
+  generatedMedia, pageErrors: [], consoleErrors: [], checks: [], runs: [], productionPermissions: manifest.permissions, modelRequests: [], companionEndpoints: [] };
 const server = createServer(async (request, response) => {
   try {
     const path = new URL(request.url, "http://localhost").pathname;
-    if (["/ja.webm", "/en.webm"].includes(path)) {
-      const bytes = await readFile(`tests/fixtures/video-speech${path}`);
+    if (["/ja.webm", "/en.webm"].includes(path) || longMedia.has(path)) {
+      const bytes = longMedia.get(path) ?? await readFile(`tests/fixtures/video-speech${path}`);
       response.setHeader("Content-Type", "video/webm"); response.setHeader("Accept-Ranges", "bytes");
       const range = request.headers.range?.match(/^bytes=(\d+)-(\d*)$/);
       const start = range ? Number(range[1]) : 0, end = range?.[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1;
@@ -61,6 +75,17 @@ const server = createServer(async (request, response) => {
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser; let browserProcess; let browserExit; let profile; let host;
+const execute = promisify(execFile);
+async function sampleRss() {
+  const { stdout } = await execute("ps", ["-axo", "pid=,ppid=,rss="]);
+  const processes = stdout.trim().split("\n").map(line => line.trim().split(/\s+/).map(Number));
+  const owned = new Set([browserProcess.pid]);
+  for (let added = true; added;) {
+    added = false;
+    for (const [pid,parent] of processes) if (owned.has(parent) && !owned.has(pid)) { owned.add(pid); added = true; }
+  }
+  return processes.filter(([pid]) => owned.has(pid)).reduce((sum,[,,rss]) => sum + rss,0);
+}
 try {
   for (const port of [8765, 11434]) {
     const result = await new Promise(done => {
@@ -124,6 +149,26 @@ try {
   await context.addInitScript(() => {
     // Observation only: original workers and their messages/results run unchanged.
     const NativeWorker = Worker; globalThis.engineObservations = [];
+    globalThis.pcmObservations = [];
+    if (globalThis.chrome?.tabs?.connect) {
+      const connect = chrome.tabs.connect.bind(chrome.tabs);
+      chrome.tabs.connect = (...args) => {
+        const port = connect(...args);
+        if (args[1]?.name === "interpreter-selected-video-v1") {
+          port.onMessage.addListener(message => {
+            if (message.type === "event") pcmObservations.push({type:"event",at:performance.now(),number:message.number,
+              streamId:message.streamId,event:typeof message.event.pcm === "string"
+                ? {...message.event,pcm:undefined,bytes:atob(message.event.pcm).length} : message.event});
+          });
+          const send = port.postMessage.bind(port);
+          port.postMessage = message => {
+            if (["ack","close"].includes(message.type)) pcmObservations.push({type:message.type,at:performance.now(),number:message.number,streamId:message.streamId});
+            return send(message);
+          };
+        }
+        return port;
+      };
+    }
     let workerId = 0;
     globalThis.Worker = class extends NativeWorker {
       constructor(...args) {
@@ -195,7 +240,9 @@ try {
   if (lifecycle) {
     // Observe the real Stop click before production handlers invalidate resources.
     await stop.evaluate(button => button.addEventListener('click', () => {
+      const status=document.querySelector('[aria-label="Interpreter captions"] [role="status"]');
       globalThis.stopSnapshot = { at:performance.now(), rows:document.querySelector('#app tbody').innerText,
+        queue:{pendingAudioMs:Number(status.dataset.pendingAudioMs),droppedAudioMs:Number(status.dataset.droppedAudioMs)},
         pending:engineObservations.filter(job => job.type==='asr-job' && !engineObservations.some(result =>
           result.type==='asr-result' && result.workerId===job.workerId && result.requestId===job.requestId)) };
     }, {capture:true}));
@@ -203,6 +250,7 @@ try {
   const scenarios = fixtures.map((fixture,index) => ({fixture,index,mode:'online'}));
   if (lifecycle) scenarios.push({fixture:fixtures[0],index:0,mode:'offline-stop'},
     ...fixtures.map((fixture,index) => ({fixture,index,mode:'offline-restart'})));
+  if (sustained) scenarios.push({fixture:fixtures[0],index:0,mode:'sustained'});
   for (const [scenarioIndex, {index,fixture,mode}] of scenarios.entries()) {
     if (lifecycle && scenarioIndex === fixtures.length) {
       await page.waitForFunction(() => [ja,en].every(video => video.buffered.length && video.buffered.start(0)===0
@@ -210,6 +258,18 @@ try {
       await context.setOffline(true);
       assert.equal(await host.evaluate(()=>navigator.onLine),false);
       observations.checks.push('Offline browser network enabled only after both fixture videos and native/model caches are prepared');
+    }
+    if (mode === 'sustained') {
+      await context.setOffline(false);
+      await page.evaluate(async () => {
+        await Promise.all([ja,en].map(video => new Promise((done,reject) => {
+          video.pause(); video.addEventListener('loadeddata',done,{once:true});
+          video.addEventListener('error',()=>reject(new Error('Long remux must decode as ordinary HTTP video')),{once:true});
+          video.src=`/${video.id}-sustained.webm`; video.load();
+        })));
+      });
+      await page.waitForFunction(()=>[ja,en].every(video=>video.readyState>=2 && video.duration>=600));
+      await host.waitForFunction(()=>document.querySelector('#video').options.length===3);
     }
     const run = { language:fixture.language, mode, checks:[] }; observations.runs.push(run);
     const requestsBefore = observations.modelRequests.length;
@@ -230,7 +290,13 @@ try {
         source:row.cells[0].textContent,time:row.cells[1].textContent,korean:row.cells[2].textContent}));
         const value=JSON.stringify(rows);if(rows.length && rowObservations.at(-1)?.value!==value)rowObservations.push({at:performance.now(),value,rows});};
       globalThis.rowObserver=new MutationObserver(read);rowObserver.observe(document.querySelector('#app tbody'),{subtree:true,childList:true,characterData:true,attributes:true});
-      globalThis.engineObservations=[];
+      globalThis.engineObservations=[]; globalThis.pcmObservations=[];
+      globalThis.queueObservations=[];
+      const status=document.querySelector('[aria-label="Interpreter captions"] [role="status"]');
+      globalThis.queueObserver=new MutationObserver(()=>queueObservations.push({at:performance.now(),state:status.dataset.state,
+        pendingAudioMs:status.dataset.pendingAudioMs===''?null:Number(status.dataset.pendingAudioMs),
+        droppedAudioMs:status.dataset.droppedAudioMs===''?null:Number(status.dataset.droppedAudioMs)}));
+      queueObserver.observe(status,{attributes:true,childList:true,characterData:true,subtree:true});
     });
     if (lifecycle && scenarioIndex === 0) {
       const denied=[];
@@ -274,6 +340,7 @@ try {
     }
     await page.getByRole('button',{name:'Play both videos'}).click();
     assert.equal(await host.evaluate(()=>document.visibilityState),'visible');
+    run.startAt=await host.evaluate(()=>performance.now());
     await start.click(); await page.getByRole('button',{name:'Allow selected video audio'}).click();
     if (mode === 'offline-stop') {
       await host.waitForFunction(()=>engineObservations.some(job=>job.type==='asr-job' && !engineObservations.some(result=>
@@ -299,7 +366,7 @@ try {
       run.remoteRequestsAdded=network.filter(value=>value.startsWith('https:')).length-remoteBefore;
       assert.equal(run.remoteRequestsAdded,0);
       run.checks.push('Stop during real offline ASR terminates its worker; no result, late row or live output for two seconds; playback/volumes preserved');
-      await host.evaluate(()=>rowObserver.disconnect());
+      await host.evaluate(()=>{rowObserver.disconnect();queueObserver.disconnect()});
       await page.evaluate(()=>{ja.pause();en.pause();ja.currentTime=0;en.currentTime=0;overlayTexts=[]});
       await page.waitForFunction(()=>!ja.seeking && !en.seeking);
       console.log(JSON.stringify({run}));
@@ -330,17 +397,121 @@ try {
       assert.notEqual(job.workerId,cancelled.workerId);
       run.checks.push('Explicit offline Prepare/Start creates fresh workers/session and real paired DOM after the cancelled session');
     }
+    if (mode === 'sustained') {
+      run.minutes=[]; run.memoryMetric='Owned Chromium process-tree RSS KiB, once per minute; includes shared browser/renderer/GPU pages, not isolated model allocations';
+      for (let minute=1;minute<=10;minute++) {
+        await host.waitForFunction(endMs=>pcmObservations.some(packet=>packet.event?.audioRange?.endMs>=endMs),minute*60000,{timeout:75000,polling:100});
+        const sample=await host.evaluate(()=>({at:performance.now(),pcmEndMs:pcmObservations.filter(packet=>packet.event?.audioRange).at(-1).event.audioRange.endMs,
+          jobs:engineObservations.filter(event=>event.type==='asr-job').length,results:engineObservations.filter(event=>event.type==='asr-result').length,
+          paired:rowObservations.at(-1)?.rows.filter(row=>row.state==='paired').length??0,queues:queueObservations.splice(0),
+          state:document.querySelector('[aria-label="Interpreter captions"] [role="status"]').dataset.state}));
+        sample.minute=minute; sample.rssKiB=await sampleRss();
+        const queues=sample.queues.filter(value=>value.pendingAudioMs!==null);
+        assert.ok(queues.length,'Every actual minute must contain queue telemetry');
+        assert.ok(queues.every(value=>value.pendingAudioMs<=30000 && value.droppedAudioMs===0));
+        assert.equal(sample.state,'running');
+        assert.ok(sample.results>(run.minutes.at(-1)?.results??0),'Real ASR must progress every minute');
+        assert.ok(sample.paired>(run.minutes.at(-1)?.paired??0),'Native Korean DOM must progress every minute');
+        const {queues:_,...summary}=sample;
+        summary.maxPendingAudioMs=Math.max(...queues.map(value=>value.pendingAudioMs));
+        summary.finalPendingAudioMs=queues.at(-1).pendingAudioMs; summary.droppedAudioMs=queues.at(-1).droppedAudioMs;
+        run.minutes.push(summary); console.log(JSON.stringify({sustainedMinute:summary}));
+      }
+      // Freeze one coherent host-clock snapshot after completed ASR results have
+      // reached their native paired rows. Capture continues unchanged.
+      const ready=await host.waitForFunction(()=>{
+        const paired=rowObservations.at(-1)?.rows.filter(row=>row.state==='paired')??[];
+        const complete=engineObservations.filter(event=>event.type==='asr-result').every(result=>{
+          const job=engineObservations.find(event=>event.type==='asr-job' && event.workerId===result.workerId && event.requestId===result.requestId);
+          return job && paired.some(row=>row.utterance===job.utteranceId && Number(row.epoch)===job.identity.epoch);
+        });
+        return complete ? structuredClone({at:performance.now(),engine:engineObservations,rows:rowObservations,pcm:pcmObservations}) : false;
+      },undefined,{timeout:10000,polling:50});
+      const measured=await ready.jsonValue(); await ready.dispose();
+      run.hostElapsedMs=measured.at-run.startAt;
+      assert.ok(run.hostElapsedMs>=600000,'A real ten-minute host interval is required');
+      const packets=measured.pcm.filter(packet=>packet.event?.audioRange);
+      assert.ok(packets.length>10000);
+      const first=packets[0].event, last=packets.at(-1).event;
+      assert.ok(last.audioRange.endMs-first.audioRange.startMs>=600000);
+      for (const [index,packet] of packets.entries()) {
+        assert.deepEqual(packet.event.identity,first.identity);
+        assert.equal(packet.event.sequence,index); assert.equal(packet.event.sampleRate,first.sampleRate);
+        assert.equal(packet.event.capture.clockId,first.capture.clockId);
+        assert.equal(packet.event.bytes,8192);
+        assert.ok(Math.abs(packet.event.bytes/4/packet.event.sampleRate*1000-(packet.event.audioRange.endMs-packet.event.audioRange.startMs))<0.001);
+        if(index) assert.ok(Math.abs(packet.event.audioRange.startMs-packets[index-1].event.audioRange.endMs)<0.001);
+      }
+      let outstanding=0,maxOutstanding=0;
+      for(const packet of measured.pcm) {
+        if(packet.type==='event') outstanding++;
+        if(packet.type==='ack') outstanding--;
+        maxOutstanding=Math.max(maxOutstanding,outstanding);
+        assert.ok(outstanding>=0 && outstanding<=4,'The production acknowledgement window remains bounded');
+      }
+      const jobs=measured.engine.filter(event=>event.type==='asr-job');
+      const results=measured.engine.filter(event=>event.type==='asr-result');
+      assert.ok(jobs.length>=30 && results.length>=30);
+      const paired=measured.rows.at(-1).rows.filter(row=>row.state==='paired');
+      for(const [index,job] of jobs.entries()) {
+        assert.deepEqual(job.identity,first.identity); assert.equal(job.samples,(job.audioRange.endMs-job.audioRange.startMs)*16);
+        assert.ok(job.audioRange.endMs-job.audioRange.startMs<=20000);
+        if(index) assert.equal(job.audioRange.startMs,jobs[index-1].audioRange.endMs,'Normal speech must not silently lose context between jobs');
+        const result=results.find(value=>value.workerId===job.workerId && value.requestId===job.requestId);
+        if(!result) continue;
+        const row=paired.find(value=>value.utterance===job.utteranceId && Number(value.epoch)===job.identity.epoch);
+        assert.ok(row,'Every completed actual ASR job must reach native paired DOM');
+        assert.equal(row.sourceRevision,'1'); assert.equal(row.translationRevision,`${index+1}`);
+        assert.equal(row.source,result.text);
+        assert.equal(row.sourceFinal,'true'); assert.equal(row.translationFinal,'true'); assert.match(row.korean,/[가-힣]/u);
+      }
+      const lastResultJob=jobs.find(job=>job.requestId===results.at(-1).requestId && job.workerId===results.at(-1).workerId);
+      run.measurement={chunks:packets.length,sampleRate:first.sampleRate,rawSamples:packets.length*2048,
+        capturedAudioMs:last.audioRange.endMs-first.audioRange.startMs,identity:first.identity,maxOutstanding,unacknowledged:outstanding,
+        jobs:jobs.length,results:results.length,pairedRows:paired.length,firstAsrStartMs:jobs[0].audioRange.startMs,
+        lastAsrEndMs:lastResultJob.audioRange.endMs,uncompletedTailMs:last.audioRange.endMs-lastResultJob.audioRange.endMs,
+        maxInferenceMs:Math.max(...results.map(result=>result.inferenceMs)),latencies:[]};
+      for(const result of results) {
+        const job=jobs.find(value=>value.requestId===result.requestId && value.workerId===result.workerId);
+        const delivery=packets.find(packet=>packet.event.audioRange.endMs>=job.audioRange.endMs);
+        const pending=measured.rows.find(event=>event.rows.some(row=>row.utterance===job.utteranceId && row.state==='pending'));
+        const final=measured.rows.find(event=>event.rows.some(row=>row.utterance===job.utteranceId && row.state==='paired'));
+        assert.ok(delivery && pending && final);
+        assert.ok(pending.at<final.at,'Every real source must paint before its exact native translation');
+        run.measurement.latencies.push({utterance:job.utteranceId,audioEndMs:job.audioRange.endMs,
+          lastPcmDeliveryToSourceMs:pending.at-delivery.at,sourceToPairedMs:final.at-pending.at});
+      }
+      assert.ok(run.measurement.uncompletedTailMs<=30000);
+      run.playback=await page.evaluate(()=>[ja,en].map(video=>({paused:video.paused,muted:video.muted,volume:video.volume,time:video.currentTime})));
+      assert.deepEqual(run.playback.map(video=>({paused:video.paused,muted:video.muted,volume:video.volume})),
+        [{paused:false,muted:false,volume:0.4},{paused:false,muted:false,volume:0.25}]);
+      run.checks.push('Actual ten-minute one-epoch PCM sequence/clock/ack continuity, bounded zero-loss running queues, per-minute ASR/native Korean DOM progress and original playback');
+    }
     await stop.click(); await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('Stopped.'));
     await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
     const retained=await host.locator('#app tbody').innerText();
     await host.waitForTimeout(500);
+    if (mode === 'sustained') {
+      run.stopSnapshot=await host.evaluate(()=>stopSnapshot);
+      const after=await host.evaluate(()=>({engine:engineObservations,
+        queue:{...document.querySelector('[aria-label="Interpreter captions"] [role="status"]').dataset}}));
+      run.afterStopQueue=after.queue;
+      assert.equal(Number(after.queue.pendingAudioMs),0);
+      for(const job of run.stopSnapshot.pending) {
+        assert.ok(after.engine.some(event=>event.type==='terminated' && event.workerId===job.workerId));
+        assert.equal(after.engine.some(event=>event.type==='asr-result' && event.workerId===job.workerId && event.requestId===job.requestId),false);
+      }
+      assert.ok(run.stopSnapshot.queue.pendingAudioMs<=30000);
+      assert.equal(run.stopSnapshot.queue.droppedAudioMs,0);
+      run.checks.push('Explicit Stop records the last running pending-audio observation, terminates unfinished inference and leaves the controller queue empty; no late captions');
+    }
     assert.equal(await host.locator('#app tbody').innerText(),retained);
     assert.equal(await host.locator('#app .interpreter-live').innerText(),'');
     assert.equal(await page.locator('[data-interpreter-overlay]').count(),0);
     assert.equal(await start.isDisabled(),true);
     assert.equal(await page.evaluate(()=>[ja,en].every(video=>!video.paused && !video.muted)),true);
     run.checks.push('Stop clears both live surfaces; comparison retained; no late DOM update; original playback continues');
-    await host.evaluate(()=>rowObserver.disconnect());
+    await host.evaluate(()=>{rowObserver.disconnect();queueObserver.disconnect()});
     await page.evaluate(()=>{ja.pause();en.pause();ja.currentTime=0;en.currentTime=0;overlayTexts=[]});
     await page.waitForFunction(()=>!ja.seeking && !en.seeking);
     run.remoteRequestsAdded=network.filter(value=>value.startsWith('https:')).length-remoteBefore;

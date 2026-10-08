@@ -89,7 +89,9 @@ export function createComparisonView(container: HTMLElement) {
       entry.caption = event.caption;
       layout();
     },
-    status(value) { if (!disposed) { status.textContent = `${value.state}: ${value.reason ?? value.message}`; status.dataset.state = value.state; } },
+    status(value) { if (!disposed) { status.textContent = `${value.state}: ${value.reason ?? value.message}`; status.dataset.state = value.state;
+      status.dataset.pendingAudioMs = value.queue ? `${value.queue.pendingAudioMs}` : "";
+      status.dataset.droppedAudioMs = value.queue ? `${value.queue.droppedAudioMs}` : ""; } },
     onDisplayProgress(receive) { listeners.add(receive); return () => { listeners.delete(receive); }; },
     dispose() { if (disposed) return; disposed = true; observer.disconnect(); listeners.clear(); rows.clear(); entries.length = 0; host.remove(); },
   };

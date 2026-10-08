@@ -227,7 +227,7 @@ marker를 낼 수 있다.
 - [x] B2. 일본어/영어 browser ASR 후보의 실제 WebGPU/WASM 실행과 메모리·지연·정확도를 비교하고 구현용 기본 모델을 선택한다. bounded queue·과부하·GPU loss·cancel 계약을 검증한다. 최종 품질·성능 합격은 B6에서 검증한다.
 - [x] B3. Chrome Translator document adapter를 구현하고 실제 일본어/영어 → 한국어 지원을 검사한다. 최신 원문 revision과 번역을 정확히 짝짓고 원문을 먼저 표시하며 final 작업이 partial에 밀리지 않게 한다.
 - [x] B4. 새 Chrome 단독 빌드에 선택 영상 입력·엔진·공통 정책·원문/시간/번역 화면을 연결한다. 기존 companion 빌드의 native messaging/설치 경로는 보존하며 새 빌드에는 필요한 권한만 포함한다.
-- [ ] B5. `test:framework:chrome`이 companion/Ollama가 없는 환경에서 실제 영상 PCM → ASR → 번역 → DOM을 검증하게 한다. 캐시된 모델 offline run, 첫 다운로드 오류, Stop/재시작, 10분 재생의 backlog/지연/손실을 측정한다. B5는 연결·수명주기·입력 보존을 검증하고 품질·성능 수치를 기록하며, 수치 목표를 맞추기 위한 최적화는 B6에서 수행한다.
+- [x] B5. `test:framework:chrome`이 companion/Ollama가 없는 환경에서 실제 영상 PCM → ASR → 번역 → DOM을 검증하게 한다. 캐시된 모델 offline run, 첫 다운로드 오류, Stop/재시작, 10분 재생의 backlog/지연/손실을 측정한다. B5는 연결·수명주기·입력 보존을 검증하고 품질·성능 수치를 기록하며, 수치 목표를 맞추기 위한 최적화는 B6에서 수행한다.
 - [ ] B6. Chrome 기능 연결과 B5 통합 검증 뒤 마지막으로 ASR·번역 품질과 성능을 개선한다. 일본어 부정·취소·시간·미래 의도, 긴 문장 경계·반복·누락, 영어 fixture와 잡음·작은 음성·연속 발화를 평가한다. 기존 CER/WER ≤20%, 핵심 표현의 기대 횟수 일치, 실시간 endpoint-to-text <2초 기준과 장시간 backlog·손실 검증을 통과하고 수치·메모리·수용 기준을 문서화한다. 실패 문장·기록을 삭제하거나 테스트·기준을 약화시키지 않는다. 기준을 못 맞추면 개선 또는 차단으로 보고한다.
 
 완료 검증: `npm run verify`, `npm run test:framework:chrome`.
@@ -5830,3 +5830,108 @@ publish/app install/access 우회 없음. weights/credentials/user audio/transcr
 .ralph Git 포함 없음; owned test browser/profile만 정리.
 commit: `test: verify offline Chrome inference lifecycle`.
 최종 whitespace/staged scope/checkbox 보존/clean post-commit worktree delivery 확인.
+
+
+### 2026-10-09 KST — chrome iteration 6/20: B5 ten-minute/full-stage acceptance
+
+Entry clean; repository AGENTS.md and requested independent runner acceptance
+file absent. Read plan/architecture/retained Chrome report. Next item **B5**:
+extend the existing real production extension harness for continuous ten-minute
+selected-video processing, retaining B2 default/model/VAD/decoder and all B6
+quality/latency gates. Original speech fixtures/settings/companion/runner stay unchanged.
+
+Added `test:framework:chrome:sustained`: fixture-only 26-period WebM remux,
+continuous encoded Opus clock and unchanged source hashes, real production
+permissions/default workers/native Korean/host and page DOM; original lifecycle
+fault/offline/active Stop/restart gates remain. Minute gates require actual PCM,
+ASR and paired Korean progress, running loss zero and the existing 30 s queue
+bound. Observe original Worker/port metadata and existing queue values via DOM
+attributes; verify sequence/clock/identity/ack/range/source/revision pairing,
+actual host/PCM duration, explicit Stop pending tail/termination/controller
+cleanup and original playback. Record common-host-clock delivery/source/pair
+intervals and owned-process-tree RSS; no quality/endpoint or normal EOF drain
+claim from these measurements. Full `test:framework:chrome` now executes all
+integration commands and retained default-profile GPU/EOF/quiet/noise/sustained
+live strict gates; any unexecuted/nonzero command prevents overall success.
+
+Retained **FAIL** first focused sustained command / exit 1,
+`chrome-b5-ten-minute-attempt-1.log`: ten checkpoints actually run, zero running
+loss, max pending **16,554 ms**, actual host **600,282.6999999881 ms** / PCM
+**600,106.6666666666 ms**, **50 jobs / 49 results / 49 paired rows** at minute ten.
+New harness incorrectly expected every translation revision to be **1**;
+actual adapter's successive counter gives **2**. Fix the new assertion to exact
+**index+1**, exact ASR source text, source revision **1** and original-first
+pairing. Preserve original single-row assertions and all strict thresholds.
+First attempt is not a sustained acceptance pass. Final full-stage source also
+adds explicit Stop queue metadata and an atomic completed-ASR/paired-row snapshot;
+measure actual waiting rather than excluding latency. No environment/access
+blocker or browser/profile workaround. Final evidence/checklist decision follows.
+
+
+Final-source **PASS `npm run verify`, exit 0**, `chrome-b5-full-stage-verify.log`:
+Biome **147 files / 82 ms**, Ruff/typecheck/unchanged companion build,
+**150 JS / 0 fail, skip, cancel / 26,759.806041 ms**, **222 Python / 67.00 s**.
+Earlier pre-correction verify runs also PASS (logs `chrome-b5-ten-minute-verify{,-final}.log`):
+**150 JS / 27,661.277042 and 26,991.770959 ms**, **222 Python / 66.94 and 67.01 s**.
+Final syntax/focused Biome, fixture regression (**1 pass / 52.553417 ms** direct;
+repeated inside full-stage sustained) and whitespace/preservation review pass.
+
+Required **FAIL `npm run test:framework:chrome`, exit 1**, final executable source,
+once, `chrome-b5-full-stage-attempt-1.log`: all **12 constituents execute**, **11
+PASS / 1 FAIL**, sole default-profile Japanese white-noise meaning-count failure.
+Exact constituent exits/times and all model/context metrics are in the Chrome
+report. No unexecuted/nonzero constituent is relabeled successful.
+
+Within that command **PASS sustained extension / child exit 0**, **744,548.525292
+ms**: unchanged lifecycle download-error/online ja/en/cached offline real ASR+
+Korean/active Stop/restart gates; actual ten-minute Japanese host **600,285.5 ms**,
+PCM **600,149.3333333333 ms**, **14,066 × 8,192 bytes / 48 kHz / 28,807,168 samples**,
+sequences **0–14,065**, one identity/epoch/clock, ack max **1 / limit 4 / final 0**.
+**88 jobs / 88 results / 88 paired Korean rows**, exact ASR text/source revision
+**1**, native translation revisions **1–88**, final/final and original-first.
+Contiguous bounded ASR range **32–597,664 ms**, snapshot pending tail **2,485.3333333332557
+ms**. Every minute advances; running loss **0**, max pending **17,450 / 30,000 ms**.
+Owned-tree minute RSS **3,423,184–4,185,984 KiB**; inference max **1,653.5 ms**;
+same-host PCM-delivery→source **841–1,965 ms**, source→paired **4.5–49.799999952316284
+ms**. These are not app CER/WER/meaning or speech-endpoint acceptance. Stop later
+observes **4,404.6875 ms** pending, no unfinished submitted job, explicit unsubmitted
+tail cancellation, idle/controller queue **0**, no live/late row, history and
+original playback preserved. Both videos playing/unmuted **0.4 / 0.25**, positions
+**602.121636 / 602.121632 s**; sustained/offline **zero remote requests**.
+Companion/Ollama **8765 / 11434 ECONNREFUSED**, no requests/native messaging.
+Page errors **[]**; expected fault **one aborted VAD request / one console error**.
+
+Full-stage GPU recovery **PASS** (**10 live rounds / 2 replay groups**), normal
+queues/input and explicit actual runtime loss/fresh recovery/cancel/old-result
+contracts. EOF **10 cases PASS**, quiet **6 cases PASS**. Sustained live **PASS**
+(**8 rounds / 2 replay groups**): Japanese **18 periods / 2.5% CER / every count
+18**, English **19 periods / 4.545454545454546% WER / every count 19**; actual
+normalized **2,009,088 / 2,027,520 samples**, host **127,003.5 / 127,877.09999996424
+ms**, max full endpoint **1,767.5999999642372 ms**, zero normal loss/drain pass.
+Replays are repeatability, not live timing or Korean quality.
+
+Noise **FAIL / child exit 1**, all **10 cases + offline ASR executed**; sole
+`ja/speech-white-noise` meaning-count failure. **7.5% CER (9/120)** passes the error
+threshold but meeting **2** and station **1**, expected **3** each; five other
+anchors count **3**. Outcome completed, normal discarded audio **0**, pending max
+**9,300 ms**, endpoints **1,130 / 1,458.3999999761581 / 902 ms**. Strict meaning
+failure is preserved as **B6**; all other original assertions pass.
+
+**Only B5 newly checked**, under the plan's quality-only-failure separation.
+**Next B6**, including retained noise/negation/reservation/repetition concerns and
+current application Korean semantics/long-boundary/future-intent qualification.
+B6 and Safari/iPhone remain unchecked; full Chrome command remains FAIL; no
+stage/whole-framework/iPhone completion or environment-blocker marker. Native
+Korean ten-minute quality, English ten-minute, external/native-fullscreen/physical
+speaker/offline browser restart/remote reload/Safari/physical iPhone are
+UNVERIFIED. Preserve all fixtures/counts/CER-WER/endpoint gates for B6.
+
+**Eight files**; report current status/progress and one checkbox plus scoped
+harness/remux/regression/full-stage command/queue diagnostic attributes. No
+runner/server/legacy extension/companion/install/settings/lockfile/original media
+or quality-gate changes, unrelated files/apps/recordings/mounted images preserved.
+No agents, push/publish/app installation/access workaround; weights, credentials,
+user audio/transcripts and `.ralph` are not committed. Only owned browsers/profiles
+removed. Commit: `test: verify sustained Chrome interpretation`. Final staged
+whitespace/scope/checkbox preservation and clean committed worktree are checked
+at delivery.

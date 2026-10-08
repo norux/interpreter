@@ -55,7 +55,9 @@
     "test:framework:chrome:live:sustained:gpu-recovery:turbo": "npm run typecheck && node --import tsx --test tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts tests/framework-browser-normalize.test.ts && node tests/framework-chrome-live-learned.mjs --sustained-gpu-recovery --turbo",
     "test:framework:chrome:replay": "npm run typecheck && node --import tsx tests/framework-chrome-replay.mjs",
     "test:framework:chrome:extension": "npm run typecheck && node tests/framework-chrome-extension.mjs",
-    "test:framework:chrome:lifecycle": "npm run typecheck && node tests/framework-chrome-extension.mjs --lifecycle"
+    "test:framework:chrome:lifecycle": "npm run typecheck && node tests/framework-chrome-extension.mjs --lifecycle",
+    "test:framework:chrome:sustained": "npm run typecheck && node --test tests/framework-chrome-sustained-fixture.test.mjs && node tests/framework-chrome-extension.mjs --sustained",
+    "test:framework:chrome": "node tests/framework-chrome.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
