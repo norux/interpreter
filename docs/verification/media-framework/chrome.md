@@ -5994,3 +5994,196 @@ whitespace, exit 0. Final staged whitespace/scope and post-commit cleanliness
 checked before delivery. Only package command, existing live harness/fixture,
 report and plan enter the commit; no generated media, weights, profiles,
 credentials, user data, ignored temporary state or runner changes.
+
+
+## 2026-10-08 — B2 turbo live ASR Stop and cached restart (iteration 20/20)
+
+Related commit: `test: qualify turbo live ASR stop and restart`, containing this
+report. **B2 remains unchecked; no default is selected.** Only B2 advances.
+
+Assumption: iteration 19's live Stop interrupted VAD with zero ASR calls, so its
+successful cancellation cannot qualify user Stop during turbo inference. The
+smaller change extends the existing live qualification harness and fixture with
+an opt-in `--asr-stop` mode rather than changing production decoding or policy.
+New `test:framework:chrome:live:asr-stop:turbo` runs the six original scenarios,
+then Japanese and English active-ASR Stop and three-period cached restart rounds.
+Existing commands still select their original modes/candidates. All 95 original
+assertion lines remain; only the mutually exclusive mode list is extended.
+
+An owned fixture MessageChannel acknowledges the production worker handler's
+actual pipeline invocation, without sending a fabricated result/status into the
+validated host protocol. The harness then uses keyboard Enter on the existing
+Stop button. A passive document-clock snapshot must show exactly one unresolved
+host invocation, no published revision and Stop before that invocation settles.
+The cancelled job must contain the exact, unfiltered normalized selected-video
+PCM and end before the complete three-period capture endpoint. Cancellation must
+retain explicit discarded duration covering its entire active job, zero pending
+audio, bounded queues, capture detach and no revision over a two-second late-result
+observation. Both original videos must remain playing at their existing volume,
+mute and rate settings and advance by more than one second in that observation.
+An unprepared retry must retain its 6,400-byte PCM, create no worker and reject
+as not ready. Explicit cached Prepare alone must create two fresh workers on the
+same ASR/VAD hosts, same session/target and a fresh epoch; all original scored
+PCM/quality/meaning/latency gates apply to the restarted runs. No cloud fallback,
+model/default/policy/dependency/companion or user-setting change.
+
+### Initial checks and required acceptance
+
+Supplied instructions, plan, architecture and Chrome evidence reviewed. Root and
+nested AGENTS.md and the requested independent runner evidence
+`2026-10-08T01-12-31-094Z-chrome-verification.txt` are absent. Local output remains
+ignored under `.ralph/media-framework/`.
+
+- PASS: `node --check tests/framework-chrome-live-learned.mjs`, extracted fixture
+  module `node --input-type=module --check`, targeted Biome **two files / 8 ms /
+  no findings**, preliminary `git diff --check` and Python preservation assertion
+  for all **95** original assertion lines, exit 0.
+- FAIL: `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-20-stage-acceptance.log`: `Missing script: "test:framework:chrome"`.
+  The full selected-video PCM → ASR → Korean translation → DOM harness remains
+  unimplemented. No placeholder or substituted model/lifecycle success.
+
+
+### Actual browser results
+
+PASS: `caffeinate -disu npm run test:framework:chrome:live:asr-stop:turbo`,
+**exit 0**, once, `chrome-20261008-20-turbo-asr-stop.log`: typecheck,
+**27 port tests / 0 failed/skipped/cancelled / 251.934250 ms**, separate browser
+build, **ten completed rounds / 4,065 actual WASM VAD frames / 13 actual FP16
+WebGPU ASR calls**, including two interrupted calls. Failures, page errors and
+native visibility events are all `[]`. This is a bounded B2 qualification, not
+full Chrome acceptance or Korean translation/display evidence.
+
+| Active-ASR Stop | Japanese | English |
+| --- | ---: | ---: |
+| Actual raw 48 kHz samples | 720,896 | 548,864 |
+| Actual normalized 16 kHz samples / duration ms | 240,298 / 15,018.625 | 182,954 / 11,434.625 |
+| Interrupted ASR range ms | 32–14,720 | 0–11,136 |
+| Exact unfiltered active ASR samples | 235,008 | 178,176 |
+| Keyboard Stop after host submission ms | 29.600 | 30.600 |
+| Host rejection after Stop ms | 1.000 | 0.700 |
+| Stop handler cleanup ms | 1.100 | 0.800 |
+| Explicit discarded / final pending ms | 14,986 / 0 | 11,434 / 0 |
+| Original video progress during observation, seconds (ja / en) | 2.064989 / 2.064992 | 2.053298 / 2.053286 |
+
+Each Stop observed exactly one unresolved, worker-invoked job and zero revisions,
+returned `cancelled`, accounted for the entire interrupted job and additional
+retained context, detached capture and published no revision over the subsequent
+two seconds. Job settlement is host cancellation, not an inference completion.
+No next normalized delivery occurred within either approximately 30 ms call
+window; advancing original playback after detach is independently observed.
+Selected/other isolation-tag amplitudes were **0.060082/0.000360** Japanese,
+**0.060011/0.000624** English; raw video mapping error **25.490/10.624 ms**.
+These are input diagnostics, not accuracy scores for cancelled speech.
+
+Both unprepared retries rejected as not ready, retained **6,400 bytes**, created
+zero workers, kept zero revisions and left raw chunk counts unchanged. No
+remote requests occurred in either cached Stop round. Explicit Prepare reused
+the same ASR/VAD hosts, session and selected target; it alone created two fresh
+workers and every subsequent revision used epoch **1**. Restart preparation
+**2,633.435375 / 2,549.133959 ms**, zero remote requests, is model preparation
+rather than recognition latency.
+
+| Three-period restart | Japanese | English |
+| --- | ---: | ---: |
+| Raw / normalized samples | 1,005,568 / 335,189 | 962,560 / 320,853 |
+| Actual normalized duration ms | 20,949.3125 | 20,053.3125 |
+| CER / WER | 3/120 = 2.5% | 3/66 = 4.545455% |
+| Every meaning count | 3 | 3 |
+| Last-packet-to-text ms | 1,460.300 | 1,349.500 |
+| Peak pending / discarded / final pending ms | 13,716.6875 / 0 / 0 | 13,023.375 / 0 / 0 |
+| VAD frames / total inference ms | 655 / 462.900 | 627 / 426.400 |
+
+Both restarts use two exact-PCM ASR jobs with contiguous ranges:
+Japanese **64–11,808–20,949.3125 ms**, English **32–11,168–20,053.3125 ms**.
+Leading quiet context **64/32 ms**, trailing **zero**; complete detector coverage,
+<=20-second job ranges, unchanged error/meaning/last-packet latency gates, input
+isolation/mapping, normal zero loss and detach pass. Actual selected capture
+advances **1,706.6875/1,578.6875 ms** during their first ASR calls; final jobs
+follow EOF. This is three-period evidence; sustained per-job endpoint metrics
+and ten-minute acceptance were not measured in this invocation.
+
+All five original scored rounds also pass: Japanese **1/40, 1/40, 3/120 CER**,
+English **2/22, 3/66 WER**, every meaning once/three times, last-packet latency
+**1,341.700–1,475.100 ms**, normal zero loss and drained queues. Original VAD-only
+Stop still reports zero ASR calls and **863.375 ms** explicit loss; it is retained
+separately from the two new active-ASR Stop rounds. No failed fixture, transcript,
+original scenario or threshold is removed.
+
+### Environment, model and memory
+
+Owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, uv **0.12.23**. Existing pinned turbo
+`onnx-community/whisper-large-v3-turbo@360ebcde2559d60bb474678be3c1de9ef347d01a`
+(**seven files / 1,621,338,971 bytes**) and Silero
+`onnx-community/silero-vad@e71cae966052b992a7eca6b17738916ce0eca4ec`
+(**one file / 2,243,022 bytes**); locked Transformers.js **4.3.0**/ORT and all
+model registry hashes unchanged. The production repository verifies the existing
+ONNX hashes before load. One fresh inventory per model, cached workers thereafter,
+**16 pinned/redirect paths / 16 requests** overall. No new candidate/weights or
+generated media. First Prepare **159,954.829417 ms**, nine cached preparations
+**2,442.991459–3,611.297125 ms**. These are loading, not recognition accuracy.
+No offline streaming/interpretation claim.
+
+Initial owned browser-tree RSS **1,441,632 KiB**, max post-prepare case peak
+**5,320,560 KiB**. Baseline/peak/final KiB: Japanese Stop
+**3,377,520/3,377,520/2,155,424**, restart **4,500,720/4,500,720/745,040**;
+English Stop **3,303,936/3,303,936/1,037,728**, restart
+**4,720,816/4,720,816/818,080**. Existing 250 ms process-tree samples include
+shared-page double counting, browser/renderers/GPU, allocators and harness/media/
+model residency; final samples precede the two-second observation in Stop rounds.
+Preparation peak is not qualified. These are footprint diagnostics, not isolated
+GPU/model allocations, memory/storage pressure, leak freedom or mobile/thermal
+measurements. Capture/submission/Stop/rejection/text measurements share the
+document clock. Preparation/RSS use Node and VAD inference its worker clock
+independently; no cross-clock subtraction or latency percentile claim.
+
+PASS: explicit Python assertions over the recorded result, exit 0: ten completed
+rounds, pinned identity/bytes, two actual-ASR Stop outcomes, preserved exact job
+PCM/accounting/late suppression/retry, same target/session and fresh-epoch cached
+restart, all scored accuracy/meaning/latency/queue outcomes. This analyzes the
+single actual browser invocation; it does not rerun inference. Final targeted
+Biome **two files / 8 ms / no findings** and harness syntax also pass.
+
+### Remaining work and preservation
+
+**Next unfinished item remains B2:** resolve retained turbo noise endpoint and
+sustained Japanese future-time/endpoint failures, investigate the unreferenced
+pre-loss phrase, qualify overload and quiet/no-pause/natural speakers/noise,
+ten-minute live acquisition, memory/storage pressure and conversion/distribution
+licensing before selecting a default. This invocation qualifies active user Stop
+for both languages and a bounded explicit cached restart; it does not rerun or
+reclassify earlier small/turbo noise/sustained failures or establish repeatability.
+
+Full Chrome acceptance remains FAIL (missing script); B2–B6 unchecked. Korean
+translation/source-revision pairing/DOM, full offline interpretation, installation
+and Safari/iPhone remain unverified. No required environment/device/permission is
+absent; unfinished implementation/qualification warrants neither terminal marker.
+No stage/framework/iPhone completion claim.
+
+Only this worktree changes. Published companion v0.1.0/install/native messaging/
+server/settings and unrelated files/apps/recordings/mounted images preserved.
+No agents, runner edits, stage advance, push/publish/app installation or blocked
+browser/profile/permission bypass. Only owned test browser/profile resources are
+cleaned up. Credentials/weights/user audio/transcripts/generated media/temporary
+ignored state stay out of the commit. Final verify and Git checks follow.
+
+
+### Final required verification and Git checks
+
+PASS: `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-20-verify.log`: Biome **115 files / 56 ms / no findings**, Ruff,
+typecheck, unchanged companion build **28 main / 10 content modules**,
+**113 JS passed / 0 failed/skipped/cancelled / 21,917.328333 ms**,
+**222 Python passed / 66.87 s**, Python **3.12.15**. Run after the sole actual
+browser invocation on final implementation/test sources; subsequent changes only
+finish Markdown evidence. This does not override the missing full Chrome command
+or earlier retained Japanese/noise/sustained qualification failures.
+
+PASS: Python checks of exact five-file scope, append-only report/plan, every
+original checkbox and all existing npm commands/dependencies unchanged; final
+harness/embedded fixture syntax, targeted Biome and document-inclusive unstaged
+whitespace, exit 0. Only package command, existing live harness/fixture, report
+and plan are selected for the commit. Models/media/profiles/credentials/user data/
+ignored temporary state and runner changes are excluded. Staged scope/whitespace
+and post-commit cleanliness are checked before delivery.

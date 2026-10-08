@@ -4033,3 +4033,108 @@ push/publish/app install/blocked browser bypass 없음. Only owned test resource
   whitespace/scope와 post-commit clean worktree는 delivery 전에 확인. Package
   command/live harness/fixture/report/plan만 commit; models/media/profiles/
   credentials/user data/ignored temporary state/runner changes 제외.
+
+
+### 2026-10-08 / chrome / iteration 20/20
+
+Related commit: `test: qualify turbo live ASR stop and restart`, containing this
+entry. Next unfinished item is **B2**; B2–B6 remain unchecked.
+
+Changes: add opt-in `test:framework:chrome:live:asr-stop:turbo` to the existing
+learned live harness/fixture. Retain six original scenarios and every original
+accuracy/meaning/latency/PCM/playback/cache/queue assertion, then add Japanese and
+English keyboard Stop after the actual turbo worker pipeline is invoked, followed
+by explicit cached same-host/session/target restart at a fresh epoch. Passive
+Stop snapshots distinguish unresolved actual ASR from iteration 19's VAD-only
+Stop. Require exact job PCM, cancellation accounting, bounded/cleared queues,
+detach, two seconds without late revisions, advancing original playback,
+unprepared retry without transfer/new workers, and two fresh cached workers.
+This extends qualification only; no production model/default/policy/dependency,
+companion or existing user settings change.
+
+Executed:
+
+- PASS: harness and extracted fixture module syntax, targeted Biome **two files /
+  8 ms / no findings**, preliminary whitespace and explicit Python check that all
+  **95** original assertion lines remain (only mutual-exclusion mode list extended).
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-20-stage-acceptance.log`, missing full acceptance script.
+  ASR/Stop evidence cannot replace Korean translation or DOM acceptance.
+
+Actual browser results, final verify and remaining qualification are recorded
+below and in `docs/verification/media-framework/chrome.md` iteration 20. Requested
+independent runner log and root/nested AGENTS.md are absent. Only this worktree
+changes; no agents, runner edits, other stages, push/publish/app installation or
+browser/profile bypass. Existing apps/recordings/mounted images preserved.
+
+
+Actual browser evidence:
+
+- PASS: `caffeinate -disu npm run test:framework:chrome:live:asr-stop:turbo`,
+  **exit 0**, once, `chrome-20261008-20-turbo-asr-stop.log`: typecheck,
+  **27 port passed / 0 failed/skipped/cancelled / 251.934250 ms**, build,
+  **ten rounds / 4,065 actual WASM VAD frames / 13 FP16 WebGPU ASR calls**,
+  including two interrupted calls. Failures/page errors/native visibility `[]`.
+- Both active-ASR keyboard Stop rounds PASS: Japanese normalized **240,298 samples /
+  15,018.625 ms**, job **32–14,720 ms / 235,008 exact samples**, English
+  **182,954 / 11,434.625 ms**, job **0–11,136 / 178,176**. Worker invocation is
+  independently observed; document snapshots show one unresolved ASR/no revision.
+  Stop follows submission **29.600/30.600 ms**, host cancellation settles
+  **1.000/0.700 ms** later, handler cleanup **1.100/0.800 ms**. Explicit discarded
+  **14,986/11,434 ms**, final pending zero, detach and no late text over two seconds.
+  Both videos retain playback settings and advance **2.053286–2.064992 s**;
+  cancelled speech is unscored. No next normalized packet within the short active
+  call windows; no claim of acquisition overlap for those interrupted calls.
+- Retry remains not ready, **6,400 bytes** retained, zero workers/revisions/remote
+  requests. Explicit cached Prepare alone creates two fresh workers on same
+  ASR/VAD hosts/session/selected target; all restarted revisions use epoch **1**.
+  Prepare **2,633.435375/2,549.133959 ms**, no remote requests. Three-period restarts
+  PASS Japanese **335,189 samples / 20,949.3125 ms / 3/120 CER** and English
+  **320,853 / 20,053.3125 / 3/66 WER**, every meaning **3**, final packet
+  **1,460.300/1,349.500 ms**, peak pending **13,716.6875/13,023.375 ms**, zero normal
+  loss/drain. Two contiguous exact-PCM jobs each, complete detector coverage,
+  leading **64/32 ms**, trailing zero, original playback/isolation/mapping/detach
+  pass. First-job live acquisition overlap **1,706.6875/1,578.6875 ms**. This is
+  bounded three-period evidence, not sustained endpoint/ten-minute acceptance.
+- Five original scored rounds PASS Japanese **1/40, 1/40, 3/120 CER**, English
+  **2/22, 3/66 WER**, all meanings once/three times, final packet
+  **1,341.700–1,475.100 ms**, zero normal loss/drain. Original VAD Stop retains
+  zero ASR calls, **863.375 ms** explicit loss and successful restart separately.
+- Owned headed Chromium **153.0.8010.12**, macOS **26.6.2/25G83 arm64**, Node
+  **v24.15.0**, npm **11.12.1**, uv **0.12.23**. Same pinned turbo
+  **1,621,338,971 bytes/seven files** and Silero **2,243,022/one**, existing registry
+  hashes/locked dependencies unchanged; **16 paths/16 requests**. First Prepare
+  **159,954.829417 ms**, cached **2,442.991459–3,611.297125 ms**. Initial owned-tree
+  RSS **1,441,632 KiB**, max post-prepare case peak **5,320,560 KiB**; this is
+  process footprint, not GPU allocation/pressure/storage/leak/mobile evidence.
+  Exact identities, clocks, per-round samples/ranges/RSS and limits in stage report.
+- PASS: explicit recorded-result Python assertions and same selected-target checks,
+  exit 0; analysis only, no second browser inference run. Final targeted Biome
+  **two files/8 ms/no findings**, harness syntax, exit 0.
+
+Next unfinished **B2**: retained turbo noise/sustained Japanese meaning/endpoint
+failures and pre-loss unreferenced phrase, overload, quiet/no-pause/natural speakers/
+noise, ten-minute live, pressure/storage/licensing before a default. Earlier
+failures remain; no repeatability claim. B2–B6 unchecked; full Chrome acceptance
+still FAIL (missing script), Korean translation/revisions/DOM/full offline
+interpretation/install/Safari/iPhone unverified. No required environment/device/
+permission is absent, so no terminal marker or stage/framework/iPhone completion.
+Models/media/profiles/credentials/user data/.ralph state excluded. Final verify
+and Git evidence follows.
+
+
+Final required verification and Git checks:
+
+- PASS: `caffeinate -disu npm run verify`, **exit 0**,
+  `chrome-20261008-20-verify.log`: Biome **115 files/56 ms/no findings**, Ruff,
+  typecheck, unchanged companion **28 main/10 content modules**, **113 JS passed /
+  0 failed/skipped/cancelled / 21,917.328333 ms**, **222 Python passed/66.87 s**,
+  Python **3.12.15**. Executed after the sole actual browser invocation on final
+  test sources; later edits finish Markdown evidence only. Missing full acceptance
+  and earlier Japanese/noise/sustained failures remain unchanged.
+- PASS: explicit exact five-file scope, append-only report/plan, unchanged every
+  checkbox/existing npm command/dependency, harness/fixture syntax and targeted
+  Biome, document-inclusive unstaged whitespace, exit 0. Only package command,
+  existing live harness/fixture and report/plan selected for commit; models/media/
+  profiles/credentials/user data/ignored state/runner changes excluded. Staged
+  scope/whitespace and post-commit cleanliness checked before delivery.

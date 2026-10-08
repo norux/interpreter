@@ -9,8 +9,9 @@ import { chromium } from "playwright";
 import { build } from "vite";
 
 // B2 learned live-input qualification only; no Korean translation/caption DOM.
+const asrStop = process.argv.includes("--asr-stop");
 const sustainedGpuRecovery = process.argv.includes("--sustained-gpu-recovery");
-assert.ok(["--sustained-input", "--gpu-recovery", "--sustained-gpu-recovery"].filter(flag => process.argv.includes(flag)).length <= 1,
+assert.ok(["--sustained-input", "--gpu-recovery", "--sustained-gpu-recovery", "--asr-stop"].filter(flag => process.argv.includes(flag)).length <= 1,
   "Qualification modes must run separately");
 const sustained = sustainedGpuRecovery || process.argv.includes("--sustained-input");
 const gpuRecovery = sustainedGpuRecovery || process.argv.includes("--gpu-recovery");
@@ -49,7 +50,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, gpuRecovery, sustainedGpuRecovery, candidate, model, generatedMedia: [], liveRuns: [], failures: [] };
+const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, gpuRecovery, sustainedGpuRecovery, asrStop, candidate, model, generatedMedia: [], liveRuns: [], failures: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page;
 let peakRssKiB = 0;
 let sustainedMemory;
@@ -106,17 +107,20 @@ try {
   page.on("pageerror", error => pageErrors.push(error.message));
   page.context().on("request", request => { if (request.url().startsWith("https://")) { remoteRequests++; const url = new URL(request.url()); remotePaths.add(url.origin + url.pathname); } });
   let asrWorker; let instrumentation;
-  if (gpuRecovery) {
+  if (gpuRecovery || asrStop) {
     await page.addInitScript(() => {
       const NativeWorker = Worker; globalThis.ownedWorkers = [];
       globalThis.Worker = class extends NativeWorker {
-        constructor(...args) { super(...args); ownedWorkers.push(this); }
+        constructor(...args) {
+          super(...args); ownedWorkers.push(this);
+          if (String(args[0]).includes("asr-worker")) globalThis.ownedAsrWorker = this;
+        }
       };
     });
     page.on("worker", worker => {
       if (!worker.url().includes("asr-worker")) return;
       asrWorker = worker;
-      instrumentation = worker.evaluate(() => {
+      if (gpuRecovery) instrumentation = worker.evaluate(() => {
         const original = GPUAdapter.prototype.requestDevice;
         GPUAdapter.prototype.requestDevice = async function (...args) {
           const device = await original.apply(this, args); globalThis.testRuntimeDevice = device; return device;
@@ -185,10 +189,11 @@ try {
     }
     console.log(JSON.stringify({ generatedMedia: observations.generatedMedia }));
   }
-  for (const [round, language] of ["ja", "ja", "ja", "en", "ja", "en", ...(gpuRecovery ? ["ja", "ja", "en", "en"] : sustained ? ["ja", "en"] : [])].entries()) {
+  for (const [round, language] of ["ja", "ja", "ja", "en", "ja", "en", ...(gpuRecovery || asrStop ? ["ja", "ja", "en", "en"] : sustained ? ["ja", "en"] : [])].entries()) {
     const clip = manifest.clips.find(clip => clip.language === language);
     const lossRound = gpuRecovery && (round === 6 || round === 8);
-    const recoveryRound = gpuRecovery && (round === 7 || round === 9);
+    const stopRound = asrStop && (round === 6 || round === 8);
+    const recoveryRound = (gpuRecovery || asrStop) && (round === 7 || round === 9);
     const periods = sustained && round >= 6 ? Math.ceil(120/clip.speechDurationSeconds) : round >= 4 ? 3 : 1;
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
     if (sustained && round === 6) await page.evaluate(async () => {
@@ -222,12 +227,43 @@ try {
         };
       }, sustainedGpuRecovery ? 60000 : 0);
     }
-    if (recoveryRound) {
+    if (stopRound) {
+      await page.evaluate(() => { globalThis.stopHost = host; globalThis.stopVad = vad; globalThis.workersBeforeStop = ownedWorkers.length; });
+      // A private fixture channel observes the actual pipeline invocation without
+      // adding a response to the validated production worker protocol.
+      await asrWorker.evaluate(() => {
+        let probePort;
+        const original = globalThis.onmessage;
+        globalThis.onmessage = function (event) {
+          if (event.data?.fixtureAsrProbe) { probePort = event.data.port; return; }
+          const operation = original.call(this, event);
+          if (event.data?.type === "recognize") probePort?.postMessage({ audioRange: event.data.job.audioRange });
+          return operation;
+        };
+      });
+      await page.evaluate(() => {
+        const channel = new MessageChannel(); globalThis.asrInvocation = undefined;
+        channel.port1.onmessage = event => { globalThis.asrInvocation = event.data; channel.port1.close(); };
+        ownedAsrWorker.postMessage({ fixtureAsrProbe: true, port: channel.port2 }, [channel.port2]);
+      });
+    }
+    if (asrStop && recoveryRound) {
+      assert.deepEqual(await page.evaluate(() => ({ sameHost: host === stopHost, sameVad: vad === stopVad,
+        workers: ownedWorkers.length-workersBeforeStop })), { sameHost: true, sameVad: true, workers: 2 });
+      assert.equal(remoteRequests-requestsBefore, 0, "Explicit cached restart after Stop must not fetch model artifacts");
+    } else if (recoveryRound) {
       assert.deepEqual(await page.evaluate(() => ({ sameHost: host === lossHost, sameVad: vad === lossVad,
         workers: ownedWorkers.length-workersBeforeLoss })), { sameHost: true, sameVad: true, workers: 2 });
       assert.equal(remoteRequests-requestsBefore, 0, "Explicit cached recovery must not fetch model artifacts");
     }
     await page.locator("#start").press("Enter");
+    if (stopRound) {
+      await page.waitForFunction(() => globalThis.asrInvocation || globalThis.liveError, undefined, { timeout: 30000, polling: 10 });
+      assert.equal(await page.evaluate(() => liveError), undefined);
+      live.asrInvocation = await page.evaluate(() => asrInvocation);
+      await page.locator("#stop").press("Enter");
+      await page.waitForFunction(() => globalThis.stopSnapshot?.finishedAtMs !== undefined);
+    }
     if (round === 1) {
       await page.waitForFunction(() => normalized.chunks >= 20 || globalThis.liveError, undefined, { polling: 100 });
       await page.locator("#stop").press("Enter");
@@ -235,7 +271,7 @@ try {
     await page.waitForFunction(() => globalThis.finished || globalThis.liveError, undefined, { timeout: sustained && round >= 6 ? clip.speechDurationSeconds*periods*1000+10000 : 30000, polling: 100 });
     Object.assign(live, await page.evaluate(() => ({ error: liveError, raw, normalized, identity, transcripts, queueStatuses,
       lastDelivery, invocations, statuses, vadStatuses, detectorFrames, playbackBefore, playbackAfter: state(), timesAfter: [...document.querySelectorAll('video')].map(video => video.currentTime), visibilityEvents,
-      normalizedDeliveries, liveStartedAtMs, liveFinishedAtMs: globalThis.liveFinishedAtMs })), { peakRssKiB, finalRssKiB: await sampleRss(), memorySamples: sustainedMemory?.samples });
+      normalizedDeliveries, stopSnapshot: globalThis.stopSnapshot, liveStartedAtMs, liveFinishedAtMs: globalThis.liveFinishedAtMs })), { peakRssKiB, finalRssKiB: await sampleRss(), memorySamples: sustainedMemory?.samples });
     sustainedMemory = undefined;
     observations.liveRuns.push(live);
     assert.equal(live.statuses.at(-1).state, "ready");
@@ -301,6 +337,44 @@ try {
       live.remoteRequests = remoteRequests-requestsBefore;
       assert.equal(live.remoteRequests, 0, "Cached live loss must not fetch model artifacts");
       console.log(JSON.stringify({ liveGpuLoss: live }));
+      continue;
+    }
+    if (stopRound) {
+      assert.equal(live.error, "cancelled"); assert.deepEqual(live.transcripts, []);
+      assert.equal(live.invocations.length, 1);
+      assert.deepEqual(live.asrInvocation.audioRange, live.invocations[0].audioRange);
+      assert.equal(live.stopSnapshot.activeInvocations, 1, "Keyboard Stop must reach an unresolved actual ASR invocation");
+      assert.equal(live.stopSnapshot.transcripts, 0);
+      assert.ok(live.stopSnapshot.atMs >= live.invocations[0].atMs && live.stopSnapshot.atMs < live.invocations[0].settledAtMs);
+      assert.ok(live.invocations[0].exactInput && live.invocations[0].samples > 1600);
+      assert.ok(live.invocations[0].audioRange.endMs < clip.speechDurationSeconds*periods*1000,
+        "Stop must interrupt a nonfinal job before the selected capture endpoint");
+      assert.ok(live.normalized.samples/16 < clip.speechDurationSeconds*periods*1000);
+      assert.ok(live.detectorFrames.length > 0);
+      assert.equal(live.queueStatuses.at(-1).reason, "cancelled");
+      assert.equal(live.queueStatuses.at(-1).queue.pendingAudioMs, 0);
+      assert.ok(live.queueStatuses.at(-1).queue.droppedAudioMs >= live.invocations[0].samples/16,
+        "Cancelled active ASR audio must remain explicitly accounted as discarded");
+      assert.ok(live.queueStatuses.every(status => status.queue.pendingAudioMs <= 30000));
+      live.stopCleanupMs = live.stopSnapshot.finishedAtMs-live.stopSnapshot.atMs;
+      assert.ok(live.stopCleanupMs >= 0 && live.stopCleanupMs < 2000);
+      await page.waitForTimeout(2000);
+      live.afterStop = await page.evaluate(async () => {
+        const job = { identity, language: selectedLanguage, utteranceId: 'must-prepare-after-stop',
+          audioRange: {startMs:0, endMs:100}, pcm:new Float32Array(1600) };
+        const reason = await host.recognize(job).then(() => 'unexpected success', error => error.message);
+        return { reason, retainedBytes: job.pcm.byteLength, workers: ownedWorkers.length-workersBeforeStop,
+          transcripts, chunks: raw.chunks, times: [...document.querySelectorAll('video')].map(video => video.currentTime), playback: state() };
+      });
+      assert.match(live.afterStop.reason, /not ready/);
+      assert.equal(live.afterStop.retainedBytes, 6400); assert.equal(live.afterStop.workers, 0);
+      assert.deepEqual(live.afterStop.transcripts, []);
+      assert.equal(live.afterStop.chunks, live.raw.chunks, "Stop must detach capture and suppress late results");
+      assert.deepEqual(live.afterStop.playback, live.playbackBefore);
+      assert.ok(live.afterStop.times.every((time, i) => time > live.timesAfter[i]+1));
+      live.remoteRequests = remoteRequests-requestsBefore;
+      assert.equal(live.remoteRequests, 0);
+      console.log(JSON.stringify({ liveAsrStop: live }));
       continue;
     }
     if (round === 1) {

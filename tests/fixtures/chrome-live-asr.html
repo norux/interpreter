@@ -59,7 +59,7 @@
     globalThis.identity = identity;
     timeline = createTimeline(identity);
     globalThis.selectedLanguage = language; globalThis.endAtSeconds = durationSeconds;
-    globalThis.transcripts = []; globalThis.queueStatuses = []; globalThis.liveError = undefined; globalThis.finished = false; globalThis.liveFinishedAtMs = undefined;
+    globalThis.transcripts = []; globalThis.queueStatuses = []; globalThis.liveError = undefined; globalThis.finished = false; globalThis.liveFinishedAtMs = undefined; globalThis.stopSnapshot = undefined;
     globalThis.raw = {chunks: 0, samples: 0, rates: [], selectedTagPower: 0, otherTagPower: 0, windows: 0, maxMapErrorMs: 0};
     globalThis.normalized = {chunks: 0, samples: 0, first: undefined, last: undefined};
     globalThis.normalizedDeliveries = [];
@@ -138,7 +138,12 @@
       globalThis.liveFinishedAtMs = performance.now();
     } catch(error) { globalThis.liveError = error.message; globalThis.liveFinishedAtMs = performance.now(); }
   };
-  document.querySelector('#stop').onclick = async () => { await recognizer.cancel(identity); await handle?.close(); };
+  document.querySelector('#stop').onclick = async () => {
+    globalThis.stopSnapshot = {atMs: performance.now(), activeInvocations: invocations.filter(job => job.settledAtMs === undefined).length,
+      transcripts: transcripts.length};
+    await recognizer.cancel(identity); await handle?.close();
+    stopSnapshot.finishedAtMs = performance.now();
+  };
   window.addEventListener('pagehide', () => { void recognizer?.close(); void handle?.close(); host?.dispose(); vad?.dispose(); catalog.dispose(); });
   await Promise.all(videos.map(video => video.readyState >= 2 ? Promise.resolve() : new Promise(done => video.addEventListener('loadeddata', done, {once:true}))));
   globalThis.ready = true;
