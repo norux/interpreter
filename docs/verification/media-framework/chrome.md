@@ -4611,3 +4611,195 @@ remaining B2 qualification. B2–B6 stay unchecked. Document-inclusive unstaged/
 staged whitespace, exact four-file commit scope and post-commit cleanliness are
 checked before delivery. Only recognizer, regression tests, report and plan are
 committed; credentials/weights/user data/temporary state are excluded.
+
+
+## 2026-10-08 — B2 cached offline recognition qualification (iteration 13/20)
+
+Related commit: `test: qualify cached browser ASR offline`, containing this
+report. **B2 remains unchecked; no ASR default is selected.** Only B2 advances.
+
+### Scope and acceptance
+
+Assumption: the louder-noise suite must be measured against iteration 12's
+confirmed-onset segmentation before attributing its remaining meaning failure
+to a boundary or changing the model. The first invocation retains all ten
+original inputs/golden hashes and every quality, exact-three meaning, endpoint,
+coverage, detector, queue, loss and offline VAD assertion. It still fails the
+Japanese louder-noise meaning gate; no production fix is claimed.
+
+The smaller additional B2 check extends that same harness with **actual offline
+ASR**, where previously it checked only cached model readiness and VAD control/
+cancellation. Original fixtures are hash-checked and decoded before disconnecting;
+a fresh owned ASR/VAD worker pair is then prepared offline. Both repositories must
+report cached/loading/ready without downloading. Each original Japanese/English
+PCM period is copied and transferred to the production ASR host/worker with no
+reference text in the job. New assertions require exact sample/range/session/
+epoch/language/utterance/final revision identity, detached transferred buffers,
+**<=20% CER/WER**, every original meaning **exactly once**, and **<2,000 ms** host
+recognition. Zero HTTPS requests is required across offline preparation, VAD and
+both actual ASR jobs. Online fresh-worker rounds additionally require cached
+states and no downloading after the first round.
+
+Offline clips are decoded synthetic PCM, not live selected-video acquisition,
+streaming learned segmentation, media fetch availability, Korean translation or
+caption DOM. Direct-job host duration includes transfer/recognition/return and
+excludes decoding/preparation/accumulation; it differs from paced endpoint-to-text.
+VAD and ASR worker durations use their own clocks, without subtracting timestamps from different
+contexts. The existing <2,000 ms noisy endpoint gate remains unchanged.
+
+Only the noise test and evidence documents change. No production segmentation,
+model/backend/dependency/default/fixture/hash/sentence/quality gate, companion,
+installation/native messaging/server/user settings or later-stage changes.
+
+### First unchanged-suite result
+
+FAIL: `caffeinate -disu npm run test:framework:chrome:noise:learned`, **exit 1**,
+once before harness extension, `chrome-20261008-13-noise.log` in ignored local
+`.ralph/media-framework/`: typecheck, **22 port tests / 0 failed/skipped/cancelled /
+254.824791 ms**, build, **ten completed real cases / 4,066 WASM VAD calls /
+12 FP16 WebGPU ASR jobs**. The sole failure is
+`ja/speech-white-noise: every preserved meaning must occur exactly three times`.
+All six noise-only controls have zero active frames, ASR calls and text; both
+languages' low-noise speech and louder-noise English pass all retained gates.
+Every case drains with zero reported loss; maximum pending **9,700 ms**.
+
+| Speech case | Error | Meaning counts | Endpoint-to-text ms | Exact ASR ranges ms |
+| --- | --- | --- | --- | --- |
+| ja / quiet noise | 3/120 = 2.5% CER | All 3 | 1668.600 / 1498.400 / 888.600 | 0–8096 / 8096–15872 / 15872–23940 |
+| ja / louder noise | 9/120 = 7.5% CER | 会議 2; 駅 1; other five 3 — FAIL | 1509.300 / 1446.600 / 880.400 | 0–8128 / 8128–15872 / 15872–23940 |
+| en / quiet noise | 3/66 = 4.545455% WER | All 3 | 1323.300 / 1221.000 / 714.400 | 0–7744 / 7744–15264 / 15264–23040 |
+| en / louder noise | 4/66 = 6.060606% WER | All 3 | 1268.500 / 1309.000 / 711.500 | 0–7712 / 7712–15200 / 15200–23040 |
+
+Japanese louder-noise recognition substitutes meeting/station words in its first
+two jobs. Complete contiguous PCM and <=20% CER do not override the meaning
+failure. No causal attribution to segmentation or general natural-noise claim.
+The existing offline control reports probability **0.012012064**, cancellation
+`VAD stopped`, retained **2,048-byte** caller PCM and **zero HTTPS requests**;
+that first invocation has no actual offline speech-recognition job.
+
+Owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, uv **0.12.23**; locked Transformers.js **4.3.0**
+and ORT unchanged. Same small FP16 WebGPU
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`
+(**seven files / 487,960,440 bytes**) and Silero WASM
+`onnx-community/silero-vad@e71cae966052b992a7eca6b17738916ce0eca4ec`
+(**one file / 2,243,022 bytes**). First preparation **55,427.402083 ms**;
+cached workers **1,219.166667–1,521.696875 ms**. One fresh inventory each in this
+invocation, then reuse; **16 pinned paths**, page errors/visibility events `[]`.
+First browser-tree baseline **1,292,272 KiB**, case peak **3,761,216 KiB**.
+RSS samples every 250 ms sum only the owned tree and include preparation,
+renderers/GPU, shared-page double counting, allocators/models/harness PCM. These
+are not isolated allocations, leak freedom, storage/memory pressure or mobile
+performance. Per-case final RSS is **1,598,192–3,001,648 KiB**.
+
+
+### Expanded suite and actual offline results
+
+FAIL: second/final `caffeinate -disu npm run test:framework:chrome:noise:learned`,
+**exit 1**, `chrome-20261008-13-noise-offline.log`: typecheck, **22 port tests /
+0 failed/skipped/cancelled / 266.483250 ms**, build, ten original cases and both
+new offline jobs complete. **4,066 recorded noise-suite VAD frames / 12 online
+ASR jobs + two actual offline ASR jobs**; the offline VAD control/cancel check is
+additional. The same Japanese louder-noise exact-three meaning gate is the sole
+failure. All new cached-worker/offline-recognition gates pass. No third retry.
+
+PASS: explicit Python assertions over both recorded results, **exit 0**, tool
+output, confirm all **ten input hashes**, every detector probability/sample
+position, all four recognition scores and meaning counts match the first run.
+This analyzes evidence only; it is not another inference invocation or a claim
+that clocks/memory match. Golden hashes are also asserted by both invocations.
+
+| Speech case | Endpoint-to-text ms | Peak pending ms | Baseline / peak / final RSS KiB |
+| --- | --- | ---: | --- |
+| ja / quiet noise | 1649.100 / 1483.500 / 871.400 | 9700 | 2338720 / 3885920 / 2950976 |
+| ja / louder noise — meaning FAIL | 1647.100 / 1469.000 / 853.900 | 9800 | 1960864 / 3788096 / 1735280 |
+| en / quiet noise | 1300.300 / 1242.200 / 710.600 | 9000 | 1830288 / 3737376 / 1730976 |
+| en / louder noise | 1267.900 / 1289.400 / 687.800 | 9000 | 1701424 / 3654032 / 1696672 |
+
+Every original ASR range is unchanged from the first-run table. Both languages'
+noise-only controls again have zero active frames/calls/text. All ten runs have
+zero reported loss/final pending, exact admitted PCM and complete detector
+coverage. Original VAD totals **124.000–456.000 ms**, all below 10% input duration.
+New cached-worker assertions pass for every online round after the first.
+
+| Actual offline ASR | Original samples / range ms | Error | Every meaning | Worker inference / host recognition ms | Transferred buffer bytes |
+| --- | --- | --- | ---: | --- | ---: |
+| Japanese | 111556 / 0–6972.25 | 1/40 = 2.5% CER | 1 | 880.400 / 882.100 | 0 |
+| English | 106664 / 0–6666.5 | 1/22 = 4.545455% WER | 1 | 732.700 / 734.000 | 0 |
+
+Decoded PCM SHA-256: Japanese
+`015684bdb023e8a53ea991d73b4e2ff56266c94a9876a8239a2940521b213d8c`, English
+`f19362f78f79ac81c6c0b2189753ce6c17b640f340184443ed2b08270c0b93a8`.
+Both offline repositories emit **cached/cached/loading/ready**, no downloading.
+Actual ASR results preserve epoch **5**, session `fixture-offline-asr`, target/
+language/utterance identities and final source revision **1**. Reference text is
+used only afterward for scoring. Numeric spelling remains an error in both
+scores. The offline VAD zero control probability is **0.012012064**, inference
+**8.700 ms**, caller buffer **2,048 bytes**; pending cancellation returns
+`VAD stopped`. **Zero HTTPS requests** across this complete offline phase.
+Offline preparation latency, memory pressure and offline learned speech streaming
+are not measured by these two direct recognition jobs.
+
+Same owned browser/OS/dependencies/pinned candidates as above, one fresh ASR/VAD
+inventory each in this second invocation, then reuse. Two invocations total
+**two inventories of each candidate**, no new model. Second initial preparation
+**52,951.998459 ms**, cached online preparations **1,218.148000–1,321.839041 ms**,
+**16 pinned paths**, page errors/native visibility events `[]`.
+Second browser-tree baseline **1,311,264 KiB**, case peak **3,885,920 KiB**;
+case final RSS **1,696,672–3,396,000 KiB**, with the same sampling/shared-page/
+allocator/model/harness limitations above. Offline isolated allocations are
+unverified. A metadata grep printed a large aggregate JSON record, **exit 0**;
+scalar extraction above is the useful evidence. This reporting output is not a
+third model invocation or acceptance failure. A subsequent comment/scope-label
+edit describes offline coverage; executed assertions are unchanged.
+
+### Remaining acceptance and preservation
+
+FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+`chrome-20261008-13-stage-acceptance.log`: `Missing script: "test:framework:chrome"`.
+B5's full selected-video PCM → ASR → Korean translation → DOM harness is still
+unimplemented; no placeholder/substitute/retry or acceptance weakening.
+PASS: `node --check tests/framework-chrome-noise.mjs`, targeted Biome **one file /
+19 ms / no findings**, preliminary `git diff --check`, **exit 0**.
+
+**Next unfinished item remains B2:** improve the louder-noise Japanese meeting/
+station recognition without deleting cases or weakening meaning gates; qualify
+no-pause/quiet phoneme boundaries, natural speakers/noise, sustained learned live
+queue/GPU recovery, memory/storage, conversion/distribution licensing and a
+passing default comparison. Two short cached offline ASR jobs now pass; complete
+offline learned streaming/interpretation remains unverified. Original energy
+noise/full-candidate/stream/sustained/VAD/B1/EOF/quiet/live commands are **not
+rerun**; prior passing/failing evidence remains historical. Korean translation/
+revisions/DOM, ten-minute live Korean captions, B3–B6, installation and Safari/
+iPhone remain **unverified**. B2–B6 stay unchecked; no stage/framework/iPhone
+completion claim.
+
+No required environment/device/permission is absent. This is failed quality
+qualification/incomplete implementation; neither terminal marker applies. The
+second independent Japanese quality failure is retained and no further unchanged
+retry is made. Root/nested AGENTS.md and requested independent runner evidence
+`2026-10-08T01-12-31-094Z-chrome-verification.txt` are absent; supplied instructions,
+plan, architecture and prior stage report were read.
+
+Only this worktree changes. Companion v0.1.0/install/native messaging/server/
+settings and unrelated files/apps/recordings/mounted images are preserved. No
+agents, runner edit, stage advance, push/publish/app installation or blocked
+browser/profile/permission bypass. Only owned test browsers/profiles are cleaned
+up. Credentials, model weights, user audio/transcripts and ignored temporary
+`.ralph` state are excluded from commits. Final required verification and commit
+checks follow.
+
+
+### Final required verification and commit checks
+
+PASS: `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-13-verify.log`: Biome **115 files / 51 ms / no findings**, Ruff,
+typecheck, unchanged companion build (**28 main / 10 content modules**),
+**113 JS passed / 0 failed/skipped/cancelled / 21,577.451375 ms**,
+**222 Python passed / 66.91 s**, Python **3.12.15**. Runs after both real-browser
+invocations; subsequent changes only finish Markdown evidence. Repository
+verification does not override the retained Japanese meaning failure or missing
+full Chrome acceptance. B2–B6 remain unchecked. Final document-inclusive unstaged/
+staged whitespace, exact three-file commit scope and post-commit worktree
+cleanliness are checked before delivery. Only noise harness, report and plan
+are committed; credentials/weights/user data/temporary state are excluded.

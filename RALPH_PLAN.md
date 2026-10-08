@@ -3275,3 +3275,116 @@ Final required verification:
 - PASS: final document-inclusive unstaged/staged `git diff --check`, exact
   four-file commit scope and post-commit worktree cleanliness checked before
   delivery. Only recognizer, regression tests, report and plan are committed.
+
+
+### 2026-10-08 / chrome / iteration 13/20 — B2 cached offline recognition
+
+Related commit: `test: qualify cached browser ASR offline`, containing this entry
+and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no ASR default is selected.** Only B2 advances.
+
+Assumption: rerun original louder-noise qualification against iteration 12's
+confirmed-onset segmentation before attributing the retained Japanese meaning
+failure to a boundary or changing the model. The unchanged ten-case run still
+fails meeting/station meanings. Extend only that harness's existing offline
+model-ready/VAD check with two **actual production ASR jobs** over original,
+hash-checked Japanese/English synthetic PCM. Decode before disconnecting, prepare
+fresh owned workers offline, require cached/loading/ready with no downloading,
+then assert sample/range/session/epoch/language/utterance/final revision identity,
+transferred buffer detachment, **<=20% CER/WER**, every meaning **exactly once**,
+**<2,000 ms** host recognition and zero HTTPS requests. Online fresh-worker
+rounds after the first must also be cached with no downloading. No production,
+model/backend/dependency/default/fixture/hash/sentence/original gate/settings or
+later-stage change; complete offline streaming/interpretation is not established.
+
+Exact command evidence (ignored local `.ralph/media-framework/` logs):
+
+- FAIL: first `caffeinate -disu npm run test:framework:chrome:noise:learned`,
+  **exit 1**, `chrome-20261008-13-noise.log`, before extension: typecheck,
+  **22 port tests / 254.824791 ms**, build, **ten completed cases / 4,066 real
+  WASM VAD frames / 12 FP16 WebGPU ASR jobs**. Sole failure: Japanese louder
+  noise exact-three meaning gate, **9/120 = 7.5% CER**, 会議 **2**, 駅 **1**,
+  other five anchors **3**. Low-noise Japanese **3/120 CER**, low/louder-noise
+  English **3/66 / 4/66 WER**, all their meanings **3**. Six noise-only controls
+  have zero active frames/ASR/text. Every case has zero loss/drained queue,
+  exact admitted PCM/full detector coverage, maximum pending **9,700 ms**.
+  Speech endpoints **711.500–1,668.600 ms**. Offline VAD control/cancel and zero
+  HTTPS pass, but that original check has no actual offline speech job.
+- FAIL: second/final same command, **exit 1**,
+  `chrome-20261008-13-noise-offline.log`: typecheck, **22 port tests /
+  266.483250 ms**, build, ten original cases plus two actual offline ASR jobs
+  complete. Same sole Japanese meaning failure and all four unchanged scores/
+  counts; online endpoints **687.800–1,649.100 ms**, maximum pending **9,800 ms**,
+  zero loss/drained queues. All new cache/offline-ASR assertions pass.
+- PASS inside that failing suite: actual offline Japanese **111,556 samples /
+  0–6,972.25 ms / 1/40 = 2.5% CER**, English **106,664 samples / 0–6,666.5 ms /
+  1/22 = 4.545455% WER**, every meaning exactly **1**. Worker inference/host
+  recognition **880.400/882.100 ms** Japanese, **732.700/734.000 ms** English.
+  Epoch **5**, authoritative metadata, transferred buffer **0 bytes**, both
+  repositories **cached/cached/loading/ready**, no download, **zero HTTPS**.
+  Offline VAD probability **0.012012064**, **8.700 ms**, retained **2,048-byte**
+  caller PCM and `VAD stopped` cancellation. Short decoded jobs, no live media,
+  offline speech VAD/segmentation, translation or DOM. Source hashes/ranges and
+  per-case latency/queue/RSS are preserved in the report.
+- PASS: explicit Python assertions over recorded results, **exit 0**, tool
+  output: all ten input hashes, every detector probability/sample position,
+  scores and meaning counts match the first run. Analysis only, no inference
+  rerun. A metadata grep printed an overly large aggregate JSON, **exit 0**;
+  scalar extraction provides the useful evidence. Not an acceptance failure.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-13-stage-acceptance.log`: missing B5 full selected-video PCM
+  → ASR → Korean translation → DOM script. No substitute/placeholder/retry.
+- PASS: `node --check tests/framework-chrome-noise.mjs`, targeted Biome
+  **one file / 19 ms / no findings**, preliminary whitespace, **exit 0**.
+  Final repository/document-inclusive checks follow. The only post-browser
+  source edit is a comment/scope label describing offline coverage.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, locked Transformers.js
+**4.3.0**/ORT unchanged. Each of two invocations downloads one fresh inventory of
+unchanged pinned small FP16 WebGPU ASR **487,960,440 bytes / seven files** and
+Silero WASM **2,243,022 bytes / one file**, then cached fresh workers; model IDs/
+revisions in the report. First/second initial preparation **55,427.402083 /
+52,951.998459 ms**; cached online ranges **1,219.166667–1,521.696875 /
+1,218.148000–1,321.839041 ms**. Both have **16 pinned paths** and empty page
+errors/visibility events. First/second owned-tree RSS baseline **1,292,272 /
+1,311,264 KiB**, case peak **3,761,216 / 3,885,920 KiB**. Every 250 ms the test
+sums only its owned browser/renderers/GPU tree, including preparation, shared
+pages, allocators/models/harness PCM. Not isolated memory/leaks/pressure/mobile.
+
+**Next remains B2:** improve louder-noise Japanese meeting/station recognition
+without weakening gates; qualify no-pause/quiet phoneme boundaries, natural
+speakers/noise, sustained learned live queue/GPU recovery, memory/storage,
+conversion/distribution licensing and select a default from passing comparison.
+Two short cached offline recognition jobs pass; full offline learned streaming/
+interpretation, Korean translation/revisions/DOM, ten-minute live captions,
+B3–B6, installation and Safari/iPhone remain unverified. Other noise/candidate/
+stream/sustained/VAD/B1/EOF/quiet/live commands are not rerun; earlier evidence
+remains historical. B2–B6 remain unchecked; no stage/framework/iPhone claim.
+No required environment/device/permission is absent; this is failed quality/
+incomplete implementation, so neither marker applies. No third unchanged quality
+retry follows the second independent Japanese failure.
+
+Supplied instructions/plan/architecture/prior report read; root/nested AGENTS.md
+and requested independent runner file
+`2026-10-08T01-12-31-094Z-chrome-verification.txt` are absent. Only this worktree
+changes; companion/install/native messaging/server/settings and unrelated
+files/apps/recordings/mounted images preserved. No agents, runner edits, stage
+advance, push/publish/app installation or browser/profile/permission bypass.
+Only owned test browsers/profiles cleaned up. Commit scope: noise harness,
+report and plan. Credentials/weights/user audio/transcripts/ignored temporary
+`.ralph` state excluded. Final required verification and commit checks follow.
+
+
+Final required verification and commit checks:
+
+- PASS: `caffeinate -disu npm run verify`, **exit 0**,
+  `chrome-20261008-13-verify.log`: Biome **115 files / 51 ms**, Ruff/typecheck,
+  unchanged companion build **28 main / 10 content modules**, **113 JS passed /
+  0 failed/skipped/cancelled / 21,577.451375 ms**, **222 Python passed / 66.91 s**,
+  Python **3.12.15**. Runs after both actual browser invocations; subsequent
+  edits only complete Markdown evidence. Japanese noisy meaning and required
+  full Chrome acceptance still fail as recorded; B2–B6 stay unchecked.
+- PASS: final document-inclusive unstaged/staged `git diff --check`, exact
+  three-file commit scope and post-commit worktree cleanliness checked before
+  delivery. Only noise harness, report and plan are committed.

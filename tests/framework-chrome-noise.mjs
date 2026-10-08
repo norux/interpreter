@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { chromium } from "playwright";
 import { build } from "vite";
 
-// B2 noise qualification only: decoded synthetic speech, not live acquisition,
+// B2 noise/cached ASR qualification only: decoded synthetic speech, not live acquisition,
 // natural speakers, translation, caption DOM or full Chrome-stage acceptance.
 const learned = process.argv.includes("--learned-vad");
 const output = resolve(learned ? ".ralph/media-framework/chrome-learned-noise-build" : ".ralph/media-framework/chrome-noise-build");
@@ -76,7 +76,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 deterministic additive noise and no-speech regression; real FP16 WebGPU ASR over paced decoded synthetic PCM", learned, runs: [], failures: [] };
+const observations = { scope: "B2 deterministic additive noise/no-speech regression and learned-mode cached offline ASR; real FP16 WebGPU ASR over decoded synthetic PCM", learned, runs: [], failures: [] };
 const execute = promisify(execFile);
 let browser; let browserProcess; let browserExit; let profile; let page; let monitor;
 let peakRssKiB = 0;
@@ -135,6 +135,10 @@ try {
     run.vadStatuses = status.vadStatuses;
     if (learned) { assert.equal(run.vadStatuses.at(-1).state, "ready"); assert.equal(run.vadStatuses.at(-1).requiredBytes, 2243022); }
     assert.equal(status.error, undefined); assert.equal(status.last.state, "ready"); assert.equal(status.last.requiredBytes, 487960440);
+    if (learned && observations.runs.length > 1) for (const statuses of [run.vadStatuses, await page.evaluate(() => modelStatuses)]) {
+      assert.ok(statuses.some(status => status.state === "cached"));
+      assert.ok(statuses.every(status => status.state !== "downloading"));
+    }
     const measured = await page.evaluate(async ({ clip, mode }) => {
       const speech = mode.startsWith('speech-');
       const noiseRms = mode.includes('quiet') ? 0.006 : mode === 'hum' ? 0.04 : 0.02;
@@ -253,6 +257,15 @@ try {
     console.log(JSON.stringify({ run }));
   }
   if (learned) {
+    // Decode the unchanged fixtures before disconnecting. Only owned cached
+    // model execution is under test offline, not media availability or streaming.
+    observations.offlineSources = await page.evaluate(async clips => {
+      globalThis.offlinePcm = [];
+      for (const clip of clips) offlinePcm.push(await readClip(clip));
+      return Promise.all(offlinePcm.map(async pcm => ({ samples: pcm.length,
+        sha256: [...new Uint8Array(await crypto.subtle.digest('SHA-256', pcm.buffer))]
+          .map(byte => byte.toString(16).padStart(2,'0')).join('') })));
+    }, manifest.clips);
     const beforeOffline = remoteRequests.length;
     await page.context().setOffline(true);
     await page.locator("#prepare").focus(); await page.locator("#prepare").press("Enter");
@@ -273,6 +286,41 @@ try {
     assert.ok(observations.offline.control.probability < 0.5);
     assert.equal(observations.offline.cancelled, "VAD stopped");
     assert.equal(observations.offline.originalPcmBytes, 2048);
+    for (const statuses of [observations.offline.statuses, observations.offline.asrStatuses]) {
+      assert.ok(statuses.some(status => status.state === "cached"));
+      assert.ok(statuses.some(status => status.state === "loading"));
+      assert.ok(statuses.every(status => status.state !== "downloading"));
+    }
+    observations.offline.asrRuns = [];
+    for (const [index, clip] of manifest.clips.entries()) {
+      const run = await page.evaluate(async ({ index, language }) => {
+        const pcm = offlinePcm[index].slice();
+        const identity = {sessionId:'fixture-offline-asr',targetId:`fixture-${language}`,epoch:5};
+        const audioRange = {startMs:0,endMs:pcm.length/16};
+        const samples = pcm.length; const started = performance.now();
+        const result = await host.recognize({identity,language,audioRange,utteranceId:`offline-${language}`,pcm});
+        return {...result,hostDurationMs:performance.now()-started,samples,transferredBytes:pcm.byteLength};
+      }, { index, language: clip.language });
+      observations.offline.asrRuns.push(run);
+      assert.equal(run.samples, observations.offlineSources[index].samples);
+      assert.equal(run.samples, Math.round(clip.speechDurationSeconds*16000));
+      assert.equal(run.transferredBytes, 0);
+      assert.deepEqual(run.revision.identity, { sessionId: "fixture-offline-asr", targetId: `fixture-${clip.language}`, epoch: 5 });
+      assert.deepEqual(run.revision.audioRange, { startMs: 0, endMs: run.samples/16 });
+      assert.equal(run.revision.utteranceId, `offline-${clip.language}`);
+      assert.equal(run.revision.sourceRevision, 1); assert.equal(run.revision.final, true);
+      assert.equal(run.revision.language, clip.language);
+      assert.ok(run.inferenceMs >= 0 && run.hostDurationMs >= run.inferenceMs);
+      const fail = message => observations.failures.push(`${clip.language}/offline-asr: ${message}`);
+      if (run.hostDurationMs >= 2000) fail("host recognition exceeds preserved 2000 ms gate");
+      run.accuracy = errors(clip.text, run.revision.text, clip.language);
+      if (run.accuracy.rate > 0.2) fail(`${run.accuracy.metric} exceeds preserved 20% gate`);
+      const normalized = run.revision.text.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, clip.language === "ja" ? "" : " ");
+      const anchors = clip.language === "ja" ? ["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
+        : ["not meet today", "station tomorrow", "in the afternoon", "not cancel the reservation"];
+      run.meaningCounts = Object.fromEntries(anchors.map(anchor => [anchor, normalized.split(anchor).length-1]));
+      if (Object.values(run.meaningCounts).some(count => count !== 1)) fail("every preserved meaning must occur exactly once");
+    }
     observations.offline.remoteRequests = remoteRequests.length-beforeOffline;
     assert.equal(observations.offline.remoteRequests, 0);
     await page.context().setOffline(false);
