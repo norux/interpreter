@@ -151,12 +151,12 @@ try {
   monitor = setInterval(() => { void sampleRss().catch(() => {}); }, 250);
   await page.goto(`http://127.0.0.1:${server.address().port}`); await page.waitForFunction(() => globalThis.makeHost);
   observations.baselineRssKiB = await sampleRss();
-  for (const candidate of ["smallFp16", "turboFp16"]) for (const trial of [1, 2]) {
+  for (const candidate of ["smallFp16", "turboFp16", "smallTimestamped"]) for (const trial of [1, 2]) {
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
     await page.evaluate(candidate => makeHost(candidate), candidate);
     const workersBefore = await page.evaluate(() => workerCount);
-    const selected = registeredCandidate(asrCandidates[candidate].model, "fp16");
-    const measured = { candidate, trial, model: selected.model, requiredBytes: selected.requiredBytes, runs: [] };
+    const selected = registeredCandidate(asrCandidates[candidate].model, asrCandidates[candidate].dtype);
+    const measured = { candidate, trial, dtype: selected.dtype, model: selected.model, requiredBytes: selected.requiredBytes, runs: [] };
     observations.trials.push(measured);
     measured.baselineRssKiB = await sampleRss(); peakRssKiB = measured.baselineRssKiB;
     const requestsBefore = remoteRequests; const started = performance.now();
@@ -218,7 +218,7 @@ try {
   observations.remoteRequests = remoteRequests; observations.remotePaths = [...remotePaths]; observations.pageErrors = pageErrors;
   observations.visibilityEvents = await page.evaluate(() => visibilityEvents);
   assert.deepEqual(pageErrors, []); assert.deepEqual(observations.visibilityEvents, []);
-  assert.ok([...remotePaths].every(path => ["smallFp16", "turboFp16"].some(candidate => {
+  assert.ok([...remotePaths].every(path => ["smallFp16", "turboFp16", "smallTimestamped"].some(candidate => {
     const { model } = asrCandidates[candidate];
     return path.startsWith(`https://huggingface.co/${model.id}/resolve/${model.version}/`)
       || path.startsWith(`https://huggingface.co/api/resolve-cache/models/${model.id}/${model.version}/`);

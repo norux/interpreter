@@ -4961,3 +4961,71 @@ append-only report/plan, all prior checkboxes unchanged, **236** trace associati
 both retained failure pairs, no tracked `.ralph` state and whitespace clean.
 Staged whitelist/exclusions/whitespace, intended commit and post-commit cleanliness
 are checked at delivery.
+
+### 2026-10-08 / chrome / iteration 10/20 (timestamped q8 comparison)
+
+관련 commit: 이 기록을 포함한 `test: compare timestamped q8 browser ASR`.
+B2 remains next unfinished; every prior checkbox, including B2–B6, stays unchanged.
+No default is selected. Repository AGENTS.md and requested independent runner
+file `.ralph/media-framework/2026-10-08T07-45-37-544Z-chrome-verification.txt`
+are absent. Reviewed supplied instructions, plan, architecture and Chrome report.
+
+수행한 변경: test the assumption that already pinned small q8 weights with the
+FP16 timestamp decoding rules may improve retained Japanese failures. This smaller
+comparison precedes a new model/boundary/text-repair approach and assumes no quality
+improvement. Added explicit `smallTimestamped` experiment sharing the existing
+immutable small q8 inventory/cache; original q8 baselines and both FP16 profiles
+retain their decoding. Same actual-PCM upper/monotonic lower bounds, task/language,
+256-token single-pass limit, PCM and model revisions. No default/fallback/UI setting,
+prompt/reference injection/text filtering, new dependency or artifact inventory.
+Replay retains both original candidates and adds two fresh-worker q8 trials on
+every original job per archive, recording dtype alongside identity/byte count.
+All original <=20% error/exact meaning-count gates remain unchanged.
+
+Focused fake-inference/real-tensor regression covers all three timestamp profiles,
+100 ms / 1 s / 1.001 s / 30 s jobs, monotonic/zero-length rules, covering tick/all
+excluded padding and repeated-text/EOS availability. All three original q8 keys
+keep non-timestamp decoding. These checks do not establish ASR quality/loading.
+Inspection of all 236 iteration-9 traces found initial timestamps zero, rejecting
+the SDK's skipped initial-timestamp limit as a remedy for those jobs. Two optional
+web-tool lookups for additional-precision metadata were unavailable; abandoned
+without another tool/profile/access route. Existing registered local tests continue.
+
+실행한 명령과 결과 (ignored `.ralph/media-framework/` evidence):
+
+- FAIL before implementation: `node --import tsx --test
+  tests/framework-browser-timestamps.test.ts`, exit 1,
+  `chrome-20261008-restart-10-q8-before.log`: **5 passed / 2 failed**, new candidate
+  rejected; original checks pass.
+- PASS: `npm run typecheck`, exit 0, `...-typecheck.log`; same focused test,
+  `...-q8-final.log`, exit 0, **7 passed / 0 failed/skipped/cancelled /
+  348.317667 ms**; final four-file Biome **17 ms / no findings**, exit 0.
+- FAIL required `npm run test:framework:chrome`, exit 1, once,
+  `...-stage-acceptance.log`: missing full-stage script. No placeholder, replay
+  substitute or reduced gate; full Korean translation/DOM acceptance unfinished.
+
+실제 모델 comparison and final repository verification evidence follows below;
+full details are in `docs/verification/media-framework/chrome.md`.
+
+
+Iteration-10 result/checkpoint: both captured archives compared, 354 total jobs.
+Timestamped small q8 is rejected as a default: one Japanese layout has 36.806% CER
+and missing/repeated meanings; replay calls take 6.447–18.661 s. Existing small
+FP16 misses reservation counts on fsSZ3n; Turbo repeats phrases on jHFVhY. Both
+trials reproduce each result. No candidate passes both layouts. Exact result
+matrix and logs are in the Chrome report; live endpoint acceptance is still pending.
+
+Cleanup inspection found no running loop, an empty iteration-10 final message and
+six uncommitted files; the old verify log ends mid-Python, without a final result.
+Checkpoint verification rerun PASS: 124 JS / 222 Python (66.86 s), lint/typecheck/build;
+focused timestamp regressions 7 PASS. Preserve all captured jobs/failed evidence,
+original inventory/defaults/checklists and current sequencing. Commit:
+`test: compare timestamped q8 browser ASR`.
+
+B2 status: comparison/decoder investigations are recorded, but default selection
+and common semantic/live-latency acceptance remain unresolved. The missing full
+Chrome acceptance script is B5 work. Current next-unfinished-item sequencing keeps
+B2 active; detailed B6 quality and B5 ten-minute integration have expanded this
+work's practical scope. Before another long run, clarify B2's finite completion
+boundary and which remaining issues belong to B5/B6. This checkpoint does not
+silently check B2 or authorize skipping it. B3–B6/Safari/iPhone remain unfinished.

@@ -7989,3 +7989,94 @@ associations, **230** unchanged texts / **6** changes, all timestamps within the
 covering tick, both original failure pairs retained, no tracked `.ralph` state
 and clean document-inclusive whitespace. Staged scope/exclusions/whitespace,
 commit and post-commit cleanliness are checked at delivery.
+
+## 2026-10-08 — B2 timestamped q8 comparison (chrome iteration 10/20)
+
+Related commit: `test: compare timestamped q8 browser ASR`, containing this report.
+B2 remains next unfinished; B2–B6 stay unchecked and no default is selected.
+Repository AGENTS.md and the requested independent runner file
+`.ralph/media-framework/2026-10-08T07-45-37-544Z-chrome-verification.txt` are absent.
+Reviewed supplied instructions, plan, architecture and retained Chrome evidence.
+
+Assumption tested: the already registered small q8 weights may behave differently
+on the retained Japanese failures when given the same timestamp decoding rules as
+FP16. The smaller comparison reuses those pinned artifacts before introducing
+another model, segmentation rule or transcript repair. It does not assume q8 is
+more accurate. Inspection of all 236 iteration-9 traces found initial timestamps
+at zero, so the SDK's skipped initial-timestamp limit is not pursued as a remedy.
+Two optional web-tool metadata lookups for an additional precision profile were
+unavailable; that lookup was abandoned without another tool/profile/access route.
+The existing explicit local browser harness and registered downloads remain the
+comparison environment; no new remote inventory is inferred.
+
+Added explicit `smallTimestamped` q8 candidate, sharing the existing immutable
+small q8 inventory/cache. Only this candidate enables timestamp decoding, with the
+same monotonic/actual-PCM bounds and 256-token single-pass limit used by FP16.
+Original tiny/base/small q8 decoding, both FP16 profiles, task/language/PCM and
+model revisions remain unchanged. No fallback, default, UI setting, prompt,
+reference injection, text filtering or new dependency. The replay harness retains
+both original candidates and adds two fresh-worker q8 trials on every original
+job in each archive. It now records dtype alongside model identity/byte count.
+Original <=20% CER/WER and exact meaning-count gates are unchanged.
+
+Focused fake-inference/real-tensor regression covers all three timestamp profiles,
+100 ms / 1 s / 1.001 s / 30 s inputs, monotonic/zero-length constraints, inclusive
+covering tick, all excluded padding ticks and available repeated text/EOS. It also
+checks all three original q8 candidates keep non-timestamp decoding. This proves
+profile selection/decoding constraints, not recognition quality or real loading.
+
+- FAIL before implementation: `node --import tsx --test
+  tests/framework-browser-timestamps.test.ts`, exit 1,
+  `.ralph/media-framework/chrome-20261008-restart-10-q8-before.log`: **5 passed /
+  2 failed**, new candidate rejected during preparation; original tests pass.
+- PASS after implementation: `npm run typecheck`, exit 0,
+  `chrome-20261008-restart-10-typecheck.log`; same focused test, exit 0,
+  `chrome-20261008-restart-10-q8-final.log`: **7 passed / 0 failed/skipped/cancelled /
+  348.317667 ms**. Four-file Biome passes, **4 ms / no findings** (direct output).
+- FAIL required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-10-stage-acceptance.log`: missing full-stage script.
+  Full selected-video PCM → ASR → Korean translation → DOM acceptance remains
+  unimplemented. No replay substitute, placeholder or reduced gate is added.
+
+All subsequent evidence paths are under ignored `.ralph/media-framework/`.
+Real comparison results and final verification follow below.
+
+
+### Recorded result and checkpoint
+
+Both recorded comparisons completed on unchanged captured PCM; **354 jobs** across
+six candidate/trial combinations per archive. The two archive manifests and source
+jobs remain intact. Summary: `.ralph/media-framework/chrome-20261008-restart-10-summary.json`;
+raw records `...-10-q8-small-archive.log` and `...-10-q8-turbo-archive.log`.
+
+| Candidate | 18-period Japanese layout fsSZ3n | 18-period Japanese layout jHFVhY | Replay worker latency |
+| --- | --- | --- | --- |
+| small FP16 | FAIL: reservation 16/18, negation 19/18 | All meanings 18/18 | 0.459–1.391 s |
+| turbo FP16 | All meanings 18/18 | FAIL: several phrases 19/18 | 0.988–1.798 s |
+| timestamped small q8 | FAIL: CER 36.806%, omissions/repetition | All meanings 18/18 | 6.447–18.661 s |
+
+Each result repeats in both trials. Thus q8 does not resolve the retained failure
+pair and cannot meet the live <2 s endpoint target even before acquisition/boundary
+waits. It remains an explicit comparison, never the default. No candidate passes
+both retained semantic layouts. Replay is not evidence of live endpoint timing;
+the earlier live >2 s failures remain unqualified.
+
+At checkpoint inspection no Ralph/Codex-exec/test process was running, iteration
+10's last-message file was empty, and six files were uncommitted. The previous
+`...-10-verify.log` stops mid-Python with no final result; the exact interruption
+trigger is not established. Rather than rerunning model comparisons, checkpoint
+cleanup ran `caffeinate -disu npm run verify`: PASS, **124 JS / 222 Python**
+(66.86 s), lint/typecheck/build. Focused timestamp regressions: **7 PASS**.
+Evidence: `chrome-state-cleanup-verify.log`, `chrome-state-cleanup-timestamps.log`.
+Original candidate inventories, every checklist and prior evidence, six-file scope,
+shared q8 cache and excluded `.ralph` state were checked by the preservation script.
+
+B2 stays unchecked: model choice and retained semantic/live-latency failures remain.
+The missing full Chrome script belongs to B5; it is not a circular prerequisite for
+finishing an individual B2 checklist item. The loop's next-unfinished-item instruction
+keeps returning to B2, while its commit-based progress check permits further tests
+without a completed checkbox. Recent B2 work also includes B5's long live integration
+and B6's detailed quality scope; those boundaries should be clarified before another
+long run. This checkpoint does not change sequencing or mark work complete. B3
+translation remains independently implementable, but no instruction to bypass the
+current item order is inferred here. Archives and failure evidence are preserved.

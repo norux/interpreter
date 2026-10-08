@@ -41,7 +41,7 @@ async function recognitionOptions(candidate: keyof typeof asrCandidates, samples
   return options;
 }
 
-for (const candidate of ["smallFp16", "turboFp16"] as const) {
+for (const candidate of ["smallFp16", "turboFp16", "smallTimestamped"] as const) {
   test(`${candidate} timestamp decoding rejects backwards and zero-length segments without banning repeated speech`, async () => {
     const options = await recognitionOptions(candidate);
     assert.equal(options.return_timestamps, true);
@@ -67,12 +67,14 @@ for (const candidate of ["smallFp16", "turboFp16"] as const) {
 }
 
 test("q8 baseline keeps non-timestamp decoding", async () => {
-  const options = await recognitionOptions("tiny");
-  assert.equal(options.return_timestamps, false);
-  assert.equal(options.logits_processor, undefined);
+  for (const candidate of ["tiny", "base", "small"] as const) {
+    const options = await recognitionOptions(candidate);
+    assert.equal(options.return_timestamps, false);
+    assert.equal(options.logits_processor, undefined);
+  }
 });
 
-for (const candidate of ["smallFp16", "turboFp16"] as const) {
+for (const candidate of ["smallFp16", "turboFp16", "smallTimestamped"] as const) {
   test(`${candidate} timestamps cannot enter padded audio beyond the final PCM tick`, async () => {
     for (const samples of [1600, 16000, 16016, 16000 * 30]) {
       const options = await recognitionOptions(candidate, samples);
