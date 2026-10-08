@@ -4834,3 +4834,130 @@ append-only plan/report, all prior checkboxes unchanged, **236** trace associati
 and both original failure pairs preserved, no tracked `.ralph` state and clean
 whitespace. No executable edit after verify/replay. Staged whitelist/exclusion/
 whitespace, commit and clean post-commit status are verified at delivery.
+
+
+### 2026-10-08 / chrome / iteration 9/20 (audio-duration timestamp bounds)
+
+관련 commit: 이 기록을 포함한 `fix: bound browser ASR timestamps to supplied audio`.
+B2 remains next unfinished; all prior checkboxes, including B2–B6, stay unchanged.
+No default is selected. Root/nested AGENTS.md and requested independent runner
+file `.ralph/media-framework/2026-10-08T07-45-37-544Z-chrome-verification.txt`
+are absent. Reviewed supplied instructions, plan, architecture and Chrome report.
+
+수행한 변경: assumption that iteration 8's timestamps beyond actual PCM need a
+separate decoding-domain constraint led to the smaller private-worker change
+before another candidate, segmentation rule or transcript repair. FP16 timestamp
+logits above the last 20 ms tick covering the actual 16 kHz job are masked before
+SDK pairing/probability rules. Existing monotonic lower bound remains. No text/
+EOS suppression, PCM transformation, reference injection, transcript trimming,
+q8 change, new setting/default, model/dependency/host/protocol change or extra ASR
+pass. Timestamp predictions are not verified acoustic alignment, and bounding
+them is not assumed to repair the previous within-audio Japanese meaning errors.
+
+Focused fake-inference/real-tensor regression covers both FP16 candidates,
+100 ms / 1 s / 1.001 s / 30 s jobs, prefix/post-text rows, inclusive final tick,
+all later ticks masked, available text/EOS, existing monotonic/repeated-speech
+rules and q8. Observable success is an actual generated-token bound with unchanged
+PCM/model/revision associations and all existing quality/meaning gates preserved.
+
+실행한 명령과 결과 (ignored `.ralph/media-framework/` evidence):
+
+- FAIL before implementation: `node --import tsx --test
+  tests/framework-browser-timestamps.test.ts`, exit 1,
+  `chrome-20261008-restart-9-duration-before.log`, **3 passed / 2 failed /
+  342.822125 ms**; both FP16 padding logits still finite.
+- FAIL first post-change: typecheck passes, regression exit 1,
+  **3 passed / 2 failed / 315.456458 ms** (direct tool output). The synthetic
+  vocabulary omitted the score after the 30-second tick; extended it by one.
+  No production limit or original acceptance was relaxed.
+- PASS focused typecheck/regression/two-file Biome, exit 0 (direct tool output),
+  **5 tests / 0 failed/skipped/cancelled / 333.199542 ms**, lint **2 ms / no
+  findings**. Later strengthened the new test to assert every excluded score;
+  final required verify below covers that final assertion and all executable edits.
+
+- FAIL: `caffeinate -disu npm run test:framework:chrome:replay --
+  .ralph/media-framework/chrome-live-jobs-fsSZ3n`, exit 1,
+  `chrome-20261008-restart-9-bounded-small-archive.log`: **132 actual WebGPU ASR
+  calls**, all archived rounds/candidates/two fresh-worker trials. Exactly two
+  retained small Japanese meaning failures; every other original assertion passes.
+- FAIL: same command with `.ralph/media-framework/chrome-live-jobs-jHFVhY`, exit 1,
+  `chrome-20261008-restart-9-bounded-turbo-archive.log`: **104 actual WebGPU calls**,
+  all original jobs/trials, exactly two turbo Japanese meaning failures. Other
+  original assertions pass. Once per distinct archive, no third unchanged attempt.
+- PASS: `uv run --locked python .ralph/media-framework/chrome-20261008-restart-9-analyze.py`,
+  exit 0, `...-analysis.log` / `...-summary.json`: **236/236** original byte/hash/
+  range/model/revision/transfer associations, generated timestamps all within the
+  covering tick, zero backwards/incomplete segments, all raw/chunk text equal
+  final text. Every trace exactly matches its candidate's second fresh trial.
+  Analysis performs no inference and does not override retained semantic failures.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-9-stage-acceptance.log`: missing full-stage script.
+  No placeholder/reduced gate or ASR replay substitute added.
+
+실제 검증 범위: archived synthetic 16 kHz selected-video jobs only; **no new live
+capture/VAD**, translation or DOM. All old error/meaning gates retained. `fsSZ3n`
+small/turbo Japanese **31/720 / 24/720 CER**: small negation **19/18**, reservation
+**16/18** FAIL; turbo all **18/18** PASS, unchanged. `jHFVhY` small **21/720 CER**,
+all **18/18** PASS, unchanged; turbo improves **82/720 → 59/720 CER**, five
+meaning counts **20 → 19**, still FAIL against **18**. Reservation/cancellation
+remain **18**. Sustained English all **19/418 WER**, each meaning **19/19**;
+all short/three-period original scores/counts unchanged and passing. **230/236**
+texts unchanged; two small `fsSZ3n` punctuation changes and one turbo `jHFVhY`
+semantic change per trial. No general quality/default or live latency claim.
+
+Turbo `jHFVhY` job 6, **70,496–84,416 ms**, original digest preserved, now generates
+**71 tokens / one 0–13.92 s segment / two of every meaning**; previously **94
+tokens / three segments / three of five meanings**. Job 2 still has the unchanged
+94-token duplicate; small reservation/negation errors remain. Changes arise in
+raw generation, before decoding. Report records exact hashes and trace evidence.
+Predictions strictly beyond exact PCM duration fall **72/236 → 20/236**; all
+remaining overshoot is within the fractional final tick, maximum **16 ms**.
+Zero predictions exceed that tick, without claiming acoustic timing accuracy.
+
+Archives/manifests/PCM/ranges/fixture hashes/references remain unchanged:
+`fsSZ3n` **33 jobs / 20,082,004 bytes**, `jHFVhY` **26 / 20,076,536 bytes**.
+Same owned Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, uv **0.12.23**, Transformers.js **4.3.0**, pinned
+small/turbo **487,960,440 / 1,621,338,971 bytes**. Each profile **28 remote paths /
+requests**, cached second Prepare and every inference **zero remote requests**;
+page errors/visibility `[]`. No new candidate/revision/dependency. Initial RSS
+**1,296,064 / 1,296,400 KiB**; trial peaks **4,381,696–6,673,664 / 5,020,896–6,135,728
+KiB** by archive. Process RSS includes shared pages/allocator/GPU/browser/observer;
+not isolated allocation/pressure/leak/storage/mobile/thermal qualification. Full
+preparation/timing/digest details and clock caveats are in the Chrome report.
+Replays omit acquisition/VAD/boundary waits; previous failed live turbo endpoints
+**2,187 / 2,132.5 / 2,146.2 ms** remain FAIL. Online cache is not offline interpretation.
+
+다음 미완료 **B2**: resolve remaining Japanese generated substitutions/repetitions
+and qualify a candidate/profile across both retained layouts plus original louder
+noise/live full endpoints. Original live/noise/quiet/no-pause/Stop/GPU/overload/
+sustained suites were not rerun on this bound. Natural speech, ten-minute live
+acquisition, pressure/storage/licensing and default selection remain unfinished.
+Full Korean translation/DOM/pairing/offline interpretation/standalone installation,
+B3–B6 and Safari/iPhone remain UNVERIFIED. No required environment/device/permission
+is absent; failed qualification and missing implementation warrant neither terminal
+marker. All prior checkboxes unchanged; no stage/framework/iPhone completion claim.
+
+Only private worker/regression and append-only report/plan retained. Existing
+acceptance harnesses/fixtures/gates, runner/dependencies/architecture/core/companion
+v0.1.0/install/native messaging/server/user settings and unrelated files/apps/
+recordings/mounts preserved. No agents, stage advance, push/publish/install or
+browser access/profile/permission bypass. Owned browser/profile cleanup only;
+credentials, model weights, user audio/transcripts and temporary `.ralph` state
+excluded. Final required verify/preservation/commit checks follow below.
+
+Final-source `caffeinate -disu npm run verify` **PASS**, exit 0,
+`chrome-20261008-restart-9-verify.log`: Biome **121 files / 55 ms / no findings**,
+Ruff/typecheck, companion **28 main / 10 content modules**, **122 JS tests /
+21,678.527167 ms / 0 failed/skipped/cancelled**, **222 Python / 66.94 s**,
+Python **3.12.15**. Covers the final all-padding-scores assertion. No later
+executable edit; missing full-stage command and both semantic failure pairs remain
+FAIL, all previous checkboxes unchanged.
+
+Final preservation assertions **PASS**, exit 0,
+`chrome-20261008-restart-9-preservation.log`: exactly four intended files,
+append-only report/plan, all prior checkboxes unchanged, **236** trace associations,
+**230** unchanged texts / **6** changes, every timestamp within covering tick,
+both retained failure pairs, no tracked `.ralph` state and whitespace clean.
+Staged whitelist/exclusions/whitespace, intended commit and post-commit cleanliness
+are checked at delivery.

@@ -13,15 +13,18 @@ let lost = false;
 // it before the SDK's timestamp probability/pairing rules, without banning text
 // repetitions that may really occur in the audio.
 class MonotonicTimestamps extends LogitsProcessor {
-  constructor(private readonly timestampBegin: number) { super(); }
+  constructor(private readonly timestampBegin: number, private readonly lastTimestamp: number) { super(); }
   _call(inputIds: bigint[][], logits: Tensor) {
     for (const [row, ids] of inputIds.entries()) {
+      const offset = row * logits.dims[1];
+      // Whisper pads short input to 30 seconds. Only the final 20ms tick
+      // covering actual PCM is available; padding cannot supply later speech.
+      (logits.data as Float32Array).fill(-Infinity, offset + this.lastTimestamp + 1, offset + logits.dims[1]);
       const timestamps = ids.filter(id => Number(id) >= this.timestampBegin);
       const last = timestamps.at(-1);
       if (last === undefined) continue;
       const followsEnd = Number(ids.at(-1)) >= this.timestampBegin && Number(ids.at(-2)) < this.timestampBegin;
       const firstAllowed = Number(last) + (followsEnd ? 0 : 1);
-      const offset = row * logits.dims[1];
       (logits.data as Float32Array).fill(-Infinity, offset + this.timestampBegin, offset + firstAllowed);
     }
     return logits;
@@ -67,7 +70,8 @@ globalThis.onmessage = async (event: MessageEvent<unknown>) => {
         const config = resident.model.generation_config as { no_timestamps_token_id?: number } | null;
         if (!Number.isSafeInteger(config?.no_timestamps_token_id)) throw new Error("Missing Whisper timestamp token");
         processors = new LogitsProcessorList();
-        processors.push(new MonotonicTimestamps(Number(config?.no_timestamps_token_id) + 1));
+        const timestampBegin = Number(config?.no_timestamps_token_id) + 1;
+        processors.push(new MonotonicTimestamps(timestampBegin, timestampBegin + Math.ceil(value.job.pcm.length / 320)));
       }
       const output = await resident(value.job.pcm, {
         language: value.job.language === "ja" ? "japanese" : "english",

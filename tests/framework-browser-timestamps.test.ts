@@ -9,7 +9,7 @@ import { asrCandidates } from "../packages/engines-browser/model";
 
 // Execute the unexported worker with fake preparation/inference, but real SDK
 // logits/tensors. These checks establish decoding rules, not ASR accuracy.
-async function recognitionOptions(candidate: keyof typeof asrCandidates) {
+async function recognitionOptions(candidate: keyof typeof asrCandidates, samples = 16000) {
   let options: { logits_processor?: LogitsProcessorList; return_timestamps?: boolean } | undefined;
   const pipeline = Object.assign(async (_pcm: Float32Array, value: typeof options) => {
     options = value;
@@ -34,7 +34,7 @@ async function recognitionOptions(candidate: keyof typeof asrCandidates) {
   assert.equal(replies.at(-1)?.type, "ready");
   await scope.onmessage({ data: { version: 1, requestId: 2, type: "recognize", job: {
     identity: { sessionId: "timestamp-unit", targetId: "selected", epoch: 0 }, utteranceId: "one",
-    audioRange: { startMs: 0, endMs: 1000 }, language: "ja", pcm: new Float32Array(16000),
+    audioRange: { startMs: 0, endMs: samples / 16 }, language: "ja", pcm: new Float32Array(samples),
   } } });
   assert.equal(replies.at(-1)?.type, "result");
   assert.ok(options);
@@ -71,3 +71,26 @@ test("q8 baseline keeps non-timestamp decoding", async () => {
   assert.equal(options.return_timestamps, false);
   assert.equal(options.logits_processor, undefined);
 });
+
+for (const candidate of ["smallFp16", "turboFp16"] as const) {
+  test(`${candidate} timestamps cannot enter padded audio beyond the final PCM tick`, async () => {
+    for (const samples of [1600, 16000, 16016, 16000 * 30]) {
+      const options = await recognitionOptions(candidate, samples);
+      assert.ok(options.logits_processor);
+      // Each Whisper timestamp tick covers 320 samples at 16 kHz. Round up
+      // only the fractional final tick; do not permit the 30-second padding.
+      const lastAllowed = 21 + Math.ceil(samples / 320);
+      const width = 1523;
+      const logits = new Tensor("float32", new Float32Array(2 * width).fill(1), [2, width]);
+      options.logits_processor([[1n, 2n, 3n], [1n, 2n, 3n, 21n, 5n]], logits);
+      for (let row = 0; row < 2; row++) {
+        const scores = (logits.data as Float32Array).subarray(row * width, (row + 1) * width);
+        assert.equal(scores[lastAllowed], 1, "The final covering tick stays available");
+        assert.equal(scores[lastAllowed + 1], -Infinity, "Padding is not audio");
+        assert.ok(scores.subarray(lastAllowed + 1).every(score => score === -Infinity), "All later ticks stay unavailable");
+        assert.equal(scores[5], 1, "Repeated text is never suppressed by the duration bound");
+        assert.equal(scores[4], 1, "EOS stays available");
+      }
+    }
+  });
+}
