@@ -62,6 +62,7 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
   }
 
   function paint(entry: Entry, caption: CaptionRevision, first: boolean): void {
+    const changedState = entry.caption.translation.state !== caption.translation.state;
     const replay = finalPair(caption) && (!finalPair(entry.caption)
       || translationText(entry.caption) !== translationText(caption));
     const changed = translationText(entry.caption) !== translationText(caption) || replay;
@@ -69,7 +70,7 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
     entry.pending = undefined;
     entry.updatedAt = clock.now();
     if (changed) { entry.progress = undefined; entry.until = undefined; }
-    if (replay) entry.partIndex = 0;
+    if (replay || changedState) entry.partIndex = 0;
     present(replay ? { type: "replay", caption, partIndex: 0 } : { type: first ? "insert" : "update", caption });
   }
 
@@ -135,9 +136,10 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
       if (disposed || !sameIdentity(identity, progress.identity)) return;
       const entry = entries.get(progress.utteranceId);
       const translation = entry?.caption.translation;
-      if (!entry || entry.retired || entry.fading || translation?.state !== "paired"
+      const translationRevision = translation?.state === "paired" ? translation.revision.translationRevision : undefined;
+      if (!entry || entry.retired || entry.fading
         || progress.sourceRevision !== entry.caption.source.sourceRevision
-        || progress.translationRevision !== translation.revision.translationRevision
+        || progress.translationRevision !== translationRevision
         || progress.partIndex !== entry.partIndex || !Number.isSafeInteger(progress.characterCount) || progress.characterCount < 0) return;
       const old = entry.progress;
       entry.progress = { ...progress, identity: { ...progress.identity } };

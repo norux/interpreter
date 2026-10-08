@@ -5447,3 +5447,31 @@ whitespace, exact **13-file** scope, append-only report/plan, unchanged checkbox
 and excluded tracked `.ralph` **PASS** (direct preservation assertions). Companion/
 settings/runner are untouched. Staged checks and clean status after commit follow
 at delivery. B4 remains unfinished; subsequent work stays in B4.
+
+
+### 2026-10-08 supervised B4 original-reading regression repair
+
+Composition commit `5cde206` passed its scoped mocks, but an independent real-DOM
+regression exposed a pending provisional blocking the following translated final.
+Original-only progress is now acknowledged without a translation revision;
+paired/source acknowledgements cannot spend each other's reading time. Both
+core and renderer reset reading parts when switching between pending source and
+paired translation, so long original paging cannot blank a short first
+translation or skip a corrected source. Existing cadence/read durations/fade,
+revision/session checks and truthful pending comparison history are preserved.
+
+Before-fix policy and DOM regressions **FAIL** with the older pending source
+remaining visible, and the later first-translation part staying **1** rather
+than **0**. Permanent tests cover yielding, stale acknowledgement isolation and
+both source/translation offset directions. Final checks **PASS / exit 0**:
+10 presentation tests; full focused Chrome composition (explicit mock engines,
+actual DOM/layout/clicks); DOM-free framework typecheck; `npm run verify`
+**141 JS / 222 Python / 66.88 s**; existing caption correction and transcript
+browser/runtime checks. Exact logs and scope are in the appended Chrome report.
+
+All checkboxes and strict numerical gates are unchanged. **Next remains B4**:
+persistent extension host, validated selected-video transport/permissions,
+overlay and real PCM → smallFp16/WebGPU ASR → native Korean translation →
+application DOM verification. B5 full acceptance/ten-minute measurements and
+B6 quality tuning remain separate, followed by Safari/iPhone. No stage completion
+marker, device verification, app install, push or publication is claimed.

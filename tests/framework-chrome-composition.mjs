@@ -181,6 +181,53 @@ try {
   assert.equal(await page.locator("#view tbody tr").last().getAttribute("data-utterance-id"), "row-304");
   observations.layout = { firstCharacters: initial.text.length, secondCharacters: next.text.length, fullCharacters: initial.full.length, historyRows: 300 };
   observations.checks.push("Measured two-line replay, final restart at beginning, 250ms fade, 300-row retention, safe text and stale-epoch rejection");
+  await page.evaluate(() => {
+    policy.clear();
+    const original = { ...caption(400).source, text: '대기 원문', final: false };
+    policy.accept({ type: 'transcript', revision: original });
+    view.compare({ source: original, translation: { state: 'pending' } });
+    advance(6000);
+  });
+  assert.equal(await page.locator("#view .interpreter-live span").first().textContent(), "대기 원문");
+  await page.evaluate(() => {
+    // The provisional translation was evicted; a later final must still be read.
+    const next = caption(401, '다음 최종 자막');
+    policy.accept({ type: 'paired-caption', caption: next }); view.compare(next);
+    advance(1); advance(250);
+  });
+  assert.equal(await page.locator("#view .interpreter-live span").first().textContent(), "다음 최종 자막");
+  assert.equal(await page.locator('#view tr[data-utterance-id="row-400"]').getAttribute("data-translation-state"), "pending");
+  observations.checks.push("Source-only reading progress prevents an untranslated provisional from blocking later final captions; pending history stays truthful");
+
+  const firstTranslation = await page.evaluate(() => {
+    policy.clear();
+    const original = { ...caption(402).source, text: '긴 원문 '.repeat(100), final: false };
+    policy.accept({ type: 'transcript', revision: original }); advance(6000);
+    const originalPart = progresses.at(-1).partIndex;
+    const partial = caption(402, '첫 임시 번역');
+    partial.source = original; partial.translation.revision.final = false;
+    policy.accept({ type: 'paired-caption', caption: partial });
+    return { originalPart, translatedPart: progresses.at(-1).partIndex,
+      text: document.querySelector('#view .interpreter-live span').textContent };
+  });
+  assert.equal(firstTranslation.originalPart, 1);
+  assert.equal(firstTranslation.translatedPart, 0);
+  assert.equal(firstTranslation.text, "첫 임시 번역");
+  const correctedOriginal = await page.evaluate(() => {
+    policy.clear();
+    const partial = caption(403, '긴 임시 번역 '.repeat(100));
+    partial.source.final = false; partial.translation.revision.final = false;
+    policy.accept({ type: 'paired-caption', caption: partial }); advance(6000);
+    const translatedPart = progresses.at(-1).partIndex;
+    policy.accept({ type: 'transcript', revision: { ...partial.source, sourceRevision: 2, text: '교정 원문' } });
+    return { translatedPart, originalPart: progresses.at(-1).partIndex,
+      text: document.querySelector('#view .interpreter-live span').textContent };
+  });
+  assert.equal(correctedOriginal.translatedPart, 1);
+  assert.equal(correctedOriginal.originalPart, 0);
+  assert.equal(correctedOriginal.text, "교정 원문");
+  observations.checks.push("First translation and corrected pending source start at their own beginning after measured long-text paging");
+
   await page.evaluate(async () => {await app.dispose();policy.dispose();view.dispose()});
   assert.equal(await page.locator("#app section").count(), 0); assert.equal(await page.locator("#view section").count(), 0);
   assert.deepEqual(observations.pageErrors, []);

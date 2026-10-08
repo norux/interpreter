@@ -234,3 +234,61 @@ test("explicit clear cancels cadence and resets history while keeping the output
   assert.equal(h.events.at(-1)?.event.type, "insert");
   assert.equal(h.events.length, 3, "Cleared pending correction cannot leak into a reused sink");
 });
+
+
+test("source-only reading progress lets an untranslated provisional yield to the next caption", () => {
+  const h = harness();
+  const first = caption();
+  h.policy.accept({ type: "transcript", revision: first.source });
+  h.policy.progress({ identity, utteranceId: "u1", sourceRevision: 1,
+    partIndex: 0, complete: true, characterCount: 10, visible: true });
+  h.runFor(6000);
+  assert.equal(h.events.length, 1, "The last provisional stays visible while awaiting correction");
+  h.accept(caption(1, true, "u2"));
+  h.runFor(1);
+  assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "u1", durationMs: 250 });
+  h.runFor(250);
+  assert.deepEqual(h.events.at(-1)?.event, { type: "remove", identity, utteranceId: "u1" });
+  assert.equal(h.policy.snapshot()[0].translation.state, "pending", "Reading expiry never fabricates a translation");
+});
+
+test("pending and paired reading acknowledgements cannot spend each other's reading time", () => {
+  const h = harness(); const first = caption();
+  h.policy.accept({ type: "transcript", revision: first.source });
+  h.progress(first);
+  h.accept(caption(1, true, "u2")); h.runFor(10000);
+  assert.equal(h.events.length, 2, "A paired acknowledgement cannot expire pending source text");
+  h.policy.progress({ identity, utteranceId: "u1", sourceRevision: 1,
+    partIndex: 0, complete: true, characterCount: 10, visible: true });
+  h.runFor(1000); h.accept(first);
+  const count = h.events.length;
+  h.policy.progress({ identity, utteranceId: "u1", sourceRevision: 1,
+    partIndex: 0, complete: true, characterCount: 10, visible: true });
+  h.runFor(10000);
+  assert.equal(h.events.length, count, "A late source-only acknowledgement cannot expire a fresh translation");
+  h.progress(first); h.runFor(2499); assert.equal(h.events.length, count);
+  h.runFor(1);
+  assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "u1", durationMs: 250 });
+});
+
+
+test("switching between source-only and translated text resets measured reading parts", () => {
+  for (const originalFirst of [true, false]) {
+    const h = harness(); const first = caption();
+    if (originalFirst) h.policy.accept({ type: "transcript", revision: first.source });
+    else h.accept(first);
+    h.policy.progress({ identity, utteranceId: "u1", sourceRevision: 1,
+      translationRevision: originalFirst ? undefined : 1,
+      partIndex: 0, complete: false, characterCount: 100, visible: true });
+    h.runFor(6000);
+    assert.equal(h.events.at(-1)?.event.type, "replay");
+    if (originalFirst) h.accept(first);
+    else h.policy.accept({ type: "transcript", revision: { ...first.source, sourceRevision: 2 } });
+    assert.equal(h.events.at(-1)?.event.type, "update", "A non-final language switch is not a final replay");
+    h.policy.progress({ identity, utteranceId: "u1", sourceRevision: originalFirst ? 1 : 2,
+      translationRevision: originalFirst ? 1 : undefined,
+      partIndex: 0, complete: true, characterCount: 10, visible: true });
+    h.accept(caption(1, true, "u2")); h.runFor(2500);
+    assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "u1", durationMs: 250 });
+  }
+});

@@ -55,10 +55,11 @@ export function createComparisonView(container: HTMLElement) {
     }
     front.end = low; text.textContent = characters.slice(front.offset, low).join(""); measure.textContent = "";
     for (const entry of entries) {
-      if (entry.caption.translation.state !== "paired") continue;
+      const translation = entry.caption.translation;
+      const displayed = translation.state === "paired" ? translation.revision.text : entry.caption.source.text;
       const progress: DisplayProgress = { identity: entry.caption.source.identity, utteranceId: entry.caption.source.utteranceId,
-        sourceRevision: entry.caption.source.sourceRevision, translationRevision: entry.caption.translation.revision.translationRevision,
-        partIndex: entry.partIndex, complete: entry.end >= Array.from(entry.caption.translation.revision.text.trim()).length,
+        sourceRevision: entry.caption.source.sourceRevision, translationRevision: translation.state === "paired" ? translation.revision.translationRevision : undefined,
+        partIndex: entry.partIndex, complete: entry.end >= Array.from(displayed.trim()).length,
         visible: entry === front && cue.getBoundingClientRect().width > 0, characterCount: entry === front ? Array.from(text.textContent).length : 0 };
       for (const listener of listeners) listener(progress);
     }
@@ -79,6 +80,10 @@ export function createComparisonView(container: HTMLElement) {
       let entry = entries.find(entry => entry.caption.source.utteranceId === event.caption.source.utteranceId);
       if (!entry) {
         entry = { caption: event.caption, offset: 0, end: 0, partIndex: 0, fading: false }; entries.push(entry);
+      }
+      // Source and translated text have independent layout offsets.
+      if (entry.caption.translation.state !== event.caption.translation.state) {
+        entry.offset = 0; entry.end = 0; entry.partIndex = 0;
       }
       if (event.type === "replay") { entry.offset = event.partIndex === 0 ? 0 : entry.end; entry.partIndex = event.partIndex; }
       entry.caption = event.caption;

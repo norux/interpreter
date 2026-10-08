@@ -8461,3 +8461,64 @@ follows that run. Preservation assertions **PASS** (direct tool output): exact
 **13-file** scope, append-only report/plan, all checkboxes unchanged, companion/
 settings/runner untouched, no tracked `.ralph`, documentation-inclusive whitespace
 clean. Staged scope/whitespace and post-commit clean status are checked at delivery.
+
+
+## B4 supervised regression repair — original reading progress, 2026-10-08
+
+After composition commit `5cde206`, independent DOM inspection found that a
+pending provisional could indefinitely block the following final caption when
+its translation was no longer queued. The renderer reported reading progress
+only for paired translations, and core rejected source-only acknowledgements.
+The pending source therefore never obtained a reading deadline or yielded its
+place. It remained visible while the next translated final was retained behind
+it. This is a presentation defect, not an ASR or native translation quality result.
+
+`DisplayProgress.translationRevision` is now absent only when rendering the
+accepted source with translation pending. Core still requires exact session,
+epoch, source revision, displayed part and, for paired text, exact translation
+revision. It rejects paired acknowledgements for pending sources and late
+source-only acknowledgements after a translation arrives. The renderer measures
+and acknowledges whichever text it actually displays. Existing 2.5–6-second
+reading calculation, 250 ms fade and retention of the latest sole provisional
+are preserved; expiry never changes pending history into a fabricated pair.
+
+Source and translation have independent text offsets. A pending/paired state
+change resets both core's expected reading part and the renderer's measured
+layout offset. This prevents a short first translation from rendering empty
+after a long original advanced, and prevents a corrected pending source from
+using the previous translation's offset. Non-final changes remain update events;
+only a final matching pair triggers the existing final replay behavior.
+
+Failing regressions were established before both fixes:
+- `supervisor-pending-caption.log` and `chrome-b4-pending-dom-before.log`:
+  later final never visible; actual cue `대기 원문`, expected `다음 최종 자막`.
+- `chrome-b4-pending-policy-before.log`: source-only reading did not fade/yield.
+- `supervisor-pending-parts-before.log`: first translation remained empty after
+  original paging; `chrome-b4-pending-parts-dom-before.log` had part **1**, expected
+  **0**; `chrome-b4-pending-parts-policy-before.log` **9 passed / 1 failed**.
+
+Final-source verification, all exit 0:
+- `node --import tsx --test tests/framework-presentation.test.ts`: **10 PASS**,
+  including pending/paired acknowledgement isolation, yielding and both text
+  direction changes (`chrome-b4-pending-policy-final.log`).
+- `npm run test:framework:chrome:composition`: typecheck, pipeline regressions,
+  built composition and real browser DOM with explicitly mocked workers,
+  Translator and PCM. Both new DOM cases and previous controls/revisions/layout/
+  Stop/history cases pass; page errors **[]**, Chromium **153.0.8010.12 / arm64**
+  (`chrome-b4-pending-composition-final.log`). This is not real ASR evidence.
+- `npm run typecheck:framework`: DOM-free contracts/core compilation passes
+  (`chrome-b4-pending-framework-types.log`).
+- `npm run verify`: lint/typecheck/build, **141 JS / 0 failed or skipped**,
+  **222 Python / 66.88 s** (`chrome-b4-pending-verify-final.log`).
+- Existing `npm run test:captions-correction-browser` and
+  `npm run test:transcript-browser`: immediate first/final, 1,000 ms correction
+  cadence, comparison/runtime checks pass (`chrome-b4-pending-legacy-correction.log`,
+  `chrome-b4-pending-legacy-transcript.log`).
+
+No executable edit follows these final checks. Only contracts/core reading,
+comparison renderer, their permanent regression checks and this report/plan
+progress change. Checkboxes and numerical gates remain unchanged; **B4 is still
+next and unfinished**, pending persistent extension host, selected-video channel,
+overlay and real PCM/ASR/native translation/application DOM evidence. B5/B6,
+Safari/iPhone and full framework completion remain unverified. No app install,
+user profile/settings changes, agents, publication, push or tracked `.ralph` data.

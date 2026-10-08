@@ -163,7 +163,8 @@ export interface DisplayProgress {
   readonly identity: SessionIdentity;
   readonly utteranceId: string;
   readonly sourceRevision: number;
-  readonly translationRevision: number;
+  // Absent when the renderer displays original speech with translation pending.
+  readonly translationRevision?: number;
   readonly partIndex: number;
   readonly complete: boolean;
   // Measured by the renderer; core never estimates line fitting.
