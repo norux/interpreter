@@ -1,6 +1,7 @@
 import { createMediaCatalog } from "../../packages/media-web/catalog";
 import { createVideoInput } from "../../packages/media-web/audio-input";
 import { channelName, serveVideoInput } from "./channel";
+import { overlayChannelName, serveVideoOutput } from "./overlay-channel";
 
 // executeScript can be invoked again after another action click. Keep exactly
 // one isolated-world media owner per document; page scripts cannot access it.
@@ -10,9 +11,11 @@ if (!owner.interpreterMediaHost) {
   const catalog = createMediaCatalog(document, "0");
   const input = createVideoInput(catalog, chrome.runtime.getURL("pcm-worklet.js"), { maxChunkBytes: 8192, maxAudioQueueMs: 1000 });
   let connection: ReturnType<typeof serveVideoInput> | undefined;
+  let display: ReturnType<typeof serveVideoOutput> | undefined;
   chrome.runtime.onConnect.addListener(port => {
-    if (port.name !== channelName || port.sender?.id !== chrome.runtime.id
+    if (![channelName, overlayChannelName].includes(port.name) || port.sender?.id !== chrome.runtime.id
       || !port.sender.url?.startsWith(`${chrome.runtime.getURL("host.html")}?`)) { port.disconnect(); return; }
+    if (port.name === overlayChannelName) { display?.dispose(); display = serveVideoOutput(port, catalog); return; }
     connection?.dispose();
     connection = serveVideoInput(port, input, catalog, (start, cancel) => {
       const panel = document.createElement("div");
@@ -29,5 +32,5 @@ if (!owner.interpreterMediaHost) {
       return () => panel.remove();
     });
   });
-  window.addEventListener("pagehide", () => { connection?.dispose(); catalog.dispose(); });
+  window.addEventListener("pagehide", () => { display?.dispose(); connection?.dispose(); catalog.dispose(); });
 }

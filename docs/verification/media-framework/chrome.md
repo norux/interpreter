@@ -8708,3 +8708,160 @@ intended scope; append-only plan/report; every checkbox unchanged; companion,
 settings/server and runner untouched; no tracked `.ralph`; documentation-inclusive
 `git diff --check` clean. Staged whitespace/scope and post-commit status are
 checked with the commit below; no executable edit follows the listed final checks.
+
+## 2026-10-08 — B4 selected-video overlay (iteration 3/20)
+
+**B4 remains unchecked and next.** Clean worktree at entry; repository AGENTS.md
+and the requested independent runner file
+`2026-10-08T13-28-06-822Z-chrome-verification.txt` were absent. Read the plan,
+architecture and Chrome records. Assumption: the next B4 slice is page output
+from the existing accepted-caption composition, without reopening B2 or tuning
+B6 models/VAD/decoding. The shipping toolbar grant and actual extension engine
+path are still unverified, rather than replaced by these focused checks.
+
+### Implementation and observable scope
+
+The existing persistent host now forwards its accepted original/pair revisions
+and session clears to the selected-page overlay. Each surface uses the existing
+core presentation policy and comparison renderer, with its own document clock
+and measured line fitting. The page hides the renderer's empty comparison table;
+only the host retains comparison rows. There is no new caption timing policy,
+fixed character segmentation, persistent transcript storage or settings migration.
+The page displays original speech while translation is pending, exact Korean
+pairs when accepted, sequential long final parts and the existing 250 ms fade.
+
+The separate direct host/content output port validates protocol 1, ordered
+sequence, top-frame target/document identity, session/epoch, ranges, source
+revision and exact translation pairing/languages. Envelopes are limited to
+**32,768 JSON characters**, each source/translation to **12,000 characters**,
+and outstanding messages to **4**; acknowledgement is sent after processing.
+A missing acknowledgement fails explicitly after **1,000 ms**. Malformed,
+oversized, disconnected or invalidated output clears owned page rendering and
+stops the host selection. Host selection/language/confirmation controls become
+disabled until reopening, preventing inference with a retired output connection.
+Old sessions/epochs and captions after Stop cannot paint. No service worker receives
+output or audio; production permissions stay **activeTab + scripting**.
+
+The owned shadow overlay follows the selected video's rectangle, resize and
+scroll without modifying the video/player or blocking controls. A fullscreen
+container containing that video receives the overlay inside its surface.
+**Video-only native fullscreen does not support injected page captions:** the
+overlay hides and the host persistently states that limitation and offers its
+comparison window. This is desktop Chromium evidence, not Safari/iPhone native
+fullscreen support. Stop, pagehide, disconnect and selected-element retirement
+remove owned overlay observers/listeners/timers, without choosing another video.
+
+### Exact command evidence
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned Chromium **153.0.8010.12**. Evidence logs below are under ignored
+`.ralph/media-framework/`. Only owned test browsers/profiles were opened/closed.
+These tests downloaded/loaded **no ASR or translation models**.
+
+- **PASS `npm run test:framework:chrome:overlay`, exit 0**, final source,
+  `chrome-b4-overlay-final.log`: typecheck, **4 contract tests / 0 failed,
+  skipped or cancelled / 1,148.255459 ms**; real extension messaging/content
+  and actual DOM/layout/fullscreen with **explicit synthetic caption revisions**.
+  Video and overlay rectangles both **left 8 / top 8 / width 320 / height 180 px**;
+  resize to **280 px** and scroll alignment pass. Long final parts are **51 + 51
+  characters**, sequentially equal to the same full text's prefix. Safe
+  original-first output, exact pairing, container fullscreen, explicitly hidden
+  video-only fullscreen, Stop/late suppression, restart and selected-element
+  removal pass; the other video remains; page errors **[]**. Unit checks cover
+  sequence/identity/pairing/size/window/timeout and receiver cleanup.
+  The ignored test copy has a localhost-only host grant, after asserting the
+  production permissions. It does not test the toolbar activeTab grant, override
+  blocked user access or alter a user's browser profile. Replacing the fixture
+  output connection deliberately exercises the real host's failure controls.
+- **PASS `npm run test:framework:chrome:composition`, exit 0**,
+  `chrome-b4-overlay-composition-final.log`: typecheck, **11 contract tests /
+  0 failed, skipped or cancelled / 53.661834 ms**, Chrome build **29 modules**,
+  actual DOM/controls/layout with explicitly mocked workers/Translator/PCM.
+  New assertions verify one selected-target activation, pending then paired
+  caption forwarding, and output clear on Stop. Existing long replay **33 + 33 /
+  480 characters**, **300** rows, pending-source reading, correction/revision,
+  cancellation and cleanup cases pass; page errors **[]**. This is wiring and
+  rendering evidence, not real PCM-to-ASR-to-Korean acceptance.
+- **PASS `npm run test:framework:chrome:channel`, exit 0**,
+  `chrome-b4-overlay-channel-final.log`: typecheck, **5 contract tests /
+  0 failed, skipped or cancelled / 1,191.512833 ms**, unchanged real encoded
+  Japanese/English video/worklet/Chrome-runtime transport and native tab-output
+  loopback. Each selection yields **24 × 8,192-byte** contiguous packets,
+  sequences **0–23**, **48 kHz / 1,024 ms**, all accepted mappings/matching clocks.
+  Selected tags **0.058752639 / 0.058930854** (expected .06 within unchanged 12%),
+  other-video tags **0.000561453 / 0.000333606** (unchanged <.001), mapping errors
+  **6.151333 / 3.863333 ms** (unchanged <150 ms). Output after Stop is
+  **0.024058784 / 0.014992143** for Japanese selection and
+  **0.024043701 / 0.015002857** for English selection, preserving both original
+  levels within unchanged 12%. Both videos remain playing/unmuted at .4/.25.
+  Pending-consent Stop acquires zero chunks; navigation retires the connection;
+  page errors **[]**. This is actual PCM/playback evidence, not transcription
+  accuracy, physical speaker audibility or full overlay/ASR/native translation.
+- **PASS `npm run typecheck:framework`, exit 0**,
+  `chrome-b4-overlay-framework-types.log`: DOM-free contracts/core compilation.
+- **PASS intermediate `npm run lint`, exit 0**, **143 files / 51 ms**, Ruff,
+  `chrome-b4-overlay-lint-attempt-1.log`.
+- **PASS intermediate `npm run verify`, exit 0**,
+  `chrome-b4-overlay-verify.log`: **143 files / 47 ms**, typecheck/unchanged
+  companion build **28 main / 10 content modules**, **150 JS / 0 failed,
+  skipped or cancelled / 26,909.498667 ms**, **222 Python / 66.95 s**. This
+  predates the final host disconnect-control fix; final verification is below.
+- **FAIL required `npm run test:framework:chrome`, exit 1**,
+  `chrome-b4-overlay-stage-acceptance.log`: `Missing script:
+  "test:framework:chrome"`. The full-stage harness remains B5 work. The focused
+  overlay command is additional coverage, not a replacement or stage acceptance.
+
+Retained development failures:
+
+- First typecheck **FAIL**: acknowledgement sequence remains `unknown`; narrow
+  the envelope's sequence type. Four direct unit tests then **PASS**, but the
+  next typecheck **FAIL** on nullable `window` captured by the positioning
+  closure. Use the existing catalog's checked-window pattern. Both were fixed
+  before the first browser acceptance; no assertions were relaxed.
+- `chrome-b4-overlay-attempt-1.log` **FAIL / exit 1**, **4 unit PASS**; inline
+  layout/pairing/51-character parts pass before fullscreen `not granted` and
+  a **30,000 ms** wait timeout. The fixture left the host tab foremost. A normal
+  owned-page `bringToFront`, visible-document assertion and real click resolve
+  that condition without changing permissions or browser settings.
+- `chrome-b4-overlay-attempt-2.log` **FAIL / exit 1**, **4 unit PASS**, page errors
+  **[]**: native fullscreen is now acquired, but the immediate style assertion
+  sees `flex` before `fullscreenchange` runs. Await both the actual fullscreen
+  element and observable `none` state, within **5,000 ms**. Attempt 3 **PASS /
+  exit 0** (`chrome-b4-overlay-attempt-3.log`). No repeated absent-environment
+  blocker was established.
+- Permanent host-control regression first **FAIL / exit 1**,
+  `chrome-b4-overlay-disconnect-before.log`, **4 unit PASS**: after losing the
+  output port the video selector is still enabled (actual **false**, expected
+  **true** for disabled), enabling a retry with no usable output. Disable those
+  controls until host reopen; discovery cannot re-enable confirmation. The
+  final focused check above proves the fix and adds resize/scroll coverage.
+
+### Remaining B4 and preservation
+
+**UNVERIFIED:** shipping toolbar activeTab/install flow; actual default
+smallFp16/WebGPU and native Translator preparation in this extension document;
+real selected-video PCM → ASR → Korean comparison/live/overlay DOM, including
+its integrated interruption path. Continue B4 with that evidence before checking
+B4. This iteration establishes the overlay and its separate synthetic-revision
+transport, not real recognition/translation quality. B5 full/offline/download
+error/restart/ten-minute acceptance and B6 final quality/latency remain later
+Chrome work; previous failures and all strict gates remain unchanged. No Chrome
+stage, Safari/iPhone or whole-framework completion and no blocker marker.
+
+Scope is **12 files**, including append-only report/plan. All checklist lines,
+companion v0.1.0/native messaging/install/server, user settings, runner, model
+inventories, existing PCM harness/assertions and unrelated files/apps/recordings/
+mounted images are preserved. No agents, push/publication/app install, user
+recordings/transcripts/credentials/weights or tracked temporary `.ralph` state.
+Final verify and staged preservation/commit cleanliness are recorded below.
+
+Final-source **PASS `npm run verify`, exit 0**,
+`chrome-b4-overlay-verify-final.log`: Biome **143 files / 81 ms / no findings**,
+Ruff/typecheck, unchanged companion build **28 main / 10 content modules**,
+**150 JS / 0 failed, skipped or cancelled / 25,711.456875 ms**, **222 Python /
+66.93 s**. This includes the new output-boundary tests and the final host failure
+controls. No executable edit follows this run. Exact staged scope, append-only
+report/plan, unchanged checkboxes and preserved companion/settings/runner, no
+tracked `.ralph`, whitespace and clean post-commit state are checked at delivery.
+Commit: the `feat: render selected-video Chrome captions` commit containing this
+record. B4 and the stage remain unfinished.

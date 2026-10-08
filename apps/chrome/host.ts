@@ -1,6 +1,7 @@
 import type { MediaCandidate, MediaTarget } from "../../packages/contracts";
 import { channelName, createRemoteVideoInput } from "./channel";
 import { createChromeComposition } from "./composition";
+import { createRemoteVideoOutput, overlayChannelName } from "./overlay-channel";
 
 const status = document.querySelector("#connection") as HTMLElement;
 const select = document.querySelector("#video") as HTMLSelectElement;
@@ -12,7 +13,10 @@ if (!Number.isSafeInteger(tabId) || tabId <= 0) {
   status.textContent = "Open this window using Interpreter on the video page."; confirm.disabled = true;
 } else {
   const remote = createRemoteVideoInput(chrome.tabs.connect(tabId, { name: channelName, frameId: 0 }));
-  const app = createChromeComposition(container, remote.input, remote.stop);
+  const pageOutput = createRemoteVideoOutput(chrome.tabs.connect(tabId, { name: overlayChannelName, frameId: 0 }), message => {
+    status.textContent = message; select.disabled = true; language.disabled = true; confirm.disabled = true; selected = null; void app.select(null, language.value as "ja" | "en");
+  });
+  const app = createChromeComposition(container, remote.input, remote.stop, pageOutput);
   let candidates: readonly MediaCandidate[] = [];
   let selected: MediaTarget | null = null;
   let revision = 0;
@@ -31,10 +35,10 @@ if (!Number.isSafeInteger(tabId) || tabId <= 0) {
       select.replaceChildren(new Option("Choose a video", ""));
       for (const item of next) select.add(new Option(`${item.label} · ${Math.round(item.width)}×${Math.round(item.height)} · ${item.playing ? "playing" : "paused"}`, item.target.id));
       select.value = next.some(item => item.target.id === previous) ? previous : "";
-      confirm.disabled = !select.value;
+      confirm.disabled = select.disabled || !select.value;
     } catch (error) { status.textContent = `Page connection unavailable: ${String(error)}. Stop and reopen Interpreter on the video page.`; await app.select(null, "ja"); }
   }
-  select.onchange = () => { confirm.disabled = !select.value; };
+  select.onchange = () => { confirm.disabled = select.disabled || !select.value; };
   language.onchange = () => { void app.select(selected, language.value as "ja" | "en"); };
   confirm.onclick = () => {
     selected = candidates.find(item => item.target.id === select.value)?.target ?? null;
@@ -42,7 +46,7 @@ if (!Number.isSafeInteger(tabId) || tabId <= 0) {
     status.textContent = selected ? "Video confirmed. Prepare, Start, then allow audio on the video page." : "Choose and confirm one video.";
   };
   const unsubscribe = remote.subscribe(() => { void refresh(); });
-  window.addEventListener("pagehide", () => { disposed = true; revision++; unsubscribe(); remote.dispose(); void app.dispose(); });
+  window.addEventListener("pagehide", () => { disposed = true; revision++; unsubscribe(); pageOutput.dispose(); remote.dispose(); void app.dispose(); });
   status.textContent = "Choose and confirm one video. Page URLs and transcripts are not stored.";
   void refresh();
 }

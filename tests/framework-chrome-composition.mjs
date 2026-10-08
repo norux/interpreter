@@ -74,7 +74,12 @@ const server = createServer(async (request, response) => {
           if (!state.closed && state.event) yield state.event;
         }}};
       }};
-      globalThis.app = createChromeComposition(document.querySelector('#app'), input);
+      globalThis.pageOutputEvents = [];
+      globalThis.app = createChromeComposition(document.querySelector('#app'), input, undefined, {
+        activate(target,identity) {pageOutputEvents.push({type:'activate',target,identity})},
+        compare(caption) {pageOutputEvents.push({type:'caption',caption})},
+        clear(identity) {pageOutputEvents.push({type:'clear',identity})}
+      });
       globalThis.select = (id='selected', language='ja') => app.select({id, documentId:'document', frameId:'top'}, language);
       globalThis.view = createComparisonView(document.querySelector('#view'));
       globalThis.identity = {sessionId:'view-fixture', targetId:'selected', epoch:0}; view.activate(identity);
@@ -131,10 +136,14 @@ try {
   await page.waitForFunction(() => document.querySelector('#app tbody tr').dataset.translationState === 'paired');
   assert.equal(await row.locator("td").nth(2).textContent(), "합성 번역 결과");
   assert.equal(await row.getAttribute("data-source-revision"), "1"); assert.equal(await row.getAttribute("data-translation-revision"), "1");
+  assert.equal(await page.evaluate(() => pageOutputEvents.filter(e=>e.type==='activate').length), 1);
+  assert.equal(await page.evaluate(() => pageOutputEvents.find(e=>e.type==='activate').target.id), 'selected');
+  assert.deepEqual(await page.evaluate(() => pageOutputEvents.filter(e=>e.type==='caption').map(e=>e.caption.translation.state)), ['pending','paired']);
   observations.checks.push("Trusted preparation gesture, smallFp16/WebGPU default, one Start, original-first/pending DOM and exact paired revisions/video mapping/text safety");
   await stop.click(); await page.waitForFunction(() => closedInputs === 1);
   assert.equal(await row.count(), 1); assert.equal(await page.locator("#app .interpreter-live").textContent(), "");
   assert.ok(await page.evaluate(() => workers.every(worker=>worker.terminated)));
+  assert.equal(await page.evaluate(() => pageOutputEvents.at(-1).type), 'clear');
   await page.evaluate(() => select('selected-en', 'en')); await prepare.click();
   await page.waitForFunction(() => !document.querySelector('#app button:nth-child(2)').disabled);
   await start.click(); await page.waitForFunction(() => translations.length === 2);

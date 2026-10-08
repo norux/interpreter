@@ -4,10 +4,11 @@ import { createSessionController } from "../../packages/core/session-controller"
 import { asrCandidates } from "../../packages/engines-browser/model";
 import { createComparisonView } from "../../packages/presentation-web/comparison";
 import { createChromeEngine } from "./engine";
+import type { SelectedVideoOutput } from "./overlay";
 
 // The platform host supplies the selected-page input. This module owns no tab,
 // native bridge, site permission or persistent transcript storage.
-export function createChromeComposition(container: HTMLElement, input: VideoInput, cancelInput?: () => void) {
+export function createChromeComposition(container: HTMLElement, input: VideoInput, cancelInput?: () => void, pageOutput?: SelectedVideoOutput) {
   const document = container.ownerDocument;
   const window = document.defaultView;
   if (!window) throw new Error("Chrome composition requires a live document");
@@ -34,15 +35,16 @@ export function createChromeComposition(container: HTMLElement, input: VideoInpu
     if (policy) policy.activate(identity);
     else policy = createPresentationPolicy(identity, clock, output.present);
     output.activate(identity);
+    if (selection) pageOutput?.activate(selection.target, identity);
   }
   const controller = createSessionController({ input, createSessionId: () => window.crypto.randomUUID(),
     createEngine() { if (!engine?.ready) throw new Error("Prepare the selected language first"); return engine.port; },
     onCaption(caption: CaptionRevision) {
-      output.compare(caption);
+      output.compare(caption); pageOutput?.compare(caption);
       policy?.accept(caption.translation.state === "pending" ? { type: "transcript", revision: caption.source }
         : { type: "paired-caption", caption }, caption.videoRange);
     },
-    onClear(identity) { output.present({ type: "clear", identity }); policy?.clear(); },
+    onClear(identity) { pageOutput?.clear(identity); output.present({ type: "clear", identity }); policy?.clear(); },
     onStatus(status) {
       if (controller.identity && status.state === "probing") activate(controller.identity);
       output.status(status);
