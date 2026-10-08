@@ -4639,3 +4639,92 @@ two append-only documents, unchanged checkboxes, consistent executed counts and
 hash comparisons, no tracked `.ralph` state; `git diff --check` passes. Executable
 sources remain those actually verified above. Staged whitelist/whitespace and
 post-commit clean status are checked at delivery.
+
+### 2026-10-08 / chrome / iteration 7/20 (monotonic ASR timestamps)
+
+관련 commit: 이 기록을 포함한 `fix: constrain browser ASR timestamps`.
+B2 remains next unfinished; B2–B6 remain unchecked and no default is selected.
+
+수행한 변경: repair the locked SDK's omitted monotonic timestamp constraint with
+a private worker-local logits processor before its existing FP16 timestamp rules.
+Allow a new segment start at the previous end, require segment ends to advance,
+leave text repetitions/EOS, q8, 256-token bound, PCM/segmentation, every original
+acceptance gate/fixture and user settings intact. No public API/dependency change.
+New regression runs the actual unexported worker with fake preparation/inference
+and real SDK tensors/processors; it verifies decoding rules, not ASR accuracy.
+Repository AGENTS.md and requested independent runner verification file are absent.
+
+실행한 명령과 결과 (ignored `.ralph/media-framework/`; full metrics in Chrome report):
+
+- FAIL before fix: `node --import tsx --test tests/framework-browser-timestamps.test.ts`,
+  **2 failed / 1 passed / 1,744.558708 ms**, `...-7-timestamps-before.log`.
+  Enclosing log-display shell exits 0; Node child exit not separately captured.
+  Initial typecheck also reports three TS7053 errors; trailing lint masked that
+  compound exit, not the errors. Flat Tensor data/dimensions resolves them.
+- PASS final: same Node regression command, exit 0, **3 passed / 333.125416 ms**,
+  `chrome-20261008-restart-7-timestamps-final.log`. Corrected combined typecheck/
+  regressions/targeted lint also exits 0, 3 passed / **321.535584 ms**, Biome
+  **2 files / 2 ms / no findings**; final targeted lint/whitespace checked below.
+- FAIL: `caffeinate -disu npm run test:framework:chrome:replay --
+  .ralph/media-framework/chrome-live-jobs-fsSZ3n`, exit 1, once,
+  `chrome-20261008-restart-7-replay.log`: **132 real WebGPU ASR calls**, two
+  fresh-worker trials per candidate. Exactly two small Japanese meaning failures;
+  turbo passes every archived gate here. All other original assertions pass.
+- FAIL: same replay command with `.ralph/media-framework/chrome-live-jobs-jHFVhY`,
+  exit 1, once, `chrome-20261008-restart-7-turbo-original-replay.log`: **104 real
+  WebGPU ASR calls**, two fresh trials per candidate. Exactly two turbo Japanese
+  meaning failures; small passes every archived gate here. No third invocation.
+- PASS: locked-project-Python archive/result and historical comparison, exit 0,
+  `...-7-analysis.log`, `...-7-summary.json`, `...-7-history-comparison.log`:
+  **236/236** original hash/byte/metadata/revision/transfer/timing associations;
+  all texts identical between fresh trials. **104/104** earlier-archive outputs
+  and scores equal iteration 5's pre-change comparison. Analysis, not inference.
+- FAIL: required `npm run test:framework:chrome`, exit 1, missing full-stage
+  script, `chrome-20261008-restart-7-stage-acceptance.log`; no weaker substitute.
+- PASS: final-source `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-restart-7-verify.log`: Biome **119 files / 54 ms / no findings**,
+  Ruff/typecheck, unchanged companion **28 main / 10 content modules**, **119 JS /
+  21,365.304958 ms / 0 failed/skipped/cancelled**, **222 Python / 66.89 s**.
+
+실제 PCM/모델/화면/실기 중 검증한 범위: actual recognition on unchanged previously
+captured synthetic selected-video jobs, **no new live capture/VAD**, translation
+or caption DOM. `fsSZ3n` Japanese small **31/720 CER**, negation **19/18**,
+reservation **16/18** FAIL; turbo **24/720 CER**, all meanings **18** PASS.
+`jHFVhY` small **21/720 CER**, all meanings **18** PASS; turbo **82/720 CER**,
+five meanings **20/18** FAIL. English sustained all **19/418 WER / anchors 19**;
+all short/three-period meaning gates pass. Results identical across trials.
+Small's own **33/33** and turbo's own **26/26** original outputs remain identical,
+including failed meanings. Thus this demonstrated rule repair does **not**
+produce measured transcription improvement or solve those failures.
+
+Archives remain **33 / 20,082,004 bytes** and **26 / 20,076,536 bytes**, unchanged
+manifest digests recorded in report. Same pinned small/turbo and owned headed
+Chromium **153.0.8010.12**, macOS **26.6.2/25G83 arm64**, Node **v24.15.0**,
+npm **11.12.1**, uv **0.12.23**, locked Transformers.js **4.3.0**. Each command
+28 pinned/redirect remote requests; second Prepare/inference zero remote requests.
+This is not disconnected-browser offline interpretation. Preparation, RSS and
+worker/document timing limitations are in report. Original failed live full
+endpoints remain failures; replay omits boundary/submission/acquisition waits.
+
+다음 미완료 항목: B2 resolve Japanese meanings with a candidate/profile passing
+both retained layouts and original louder-noise/full endpoint gates; then natural/
+quiet/no-pause/lifecycle/overload/ten-minute/storage/pressure/licensing qualification
+before default selection. No original live/noise/lifecycle suite rerun here.
+Full Chrome Korean translation/DOM/pairing/offline interpretation/installation,
+B3–B6 and Safari/iPhone UNVERIFIED. No required environment/device/permission
+absent; no blocked or complete marker. All prior checkboxes unchanged.
+
+Only private worker fix, focused regression and append-only report/plan retained.
+Existing acceptance/harnesses/fixtures/runner/architecture/dependencies, companion
+v0.1.0/install/native messaging/server/settings and unrelated user resources
+preserved. No agents, stage advance, push/publish/install or access/profile bypass.
+Only owned browser/profile cleanup; models, credentials, user data and temporary
+`.ralph` state excluded. Final scope/append-only/checkbox/whitespace/staged
+exclusion, commit and post-commit clean status checked at delivery.
+
+Final preservation assertions PASS, exit 0, `...-7-preservation.log`: exactly
+four intended files, report/plan append-only, all previous checkboxes unchanged,
+236 replay associations/two failures per archive retained, no tracked `.ralph`
+and clean whitespace. Final targeted Biome PASS **2 files / 2 ms / no findings**.
+No executable edit after successful verify/model runs. Staged exclusion/whitespace,
+commit and clean post-commit status checked at delivery.
