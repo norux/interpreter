@@ -211,3 +211,70 @@ test("learned admission keeps every energetic input sample and cancels an outsta
   assert.equal(statuses.length, count); assert.equal(detectorStops, 1); assert.equal(asrCalls, 0);
   assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 100);
 });
+
+test("learned pauses split energetic noise without losing inter-utterance or EOF PCM", async () => {
+  const jobs: AsrJob[] = []; const statuses: SessionStatus[] = [];
+  const supplied = Array.from({ length: 270 }, (_, i) => chunk(i, true, 512));
+  let frame = 0;
+  const recognizer = createSpeechRecognizer(identity, "ja", {
+    async recognize(job) {
+      jobs.push(structuredClone(job));
+      return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+    }, stop() {},
+  }, status => statuses.push(status), {
+    async detect() {
+      const index = frame++;
+      return { speech: (index >= 10 && index < 80) || (index >= 100 && index < 170) || (index >= 190 && index < 260) };
+    }, stop() {},
+  });
+  await collect(recognizer.run(source(supplied)));
+  assert.deepEqual(jobs.map(job => job.audioRange), [
+    { startMs: 0, endMs: 2880 }, { startMs: 2880, endMs: 5760 }, { startMs: 5760, endMs: 8640 },
+  ]);
+  const submitted = new Float32Array(270 * 512);
+  let offset = 0;
+  for (const job of jobs) { submitted.set(job.pcm, offset); offset += job.pcm.length; }
+  assert.equal(offset, submitted.length);
+  assert.deepEqual(submitted, new Float32Array(270 * 512).fill(0.05));
+  assert.equal(frame, 270);
+  assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+  assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 0);
+});
+
+test("an odd learned pause retains frame alignment through a later maximum-length cut", async () => {
+  const jobs: AsrJob[] = []; let frame = 0;
+  const recognizer = createSpeechRecognizer(identity, "en", {
+    async recognize(job) {
+      jobs.push(structuredClone(job));
+      return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+    }, stop() {},
+  }, () => {}, {
+    async detect() { const index = frame++; return { speech: index < 80 || index >= 101 }; }, stop() {},
+  });
+  await collect(recognizer.run(source(Array.from({ length: 750 }, (_, i) => chunk(i, true, 512)))));
+  assert.deepEqual(jobs.map(job => job.audioRange), [
+    { startMs: 0, endMs: 2912 }, { startMs: 2912, endMs: 22912 }, { startMs: 22912, endMs: 24000 },
+  ]);
+  assert.equal(jobs.reduce((total, job) => total + job.pcm.length, 0), 750 * 512);
+  assert.ok(jobs.every(job => job.pcm.every(sample => sample === Math.fround(0.05))));
+});
+
+test("learned pause jobs retain the pending-job bound and reject a late stalled result", async () => {
+  const jobs: AsrJob[] = []; const statuses: SessionStatus[] = [];
+  let frame = 0; let release: (value: never) => void = () => {}; let stops = 0;
+  const recognizer = createSpeechRecognizer(identity, "ja", {
+    recognize(job) { jobs.push(job); return new Promise(resolve => { release = resolve; }); },
+    stop() { stops++; },
+  }, status => statuses.push(status), {
+    async detect() { return { speech: frame++ % 32 < 16 }; }, stop() {},
+  });
+  await assert.rejects(collect(recognizer.run(source(Array.from({ length: 160 }, (_, i) => chunk(i, true, 512))))), /overloaded/);
+  assert.equal(jobs.length, 1); assert.equal(stops, 1);
+  assert.equal(statuses.at(-1)?.reason, "overloaded");
+  assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+  assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 4128);
+  const count = statuses.length;
+  release({ revision: { ...jobs[0], sourceRevision: 1, final: true, text: "late" }, inferenceMs: 100 } as never);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(statuses.length, count);
+});

@@ -4,13 +4,13 @@ import { sameIdentity } from "../core/identity";
 import type { createAsrHost } from "./asr-host";
 import type { AsrJob } from "./asr-protocol";
 
-// Experimental 16 kHz profile: 20 ms energy-only / 32 ms learned frames,
-// 500 ms energy silence
-// endpoint, speech-band pause cuts after 10 s, 20 s maximum segment with
-// 10 s queue headroom during inference. Pause detection never filters ASR PCM.
-// The explicit learned profile gates ASR admission on recurrent speech activity;
-// energy remains an endpoint policy, never a filter of submitted PCM. The
-// original energy-only profile remains available for comparison, not fallback.
+// Experimental 16 kHz profiles: energy-only 20 ms frames/500 ms endpoint and
+// speech-band pause cuts after 10 s; learned 32 ms frames/500 ms detected pauses.
+// Both keep a 20 s maximum segment and 10 s queue headroom during inference.
+// Learned cuts wait for the next onset or EOF, preserving intervening PCM and
+// dividing a detected pause within one frame of its midpoint. This delays
+// submission during silence; it is not an immediate learned silence endpoint.
+// The original energy-only profile remains a comparison, never a fallback.
 export function createSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
   receive: (status: SessionStatus) => void,
@@ -85,28 +85,34 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
           if (!stopped) stop(failure instanceof Error && failure.message === "gpu-lost" ? "gpu-lost" : "engine-failed");
         } finally { active = false; wake?.(); }
       }
-      function finishSegment(continuous = false) {
+      function finishSegment(continuous = false, length = segmentLength) {
         if (stopped || !segmentLength) return;
         if (detector && !detectedSpeech) {
           // Deliberately rejected speech-free context is not queue loss.
-          bufferedSamples -= segmentLength;
-        } else if (segmentLength < 1600) {
+          bufferedSamples -= length;
+        } else if (length < 1600) {
           // Less than the executor's 100 ms minimum: no padded/fabricated audio.
-          droppedAudioMs += segmentLength / 16; bufferedSamples -= segmentLength;
+          droppedAudioMs += length / 16; bufferedSamples -= length;
         } else {
           if (jobs.length >= 2) { stop("overloaded"); return; }
           jobs.push({ identity: { ...selected }, language, utteranceId: `speech-${++utterance}`,
-            audioRange: { startMs: segmentStartMs, endMs: segmentStartMs + segmentLength / 16 },
-            pcm: segment.slice(0, segmentLength) });
+            audioRange: { startMs: segmentStartMs, endMs: segmentStartMs + length / 16 },
+            pcm: segment.slice(0, length) });
           void drain();
         }
-        segmentLength = 0; detectedSpeech = false; quietSamples = 0; boundaryQuietSamples = 0;
+        segment.copyWithin(0, length, segmentLength);
+        segmentLength -= length; segmentStartMs += length / 16;
+        detectedSpeech = false; quietSamples = 0; boundaryQuietSamples = 0;
         continueSegment = continuous;
       }
       async function consumeFrame() {
         const activity = detector ? (await detector.detect(frame.slice(0, frameLength))).speech : false;
         if (stopped) return;
         if (typeof activity !== "boolean") throw new Error("Invalid speech detector result");
+        if (detector && activity && detectedSpeech && quietSamples >= 8000) {
+          finishSegment(true, segmentLength - Math.floor(quietSamples / (2 * frameSamples)) * frameSamples);
+          if (stopped) return;
+        }
         let energy = 0;
         let boundaryEnergy = 0;
         for (let i = 0; i < frameLength; i++) {
@@ -123,11 +129,11 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
           if (!segmentLength) segmentStartMs = frameStartMs;
           segment.set(frame.subarray(0, frameLength), segmentLength);
           segmentLength += frameLength;
-          quietSamples = speech ? 0 : quietSamples + frameLength;
+          quietSamples = (detector ? activity : speech) ? 0 : quietSamples + frameLength;
           boundaryQuietSamples = Math.sqrt(boundaryEnergy / frameLength) >= 0.01 ? 0 : boundaryQuietSamples + frameLength;
           if (bufferedSamples > 16000 * 30) { stop("overloaded"); return; }
-          if (quietSamples >= 8000) finishSegment();
-          else if (segmentLength === segment.length || (segmentLength >= 16000 * 10 && boundaryQuietSamples >= 3200)) finishSegment(true);
+          if (!detector && quietSamples >= 8000) finishSegment();
+          else if (segmentLength === segment.length || (!detector && segmentLength >= 16000 * 10 && boundaryQuietSamples >= 3200)) finishSegment(true);
         } else bufferedSamples -= frameLength;
         frameLength = 0;
       }
