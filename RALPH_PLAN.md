@@ -4557,3 +4557,85 @@ missing full Chrome command remain FAIL; no completed checkbox is added.
 Final four-file scope, append-only history/unchanged checkboxes, old commands/
 dependencies/product/tests/runner preservation, syntax/lint/whitespace and staged
 exclusion are checked before commit; commit/post-commit cleanliness at delivery.
+
+
+### 2026-10-08 / chrome / iteration 6/20 (small FP16 live/noise requalification)
+
+관련 commit: 이 기록을 포함한 `docs: record live browser ASR candidate rejection`.
+B2 remains next unfinished; B2–B6 remain unchecked and no default is selected.
+
+수행한 변경: evidence-only continuation of B2 candidate evaluation. Tested whether
+iteration 5's small FP16 exact-job replay pass extends to original sustained live
+and louder-noise acceptance on current production code. Both actual suites reject
+that qualification; changing a default/decoder without evidence is not justified.
+Append this report/plan evidence only. Existing harnesses, every original gate,
+production/model/segmentation/fixture/dependency/default/user settings unchanged.
+Repository AGENTS.md and the requested independent runner verification file are
+absent. Supplied instructions, plan, architecture and prior report reviewed.
+
+실행한 명령과 결과 (all evidence under ignored `.ralph/media-framework/`):
+
+- FAIL: `caffeinate -disu npm run test:framework:chrome:live:sustained:learned`,
+  exit 1, once, `chrome-20261008-restart-6-small-live.log`: typecheck, **28 ports /
+  266.118 ms**, eight rounds / **9,846 actual WASM VAD frames / 33 actual WebGPU
+  ASR calls**, then **18 real exact-job replays**. Japanese sustained live and
+  identical replay meaning counts fail; all other original assertions pass.
+- FAIL: `caffeinate -disu npm run test:framework:chrome:noise:learned`, exit 1,
+  once, `chrome-20261008-restart-6-small-noise.log`: **23 ports / 257.162042 ms**,
+  ten cases / **4,066 actual WASM VAD frames / 12 actual WebGPU ASR calls** plus
+  two cached offline ASR calls. Sole failure: Japanese louder-noise meanings.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-6-stage-acceptance.log`: missing full-stage script.
+  No placeholder, weaker gate or ASR-only substitute is added.
+- PASS: `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-restart-6-verify.log`: Biome **118 files / 54 ms**, Ruff/
+  typecheck, unchanged **28 main / 10 content modules**, **116 JS /
+  21,024.014292 ms / 0 failed/skipped/cancelled**, **222 Python / 66.93 s**.
+- PASS: live/noise result/byte analysis, exit 0, `...-6-live-analysis.log`,
+  `...-6-noise-analysis.log` and corresponding summary JSON. **33 actual archived
+  jobs / 20,082,004 bytes** verified, **18/18 replay texts identical**, exact
+  endpoint phase sums, normal zero loss/drain and offline controls. Four earlier
+  analysis scripts failed on Python version, wrong hash key and two false
+  historical English equality assumptions; corrected analysis retains observed
+  differences. These are analysis, not extra model runs or new accuracy passes.
+
+실제 PCM/모델/화면/실기 중 검증한 범위: real synthetic selected-video PCM →
+learned VAD → small FP16 ASR. Japanese 18 periods **31/720 = 4.305556% CER**,
+negation **19/18**, reservation **16/18** (FAIL), other five anchors 18; all full
+endpoints **909–1,731.2 ms** PASS. English 19 periods **19/418 = 4.545455% WER**,
+all four meanings 19, endpoints **1,093–1,460.3 ms** PASS. Inputs **125,568 /
+126,720 ms**, peak pending **13,290 / 14,836.6875 ms**, zero normal loss/drain.
+Exact failed Japanese jobs and digests are in the stage report and ignored archive
+`chrome-live-jobs-fsSZ3n/`; replay reproduces them without reacquisition.
+
+Japanese louder-noise **9/120 CER**, meeting **2/3**, station **1/3** FAIL;
+quiet noise **3/120 CER**, all meanings three PASS. English both noise cases
+**3/66 WER**, all meanings three PASS. All noise endpoints <2,000 ms; six noise-
+only cases have zero active VAD/ASR. Ten full input hashes match iteration 13;
+Japanese failed jobs/ranges/scores match, but English louder-noise segmentation/
+score differs (4/66 → 3/66), so no all-job identity claim. Two cached offline
+ASR jobs pass **1/40 CER / 1/22 WER**, zero remote requests. Short offline model
+inference is distinct from complete offline interpretation. Model/environment/
+preparation/RSS/generated-video hashes and limits are recorded in the report.
+
+다음 미완료 항목: B2 correction of reproduced Japanese reservation/negation
+errors on retained exact jobs, original louder-noise meanings and endpoint gates;
+then remaining natural/quiet/no-pause/overload/ten-minute/storage/pressure/license
+qualification before default selection. No identical failed suite retry after
+this evidence. Full Chrome Korean translation/DOM/pairing/offline interpretation/
+installation, B3–B6 and Safari/iPhone UNVERIFIED. No required environment/device/
+permission is absent; qualification failures and incomplete implementation do
+not warrant blocked or complete markers. All checkboxes unchanged.
+
+Only append-only report/plan retained. Companion v0.1.0/install/native messaging/
+server/user settings, production/harnesses/fixtures/dependencies/runner and user
+resources preserved. No agents/stage advance/push/publish/install/access bypass.
+Owned browsers/profiles/recorders cleaned up; credentials/weights/user data and
+`.ralph` state excluded. Final scope, append-only/checkbox/preservation/whitespace,
+staged exclusion, commit and post-commit clean status checked at delivery.
+
+Final preservation checks PASS, exit 0: project-Python assertions confirm exactly
+two append-only documents, unchanged checkboxes, consistent executed counts and
+hash comparisons, no tracked `.ralph` state; `git diff --check` passes. Executable
+sources remain those actually verified above. Staged whitelist/whitespace and
+post-commit clean status are checked at delivery.

@@ -7206,3 +7206,172 @@ and passes all archived meaning gates. Production, old tests/harnesses/fixtures,
 lock/runner/architecture/companion/settings untouched. Syntax, targeted lint,
 document-inclusive whitespace and staged whitelist/exclusion/whitespace checked
 before commit. Commit and post-commit clean status are checked at delivery.
+
+
+## 2026-10-08 — B2 small FP16 live/noise requalification (chrome iteration 6/20)
+
+Related commit: `docs: record live browser ASR candidate rejection`, containing
+this report. B2 remains next unfinished; B2–B6 stay unchecked, with no default
+selected. Repository AGENTS.md and the requested independent runner evidence
+`.ralph/media-framework/2026-10-08T07-45-37-544Z-chrome-verification.txt` are absent.
+Reviewed the supplied instructions, plan, architecture and retained Chrome evidence.
+
+Assumption tested: iteration 5's passing small FP16 exact-job replay might also
+satisfy the original live sustained and louder-noise gates. The smaller next step
+is to execute those existing commands on current production code before changing
+segmentation/decoding or choosing a default. That assumption is rejected below.
+Only this report and the plan progress log change; no production, harness,
+fixture, model/default, dependency, acceptance or user-setting change is retained.
+Evaluation is partial B2 progress, not completion or a transcription fix.
+
+### Exact commands and acceptance results
+
+All evidence paths below are ignored local `.ralph/media-framework/` state.
+Each browser command ran once, sequentially, without a concurrent model test.
+
+- FAIL: `caffeinate -disu npm run test:framework:chrome:live:sustained:learned`,
+  exit 1, `chrome-20261008-restart-6-small-live.log`: typecheck, **28 port tests /
+  266.118 ms**, eight live rounds, **9,846 actual WASM VAD frames / 33 actual
+  FP16 WebGPU ASR calls**, then **18 actual exact-job replay calls**. Exactly two
+  aggregate failures: Japanese 18-period live meaning counts and their identical
+  replay meaning counts. All remaining original gates passed, including English
+  sustained recognition, short rounds, every full endpoint, PCM acquisition,
+  isolation/time mapping/playback preservation, coverage/queue/loss/drain/detach,
+  pinned model/cache, visibility and page errors. No second live invocation.
+- FAIL: `caffeinate -disu npm run test:framework:chrome:noise:learned`, exit 1,
+  `chrome-20261008-restart-6-small-noise.log`: typecheck, **23 port tests /
+  257.162042 ms**, all ten original cases, **4,066 actual WASM VAD frames / 12
+  actual FP16 WebGPU ASR calls**, then two cached offline ASR calls. Sole
+  aggregate failure: Japanese louder-noise meaning counts. All other original
+  assertions passed. No second noise invocation or weakened acceptance.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-6-stage-acceptance.log`: missing full-stage script.
+  No placeholder or ASR-only substitute added.
+- PASS: `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-restart-6-verify.log`: Biome **118 files / 54 ms / no findings**,
+  Ruff/typecheck, unchanged companion **28 main / 10 content modules**, **116 JS /
+  21,024.014292 ms / 0 failed/skipped/cancelled**, **222 Python / 66.93 s**.
+- PASS: inline Python live archive/result assertions, exit 0,
+  `chrome-20261008-restart-6-live-analysis.log` and `...-live-summary.json`:
+  **33 jobs / 20,082,004 bytes**, every actual byte count/hash/bounded PCM/range,
+  exact-input flag, original endpoint phase sum and normal loss/drain association.
+  **18/18 replay texts equal originals**, with zero replay remote requests.
+- PASS: final `uv run --locked python` noise/result analysis, exit 0,
+  `chrome-20261008-restart-6-noise-analysis.log` and `...-noise-summary.json`:
+  all ten cases, original failure retained, exact jobs, complete queues/drain,
+  no-speech rejection, latency and offline results. Analysis is not another
+  inference or an accuracy pass. Four earlier analysis invocations failed:
+  system Python lacked `zip(strict=...)`; the invocation hash field is
+  `pcmSha256`, not `inputSha256`; historical English louder-noise score and
+  job-range equality assertions were false. Corrected analysis records those
+  differences instead of assuming identical segmentation/output across versions.
+
+### Live recognition and exact failure evidence
+
+| Scored input | Error | Meaning counts | Jobs / overlapping nonfinal jobs | Full endpoint range ms | Peak pending / loss / final pending ms |
+| --- | --- | --- | --- | --- | --- |
+| Japanese 18 periods | **31/720 = 4.305556% CER** | **Negation 19/18, reservation 16/18 — FAIL**; other five anchors 18 | 16 / 15 | **909–1,731.2 — PASS** | 13,290 / 0 / 0 |
+| English 19 periods | **19/418 = 4.545455% WER** | All four anchors 19 — PASS | 10 / 9 | **1,093–1,460.3 — PASS** | 14,836.6875 / 0 / 0 |
+
+Japanese/English actual normalized selected-video input: **2,009,088 / 2,027,520
+samples**, **125,568 / 126,720 ms**; document runs **126,596.5 / 127,815.3 ms**.
+Last-packet-to-text: **1,035.3 / 1,094.9 ms**. Every job is contiguous and
+<=20 seconds; normal loss/drain and capture overlap pass. This is two minutes,
+not ten minutes, with synthetic speech rather than natural speaker qualification.
+Japanese one-period rounds score **1/40 CER**, English **1/22 WER**; three-period
+rounds **3/120 CER / 3/66 WER**, all original meanings at their expected counts.
+Their final-packet latencies are **780.3–1,010.9 ms**. VAD-only Stop/restart
+passes with no ASR call in the stopped round; active-ASR Stop/GPU loss were not
+rerun by this selected mode.
+
+Archive: `chrome-live-jobs-fsSZ3n/`, manifest SHA-256
+`d5ee81df396d4349bbafcc2858a80cb37333455bd06b72f6728ee80761723d6e`.
+All 16 sustained Japanese archived jobs replay exactly with the same failed
+scores/counts. `round-6-job-4.f32`, range **25,600–36,000 ms**, digest
+`6e52d6adc5095cd356fbaa96c270905c68a4b7c526bfdf86936331a51be1e74b`,
+contains two decoded cancellation mentions but zero reservation anchors; the
+synthetic reservation word is substituted twice. The following job,
+`round-6-job-5.f32`, **36,000–42,752 ms**, digest
+`984d61a4794b666e057cd674d3e8b6e1b0f5a64d1023f41acca57956659d5b1b`,
+begins with a duplicated negation fragment. These are observed text/range
+associations, not proof that changing that boundary solves recognition.
+Fresh cached replay Prepare **1,329.70825 ms**, zero remote requests; preparation
+and replay invocation timing do not replace original live endpoint measurements.
+
+### Original noise and offline evidence
+
+All six noise-only cases (quiet/white/hum for both languages) have zero active
+VAD frames, zero ASR calls and no fabricated speech. Japanese quiet-noise speech
+**3/120 = 2.5% CER**, all anchors three; louder noise **9/120 = 7.5% CER**, meeting
+**2/3**, station **1/3**, all other anchors three — FAIL. English both speech
+cases **3/66 = 4.545455% WER**, every anchor three — PASS. Endpoint ranges:
+Japanese quiet **870.8–1,484.3 ms**, louder **839.3–1,449.4 ms**; English quiet
+**680.1–1,229.7 ms**, louder **707.7–1,283.8 ms**. Original <=20% error and exact
+meaning gates stay intact; aggregate error alone cannot qualify these meanings.
+SNR Japanese/English louder **7.709260 / 8.633690 dB**. Seeded white noise is
+synthetic, not a natural-noise qualification. Pending <=9,300 ms, zero normal
+loss and final pending zero.
+
+Compared with retained `chrome-20261008-13-noise-offline.log`, **10/10 complete
+mixed-input hashes match**, as do **9/10 case job hashes/ranges** and all meaning
+counts. Japanese louder-noise inputs/jobs/scores/failed meanings match exactly.
+English louder-noise jobs/ranges differ and WER changes from **4/66 to 3/66**;
+no identical-input-job or causal improvement claim is made for that case.
+Two fresh-worker cached offline ASR jobs pass: Japanese **1/40 CER**, English
+**1/22 WER**, all meanings once, worker times **863.4 / 738.4 ms**, document round
+trips **864.5 / 739.3 ms**, transferred buffers detached and zero remote requests.
+Actual cached VAD/noise control and VAD cancellation pass. These are short
+synthetic decoded-file recognitions, not offline live interpretation/translation.
+
+### Environment, preservation and next unfinished work
+
+Owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, uv **0.12.23**, project Python **3.12.15**; locked
+Transformers.js **4.3.0**. Same pinned small
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven
+files / **487,960,440 bytes**, and Silero
+`e71cae966052b992a7eca6b17738916ce0eca4ec`, one file / **2,243,022 bytes**.
+Live **16 remote paths / 16 requests**; noise **16 remote paths**; only pinned
+artifacts/redirects. Live initial/cached Prepare **57,374.806042 /
+1,219.757833–1,424.973583 ms**; noise **64,521.969625 /
+1,218.442917–1,221.92125 ms**. No new model or revision downloaded.
+Live initial/peak owned-tree RSS **1,439,680 / 4,272,752 KiB**; noise
+**1,248,736 / 3,999,776 KiB**. RSS is sampled every 250 ms and includes shared
+pages/allocators/browser/GPU/model/archive; isolated allocation, pressure/leaks,
+storage limits and mobile/thermal behavior remain unqualified.
+
+Source period hashes remain the previously recorded originals. New ignored
+Japanese generated video **2,190,176 bytes /
+8425529e032a22fa77f1a8692bb766f9ab3ea03493ed9f33752811b2404db1ac**;
+English **2,192,169 bytes /
+70de442d5034444e7430535a1e45fe967a998f96350f3b55d9c3c024b9a5daf5**.
+Fresh recordings/captures are not byte-identical to iteration 4, so its successful
+small replay cannot predict this live job layout. Original historical small/turbo
+failures remain failures; this run does not isolate their causes.
+
+Next B2: correct the reproduced Japanese reservation/negation errors on the
+retained exact jobs and preserve the original louder-noise meanings/endpoint
+gates before choosing a default. Remaining natural/quiet/no-pause, overload,
+ten-minute acquisition, storage/memory pressure and licensing qualification is
+unfinished. Full Chrome PCM → ASR → Korean translation → DOM, pairing, offline
+interpretation/standalone installation, B3–B6 and Safari/iPhone are UNVERIFIED.
+No required environment/device/permission is absent; these are qualification
+failures and unfinished implementation, with neither terminal marker warranted.
+No unchanged failed suite is retried after this evidence.
+
+Only append-only report/plan evidence is committed. Companion v0.1.0/install/
+native messaging/server/user settings, every prior checkbox, production/tests/
+fixtures/runner/architecture and unrelated files/apps/recordings/mounted images
+are preserved. No agents, stage advance, push/publish/app installation or access/
+profile/permission bypass. Only owned browser/profile/recorder resources were
+cleaned up. No credentials, model weights, user audio/transcripts or temporary
+`.ralph` state enter Git. Final scope/whitespace/staged exclusion, commit and
+post-commit clean status are checked at delivery.
+
+Final evidence-preservation checks PASS, exit 0: inline project-Python assertions
+confirm exactly two append-only documents, all prior checkboxes unchanged, actual
+live/noise/replay counts and historical hash comparisons consistent, and no
+tracked `.ralph` state. `git diff --check` passes. Final executable sources are
+unchanged from the successful verify and the failed real-browser qualifications;
+no subsequent code edit requires another model run. Staged whitelist/whitespace
+and clean post-commit status are verified at delivery.
