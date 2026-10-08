@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { chromium } from "playwright";
+import { retimeSpeechVideo } from "./retime.mjs";
 
 const clips = [
   { language: "ja", voice: "Kyoko", text: "今日は会議をしません。明日の午後三時に駅で会いましょう。予約は取り消さないでください。", koreanMeaning: "오늘은 회의하지 않습니다. 내일 오후 세 시에 역에서 만납시다. 예약을 취소하지 마세요.", tagHz: 6500 },
@@ -54,7 +55,7 @@ try {
       let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
       return { base64: btoa(binary), speechDurationSeconds: speech.duration, originalSpeechPeak: peak };
     }, clip);
-    const bytes = Buffer.from(result.base64, "base64"); assert.ok(bytes.length > 10000);
+    const bytes = retimeSpeechVideo(Buffer.from(result.base64, "base64")); assert.ok(bytes.length > 10000);
     await writeFile(`tests/fixtures/video-speech/${clip.language}.webm`, bytes);
     clip.speechDurationSeconds = result.speechDurationSeconds;
     clip.originalSpeechPeak = result.originalSpeechPeak;

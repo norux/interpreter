@@ -4159,3 +4159,21 @@ Next B2 priority: diagnose/fix the retained sustained live Japanese missing
 sustained suite. Do not spend the next iteration adding another GPU/Stop variant
 while that meaning failure remains unresolved. Sustained quality/later latency
 has not been requalified here; no stage checkbox/default selection changed.
+
+
+### 2026-10-08 / video / repair speech-fixture packet clock
+
+`all` stopped before Chrome: V5 English waveform correlation 0.7141754816633507
+failed the unchanged >0.85 gate. The generator's 60 ms Opus packets had 57/60/63 ms
+English and 58/60/62 ms Japanese timestamp intervals. Retimed only audio block
+metadata, preserving all codec payload, video and first offset; generation now
+uses the same correction. Actual browser decoding confirms every stereo sample
+bit-identical before/after. Continuous-clock regression fails before and passes
+after; final Video acceptance PASS, 15 unit checks and V1–V5, six correlations 1.0.
+Exact failures, rejected alignment hypothesis and proof are in the Video report.
+No gate/checkbox/model/default/audio content changed. Full verification follows.
+Chrome B2's next priority remains the retained sustained Japanese meaning boundary;
+do not interpret this completed-video recheck repair as whole-framework completion.
+Full `caffeinate -disu npm run verify` PASS: 116 JS / 222 Python (66.91 s),
+lint/typecheck/build. Evidence: `video-fixture-clock-verify.log`. Final whitespace
+and intended scope checks PASS. Commit: `fix: align speech fixture audio packet timestamps`.

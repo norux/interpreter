@@ -861,3 +861,53 @@ Targeted Biome and `git diff --check`: **PASS**.
 build, **100 JavaScript / 222 Python tests** (Python 66.91 s).
 Evidence: `.ralph/media-framework/video-transition-verify.log`.
 Later stages remain incomplete.
+
+
+## 2026-10-08 — repair speech-fixture packet timestamps
+
+The next `all` run passed core, then stopped in V5 English PCM/reference
+correlation: **0.7141754816633507**, required >0.85. Video V1–V4 passed.
+Evidence: `.ralph/media-framework/2026-10-08T07-17-32-092Z-video-verification.txt`.
+An unchanged diagnostic passed; another reproduced **0.842916371425157**.
+Exhaustive sample alignment and bounded rate searches did not improve that
+failure, so the correlation threshold/search was not changed.
+
+Inspection found that generated stereo Opus packets contain three 20 ms frames,
+yet English WebM timestamps advance **57/60/63 ms**, Japanese **58/60/62 ms**.
+Packet format: [RFC 6716 sections 3.1–3.2.5](https://www.rfc-editor.org/rfc/rfc6716.html#section-3.1).
+The fixture's container clock therefore differed from the uniform decoded-file
+reference; timed playback could retime the speech within a comparison window.
+
+`retimeSpeechVideo` supports only the generator's canvas/video-track-1 and
+unlaced 60 ms Opus-track-2 format, rejects unsupported packet/timestamp formats,
+and rewrites only audio block timestamps on a continuous sample clock. It keeps
+initial offset, cluster layout, video packets, codec metadata and all encoded
+payload bytes. Generation now applies it before writing/hashing files. Existing
+fixtures were retimed: **199 Japanese / 202 English bytes** changed, with file
+lengths unchanged. Manifest hashes reflect the corrected metadata.
+
+An independent Chromium decode compared every sample in both channels before
+and after: **bit-identical**, Japanese **1,149,120**, English **1,152,000** samples
+at 48 kHz. Original synthetic speech and isolation tones remain. Evidence:
+`.ralph/media-framework/video-fixture-decoded-equality.log`.
+
+Regression: committed files fail the continuous packet-clock check before
+retiming. Golden byte comparison verifies payload/video preservation, negative
+relative timestamps across clusters, input ownership and idempotence. Both tests
+PASS after retiming and run in general JS and Video acceptance.
+Evidence: `video-fixture-clock-before.log` and final CLI output.
+
+Final `caffeinate -disu npm run test:framework:video`: **PASS**, 15 unit tests,
+all V1–V5 browser gates; all six speech captures have selected correlation **1.0**.
+Wrong-source, tag isolation, output levels, mapping, gaps and all original
+thresholds remain enforced. Evidence: `video-fixture-clock-fixed.log`.
+Targeted Biome, generator/helper syntax and whitespace checks PASS.
+Full verification follows below. Chrome's ASR/translation and later stages are
+not completed by this Video fixture repair.
+
+
+Full `caffeinate -disu npm run verify`: **PASS**, Biome 117 files, Ruff,
+typecheck/build, **116 JavaScript / 222 Python tests** (66.91 s). Evidence:
+`.ralph/media-framework/video-fixture-clock-verify.log`. Final whitespace/staged
+scope checks PASS; fixture source metadata and its manifest hashes, generator,
+local retiming helper, regression, package commands, report and plan only.
