@@ -11036,3 +11036,135 @@ browsers/profiles are cleaned. Related commit:
 `test: diagnose browser replay preparation failures`. Final append-only history,
 unchanged checkboxes, whitelist, whitespace and clean committed worktree are
 checked at delivery.
+
+
+## 2026-10-09 KST — B6 rejected noise preprocessing (chrome iteration 4/20)
+
+**B6 remains unchecked.** Entry HEAD `0490efb` was clean. Repository `AGENTS.md`
+and requested independent runner log
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` are absent. Read the plan,
+framework architecture and Chrome evidence; only Stage chrome is selected.
+This partial iteration tests two distinct preprocessing hypotheses against the
+preserved failed Japanese white-noise input and passing controls. Neither improves
+recognition, so neither is retained. All historical failures and gates remain.
+
+### Hypotheses, implementation and rejection
+
+Archive input peaks are **0.23022006452083588–0.25678300857543945**, with RMS
+**0.04859668438585289–0.05869183933092456** across the twelve original jobs.
+First test the simpler worker-local peak normalization: copy every sample with
+`gain = 0.95 / peak` when `0 < peak < 0.95`, otherwise unity. Do not clip, trim,
+change sample/range counts, mutate acquired input, alter VAD/decoder, or supply
+reference text. This changes level, not signal-to-noise ratio. Exact quality
+criteria reject it: all four error rates and meaning counts stay at baseline.
+Independent raw-text readback finds **10/24 identical and 14/24 changed** outputs;
+changes include punctuation and a different wrong station word in each trial.
+An initial commentary claim of identical raw transcripts was corrected. Equal
+scores/counts never imply identical raw recognition or an improvement.
+
+Then test stationary noise subtraction in the existing Whisper feature extractor.
+Keep its original full-PCM extraction, time dimensions and fixed zero padding;
+for each mel bin, invert the log normalization, estimate background power at the
+**10th percentile of actual (unpadded) frames**, subtract that power with a
+`1e-10` floor, and reapply Whisper's eight-decade dynamic range/normalization.
+This is an audio-only single-pass experiment, with no second VAD, label prompt,
+text correction, token ban, changed model, dependency or fallback. Both workers
+show worse Japanese controls and white-noise English error. Reject this exact
+estimator/subtraction policy, without repeating it or tuning it blindly.
+
+Restore `asr-worker.ts` and `asr-loader.ts` **byte for byte to entry HEAD**, verified
+by independent Git-blob comparison and empty production diff. Retain **only this
+report and the plan progress log**. No runtime preprocessing or test modification
+remains. Documentation-only progress records rejected approaches without adding
+unused production code or inventing diagnostic features to justify a code commit.
+
+### Exact executed evidence
+
+Two invocations of:
+`npm run test:framework:chrome:replay -- .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --default-only`.
+Each performs four archived runs / twelve real ASR jobs in each of **two fresh
+smallFp16/WebGPU workers**. All twelve archived jobs/ranges remain unchanged.
+Both commands **FAIL / exit 1** at the existing exact meaning-count gates; no
+preparation or device/permission failure occurs. Logs and matching summary JSON
+are ignored local evidence under `.ralph/media-framework/`, never committed.
+
+| Hypothesis / log basename | Preparation ms (trials 1 / 2) | Peak owned-tree RSS KiB (trials 1 / 2) |
+| --- | ---: | ---: |
+| Peak normalization / `chrome-iteration-4-peak-normalization` | 55,973.074125 / 1,225.5950409999932 | 3,547,072 / 4,262,272 |
+| Feature subtraction / `chrome-iteration-4-spectral-subtraction` | 55,234.032958 / 1,328.351582999996 | 4,149,824 / 4,293,600 |
+
+Both fresh trials agree on raw text, errors and counts within each experiment:
+
+| Preserved input | Baseline / peak normalization | Feature subtraction |
+| --- | --- | --- |
+| Japanese quiet noise | **3/120 = 2.5% CER**, all seven meanings 3 | **7/120 = 5.833333333333333% CER**, meeting **1**, other six **3** |
+| Japanese white noise | **9/120 = 7.5% CER**, meeting **2**, station **1**, other five **3** | **18/120 = 15% CER**, meeting **2**, tomorrow **2**, station **0**, do-not-cancel **2**, other three **3** |
+| English quiet noise | **3/66 = 4.545454545454546% WER**, all four meanings **3** | Same error/counts |
+| English white noise | **3/66 = 4.545454545454546% WER**, all four meanings **3** | **5/66 = 7.575757575757576% WER**, all four meanings **3** |
+
+Expected meaning count is **3 for every anchor**. Neither command passes merely
+because error rates remain <=20%. Baseline above comes from preserved original
+job text and prior executed reports, not a newly repeated unchanged browser suite.
+Peak normalization's aggregate has two failed run/trial counts; feature subtraction
+has four, including the newly degraded quiet Japanese control.
+
+For each command, preparation remote requests are **14 / 0**, inference remote
+requests **0 / 0**; request/HTTP failures, page errors and visibility changes **[]**.
+Peak worker inference range **627.8000000715256–932.7000000476837 ms**;
+feature subtraction **634–944.7000000476837 ms**. These are replay worker times,
+**not live endpoint-to-text measurements**. RSS includes browser/GPU/shared pages
+and observer copies; no isolated allocation, memory leak, mobile or thermal claim.
+
+Independent final readback **PASS / exit 0**, `chrome-iteration-4-analysis.json`:
+**48 input/hash/identity/range/transfer/decoder associations** across both commands,
+**12 matching trial output pairs per command**, original manifest SHA-256
+`5e3e9af50dfaa98fc59f15c091a9deae2a5893e63c41bbf96bde34129cabbb89` unchanged.
+Every archived file retains its size/digest and each generated result matches its
+observed decoder output. No altered archive/reference is used. Initial diagnostic
+readbacks **FAIL / exit 1** first on a nonexistent `results` key, then on the false
+raw-text equality assumption; corrected readback counts the real differences and
+passes (`chrome-iteration-4-peak-analysis.json`). No browser repeats for readback.
+
+Initial `npm run typecheck` on the feature prototype **FAIL / exit 1**, TS18048
+for possibly undefined SDK feature extractor. Require the extractor before wrapping;
+both actual replay invocations then pass their typecheck and fully execute ASR.
+After restoration, `npm run typecheck` **PASS / exit 0**, and
+`node --import tsx --test tests/framework-browser-timestamps.test.ts tests/framework-browser-asr.test.ts tests/framework-browser-model.test.ts tests/framework-browser-asr-trace.test.ts`
+**PASS / exit 0**, **14 passed / 0 failed/skipped/cancelled / 403.363875 ms**,
+`chrome-iteration-4-restored-regressions.log`. These mocked host/repository/decoder
+checks qualify restoration/conformance, not real recognition accuracy.
+
+### Remaining qualification and delivery
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+owned headed Chromium **153.0.8010.12**, locked Transformers.js **4.3.0**. Same
+default `onnx-community/whisper-small` revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 model bytes**.
+No new model/revision/dependency is downloaded or selected. Existing test-owned
+model preparation/cache route succeeds without a browser/profile access workaround.
+
+**NOT RUN:** `npm run verify`, full `npm run test:framework:chrome`, unchanged
+long live/noise/quiet/EOF and ten-minute extension/native Korean/DOM/GPU suites.
+Only documentation remains changed; affected hypotheses ran actual strict replay
+and restored source passed focused checks. Prior full acceptance failures remain
+failures; both full plan commands are still required before completion. No Chrome,
+whole-framework, Safari or physical iPhone completion is claimed. Live endpoint,
+complete valid long-run semantic/reference qualification, retained other Japanese
+omission layouts and broader natural/site speech remain **UNVERIFIED here**.
+
+**Next unfinished item remains B6:** recover raw Japanese white-noise meeting/station
+meanings with a new evidenced approach, qualify other retained Japanese omissions
+and complete long-run ASR/native Korean quality, then full Chrome acceptance.
+Do not repeat the rejected peak-level or this 10th-percentile mel-subtraction
+hypotheses, prior 1 s/3 s boundaries or 4 kHz filter without new evidence. Preserve
+exact counts, CER/WER <=20%, live endpoint <2,000 ms, queue/loss and every failure.
+No required environment/device/permission is absent; no blocker or completion
+marker applies. Neither failed quality experiment is labeled an access blocker.
+
+Two documentation files only. Companion v0.1.0/native messaging/install/settings,
+production/core/model profiles/permissions/fixtures/runner and unrelated files,
+user apps/recordings/mounted images remain unchanged. No agents, app install,
+push/publish, credentials/weights/user media or temporary `.ralph` state committed.
+Only owned test browser profiles are cleaned by the existing harness. Related
+commit: `docs: record rejected Chrome noise preprocessing`. Check append-only
+history, unchanged checkboxes, staged scope, whitespace and committed clean worktree.
