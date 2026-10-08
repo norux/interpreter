@@ -4268,3 +4268,84 @@ fresh-epoch cached recoveries without another inference run. Final fixture
 Biome **one file / 27 ms / no findings**, extracted module `node --check` and
 unstaged `git diff --check` PASS. Only fixture cleanup/report/plan are staged;
 staged scope/whitespace and post-commit clean status are checked at delivery.
+
+
+### 2026-10-08 / chrome / iteration 2/20 — B2 exact live jobs and endpoint phases
+
+Related commit: `test: trace sustained browser ASR endpoints`, containing this
+entry. B2 remains the next unfinished item; no checkbox/default/stage changes.
+
+Performed: examined the retained sustained Japanese boundary and tested retaining
+64 ms of confident pause through isolated detector hits. Proposed segmentation
+regression fails before (**11,520 vs 11,232 ms**), passes with the experiment
+(**29 ports / 278.567667 ms**), but actual sustained Japanese has five meaning
+anchors **20 instead of 18** and three endpoints >=2,000 ms. Policy and proposed
+test rejected/restored; original production/regression bytes match HEAD.
+
+Retained implementation: the existing live fixture reports each exact pre-transfer
+ASR job's SHA-256, including interrupted GPU work. Existing sustained harness
+reports shared-document-clock submission wait, invocation, dispatch and full
+endpoint latency, checks ordered finite phases/complete sums and keeps the
+original strict <2,000 ms gate. All original cases/assertions/audio/model/defaults/
+commands/dependencies are preserved; no new evaluation mode or stage advance.
+
+Executed and actual evidence (ignored `.ralph/media-framework/`; complete metrics,
+environment, hashes and limitations in the Chrome stage report):
+
+- FAIL: proposed regression before code, `chrome-20261008-restart-2-regression-before.log`,
+  one failing Node test; later shell log display exit 0 is not a test pass.
+- PASS: experimental 29 focused ports, `chrome-20261008-restart-2-ports.log`;
+  recorded probability replay **3,924/3,923 frames**, `chrome-20261008-restart-2-trace-replay.log`.
+  Fake executor/PCM evidence only, not recognition.
+- FAIL: `caffeinate -disu npm run test:framework:chrome:live:sustained:gpu-recovery:turbo`,
+  once experimental, exit 1, `chrome-20261008-restart-2-live.log`: ten rounds,
+  **13,672 VAD frames / 37 actual FP16 WebGPU ASR calls**. Japanese **79/720 CER**,
+  five anchors **20/18**, three late endpoints, max **2,214.6 ms**; English every
+  anchor **19**, max **1,922.8 ms**. Lifecycle/recovery paths pass, policy rejected.
+- FAIL: same existing command, once final restored production plus diagnostics,
+  exit 1, `chrome-20261008-restart-2-final-live.log`: **28 original ports /
+  279.572625 ms**, ten rounds, **13,770 VAD frames / 37 real ASR calls**.
+  New 37 digests/20 endpoint phase observations PASS; no weakened quality gate.
+  Japanese three-period **26/120 = 21.666667% CER**, five anchors **4/3** FAIL;
+  sustained **73/720 CER**, five anchors **20/18**, three endpoints
+  **2,012.3/2,136.5/2,147.0 ms** FAIL. English **19/418 WER**, every anchor **19**,
+  max **1,893.4 ms** PASS. Selected PCM/isolation/time/playback/detach/queue/loss/
+  fresh-epoch cached GPU recovery gates PASS; normal loss/final pending zero,
+  recovery remote requests zero, page/visibility errors `[]`. Restored production
+  also repeats extra meaning; retention is not proven as the cause.
+- PASS: final `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-restart-2-final-verify.log`: Biome **117 files / 75 ms**, Ruff/
+  typecheck/build, unchanged **28 main / 10 content modules**, **116 JS /
+  22,831.038917 ms**, **222 Python / 66.87 s**. Experimental verify also PASS,
+  **117 JS / 21,525.54425 ms; 222 Python / 66.87 s**, earlier log in report.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-2-stage-acceptance.log`: missing full script; no substitute.
+- PASS: actual generated-media hashes/sizes, recorded final JSON phase/hash/
+  latency/accounting checks, syntax/two-file Biome and preliminary preservation/
+  whitespace, exit 0. Final Git checks are recorded in the report and below.
+
+Environment remains headed owned Chromium **153.0.8010.12**, macOS **26.6.2/
+25G83 arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, Python **3.12.15**.
+Pinned turbo/Silero and source period hashes unchanged; final readiness, RSS and
+same-clock limits are in the report. Root/nested AGENTS.md and requested independent
+runner evidence `2026-10-08T07-45-37-544Z-chrome-verification.txt` are absent.
+
+Next B2: resolve Japanese extra/missing meanings and late endpoints with exact
+job/phase evidence; finish remaining original qualification before selecting a
+default. B2–B6/translation/DOM/offline full interpretation/install/Safari/iPhone
+remain unfinished; older noise/quiet/offline/ASR-Stop successes are historical.
+No environment/device/permission blocker, so neither terminal marker applies.
+Only existing harness/fixture and append-only report/plan are committed; original
+production/tests, companion/settings/user resources, runner and all checkboxes
+remain unchanged. No agents, stage advance, push/publish/install/access bypass;
+ignored model/media/profile/credential/user/temporary state is excluded.
+
+
+Final preservation checks PASS, exit 0: exact four-file staged scope, staged
+whitespace, append-only report/plan and every prior checkbox unchanged; original
+production/regression/package/lock/runner/architecture bytes preserved. Final
+harness and extracted fixture syntax, two-file Biome (**21 ms / no findings**)
+and document-inclusive unstaged whitespace PASS. Only diagnostics/report/plan
+are staged; model/media/profile/credential/user/ignored temporary state is
+excluded. The final staged whitespace and post-commit clean status are checked
+at delivery. No checklist is checked on these diagnostic passes.

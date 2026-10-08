@@ -6472,3 +6472,218 @@ fresh-epoch cached recoveries without another inference run. Final fixture
 Biome **one file / 27 ms / no findings**, extracted module `node --check` and
 unstaged `git diff --check` PASS. Only fixture cleanup/report/plan are staged;
 staged scope/whitespace and post-commit clean status are checked at delivery.
+
+
+## 2026-10-08 — B2 exact live jobs and endpoint phases (chrome iteration 2/20)
+
+Related commit: `test: trace sustained browser ASR endpoints`, containing this
+report. B2 is the next unfinished item; B2–B6 remain unchecked and no default
+model is selected. Root/nested AGENTS.md and the requested independent runner file
+`.ralph/media-framework/2026-10-08T07-45-37-544Z-chrome-verification.txt` are absent.
+The supplied instructions, plan, architecture and existing Chrome evidence apply.
+All local logs cited below are ignored `.ralph/media-framework/` state.
+
+### Retained implementation and observable verification
+
+The existing live fixture now digests each exact ASR job's PCM before the host
+transfers it. SHA-256 computation runs alongside inference and is awaited during
+settlement, including cancelled/GPU-destroyed jobs. The existing exact-input
+comparison still proves that these are unfiltered normalized selected-video
+samples. The harness requires a valid digest for every invocation.
+
+Sustained scored runs now report each endpoint's audio range/digest, submission
+wait, document invocation duration, result dispatch and original endpoint-to-text
+latency. All times use the same document clock. Added assertions require finite,
+nonnegative phases that sum to the original latency within 0.001 ms. The original
+strict <2,000 ms gate still uses the full endpoint-to-text latency; the invocation
+phase cannot replace it. Invocation time includes fixture snapshot/hash initiation,
+host transport and inference; dispatch includes digest settlement and iterator/
+event-loop delivery. Neither is isolated GPU time. Preparation/RSS/worker clocks
+remain separate. No new mode, model, command, reference, fixture audio, production
+policy, user setting or acceptance exemption is added.
+
+### Rejected boundary hypothesis
+
+The retained iteration-19 VAD trace has three <0.05 frames in a pause, one isolated
+active frame, then an uncertain pause inside the future-time phrase. A proposed
+policy retained a pause with 64 ms below 0.05 through isolated hits, while keeping
+160 ms sustained onset confirmation and exact PCM. Restoring 500 ms pauses is
+simpler, but prior quiet-input qualification had already rejected forced cuts.
+This new retention hypothesis is also **rejected**, rather than selected.
+
+- FAIL before the experiment: `node --import tsx --test
+  --test-name-pattern='a confident learned pause survives'
+  tests/framework-browser-speech.test.ts`, one failing test, expected proposed
+  **11,232 ms** boundary versus actual **11,520 ms**;
+  `chrome-20261008-restart-2-regression-before.log`. The shell's subsequent log
+  display returned 0; it does not turn the failing Node check into a pass.
+- PASS with the experiment: `node --import tsx --test
+  tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts
+  tests/framework-browser-normalize.test.ts`, exit 0, **29/29 / 278.567667 ms**,
+  `chrome-20261008-restart-2-ports.log`. Fake executor/detector evidence only.
+- PASS: recorded-probability replay, exit 0,
+  `chrome-20261008-restart-2-trace-replay.log`: **3,924 / 3,923** frames from the
+  iteration-19/prior-baseline traces. Synthetic constant PCM/fake executor show
+  changed boundaries, including earlier cuts; this is not real recognition or
+  proof that retention improves accuracy.
+- FAIL: `caffeinate -disu npm run
+  test:framework:chrome:live:sustained:gpu-recovery:turbo`, exit 1, once with the
+  experiment, `chrome-20261008-restart-2-live.log`: **ten rounds / 13,672 actual
+  WASM VAD frames / 37 actual FP16 WebGPU ASR calls**, including two interrupted
+  calls. Both lifecycle/recovery paths and five original short scored rounds
+  pass. Japanese recovery produces **79/720 = 10.972222% CER**, meeting/negation/
+  tomorrow/afternoon/station **20** each rather than **18**; reservation/cancellation
+  **18**. Ten endpoints **1,268.7–2,214.6 ms**, three >=2,000 ms, peak pending
+  **16,863.375 ms**. English **19/418 WER**, all meanings **19**, ten endpoints
+  **1,686.6–1,922.8 ms**, peak pending **15,220.6875 ms**. Normal loss/final pending
+  zero, page errors/visibility events `[]`, 16 remote artifact requests, cached
+  recovery requests zero. This does not reclassify any prior failed fixture.
+
+The recognizer and its regression file are restored byte-for-byte to HEAD.
+The proposed test is removed with its rejected policy; all original tests remain.
+Fresh generated/live captures are not assumed identical to historical jobs.
+The retained diagnostics are qualified separately on restored production sources
+below; there is no third invocation of the rejected policy.
+
+### Required repository checks
+
+- PASS on retained final executable sources: `caffeinate -disu npm run verify`,
+  exit 0, `chrome-20261008-restart-2-final-verify.log`: Biome **117 files / 75 ms /
+  no findings**, Ruff/typecheck, unchanged companion **28 main / 10 content
+  modules**, **116 JS / 0 failed/skipped/cancelled / 22,831.038917 ms**, **222 Python /
+  66.87 s**, Python **3.12.15**. Later fixture edit only clarifies a comment.
+- Earlier experimental verify PASS, exit 0,
+  `chrome-20261008-restart-2-verify.log`: **117 JS / 21,525.54425 ms**, **222 Python /
+  66.87 s**, Biome **117 files / 51 ms**. Its extra experimental regression is
+  reverted; this pass does not qualify recognition.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-2-stage-acceptance.log`: missing full Chrome script.
+  No placeholder or ASR-only substitute for selected-video → Korean captions.
+- PASS: harness/extracted fixture `node --check`, two-file Biome (**28 ms / no
+  findings**), preliminary whitespace and explicit preservation of every original
+  harness case/assertion plus recognizer/tests/package/lock/runner/architecture,
+  exit 0. Final evidence and Git checks follow.
+
+
+### Actual final-source browser evidence
+
+FAIL: the same `caffeinate -disu npm run
+test:framework:chrome:live:sustained:gpu-recovery:turbo` command on restored
+production sources and retained diagnostics, exit 1, once,
+`chrome-20261008-restart-2-final-live.log`. Typecheck, **28 original ports /
+279.572625 ms**, build and **all ten rounds** execute; **13,770 actual WASM VAD
+frames / 37 actual FP16 WebGPU ASR calls**, including two interrupted GPU jobs.
+All 37 pre-transfer PCM digests and all 20 sustained endpoint phase observations
+PASS their new assertions. Phase residuals are exactly **0 ms** in both languages.
+The unchanged aggregate quality assertion fails with exactly four categories:
+Japanese three-period CER/meaning count and sustained meaning count/endpoint latency.
+Page errors and every round's native visibility events are `[]`.
+
+| Final actual recognition | Japanese / 3 periods | Japanese recovery / 18 periods | English recovery / 19 periods |
+| --- | ---: | ---: | ---: |
+| Normalized samples / duration ms | 335,189 / 20,949.3125 | 2,009,088 / 125,568 | 2,027,520 / 126,720 |
+| Error | **26/120 = 21.666667% CER — FAIL** | 73/720 = 10.138889% CER | 19/418 = 4.545455% WER |
+| Meeting/negation/tomorrow/afternoon/station count | **4, expected 3 — FAIL** | **20, expected 18 — FAIL** | All four English anchors **19 — PASS** |
+| Reservation/cancellation count | 3 | 18 | Included above |
+| Jobs / nonfinal capture overlaps | 2 / original overlap gate PASS | 10 / 9 | 10 / 9 |
+| Endpoint-to-text ms | Sustained-only field not applicable | **1,612.6–2,147.0 — FAIL**, three >=2,000 | 1,474.6–1,893.4 — PASS |
+| Final packet-to-text ms | 1,300.0 | 1,614.2 | 1,475.9 |
+| Peak pending / normal loss / final pending ms | 17,023.375 / 0 / 0 | 16,095.375 / 0 / 0 | 15,220.6875 / 0 / 0 |
+
+Other original scored rounds PASS: Japanese once/restarted once **1/40 CER**,
+English once **1/22 WER**, English three periods **3/66 WER**, all respective
+anchors once/three times. The final failed Japanese short round's first job
+**0–14,720 ms**, digest
+`1b58385dd39bb801cb02d2f3a75f63fc585abf7a82fae4e982c4fd3891dc650b`,
+invocation **2,021.6 ms**; second **14,720–20,949.3125 ms**, digest
+`4db36618375ef3c9740e2cb1cfbac2eae1da1f47e68e16b9472e1f2fc202bd89`.
+These identify exact synthetic captured jobs; no causal attribution follows from
+comparing separate generated/live captures.
+
+The failed sustained Japanese endpoints now have complete shared-clock accounting:
+
+| Job ms | Submission wait ms | Invocation ms | Result dispatch ms | Full endpoint ms |
+| --- | ---: | ---: | ---: | ---: |
+| 64–11,808 | 256.7 | 1,755.6 | 0 | **2,012.3** |
+| 56,608–70,528 | 258.3 | 1,878.2 | 0 | **2,136.5** |
+| 98,432–112,352 | 299.4 | 1,847.6 | 0 | **2,147.0** |
+
+Corresponding exact PCM digests, in row order:
+`9680fa065858789f81e079cf35a716dc7cfcbe61be0f84e594a14709e8b583af`,
+`6a1be40cd9a730874dc09902ae708e97ef5db8d6b2424d8d4a8137ac55b83073`,
+`ca7fa5c04491380024dae4a9177aee44e72009a853c21f43716985e338f368b2`.
+Every original job is still exact unfiltered selected PCM, contiguous and <=20 s;
+VAD coverage, isolation/time mapping, original playback/settings, bounded queues,
+zero normal loss/drained queues and completion detach all PASS. GPU losses occur
+at **63,914.625 / 61,781.3125 ms** normalized acquisition with five jobs each;
+interrupted jobs publish no revision. Both detach observations, explicit discarded
+**14,314 / 13,716.6875 ms**, rejected unprepared retry, same-host/session/target
+fresh-epoch explicit cached recovery and zero recovery remote requests PASS.
+Original VAD-only Stop has zero ASR calls and **863.375 ms** discarded audio.
+These passes do not qualify Japanese accuracy or full interpretation.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, Python **3.12.15**.
+Same pinned turbo **360ebcde2559d60bb474678be3c1de9ef347d01a**, seven files /
+**1,621,338,971 bytes**, same Silero **e71cae966052b992a7eca6b17738916ce0eca4ec**,
+one file / **2,243,022 bytes**, locked Transformers.js **4.3.0**; registry/
+checksums/dependencies unchanged. Final **16 pinned/redirect paths / 16 requests**,
+first Prepare **166,731.1815 ms**, nine cached **2,236.303334–3,484.784208 ms**.
+Initial owned-tree RSS **1,448,720 KiB**, maximum post-prepare case peak
+**5,073,568 KiB**. RSS includes shared-page double counting, browser/GPU/allocator/
+model/harness/media residency; preparation peak, isolated allocation, pressure,
+storage, leak freedom, mobile and thermal behavior are unqualified.
+
+Original source period hashes still match prior qualification: Japanese
+**334,667 samples / 62849952bbacc0aef37547d98da09920ed70a8afa5f3f7ebf9004f1a5ccd3886**;
+English **319,991 / 0d6a8683900044ef06ced7717b879e05d4eeb772e611fce41cc389447ea6b856**.
+Final generated Japanese **2,191,142 bytes /
+a657f73b02952dead8e4fff65ceefd0df9561ca1c13065013303fc3ed914f12c**;
+English **2,193,135 /
+17378a4e5d1376ab39483faa4a6cb4b02b847d35358a4f435d5d60cb2eb87043**.
+These ignored test media files' actual hashes/sizes are independently checked,
+exit 0; neither recordings nor model weights enter the commit. Separate restored
+and experimental captures are not asserted byte-identical. The restored run also
+has extra Japanese repetitions, so retention is not established as their cause.
+
+PASS: explicit Python assertions over final JSON, exit 0,
+`chrome-20261008-restart-2-final-summary.json`: ten rounds, all 37 job digests,
+20 range/hash/phase associations, original latency equality, ordered finite
+phases/zero residual, original normal loss/drain/cached-recovery and page/visibility
+evidence. This analysis is not another inference invocation or a quality pass.
+
+### Remaining B2 work and preservation
+
+Next B2: resolve Japanese extra/missing meaning and late endpoints using these
+exact job identities and clock phases, then qualify the unchanged original cases
+and remaining natural/quiet/no-pause/noise, overload, ten-minute acquisition,
+pressure/storage and licensing requirements before choosing a default. The
+historical missing future-time/unreferenced-phrase failures are not relabeled or
+removed. No third same-policy browser invocation follows the failed hypothesis.
+
+UNVERIFIED: full Chrome acceptance (missing command), Korean translation/revision
+pairing/DOM, offline complete interpretation, standalone installation, B3–B6 and
+Safari/iPhone. Earlier noise/quiet/offline/active-ASR keyboard Stop results remain
+historical; those commands are not rerun after this fixture instrumentation.
+No required environment/device/permission is absent; qualification failures and
+unfinished implementation warrant neither blocked nor complete status. No
+checklist item or stage/whole-framework/iPhone completion is claimed.
+
+Only the existing live harness/fixture and append-only report/plan are committed.
+Companion v0.1.0/install/native messaging/server/user settings, original production
+and regression sources, commands/dependencies/runner/architecture, all previous
+checkboxes and unrelated files/apps/recordings/mounted images are preserved.
+No agents, new stage, push/publish/app installation or browser/profile/permission
+bypass. Owned test browser/profile/recorders alone are cleaned up. Model weights,
+credentials, user audio/transcripts and temporary ignored state stay out of Git.
+Final syntax, lint, whitespace, append-only scope and Git checks follow.
+
+
+Final preservation checks PASS, exit 0: exact four-file staged scope, staged
+whitespace, append-only report/plan and every prior checkbox unchanged; original
+production/regression/package/lock/runner/architecture bytes preserved. Final
+harness and extracted fixture syntax, two-file Biome (**21 ms / no findings**)
+and document-inclusive unstaged whitespace PASS. Only diagnostics/report/plan
+are staged; model/media/profile/credential/user/ignored temporary state is
+excluded. The final staged whitespace and post-commit clean status are checked
+at delivery. No checklist is checked on these diagnostic passes.

@@ -39,6 +39,9 @@
     const recognize = host.recognize;
     if (!reuseHosts) host.recognize = async job => {
       const invocation = {audioRange: {...job.audioRange}, samples: job.pcm.length, atMs: performance.now(), deliveredAtStartMs: normalized.samples/16};
+      // Digest copies the exact PCM before the production host transfers it.
+      // Compute alongside inference; do not await before submission.
+      const digest = crypto.subtle.digest('SHA-256', job.pcm);
       if (learned) {
         const captured = new Float32Array(normalized.samples);
         let offset = 0;
@@ -48,7 +51,10 @@
       }
       invocations.push(invocation);
       try { return await recognize(job); }
-      finally { invocation.settledAtMs = performance.now(); invocation.deliveredAtEndMs = normalized.samples/16; }
+      finally {
+        invocation.settledAtMs = performance.now(); invocation.deliveredAtEndMs = normalized.samples/16;
+        invocation.inputSha256 = [...new Uint8Array(await digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+      }
     };
     for (const video of videos) { video.pause(); video.currentTime = 0; }
     // Wait for actual media seek before confirming the existing opaque handles.

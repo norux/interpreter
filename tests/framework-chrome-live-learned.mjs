@@ -274,6 +274,8 @@ try {
       normalizedDeliveries, stopSnapshot: globalThis.stopSnapshot, liveStartedAtMs, liveFinishedAtMs: globalThis.liveFinishedAtMs })), { peakRssKiB, finalRssKiB: await sampleRss(), memorySamples: sustainedMemory?.samples });
     sustainedMemory = undefined;
     observations.liveRuns.push(live);
+    for (const job of live.invocations) assert.match(job.inputSha256, /^[a-f0-9]{64}$/,
+      "Every actual ASR invocation, including interrupted work, must retain its pre-transfer PCM digest");
     assert.equal(live.statuses.at(-1).state, "ready");
     assert.equal(live.statuses.at(-1).requiredBytes, model.requiredBytes);
     assert.deepEqual(live.statuses.at(-1).model, { id: model.id, version: model.version });
@@ -466,11 +468,20 @@ try {
       assert.ok(live.memorySamples.length >= 3, "Sample owned browser RSS at the start and both minute boundaries");
       live.inferenceOverlapJobs = live.invocations.filter(job => job.deliveredAtEndMs > job.deliveredAtStartMs+100).length;
       assert.ok(live.inferenceOverlapJobs >= live.invocations.length-1, "Selected-video capture must continue during every nonfinal sustained ASR job");
-      live.endpointLatenciesMs = live.transcripts.map(revision => {
+      live.endpointObservations = live.transcripts.map((revision, i) => {
         const delivery = live.normalizedDeliveries.find(packet => packet.audioEndMs >= revision.audioRange.endMs);
         assert.ok(delivery, "Each ASR endpoint must have an actual normalized delivery observation");
-        return revision.observedAtMs-delivery.atMs;
+        const job = live.invocations[i];
+        const observation = { audioRange: revision.audioRange, inputSha256: job.inputSha256,
+          submissionWaitMs: job.atMs-delivery.atMs, invocationMs: job.settledAtMs-job.atMs,
+          resultDispatchMs: revision.observedAtMs-job.settledAtMs, endpointToTextMs: revision.observedAtMs-delivery.atMs };
+        assert.ok(Object.entries(observation).filter(([key]) => key.endsWith("Ms"))
+          .every(([, ms]) => Number.isFinite(ms) && ms >= 0), "Endpoint phases must share the document clock and remain ordered");
+        assert.ok(Math.abs(observation.submissionWaitMs+observation.invocationMs+observation.resultDispatchMs-observation.endpointToTextMs) < 0.001,
+          "Reported phases must account for the entire original endpoint latency");
+        return observation;
       });
+      live.endpointLatenciesMs = live.endpointObservations.map(observation => observation.endpointToTextMs);
       if (live.endpointLatenciesMs.some(ms => ms < 0 || ms >= 2000)) observations.failures.push(`${language}/live-${periods}-periods: an endpoint exceeds the preserved 2000 ms gate`);
     }
     await page.waitForTimeout(200);
