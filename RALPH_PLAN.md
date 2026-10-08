@@ -4410,3 +4410,79 @@ append-only; every existing checkbox unchanged; recognizer/regressions restored
 byte-for-byte and runner/package/lock/architecture unchanged. Document-inclusive
 `git diff --check` PASS. Only those two documentation files are staged, and staged
 scope/whitespace plus post-commit cleanliness are verified before delivery.
+
+
+### 2026-10-08 / chrome / iteration 4/20 — B2 exact captured-job replay
+
+Related commit: `test: replay exact browser ASR jobs`, containing this entry.
+B2 remains next unfinished; no default/checkbox/stage changes.
+
+Implemented: extend the existing synthetic live fixture/harness to archive exact
+scored job PCM only after capture/detach, verify pre-transfer digests, preserve
+identity/range/text/original clock phases, then explicitly Prepare fresh cached
+workers via the existing button and replay each Japanese multi-period job once.
+Actual buffer transfer, exact archive read/hash and revision/timing checks apply.
+Original cases/assertions/quality/strict full endpoint gates remain unchanged;
+replay has no capture/segmentation wait and cannot substitute for live acceptance.
+
+Executed (ignored `.ralph/media-framework/`; full metrics/environment/hashes and
+limitations in `docs/verification/media-framework/chrome.md`):
+
+- FAIL/INTERRUPTED: initial turbo sustained command, exit 1,
+  `chrome-20261008-restart-4-live.log`: **28 ports / 254.05975 ms**, zero live
+  rounds/ASR calls. Static review found completion stops the executor; the owned
+  browser alone was intentionally stopped during Prepare, with harness cleanup.
+  Recorded closed-target error is not an environmental blocker. Corrected
+  explicit cached Prepare preserves production teardown.
+- FAIL: corrected `caffeinate -disu npm run
+  test:framework:chrome:live:sustained:gpu-recovery:turbo`, exit 1, once,
+  `chrome-20261008-restart-4-final-live.log`: **28 ports / 270.89775 ms**,
+  all ten rounds, **13,764 real WASM VAD frames / 36 real FP16 WebGPU ASR calls**,
+  including two interrupted GPU jobs, plus **11 actual replay calls**.
+  Japanese recovery **82/720 CER**, five anchors **20/18** and original endpoints
+  **2,187.0 / 2,132.5 / 2,146.2 ms** FAIL. English **19/418 WER**, all anchors
+  **19**, maximum **1,908.3 ms** PASS. Five short scored rounds PASS. No third run.
+- PASS diagnostics: **26 exact archived jobs / 20,076,536 PCM bytes**, 19 complete
+  endpoint phase associations, exact generated-media hash/size and all original/
+  archive/replay identities, ranges, digests, transfers and outputs. Archive:
+  `.ralph/media-framework/chrome-live-jobs-jHFVhY/`. All **11/11 replay texts
+  match originals**; sustained Japanese repeats the exact failed meanings.
+  Fresh cached Prepare **3,173.517417 ms**, no remote requests; every replay also
+  has none. Two extra-meaning jobs/ranges/digests are identified in the report.
+  This reproduces the failure; it does not isolate segmentation versus decoding.
+- PASS: `python3 .ralph/media-framework/chrome-20261008-restart-4-analyze.py`,
+  exit 0, `...-4-analysis.log`/`...-4-summary.json`; no additional inference.
+- PASS: earlier `caffeinate -disu npm run verify`, exit 0, `...-4-verify.log`:
+  Biome **117 files / 41 ms**, Ruff/typecheck/build, **116 JS / 21,553.665959 ms**,
+  **222 Python / 66.89 s**. Corrected final-source result follows below.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `...-4-stage-acceptance.log`: missing full-stage script; no weaker substitute.
+- PASS: syntax, targeted Biome (**10 ms**), whitespace and every original
+  harness/fixture line/assertion retained in order (observation fields extended).
+
+GPU-loss detach/discard/unprepared rejection and same-host/session/target cached
+fresh-epoch recovery PASS; discarded **14,303.375 / 13,706 ms**, pending zero,
+recovery requests zero. Normal capture/isolation/time/playback/PCM/coverage/queue/
+loss/drain/detach PASS; no accuracy claim follows those lifecycle/input checks.
+All visibility arrays/page errors `[]`. Pinned models/dependencies/source periods
+unchanged; owned browser environment/readiness/RSS limitations in the report.
+Repository AGENTS.md and requested independent runner file are absent.
+
+Next B2: improve the exactly reproducible Japanese job-2/job-6 meanings and full
+endpoint latency, then remaining original qualification before default selection.
+B2–B6/full Korean translation/DOM/offline interpretation/install/Safari/iPhone
+remain unfinished/unverified. No absent environment/device/permission, so no
+blocked or complete marker. Only harness/fixture and append-only report/plan;
+production/tests/runner/companion/settings/checkboxes/user resources preserved.
+No agents, stage advance, push/publish/install/browser/profile bypass. All model,
+media, credential, user and temporary state excluded. Final checks follow below.
+
+
+Final-source `caffeinate -disu npm run verify` PASS, exit 0,
+`chrome-20261008-restart-4-final-verify.log`: Biome **117 files / 56 ms**, Ruff/
+typecheck/unchanged **28 main / 10 content modules**, **116 JS / 22,150.513125 ms /
+0 failed/skipped/cancelled**, **222 Python / 66.95 s**. Japanese meaning/full
+endpoint and required full-stage command failures remain failures; no checkbox
+changes. Final append-only/four-file scope/checkbox/original-source preservation,
+syntax/targeted lint/whitespace, staged whitelist/whitespace and post-commit
+clean state are verified at delivery. Ignored artifacts are excluded.

@@ -37,6 +37,15 @@
     if (!reuseHosts) globalThis.host = createAsrHost(document, candidate, 'webgpu', status => statuses.push(status));
     globalThis.invocations = [];
     const recognize = host.recognize;
+    if (!reuseHosts) globalThis.replayJob = async ({ job, base64 }) => {
+      const pcm = new Float32Array(Uint8Array.from(atob(base64), byte => byte.charCodeAt(0)).buffer);
+      const digest = crypto.subtle.digest('SHA-256', pcm);
+      const started = performance.now();
+      const output = await recognize({...job, pcm});
+      const hostRoundTripMs = performance.now()-started;
+      return {...output, hostRoundTripMs, transferredBytes: pcm.byteLength,
+        inputSha256: [...new Uint8Array(await digest)].map(byte => byte.toString(16).padStart(2,'0')).join('')};
+    };
     if (!reuseHosts) host.recognize = async job => {
       const invocation = {audioRange: {...job.audioRange}, samples: job.pcm.length, atMs: performance.now(), deliveredAtStartMs: normalized.samples/16};
       // Digest copies the exact PCM before the production host transfers it.
@@ -152,6 +161,18 @@
       transcripts: transcripts.length};
     await recognizer.cancel(identity); await handle?.close();
     stopSnapshot.finishedAtMs = performance.now();
+  };
+  // Reconstruct only owned synthetic test input after acquisition has settled.
+  // The harness checks these bytes against the actual pre-transfer job digest.
+  globalThis.capturedJob = index => {
+    const job = invocations[index];
+    const captured = new Float32Array(normalized.samples);
+    let offset = 0;
+    for (const packet of normalizedPcm) { captured.set(packet, offset); offset += packet.length; }
+    const start = Math.round((job.audioRange.startMs-normalized.first.audioRange.startMs)*16);
+    const pcm = captured.slice(start, start+job.samples);
+    let binary = ''; for (const byte of new Uint8Array(pcm.buffer)) binary += String.fromCharCode(byte);
+    return {base64: btoa(binary), littleEndian: new Uint8Array(new Uint32Array([1]).buffer)[0] === 1};
   };
   window.addEventListener('pagehide', () => { void recognizer?.close(); void handle?.close(); host?.dispose(); vad?.dispose(); catalog.dispose(); });
   await Promise.all(videos.map(video => video.readyState >= 2 ? Promise.resolve() : new Promise(done => video.addEventListener('loadeddata', done, {once:true}))));

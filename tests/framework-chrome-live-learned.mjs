@@ -20,6 +20,7 @@ const candidate = turbo ? "turboFp16" : "smallFp16";
 const model = turbo ? { id: "onnx-community/whisper-large-v3-turbo", version: "360ebcde2559d60bb474678be3c1de9ef347d01a", requiredBytes: 1621338971 }
   : { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732", requiredBytes: 487960440 };
 const output = resolve(".ralph/media-framework/chrome-live-learned-build");
+const archivedRuns = [];
 const manifest = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8"));
 for (const clip of manifest.clips) {
   const bytes = await readFile(`tests/fixtures/video-speech/${clip.language}.webm`);
@@ -31,6 +32,7 @@ await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: {
     catalog: resolve("packages/media-web/catalog.ts"), timeline: resolve("packages/core/timeline.ts"), vad: resolve("packages/engines-browser/vad-host.ts") },
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } },
 } });
+const archive = await mkdtemp(resolve(".ralph/media-framework/chrome-live-jobs-"));
 const server = createServer(async (request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
   if (path === "/live") {
@@ -50,7 +52,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, gpuRecovery, sustainedGpuRecovery, asrStop, candidate, model, generatedMedia: [], liveRuns: [], failures: [] };
+const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, gpuRecovery, sustainedGpuRecovery, asrStop, candidate, model, archive, generatedMedia: [], liveRuns: [], exactJobReplays: [], failures: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page;
 let peakRssKiB = 0;
 let sustainedMemory;
@@ -486,7 +488,86 @@ try {
     }
     await page.waitForTimeout(200);
     assert.equal(await page.evaluate(() => raw.chunks), live.raw.chunks, "Capture must detach after completion while playback continues");
+    const archived = { round, language, periods, reference: clip.text, fixtureSha256: clip.sha256,
+      identity: live.identity, jobs: [] };
+    for (const [i, job] of live.invocations.entries()) {
+      const snapshot = await page.evaluate(index => capturedJob(index), i);
+      assert.equal(snapshot.littleEndian, true, "Archive uses Float32 little-endian PCM at 16 kHz");
+      const bytes = Buffer.from(snapshot.base64, "base64");
+      assert.equal(bytes.length, job.samples*4);
+      assert.equal(createHash("sha256").update(bytes).digest("hex"), job.inputSha256,
+        "Archived bytes must exactly reproduce the actual pre-transfer selected-video ASR job");
+      const file = `round-${round}-job-${i+1}.f32`;
+      await writeFile(resolve(archive, file), bytes);
+      archived.jobs.push({ file, samples: job.samples, inputSha256: job.inputSha256,
+        utteranceId: live.transcripts[i].utteranceId, audioRange: job.audioRange, originalText: live.transcripts[i].text,
+        originalInvocationMs: job.settledAtMs-job.atMs, endpointObservation: live.endpointObservations?.[i] });
+    }
+    archivedRuns.push(archived);
+    await writeFile(resolve(archive, "manifest.json"), JSON.stringify({
+      scope: "Owned synthetic selected-video ASR jobs only; no user recordings or full interpretation",
+      format: "float32-le", sampleRate: 16000, channels: 1, candidate, model, runs: archivedRuns,
+    }, null, 2));
+    live.archivedJobs = archived.jobs;
     console.log(JSON.stringify({ scoredLive: live }));
+  }
+  // Completion stops the executor. Prepare fresh cached workers through the
+  // existing trusted button before replay, without changing session cleanup.
+  await page.evaluate(() => { globalThis.prepared = false; globalThis.prepareError = undefined;
+    globalThis.statuses = []; globalThis.vadStatuses = []; });
+  const replayRequestsBefore = remoteRequests;
+  const replayPreparationStart = performance.now();
+  await page.locator("#prepare").press("Enter");
+  await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined,
+    { timeout: turbo ? 240000 : 120000, polling: 100 });
+  assert.equal(await page.evaluate(() => prepareError), undefined);
+  observations.replayPreparation = { preparationMs: performance.now()-replayPreparationStart,
+    remoteRequests: remoteRequests-replayRequestsBefore,
+    ...await page.evaluate(() => ({ statuses, vadStatuses })) };
+  assert.equal(observations.replayPreparation.remoteRequests, 0);
+  for (const statuses of [observations.replayPreparation.statuses, observations.replayPreparation.vadStatuses]) {
+    assert.ok(statuses.some(status => status.state === "cached"));
+    assert.ok(statuses.every(status => status.state !== "downloading"));
+    assert.equal(statuses.at(-1).state, "ready");
+  }
+  assert.deepEqual(observations.replayPreparation.statuses.at(-1).model, { id: model.id, version: model.version });
+  // Replay Japanese multi-period cases once, after every live measurement.
+  // Capture, VAD execution and endpoint clocks are absent from replay timing.
+  // Original live failures remain failures regardless of replay output.
+  for (const run of archivedRuns.filter(run => run.language === "ja" && run.periods > 1)) {
+    const replay = { round: run.round, language: run.language, periods: run.periods, jobs: [] };
+    const requestsBefore = remoteRequests;
+    for (const job of run.jobs) {
+      const bytes = await readFile(resolve(archive, job.file));
+      assert.equal(createHash("sha256").update(bytes).digest("hex"), job.inputSha256,
+        "Replay must read the verified archived PCM rather than regenerate or trim input");
+      const output = await page.evaluate(snapshot => replayJob(snapshot), {
+        job: { identity: run.identity, utteranceId: job.utteranceId, language: run.language, audioRange: job.audioRange },
+        base64: bytes.toString("base64"),
+      });
+      assert.equal(output.inputSha256, job.inputSha256);
+      assert.equal(output.transferredBytes, 0, "Replay must use the actual transferring production executor");
+      assert.deepEqual(output.revision.identity, run.identity);
+      assert.deepEqual(output.revision.audioRange, job.audioRange);
+      assert.equal(output.revision.utteranceId, job.utteranceId);
+      assert.equal(output.revision.language, run.language);
+      assert.equal(output.revision.final, true); assert.equal(output.revision.sourceRevision, 1);
+      assert.ok(Number.isFinite(output.inferenceMs) && output.inferenceMs >= 0);
+      assert.ok(Number.isFinite(output.hostRoundTripMs) && output.hostRoundTripMs >= output.inferenceMs);
+      replay.jobs.push({ ...job, ...output, identicalText: output.revision.text === job.originalText });
+    }
+    const text = replay.jobs.map(job => job.revision.text).join(" ");
+    replay.accuracy = errors(Array(run.periods).fill(run.reference).join(" "), text, run.language);
+    const normalized = text.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]/gu, "").replace(/\s+/g, "");
+    replay.meaningCounts = Object.fromEntries(["会議", "しません", "明日", "午後", "駅", "予約", "取り消さない"]
+      .map(anchor => [anchor, normalized.split(anchor).length-1]));
+    replay.remoteRequests = remoteRequests-requestsBefore;
+    assert.equal(replay.remoteRequests, 0, "Exact-job replay must reuse the resident model without remote inference/download");
+    if (replay.accuracy.rate > 0.2) observations.failures.push(`ja/replay-round-${run.round}: CER ${replay.accuracy.rate} exceeds preserved 0.2 gate`);
+    if (Object.values(replay.meaningCounts).some(count => count !== run.periods)) observations.failures.push(`ja/replay-round-${run.round}: every meaning must occur exactly ${run.periods} times`);
+    observations.exactJobReplays.push(replay);
+    await writeFile(resolve(archive, `round-${run.round}-replay.json`), JSON.stringify(replay, null, 2));
+    console.log(JSON.stringify({ exactJobReplay: replay }));
   }
   observations.pageErrors = pageErrors;
   observations.remotePaths = [...remotePaths];

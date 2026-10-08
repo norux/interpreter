@@ -6842,3 +6842,200 @@ append-only; every existing checkbox unchanged; recognizer/regressions restored
 byte-for-byte and runner/package/lock/architecture unchanged. Document-inclusive
 `git diff --check` PASS. Only those two documentation files are staged, and staged
 scope/whitespace plus post-commit cleanliness are verified before delivery.
+
+
+## 2026-10-08 — B2 exact captured-job replay (chrome iteration 4/20)
+
+Related commit: `test: replay exact browser ASR jobs`, containing this report.
+B2 remains next unfinished; B2–B6 stay unchecked and no default is selected.
+Repository AGENTS.md and the requested independent runner file
+`.ralph/media-framework/2026-10-08T07-45-37-544Z-chrome-verification.txt` are absent.
+Supplied instructions, plan, architecture and prior Chrome evidence apply.
+Evidence paths below are ignored local `.ralph/media-framework/` state.
+
+### Implementation and observable criterion
+
+Assumption: historical hashes identify jobs but cannot reproduce their PCM.
+Before another segmentation/decoding change, preserve the actual failing input
+and establish whether its text repeats with fresh workers. The smaller change
+extends the existing live harness and fixture; production recognition is unchanged.
+
+After each scored capture settles and detaches, reconstruct its jobs from the
+already retained normalized synthetic selected-video PCM. Check every byte count
+and SHA-256 against the actual pre-transfer job digest, then save Float32 LE,
+16 kHz mono files and a manifest containing pinned model, fixture hash, identity,
+range, original text and original invocation/endpoint observations. These files
+remain outside Git. No regenerated, filtered, trimmed or decoded replacement
+samples enter replay; expected text is used only for scoring.
+
+Normal completion stops the executor. An explicit Enter press on the existing
+Prepare button creates fresh cached workers after all live measurements. Require
+cached readiness, pinned identity and zero remote requests. Replay each
+Japanese multi-period job once through the production executor, checking digest,
+actual buffer transfer, identity/range/language/revision and finite timing.
+Compare text and apply the original CER/meaning gates to the combined replay.
+Every original live case, source line and assertion remains in order; live
+failures cannot be replaced by replay passes. Full endpoint latency retains its
+strict <2,000 ms gate. Replay timing has no capture, VAD execution or segmentation
+wait, and cannot qualify that gate or complete interpretation.
+
+### Commands and failures
+
+- FAIL/INTERRUPTED: first `caffeinate -disu npm run
+  test:framework:chrome:live:sustained:gpu-recovery:turbo`, exit 1,
+  `chrome-20261008-restart-4-live.log`. Static lifecycle review found the replay
+  setup incorrectly assumed normal completion retained a ready executor. The
+  owned browser alone (PID 28731, verified direct child of owned harness 28730)
+  was stopped with SIGTERM during preparation. Harness cleanup completed;
+  `page.waitForFunction: Target page, context or browser has been closed` is the
+  intentional interruption, with **zero live rounds/ASR calls**. Its **28 ports /
+  254.05975 ms** and generated media do not establish accuracy or a blocker.
+  Added explicit cached Prepare; no production teardown change or access bypass.
+- FAIL: corrected same command, exit 1, once,
+  `chrome-20261008-restart-4-final-live.log`: typecheck, **28 original focused
+  ports / 270.89775 ms**, build and all **ten live rounds** complete. **13,764
+  actual WASM VAD frames / 36 actual FP16 WebGPU ASR calls**, including two
+  interrupted GPU jobs; **11 additional real replay calls**. Exactly three
+  aggregate failures: sustained Japanese meaning count, sustained Japanese full
+  endpoint latency, and reproduction of the meaning failure in replay. No third
+  invocation or rejected-policy experiment follows.
+- PASS: `python3 .ralph/media-framework/chrome-20261008-restart-4-analyze.py`,
+  exit 0, `chrome-20261008-restart-4-analysis.log` and
+  `chrome-20261008-restart-4-summary.json`:
+  actual generated-media hashes/sizes; **26 archived jobs / 20,076,536 PCM bytes**;
+  all archived hashes/ranges/text versus captured originals; **19 original
+  endpoint phase associations/sums**; all replay-file/identity/transfer/text
+  comparisons. This analysis is not another inference or an accuracy pass.
+- PASS: earlier `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-restart-4-verify.log`: Biome **117 files / 41 ms**, Ruff,
+  typecheck/build, **116 JS / 21,553.665959 ms**, **222 Python / 66.89 s**.
+  This precedes the corrected replay Prepare setup; final-source verification
+  is recorded below.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-4-stage-acceptance.log`: missing full-stage script.
+  No placeholder or ASR-only substitute is added.
+- PASS: harness/extracted fixture `node --check`, final two-file Biome
+  **10 ms / no findings**, whitespace and explicit preservation of every
+  original harness/fixture source line and assertion (except the observation
+  initializer's additional fields), exit 0. No temporary state is tracked.
+
+### Actual live and exact replay results
+
+The archive is `.ralph/media-framework/chrome-live-jobs-jHFVhY/`, including
+`manifest.json`, per-job `.f32` and per-round replay JSON. All **11/11 replay
+texts exactly match originals**, including the failed sustained output. Fresh
+cached Prepare takes **3,173.517417 ms**, with **zero remote requests**; each
+replay also has zero remote requests. This demonstrates reproduction of this
+failure on the same PCM; it does not isolate segmentation versus decoding as
+its cause or reproduce historical jobs whose PCM was not retained.
+
+| Scored input | Japanese / 3 periods | Japanese recovery / 18 periods | English recovery / 19 periods |
+| --- | ---: | ---: | ---: |
+| Live error | 3/120 = 2.5% CER | 82/720 = 11.388889% CER | 19/418 = 4.545455% WER |
+| Live meanings | All seven 3 — PASS | Meeting/negation/tomorrow/afternoon/station **20/18 — FAIL**; reservation/cancellation 18 | All four 19 — PASS |
+| Jobs / nonfinal capture overlaps | 2 / original overlap PASS | 9 / 8 | 10 / 9 |
+| Full endpoint range ms | Sustained-only field | **1,604.5–2,187.0 — FAIL** | 1,486.4–1,908.3 — PASS |
+| Last packet to text ms | 1,451.0 | 1,607.2 | 1,493.9 |
+| Peak pending / normal loss / final pending ms | 13,716.6875 / 0 / 0 | 16,906 / 0 / 0 | 15,188.6875 / 0 / 0 |
+| Replay jobs / identical texts | 2 / 2 | 9 / 9 | Not replayed |
+| Replay CER / meaning counts | Original 2.5% / all 3 — PASS | Original 11.388889% / five **20/18 — FAIL** | Not replayed |
+| Replay worker inference ms | 1,533.0–1,742.6 | 1,550.0–1,819.0 | Not measured |
+| Replay document round trip ms | 1,536.1–1,747.4 | 1,552.1–1,821.3 | Not measured |
+
+Worker durations use their own clock; replay document round trips start after
+archive/base64 decoding and digest initiation, encompass the production executor,
+and use one document clock. They are separate from original full endpoints.
+The three failed live endpoint phases remain:
+
+| Original job ms | Submission wait ms | Invocation ms | Dispatch ms | Full endpoint ms |
+| --- | ---: | ---: | ---: | ---: |
+| 32–14,720 | 256.6 | 1,930.4 | 0 | **2,187.0** |
+| 14,720–28,640 | 300.2 | 1,832.3 | 0 | **2,132.5** |
+| 70,496–84,416 | 299.8 | 1,846.4 | 0 | **2,146.2** |
+
+`round-7-job-2.f32` and `round-7-job-6.f32` each return three meeting/tomorrow/
+station anchors and two reservation anchors, identically in original and replay.
+Their exact digests are respectively
+`9832bc0f279335df6e7e38580e89e99abd138320ff7e243a57cc45ab8027e151` and
+`71dff3bc24f8304f5da4804996dfb42e2762edcc53eebcbcde7a5a54fafd9b5c`.
+The first late job digest is
+`bac07ec284d01e9b942ac8ff23a712a6fc0f066519a59f76cefbf7240f99f710`.
+Original endpoint/range/hash/phase observations are also in the archive manifest;
+shorter replay invocation durations do not turn any live endpoint into a pass.
+
+Other short scored rounds PASS: Japanese **1/40 CER** twice and English
+**1/22 WER** once, all meanings once; English three periods **3/66 WER**,
+all meanings three times. Five short final-packet latencies are **1,345–1,601.5
+ms**. Actual unfiltered normalized selected PCM, isolation tags, time mapping,
+original playback/settings, contiguous <=20-second jobs, complete VAD coverage,
+<=30-second queues, zero normal loss/drain and detach checks PASS. Japanese/
+English recovery supplies **2,008,405 / 2,027,520 samples**, acquisition
+**125,525.3125 / 126,720 ms**, document runs **127,131.9 / 128,211.8 ms**.
+
+Both real GPU-loss paths PASS after **63,907.5 / 61,761.1 ms** document runs,
+five jobs each; interrupted work publishes no revision. Discarded audio is
+**14,303.375 / 13,706 ms**, pending zero. Unprepared retries retain 6,400 bytes,
+return `gpu-lost`, create zero workers. Explicit same-host/session/target cached
+recovery creates fresh workers/epoch 1 with zero remote requests. Original
+VAD-only Stop PASS, with zero ASR calls. These are controlled lifecycle checks,
+not natural GPU pressure, active-ASR user Stop or full offline interpretation.
+
+### Environment, remaining scope and preservation
+
+Owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, uv **0.12.23**, Python **3.12.15**. Same pinned
+turbo **360ebcde2559d60bb474678be3c1de9ef347d01a**, seven files /
+**1,621,338,971 bytes**; Silero **e71cae966052b992a7eca6b17738916ce0eca4ec**,
+one file / **2,243,022 bytes**; locked Transformers.js **4.3.0**. No new
+candidate, weight revision, decoding or dependency policy. **16 pinned/redirect paths /
+16 remote requests**, first Prepare **169,274.188792 ms**, nine cached
+**2,366.434083–3,963.245417 ms**. Initial owned-tree RSS **1,428,752 KiB**,
+maximum post-prepare case peak **5,060,624 KiB**. RSS includes browser/GPU/shared
+pages/allocator/model/media/harness and possible archive allocation residency;
+isolated allocation, preparation peak, memory pressure/leaks and mobile behavior
+are unqualified. Replay has no separate memory qualification.
+
+Source period hashes remain the previously recorded originals. Corrected generated
+Japanese **2,191,142 bytes / ef377d070573e6fcca70367dfa55d56dc21de40a3c3bab66c099858232e8600a**;
+English **2,193,135 bytes / fa435cf8febdc3882284a132c49eaca1b1ddbb00a88fa1e51af99013e4e65f50**.
+Separate generated captures are not asserted byte-identical; archived/replayed
+jobs are actually hash-verified identical. Models/media/profiles/logs stay ignored.
+
+Next unfinished B2: resolve the reproduced Japanese extra meanings, starting
+with the exact job-2/job-6 bytes, and the unchanged full endpoint gates. Qualify
+remaining original/natural/quiet/no-pause/noise, overload, ten-minute acquisition,
+pressure/storage and licensing requirements before selecting a default. Historical
+missing-time/unreferenced-phrase failures remain failed/unqualified. Prior noise,
+quiet, offline and active-ASR Stop suites were not rerun by this diagnostic work.
+
+UNVERIFIED: full Chrome selected-video → ASR → Korean translation → DOM,
+source/translation pairing, full offline interpretation, standalone installation,
+B3–B6 and Safari/iPhone. No required environment/device/permission is absent;
+these are reproducible qualification failures and unfinished implementation.
+No checkbox or stage/whole-framework/iPhone completion is claimed.
+
+Only the existing harness/fixture and append-only report/plan are retained.
+Production/regression/model/fixture-audio/dependency/runner/architecture bytes,
+companion v0.1.0/install/native messaging/server/user settings, all prior
+checkboxes and unrelated files/apps/recordings/mounted images are preserved.
+No agents, other stage, push/publish/app installation or access/profile/permission
+bypass. Only owned test browsers/profiles/recorders are cleaned up. Credentials,
+weights, user audio/transcripts and temporary `.ralph` state stay out of Git.
+Final-source verification and Git preservation checks follow below.
+
+
+Final-source verification PASS: `caffeinate -disu npm run verify`, exit 0,
+`chrome-20261008-restart-4-final-verify.log`: Biome **117 files / 56 ms /
+no findings**, Ruff/typecheck, unchanged companion **28 main / 10 content
+modules**, **116 JS / 22,150.513125 ms / 0 failed/skipped/cancelled**,
+**222 Python / 66.95 s**. Diagnostic replay is verified on the retained final
+executable sources; quality/full-stage failures above remain failures.
+
+Final preservation checks PASS, exit 0: exactly harness/fixture/report/plan
+changed; report/plan append-only; every prior checkbox and original harness/
+fixture source line/assertion preserved (observation initializer extended).
+Production/regression/model registry/audio fixtures/package/lock/runner/
+architecture and companion/settings are unchanged. Document-inclusive whitespace,
+final two-file Biome, harness/extracted fixture syntax, staged whitelist and
+staged whitespace pass. Temporary model/media/profile/credential/user/`.ralph`
+state is excluded. Commit and post-commit clean status are checked at delivery.
