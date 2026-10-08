@@ -6687,3 +6687,158 @@ and document-inclusive unstaged whitespace PASS. Only diagnostics/report/plan
 are staged; model/media/profile/credential/user/ignored temporary state is
 excluded. The final staged whitespace and post-commit clean status are checked
 at delivery. No checklist is checked on these diagnostic passes.
+
+
+## 2026-10-08 — B2 rejected short-pause start boundary (chrome iteration 3/20)
+
+Related commit: `docs: record rejected browser ASR pause boundary`, containing
+this report. B2 remains the next unfinished item; B2–B6 remain unchecked and no
+default model is selected. Root/nested AGENTS.md and requested independent runner
+file `.ralph/media-framework/2026-10-08T07-45-37-544Z-chrome-verification.txt`
+are absent. Supplied instructions, plan, architecture and prior Chrome evidence
+were read. Evidence below is ignored local `.ralph/media-framework/` state.
+
+### Implemented hypothesis, regression and rejection
+
+Assumption tested: a short inactive interval after ten seconds can include a
+word onset that learned VAD admits late. Moving the cut to the start of that
+interval might keep the word in one ASR job. This is a smaller change than a new
+model or decoding policy. The experimental recognizer changed only the position
+of cuts for qualifying pauses shorter than 500 ms; the five-frame short-pause
+threshold, five-frame onset confirmation, ordinary-pause midpoint, first-result
+confidence rule, exact PCM, 20-second segment and 30-second pending bounds stayed.
+
+A new regression supplied a marked, detector-delayed onset in a 224 ms pause.
+Two existing short-pause tests' expected boundary positions were adjusted to the
+experimental rule; all their exact-sample, EOF, frame-coverage and loss assertions
+remained. This is simulated segmentation evidence, not labeled recognition.
+
+- FAIL before implementation: `node --import tsx --test
+  --test-name-pattern='a late short learned pause keeps'
+  tests/framework-browser-speech.test.ts`, exit 1, one failing test,
+  **11,200 ms actual versus 11,072 ms proposed cut**;
+  `chrome-20261008-restart-3-regression-before.log`.
+- PASS with experiment: `node --import tsx --test
+  tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts
+  tests/framework-browser-normalize.test.ts`, exit 0, **29/29 / 283.427375 ms**,
+  `chrome-20261008-restart-3-ports.log`. Fake executor/detector only.
+- PASS: targeted two-file Biome (**8 ms / no findings**) and experimental
+  whitespace, exit 0. Neither establishes recognition quality.
+
+The real sustained run below FAILS both languages' endpoint gates and Japanese
+meaning count. The hypothesis is **rejected**. Recognizer and regression file,
+including both changed expectations and the added test, are restored byte-for-byte
+to HEAD. No policy, test, fixture, acceptance exemption or diagnostic code is
+retained. No second invocation of this rejected policy or unchanged baseline is
+made; separate generated/live captures are not assumed identical or causal proof.
+
+### Actual browser qualification — FAIL
+
+`caffeinate -disu npm run
+ test:framework:chrome:live:sustained:gpu-recovery:turbo`, exit 1, once,
+`chrome-20261008-restart-3-live.log`: typecheck, **29 experimental port tests /
+311.132458 ms**, browser build, **ten rounds / 13,987 actual WASM VAD frames /
+47 actual FP16 WebGPU ASR calls**, including two interrupted GPU jobs. Exactly
+three aggregate failures: Japanese recovered meaning count, Japanese recovered
+endpoint latency and English recovered endpoint latency. Page errors and all
+native visibility-event arrays are `[]`.
+
+| Sustained recovered input | Japanese, 18 periods | English, 19 periods |
+| --- | ---: | ---: |
+| Normalized samples / duration ms | 2,008,405 / 125,525.3125 | 2,027,520 / 126,720 |
+| Error | 56/720 = 7.777778% CER | 19/418 = 4.545455% WER |
+| Meanings | **Station 19 instead of 18 — FAIL**; other six 18 | All four anchors 19 — PASS |
+| Jobs / nonfinal capture overlaps | 19 / 18 | 10 / 9 |
+| Full endpoint-to-text ms | **1,136.1–2,241.8 — FAIL**, one >=2,000 | **1,512.6–2,035.2 — FAIL**, three >=2,000 |
+| Final packet-to-text ms | 1,137.7 | 1,516.7 |
+| Peak pending / normal loss / final pending ms | 16,788.6875 / 0 / 0 | 15,359.375 / 0 / 0 |
+
+The failed Japanese first endpoint is exact PCM **64–14,624 ms**, SHA-256
+`8f55c3e7adf41de7e2501816cfb2daa30f26197f84ffc5f05f54d516545ed57d`.
+Shared-document-clock phases are **388.2 ms submission wait + 1,853.6 ms invocation
++ 0 ms dispatch = 2,241.8 ms full latency**. Failed English endpoints are
+**2,029.0 / 2,035.2 / 2,013.7 ms**. The original strict full-endpoint gate remains;
+invocation time cannot replace it. All 47 pre-transfer digests and all 29
+sustained endpoint range/hash/phase associations are recorded in the original
+harness output and extracted `chrome-20261008-restart-3-summary.json`.
+
+Five original scored short rounds PASS: Japanese **1/40, 1/40, 3/120 CER**,
+English **1/22, 3/66 WER**, every meaning once/three times, final-packet latency
+**1,348.6–1,482.3 ms**. Exact unfiltered normalized selected PCM, input isolation,
+time mapping, original playback/settings, contiguous <=20-second jobs, complete
+VAD coverage, queue bounds, zero normal loss/drain and detach assertions PASS.
+Those observations do not qualify the failed sustained meanings/endpoints.
+
+Both real GPU-loss paths PASS cancellation/detach and preserve playback. Their
+interrupted jobs publish no revision; discarded audio is explicit:
+Japanese **14,431.375 ms**, English **13,812.6875 ms**, final pending zero.
+Unprepared retries return `gpu-lost`, keep **6,400 bytes**, create zero workers.
+Explicit cached Prepare creates fresh workers on the same host/session/target,
+recovered epoch 1 and zero recovery remote requests. Original VAD-only Stop
+returns `cancelled`, retains zero ASR calls and **863.375 ms** discarded audio.
+This is controlled lifecycle evidence, not active user Stop during ASR, natural
+pressure or full offline interpretation.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**,
+Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, Python **3.12.15**. Unchanged
+pinned turbo `360ebcde2559d60bb474678be3c1de9ef347d01a`, seven files /
+**1,621,338,971 bytes**; Silero `e71cae966052b992a7eca6b17738916ce0eca4ec`, one
+file / **2,243,022 bytes**; locked Transformers.js **4.3.0**. No new weights or
+candidate. **16 pinned/redirect paths / 16 requests**, first Prepare
+**160,132.855458 ms**, cached **2,288.391375–3,447.485916 ms**. Initial owned-tree
+RSS **1,428,624 KiB**, maximum case peak **4,821,360 KiB**. RSS includes shared
+pages, allocator, browser/GPU/model/media/harness residency; it does not qualify
+isolated allocation, preparation peak, memory pressure, leaks or mobile behavior.
+
+Source period hashes remain the prior Japanese/English hashes recorded above.
+Actual generated media sizes/hashes independently PASS: Japanese **2,191,142
+bytes / 925cf163699829695c8a28ed27caf755f4936666f856aeff3bd0eefb02e7aeff**;
+English **2,193,135 bytes /
+a3a0db9d766d9fbaf6f1e58eda7e89de3724604e9a78b05f491ec0c1f73df9a4**.
+Python assertions over the captured JSON PASS all 47 digest formats, scored exact
+PCM/zero final loss/drain/visibility, and 29 endpoint phase sums within 0.001 ms.
+This analysis is not another inference run or an accuracy pass. Synthetic media,
+model weights and temporary logs remain excluded from Git.
+
+### Required checks on restored final sources
+
+- PASS: `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-restart-3-final-verify.log`: Biome **117 files / 61 ms /
+  no findings**, Ruff/typecheck/unchanged companion build, **116 JS /
+  22,047.025917 ms / 0 failed/skipped/cancelled**, **222 Python / 66.92 s**.
+- Earlier experimental `caffeinate -disu npm run verify` also PASS, exit 0,
+  `chrome-20261008-restart-3-verify.log`: Biome **117 files / 48 ms**,
+  **117 JS / 21,239.95575 ms**, **222 Python / 66.83 s**. Its extra regression
+  and proposed policy are reverted; this pass does not qualify recognition.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-3-stage-acceptance.log`: missing full-stage script.
+  No placeholder, weakened gate or ASR-only substitute is added.
+
+Next unfinished B2: a successful alternative must resolve Japanese extra/missing
+meanings and the full endpoint gates on unchanged original fixtures. Exact-job
+replay would help distinguish capture/segmentation from decoding variability;
+the current hashes alone cannot reproduce PCM or establish causality. Remaining
+natural/quiet/no-pause/noise, overload, ten-minute acquisition, pressure/storage
+and licensing qualification must precede default selection. Historical failed
+future-time/unreferenced-phrase cases remain failed/unqualified.
+
+UNVERIFIED: full Chrome selected-video → ASR → Korean translation → DOM,
+source/translation pairing, complete offline interpretation and installation;
+B3–B6 and Safari/iPhone. No environment/device/permission is absent. This is a
+rejected implementation hypothesis and unfinished qualification, not an external
+blocker or stage completion. No checkbox or completion marker is justified.
+
+Only this report and the append-only plan progress entry are retained. Companion
+v0.1.0/install/native messaging/server/settings, executable sources, regression
+fixtures/gates, dependencies, runner, architecture and all prior checkboxes are
+preserved. No agents, stage advance, push/publish/app installation, access/profile
+bypass or user-app/recording/mounted-image changes. Owned test browser/profile/
+recorders alone are cleaned up by the existing harness. Final append-only scope,
+whitespace, staged exclusion and post-commit clean state are checked at delivery.
+
+
+Final preservation checks PASS, exit 0: exactly report/plan changed; both are
+append-only; every existing checkbox unchanged; recognizer/regressions restored
+byte-for-byte and runner/package/lock/architecture unchanged. Document-inclusive
+`git diff --check` PASS. Only those two documentation files are staged, and staged
+scope/whitespace plus post-commit cleanliness are verified before delivery.

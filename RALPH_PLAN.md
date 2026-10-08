@@ -4349,3 +4349,64 @@ and document-inclusive unstaged whitespace PASS. Only diagnostics/report/plan
 are staged; model/media/profile/credential/user/ignored temporary state is
 excluded. The final staged whitespace and post-commit clean status are checked
 at delivery. No checklist is checked on these diagnostic passes.
+
+
+### 2026-10-08 / chrome / iteration 3/20 — B2 rejected short-pause start boundary
+
+Related commit: `docs: record rejected browser ASR pause boundary`, containing
+this entry. B2 remains next unfinished; no default/checkbox/stage changes.
+
+Implemented/tested: moved only qualifying <500 ms learned pauses after ten seconds
+from midpoint to pause start to retain a detector-delayed word onset. A new
+regression FAILS first (**11,200 vs 11,072 ms**, exit 1), then all **29 focused
+ports PASS / 283.427375 ms**. Two existing expected cut positions followed the
+experimental rule; all original exact PCM/EOF/coverage/loss assertions stayed.
+Actual sustained qualification FAILS, so recognizer/tests and all changed
+expectations are restored byte-for-byte. Only evidence documentation is retained.
+
+Executed (ignored `.ralph/media-framework/`; exact details in Chrome report):
+
+- FAIL: `caffeinate -disu npm run test:framework:chrome:live:sustained:gpu-recovery:turbo`,
+  exit 1, once, `chrome-20261008-restart-3-live.log`: **ten rounds / 13,987 actual
+  WASM VAD frames / 47 actual FP16 WebGPU ASR calls**, including two interrupted
+  GPU jobs. Japanese **56/720 CER**, station **19 instead of 18** (other six 18),
+  first full endpoint **2,241.8 ms** FAIL. English **19/418 WER**, every anchor
+  **19**, endpoints **2,029.0/2,035.2/2,013.7 ms** FAIL. Three original aggregate
+  failures; no text/gate/case removed. Five short scored rounds and GPU recovery/
+  exact PCM/isolation/time/playback/queue/loss/drain/detach checks PASS; page and
+  visibility errors `[]`. These passes do not override sustained quality/latency.
+- PASS: final restored-source `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-restart-3-final-verify.log`: Biome **117 files / 61 ms**, Ruff/
+  typecheck/unchanged companion build, **116 JS / 22,047.025917 ms**,
+  **222 Python / 66.92 s**. Experimental verify also PASS **117 JS /
+  21,239.95575 ms; 222 Python / 66.83 s**, earlier log in report; policy reverted.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-3-stage-acceptance.log`: missing full-stage script.
+- PASS: experimental targeted Biome/whitespace; Python analysis of all 47
+  digests, scored exact PCM/accounting/visibility and 29 complete endpoint phases;
+  actual generated synthetic media sizes/hashes. No new inference invocation.
+
+Owned Chromium **153.0.8010.12**, macOS **26.6.2/25G83 arm64**, Node **v24.15.0**,
+npm **11.12.1**, uv **0.12.23**, Python **3.12.15**. Pinned turbo/Silero, locked
+dependencies and source period hashes unchanged; readiness/RSS/timeline limits and
+exact failing Japanese job identity are in the report. Requested independent
+runner file and root/nested AGENTS.md are absent. Model/media/user data/credentials
+and temporary `.ralph` state stay out of Git.
+
+Next B2: resolve meaning and full endpoint failures with an actually passing
+alternative; exact captured-job replay would distinguish segmentation from
+regenerated-input variability. Finish original remaining qualification before
+default selection. B2–B6/full translation/DOM/offline interpretation/install/
+Safari/iPhone remain unverified/unfinished. No external device/environment/
+permission blocker and no completion; neither terminal marker applies.
+Only append-only report/plan retained; executable sources/tests, runner/gates,
+companion/settings/checkboxes/unrelated user resources preserved. No agents,
+stage advance, push/publish/install or browser/profile bypass. Final scope,
+whitespace, staged exclusion and post-commit clean state checked at delivery.
+
+
+Final preservation checks PASS, exit 0: exactly report/plan changed; both are
+append-only; every existing checkbox unchanged; recognizer/regressions restored
+byte-for-byte and runner/package/lock/architecture unchanged. Document-inclusive
+`git diff --check` PASS. Only those two documentation files are staged, and staged
+scope/whitespace plus post-commit cleanliness are verified before delivery.
