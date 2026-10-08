@@ -6053,3 +6053,22 @@ workaround; credentials/weights/user audio/transcripts/temporary `.ralph` not
 committed. Final syntax, focused Biome (**3 / 20 ms**), whitespace, checkbox/staged
 scope and clean committed worktree checked at delivery.
 Commit: `fix: preserve repeated Japanese translation clauses`.
+
+
+### 2026-10-09 supervised B6 actual long-ASR failure handoff
+
+After clean native-fix commit `ba03eba`, retain the production extension's three
+identical ASR hallucinations at audio-end modulo 23,940 = 14,864 ms. The exact
+299-character source (38 absent store-phrase repetitions), utterance/video ranges
+and ~5.3 s source intervals are in the Chrome report's supervised long-run ASR
+section. Twelve of 87 intervals exceed 2 s; native pair addition max 76.2 ms.
+Clock scope remains common-host delivery→source, not a replacement for labeled
+speech-endpoint timing. The separate long learned-live/replay failure is 34.86%
+CER with exact input available in `.ralph/media-framework/chrome-live-jobs-4hf2rL`.
+Actual input of the three extension windows still needs capture/reproduction.
+B6 must qualify these actual default ASR input paths, repetition and timing with
+the existing strict noise/quiet/meaning/20%/endpoint criteria. Preserve source
+and real repetitions; no transcript post-filter, reference substitution or
+weaker gate. Native translation's verified slice stays recorded separately.
+No runtime, fixture, threshold or checkbox changes; resume the same all-stage
+loop after this evidence commit. Safari/iPhone/final cleanup remain unfinished.

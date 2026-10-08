@@ -58,6 +58,13 @@ Korean meaning, and these text/native results do not qualify every application
 utterance. The strict noise ASR omission and newly measured sustained Japanese repetition/
 endpoint failures keep B6 and full-stage acceptance unfinished.
 
+The actual ten-minute extension also emits an identical 299-character ASR
+hallucination at three repeated video positions, including 38 repetitions of a
+store phrase absent from the fixture. Its 12 source-delivery intervals over 2 s
+and worst 5.33 s remain unfinished B6 evidence. The exact source/windows below
+must accompany the existing archived two-minute ASR failure when qualifying the
+final default; these are distinct observed input paths.
+
 
 Verification of this scope update: existing runner tests **20 PASS**, ASR transport
 and speech queue/cancellation regressions **24 PASS**; Chrome dry-run exits 0.
@@ -9828,3 +9835,53 @@ user audio/transcripts and temporary `.ralph` state are not committed. Only owne
 acceptance browser profiles/processes are cleaned up by their harnesses. Final
 staged scope/checkbox preservation/whitespace and clean committed worktree are
 checked at delivery. Commit: `fix: preserve repeated Japanese translation clauses`.
+
+
+## 2026-10-09 supervised B6 actual long-run ASR failure
+
+The selected smallFp16/WebGPU default's actual ten-minute extension run remains
+functionally successful, with 87 completed/paired rows and zero running loss.
+Its original-ASR quality and performance are unfinished: 12/87 common-host
+last-PCM-delivery→source-DOM intervals exceed 2,000 ms. Median 1,299.5 ms,
+maximum 5,328.4 ms; worker inference maximum 4,633.9 ms. Native source→paired
+maximum is 76.2 ms. These intervals retain their documented scope and do not
+replace the labeled speech-endpoint clock definition.
+
+Three worst intervals align to audio-end remainder 14,864 ms in the unchanged
+23,940 ms remux period. Their emitted source is identical (299 characters),
+including 38 occurrences of `お店において`, absent from the labeled fixture.
+
+| Utterance | Audio end ms | Observed video range | Delivery→source ms |
+| --- | ---: | --- | ---: |
+| speech-16 | 110624 | 106.2–110.7 s | 5328.399999976158 |
+| speech-43 | 302144 | 297.8–302.2 s | 5293.299999952316 |
+| speech-71 | 493664 | 489.3–493.7 s | 5313.599999964237 |
+
+Exact emitted source for all three cases:
+
+```text
+駅で会いましょう。 予約は取り消さないでください。今日は、カメラのお店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、お店において、
+```
+
+Evidence: `.ralph/media-framework/chrome-b6-stage-acceptance.log`,
+`supervisor-b6-latency-outliers.json` and `supervisor-b6-asr-repetition.json`.
+The table correlation uses the unchanged sequential utterance order: four prior
+lifecycle rows plus 87 sustained rows; no extra row is silently removed.
+Exact PCM capture/replay, complete long-run CER/WER and the decoder mechanism
+have not yet been established. B6 must retain a reproduced offending input and
+qualify actual default long-run recognition/repetition and timing, together with
+the retained noise/quiet/endpoint gates. Preserve source/input/reference text
+and legitimate spoken repetitions; a text post-filter or deduplication does not
+repair recognition. Short component-suite success does not establish this
+production-input quality. Native semantic fixes are a separate completed slice.
+
+The separate retained two-minute learned-live failure has **34.86111111111111%
+CER**, 251/720 edits, missing expected meanings and a >2,000 ms endpoint. Its
+exact collected-job replay repeats that CER/meaning failure. Verified local
+archive: `.ralph/media-framework/chrome-live-jobs-4hf2rL` (job `.f32` files and
+replay provenance). This is available for actual-model investigation, while
+exact input for the three production-extension windows above is not archived
+yet. These failures are preserved alongside the earlier passing B5 run; no
+causal attribution to the independently verified native translation change is
+established. Documentation only; all runtime, fixtures, gates and checkboxes
+remain unchanged in this supervisory commit.
