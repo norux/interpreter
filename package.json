@@ -38,6 +38,7 @@
     "test:framework:chrome:noise": "npm run typecheck && node tests/framework-chrome-noise.mjs",
     "test:framework:chrome:noise:learned": "npm run typecheck && node --import tsx --test tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts && node tests/framework-chrome-noise.mjs --learned-vad",
     "test:framework:chrome:live:learned": "npm run typecheck && node --import tsx --test tests/framework-browser-vad.test.ts tests/framework-browser-speech.test.ts tests/framework-browser-normalize.test.ts && node tests/framework-chrome-live-learned.mjs",
+    "test:framework:chrome:eof": "npm run typecheck && node tests/framework-chrome-eof.mjs",
     "test:framework:chrome:vad": "npm run typecheck && node tests/framework-chrome-vad.mjs"
   },
   "devDependencies": {

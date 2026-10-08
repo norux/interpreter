@@ -2719,3 +2719,122 @@ PASS: document-inclusive unstaged/staged whitespace checks, **exit 0**. Only the
 plan/report/package scripts/live fixture/new learned live harness are staged;
 ignored `.ralph` state is excluded. Commit and post-commit cleanliness are checked
 before delivery.
+
+
+### 2026-10-08 / chrome / iteration 8/20 — B2 fixed EOF alignment qualification
+
+Related commit: `test: expose browser ASR EOF alignment failures`, containing
+this entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no ASR default is selected.** Only B2 advances.
+
+Added `npm run test:framework:chrome:eof` and an independent real-browser harness
+for iteration 7's unresolved live EOF alignment. The smaller approach measures
+coverage and actual recognition before altering production admission. Three
+complete, unchanged hash-checked synthetic speech periods/language are decoded
+and resampled to 16 kHz; 512 leading zeros and 0/341/511 trailing zeros form the
+first six cases. The final harness preserves those cases, adds 853/1,365 trailing
+zeros and measures rejected-tail RMS/peak without retaining PCM. Real production
+WASM VAD and FP16 WebGPU ASR consume 100 ms paced decoded input. This is not live
+selected-element acquisition, natural speech, Korean translation or caption DOM.
+No expected-text prompt, filtering, gain change, removed sentence or blacklist.
+Production engines/core/contracts/models/dependencies/settings are unchanged.
+
+Retained gates: <=20% CER/WER, every meaning exactly three times, <=20 s jobs,
+<=30 s retained audio, zero reported drop/drained queue, <=100 ms leading context,
+**<20 ms trailing context**, <2 s endpoint-to-text, exact ASR input/range/revision
+and detector coverage/padding, <10% duration in VAD inference, cached fresh
+workers and pinned network/page-lifetime assertions. The new harness separately
+requires every original tail sample to reach ASR. Existing comparison/noise/live/
+sustained/full-stage acceptance remains untouched.
+
+Initial commands (ignored `.ralph/media-framework/` evidence):
+
+- FAIL: `caffeinate -disu npm run test:framework:chrome:eof`, **exit 1**,
+  `chrome-20261008-8-eof.log`: typecheck/build, six real cases/**3,847 detector
+  calls / nine ASR jobs** complete. Japanese **7/120 = 5.833333% CER**, English
+  **3/66 = 4.545455% WER**, every meaning three times; no original tail rejection,
+  no reported drop/final pending. Japanese first-job endpoint latency
+  **2,096.200 / 2,044.400 / 2,004.100 ms** fails <2 s. Its final-job latency
+  **1,416.700–1,549.300 ms** passes; that different metric does not override the
+  first-job failures. English tail-341/511 reject **20.8125 / 31.4375 ms** and
+  fail <20 ms despite zero queue loss. English zero-tail passes every gate.
+  Final code adds waveform measurements and two offsets before a second run;
+  no third unchanged attempt is made. The report retains ranges/sample counts.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-8-stage-acceptance.log`: missing script. B5 full selected-video
+  PCM → ASR → Korean translation → DOM acceptance is unfinished; no placeholder.
+- PASS: script syntax, targeted one-file Biome (**39 ms / no findings**) and
+  preliminary whitespace, **exit 0**.
+
+Final real-model results and required repository verification are recorded below
+following actual execution.
+
+
+Final real browser: FAIL, same EOF command, **exit 1**,
+`chrome-20261008-8-eof-final.log`: typecheck/build, **ten real cases / 6,419 VAD
+calls / 15 ASR jobs** complete; **nine** failures. All five Japanese first-job
+endpoint latencies **2,033.300–2,058.000 ms** exceed <2 s; English tail-341/511/
+853/1365 reject **20.8125 / 31.4375 / 52.8125 / 84.8125 ms**, exceeding <20 ms.
+All Japanese **7/120 CER**, all English **3/66 WER**, every meaning exactly three;
+no original tail rejection, zero reported drop/drained queues. Every ASR job is
+an exact contiguous input slice, <=20 s; peak pending **21,002.0625 ms**. All
+four rejected English tails measure **RMS 0 / peak 0**, consisting solely of
+appended zeros after the original end at **20,031.5 ms**. This is known generated
+silence rejection, not evidence of live phoneme loss or a fix of iteration 7's
+21.3125 ms live context. The raw <20 ms gate remains unchanged and failing.
+Japanese final-job latency **1,413.400–1,501.600 ms** cannot override its earlier
+first-job failures. No third attempt; no speculative production fix/default.
+
+PASS: Python recorded-result analysis, **exit 0**: six repeated full-input hashes
+and transcript strings equal across invocations; all ten final recognition/
+meaning/PCM/queue checks pass and rejected tails are exactly zero. Analysis is
+not another inference or a passing qualification command. The report contains
+all ten input hashes, ranges/sample/padding/RSS and per-case timing tables.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2/25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, unchanged locked
+Transformers.js/ORT. Same pinned small FP16 WebGPU ASR (**487,960,440 model
+bytes / seven files**) and Silero WASM VAD (**2,243,022 bytes / one file**).
+Each of two browser invocations downloads one inventory each in a fresh owned
+cache, then prepares cached fresh workers. Final first/cached preparation
+**56,891.995917 / 1,218.376334–1,321.242250 ms**, not recognition latency.
+Allowed artifact/redirect paths **16**, no remote inference/companion/Ollama;
+page errors/native visibility events empty. Actual host calls **301.200–2,048.200
+ms**, max VAD inference **11.400 ms**. Ten finite decoded sessions total
+**205,285 ms input**, not one sustained or ten-minute live run. Latencies use
+one document clock, excluding speech accumulation/loading/translation/display;
+VAD/RSS clocks remain separate. Owned-tree RSS baseline/peak **1,303,264 /
+3,946,208 KiB**, 250 ms sampling including preparation/shared pages/allocators/
+models/browser/GPU/PCM; not isolated memory, pressure/leaks or phone evidence.
+
+**Next remains B2:** improve measured forced-boundary latency/EOF coverage with
+these preserved gates, then qualify natural speech/noise/boundaries and earlier
+live EOF behavior. Louder-noise Japanese meaning, sustained learned live queue/
+GPU-loss recovery under pressure, storage/memory, conversion/distribution
+licensing and a qualified default remain unfinished. Original noise/comparison/
+stream/sustained/VAD/B1 commands are not rerun; prior evidence stays historical.
+Offline speech/full interpretation, Korean translation/revisions/DOM, ten-minute
+live Korean captions, B3–B6, installation and Safari/iPhone remain unverified.
+No missing required environment/device/permission, terminal marker, checkbox or
+stage/framework/iPhone completion claim.
+
+Root/nested AGENTS.md/requested independent runner evidence are absent at initial
+read; instructions/plan/architecture/prior report read. Only this worktree changes;
+companion/install/native messaging/server/settings and unrelated files/apps/
+recordings/mounted images are preserved. No agents, runner edit, stage advance,
+push/publish/app installation or blocked browser access/profile/permission bypass.
+Only owned test browsers/profiles cleaned up. Credentials/weights/user audio/
+transcripts and temporary ignored `.ralph` state are excluded from the commit.
+
+
+Final required verification: PASS, `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-8-verify.log`: Biome **115 files / 56 ms / no findings**, Ruff,
+typecheck, unchanged companion build (**28 main / 10 content modules**),
+**108 JS passed / 0 failed/skipped/cancelled / 21,660.429583 ms**,
+**222 Python passed / 66.92 s**, Python **3.12.15**. Verification runs after both
+actual browser/model invocations; later edits only finish Markdown evidence.
+This does not override the failed EOF qualification or missing full Chrome
+acceptance. Final document-inclusive unstaged/staged whitespace and post-commit
+cleanliness are checked before delivery. Staged paths are only this plan, the
+Chrome report, package script and EOF harness; no temporary `.ralph` state,
+credentials, model weights or user data are staged.
