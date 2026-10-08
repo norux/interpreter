@@ -99,7 +99,9 @@
     }
     return [0, 1].map((index) => levels.reduce((sum, level) => sum + level[index], 0) / levels.length);
   };
-  document.querySelector('#start').onclick = async () => {
+  const start = document.querySelector('#start');
+  start.onclick = async () => {
+    start.disabled = true;
     globalThis.chunks = []; globalThis.anchors = []; globalThis.captureClosed = false; globalThis.captureError = undefined;
     try {
       const video = catalog.resolve(selected);
@@ -114,8 +116,12 @@
           globalThis.chunks.push({ ...event, mapped: timeline.map(event.audioRange), observedMediaMs: video.currentTime * 1000 });
         }
       }
-      globalThis.captureClosed = true;
     } catch (error) { globalThis.captureError = error.message; }
+    finally {
+      await handle?.close();
+      start.disabled = false;
+      globalThis.captureClosed = true;
+    }
   };
   document.querySelector('#stop').onclick = async () => { await handle.close(); await handle.close(); };
   globalThis.captureSummary = async () => {

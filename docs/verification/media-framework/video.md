@@ -1120,3 +1120,79 @@ Evidence: `.ralph/media-framework/video-followup-final-acceptance.log`.
 Whitespace and intended staged scope are checked before commit. V5 is rechecked;
 Chrome B3 and subsequent stages remain unfinished. No physical speaker, ASR,
 translation, Safari/iPhone or headless-audio success claim is made.
+
+
+## 2026-10-08 — video repair iteration 1/20: serialize V5 Start controls
+
+Commit: `fix: serialize speech fixture capture controls`. The independent runner
+log `.ralph/media-framework/2026-10-08T12-56-00-821Z-video-verification.txt`
+passes 15 unit checks and V1–V4, then fails ordinary V5 with
+`Video input already has an active session` and two observed chunks.
+
+The fixture left Start enabled during asynchronous open and consumption. A
+second activation resets the shared chunks/anchors/error state, increments the
+session counter, and calls open while the first capture remains active. The
+production guard correctly rejects that call. A controlled native double-click
+reproduces the exact assertion before the fix; the event trace contains two
+trusted Start clicks (details 1 and 2, 1.2 ms apart). The runner did not log its
+click events, so the precise source of its second activation is unverified.
+Evidence: `.ralph/media-framework/video-active-session-native-before.log`.
+An earlier injected-click diagnostic also reproduces the error, but is not
+native-input or audio acceptance (`video-active-session-regression-before.log`).
+
+The fixture now disables Start synchronously before resetting capture state and
+keeps it disabled through open/consumption/awaited handle cleanup. Only then does
+it enable Start and publish captureClosed. The acceptance harness uses a native
+double-click for the first capture in each ordinary/site-owned/delayed-output
+scenario, asserts the disabled/enabled lifecycle, and retains all repeat Start,
+explicit English selection, identity, PCM, waveform, tag, mapping and output
+assertions. This is a fixture control repair; production duplicate-open rejection,
+PCM bytes, fixtures, numerical gates and browser launch settings are unchanged.
+
+The unchanged initial full local `npm run test:framework:video` **FAILS**, exit 1:
+15 unit checks and V1–V4 pass; site-owned English V5 selected correlation
+**0.33918473529748516** fails >0.85. It has 57 chunks, mapping error
+**2.5556666666652745 ms**, selected tag **0.05994064293329116** and wrong-source
+correlation **0.12817528194448424**. This distinct waveform failure does not
+reproduce the runner's active-session error; its native origin remains unverified.
+Evidence: `.ralph/media-framework/video-active-session-before.log`. The control
+repair is not claimed to fix native waveform fidelity, ASR or translation quality.
+
+Environment: requested worktree only, Darwin arm64, Node v24.15.0, npm 11.12.1,
+existing headed Chromium 153.0.8010.12. Repository AGENTS.md is absent; supplied
+instructions apply. No permission/device/access blocker or bypass was encountered.
+No dependencies/models/apps were installed or other agents launched. Published
+companion, installation paths, settings, user apps/recordings/mounts and other
+stages are preserved. All diagnostic files remain ignored under .ralph.
+Physical speaker audibility, ASR/translation accuracy, Safari/iPhone and
+whole-framework completion remain unverified.
+
+Final-source `npm run test:framework:video`: **PASS**, exit 0; adapter typecheck,
+**15 unit checks / 0 failed / 0 skipped**, all V1–V5 browser assertions.
+Evidence: `.ralph/media-framework/video-active-session-fixed-acceptance.log`.
+V5 has **9 captures / 528 real chunks**, including **3 native double-click
+Starts**. All exact session counters/identities and disabled/enabled assertions
+pass, proving a second click neither opens capture nor resets observations.
+Selected correlations range **0.9998061254182445–1.0**, maximum wrong-source
+correlation **0.2838158650033617**, maximum mapping error **3.480999999999767 ms**.
+Ordinary/site-owned/delayed output baselines respectively are
+**[0.023995298559381116, 0.015020335465184309]**,
+**[0.023999514198106142, 0.01501811284124901]**,
+**[0.023970620609870347, 0.015003454101695285]**.
+All original >0.85/<0.35/12%/tag/PCM/order/Stop/playback gates pass; page errors
+are `[]`. These measurements cover real fixture video input and browser output,
+not speech recognition. No acceptance retry follows this passing final-source run.
+
+Targeted `./node_modules/.bin/biome lint tests/fixtures/video-speech.html
+tests/framework-video-speech.mjs`: **PASS**, exit 0, two files, no findings.
+
+Final-source `npm run verify`: **PASS**, exit 0; Biome **121 files / 45 ms**,
+Ruff/typecheck/build, **127 JavaScript passed / 0 failed / 0 skipped**
+(**26517.291416 ms**), **222 Python passed** (**66.91 s**).
+Evidence: `.ralph/media-framework/video-active-session-fixed-verify.log`.
+`git diff --check`: **PASS**, exit 0. Stage video V1–V5 retain checked status after
+both required final-source commands pass. No selected-stage checklist item remains
+unfinished in the supported headed Chromium scope. Only fixture controls,
+acceptance regression, this report and plan progress are included in the repair;
+ignored diagnostics are excluded. Staged whitespace/scope and post-commit clean
+worktree are checked before reporting completion. Later stages remain unfinished.

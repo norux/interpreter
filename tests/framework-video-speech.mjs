@@ -64,12 +64,16 @@ export async function verifyVideoSpeech(browser, origin) {
         await page.getByRole("button", { name: "Use selected video", exact: true }).click();
         // Exercise repeat capture after the interval that exposed a native clock discontinuity.
         if (owned && round === 1) await page.waitForTimeout(1000);
-        await page.getByRole("button", { name: "Start selected capture", exact: true }).click();
+        const start = page.getByRole("button", { name: "Start selected capture", exact: true });
+        if (round === 0) await start.dblclick();
+        else await start.click();
         await page.waitForFunction(() => globalThis.chunks.length >= 50 || globalThis.captureError);
         assert.equal(await page.evaluate(() => globalThis.captureError), undefined);
+        assert.equal(await start.isDisabled(), true, "Start stays disabled during capture");
         const during = await checkOutput();
         await page.getByRole("button", { name: "Stop selected capture", exact: true }).click();
         await page.waitForFunction(() => globalThis.captureClosed);
+        assert.equal(await start.isEnabled(), true, "Start is enabled after capture cleanup");
         const count = await page.evaluate(() => globalThis.chunks.length);
         const after = await checkOutput();
         assert.equal(await page.evaluate(() => globalThis.chunks.length), count, "No PCM after Stop");
@@ -88,7 +92,7 @@ export async function verifyVideoSpeech(browser, origin) {
         assert.ok(Math.abs(summary.tagAmplitudes[selectedIndex] / 0.06 - 1) < 0.12, `Selected source's actual tag: ${JSON.stringify(summary)}`);
         assert.ok(summary.tagAmplitudes[1 - selectedIndex] < 0.003, `Other audible video's tag must be absent: ${JSON.stringify(summary)}`);
         assert.deepEqual(await page.evaluate(() => globalThis.confirmations), [0, 0, 1].slice(0, round + 1).map((index) => candidates[index].target));
-        rounds.push({ ...summary, duringOutputTags: during, afterOutputTags: after });
+        rounds.push({ ...summary, doubleClickStart: round === 0, duringOutputTags: during, afterOutputTags: after });
       }
       const times = await page.evaluate(() => globalThis.times());
       assert.ok(times.every((time, index) => time > initialTimes[index] + 6), "Both original videos must advance through repeat Start and selected-target switch");

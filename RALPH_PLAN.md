@@ -5243,3 +5243,46 @@ V1–V5 실제 브라우저 검증 전부 통과. V5 9회 selected correlation �
 `video-followup-final-verify.log`; 비교 및 실패 로그도 `.ralph/media-framework/`에 보존.
 V5를 재체크했다. B2 완료/B3 다음과 다른 모든 stage checkbox를 유지하고,
 commit/clean 확인 뒤 `all 20` 재개한다. No push/publish/install/delegation.
+
+
+### 2026-10-08 / video / repair iteration 1/20 — serialize V5 Start controls
+
+Commit: `fix: serialize speech fixture capture controls` containing this entry
+and the Video report. The requested independent runner passes V1–V4, then fails
+ordinary V5 with active-session rejection/two chunks. The V5 fixture allowed a
+second Start to reset shared observations and open an already-active input.
+A native double-click reproduces the exact assertion before the fix (two trusted
+Start events, 1.2 ms apart); the runner's exact activation trigger is unverified.
+
+Disable fixture Start from synchronous preparation through awaited cleanup,
+then re-enable it and publish captureClosed. Preserve production duplicate-open
+rejection and every existing gate. First captures now exercise native double-click
+in all three graph/output cases, with disabled/enabled lifecycle assertions;
+repeat Start and target switch continue to require the original identity and PCM.
+No production/model/fixture-audio/runner/companion/settings change or later-stage
+work. Diagnostic .ralph files are excluded from the commit.
+
+Initial unchanged full acceptance FAILS separately at site-owned English waveform
+correlation **0.33918473529748516**, after 15 unit checks/V1–V4 pass. Its origin
+remains unverified; control serialization is not claimed to repair native audio.
+Native duplicate-click regression FAILS at the exact active-session assertion.
+Logs: `video-active-session-before.log`, `video-active-session-native-before.log`.
+Final-source results follow below and in the Video report; do not substitute mock
+controls/PCM acquisition for ASR/translation or Safari/iPhone evidence.
+
+Final-source `npm run test:framework:video`: **PASS**, exit 0, adapter typecheck,
+15 unit checks and V1–V5 real browser checks. V5: 9 captures/528 real chunks,
+3 native double-click Starts, exact identity/cleanup/Start lifecycle checks pass;
+selected correlation **0.9998061254182445–1.0**, wrong maximum **0.2838158650033617**,
+mapping maximum **3.480999999999767 ms**, all unchanged output/isolation gates.
+Evidence: `video-active-session-fixed-acceptance.log`. Targeted two-file Biome
+PASS. No further audio acceptance attempt after this pass. V1–V5 remain checked;
+all other stage checkboxes and plan remain unchanged.
+
+Final-source `npm run verify`: **PASS**, exit 0; Biome 121 files/45 ms,
+Ruff/typecheck/build, **127 JS / 0 failed / 0 skipped** (26517.291416 ms),
+**222 Python** (66.91 s); `video-active-session-fixed-verify.log`.
+Whitespace PASS. Video has no unfinished item after both required commands pass;
+physical speaker/ASR/translation/Safari/iPhone remain unverified. Commit only the
+fixture control repair, native regression, report and plan entry; check staged
+scope/whitespace and clean worktree after commit. Do not advance another stage.
