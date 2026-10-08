@@ -1958,3 +1958,102 @@ Full `caffeinate -disu npm run verify` PASS: lint/typecheck/build, 100 JS and
 222 Python tests (66.91 s); evidence `video-transition-verify.log`. Targeted
 Biome and whitespace checks PASS. Commit this repair so the runner can restart
 with a clean worktree.
+
+### 2026-10-08 / chrome / iteration 1/20 — B2 repeated-speech decoding
+
+Related commit: `fix: preserve repeated speech in browser ASR`, containing this
+entry and the [Chrome report](docs/verification/media-framework/chrome.md).
+**B2 remains unchecked; no default is selected.** Only B2 advances.
+
+Changes: independently replayed all eight omitted English speech-period ranges
+from the preceding sustained run, plus a passing neighbor. The unchanged FP16
+worker reproduces eight omissions with contiguous real decoded PCM. Enabled
+Whisper timestamp decoding only for the experimental FP16 profile, retaining
+q8 baselines, pinned models/caches, 256-token bound, original PCM/segmentation/
+queue budgets and every existing acceptance gate. Added nine exact-range real
+ASR regressions: <=20% WER, each meaning exactly twice, identity/revision/range/
+sample accounting and <2000 ms host calls. No text oracle or replacement audio
+supplies inference. The host still returns job-range text, not model timestamps.
+
+Commands/results (ignored `.ralph/media-framework/` evidence):
+
+- FAIL: pre-change `caffeinate -disu node .ralph/media-framework/chrome-20261008-1-replay.mjs`,
+  `chrome-20261008-1-replay-before.log`: all eight omissions reproduced; uncaught
+  assertion actual 1/expected 2. Shell exit status was not captured (**unverified**).
+- PASS: same diagnostic after the decoding change, **exit 0**,
+  `chrome-20261008-1-replay-timestamps.log`, all meanings twice in all nine jobs,
+  **1098.800–1615.600 ms** host calls.
+- FAIL: first `caffeinate -disu npm run test:framework:chrome:stream`, **exit 1**,
+  `chrome-20261008-1-stream.log`: typecheck/14 port tests, short ASR/replays/
+  recovery and preceding live rounds pass; final English live playback-state
+  equality fails for volume **0.25 → 0.8845703125**. Later scoring/continuous
+  runs not reached. A 30-cycle owned-button diagnostic passes (**exit 0**,
+  `chrome-20261008-1-controls.log`) without reproducing the mutation; no inference
+  claim follows. Live buttons now use trusted keyboard activation beside the
+  native controls. All activation/playback-state assertions remain. Exact cause
+  of the first volume change is still **unverified**.
+- PASS: final streaming command, **exit 0**, `chrome-20261008-1-stream-final.log`:
+  typecheck, **14 port/normalizer tests / 101.968292 ms**, build and all original/
+  new real browser checks, including both ten-minute decoded-input trials.
+- PASS: final `npm run verify`, **exit 0**, `chrome-20261008-1-verify.log`:
+  Biome **106 files / 47 ms**, Ruff/typecheck/unchanged companion build,
+  **100 JS passed / 0 failed/skipped/cancelled / 21024.682459 ms**,
+  **222 Python passed / 67.01 s**. Runs after inference, without test-load overlap.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-1-stage-acceptance.log`: missing script. B5's full selected-
+  video → ASR → Korean translation → DOM acceptance is still unimplemented.
+  No placeholder or ASR-only stage substitute.
+- PASS: final nine replays, each **2/44 = 4.545455% WER**, all meanings twice,
+  **1100.200–1201.500 ms** host calls; local Python exact normalized-English
+  comparison verifies all 91 original periods with numeric spelling edits.
+  A first summary extractor's **exit 1 / KeyError** is corrected; final extraction
+  **exit 0**, with details in the report. This is analysis, not another model run.
+- PASS: standalone typecheck, targeted Biome (**2 files / 21 ms**), script syntax
+  and whitespace. Document-inclusive/staged whitespace, intended commit and
+  clean worktree are checked before delivery. No temporary `.ralph` state staged.
+
+Real scope: owned headed Chromium **153.0.8010.12**, macOS **26.6.2/25G83 arm64**,
+Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, locked Python **3.12.15**;
+unchanged Transformers.js **4.3.0**/ORT, small FP16 WebGPU model revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven files/**487960440 bytes**.
+Four model-bearing invocations prepare one fresh inventory each, then reuse
+owned cache; the control diagnostic loads no model. No new dependency/default.
+
+Sustained decoded Japanese: **87 periods / 9705372 samples / 606585.750 ms**,
+host **607630.000 ms**, **53 segments**, **96/3480 = 2.758621% CER**, every
+meaning **87**. Its 96 edits versus previous 93 are retained. English: **91 /
+9706424 / 606651.500 ms**, host **607720.800 ms**, **46 segments**,
+**91/2002 = 4.545455% WER**, every meaning **91**, improved from previous **83**
+and **259/2002 WER**. Both retain exact contiguous samples/ranges through EOF,
+**0 loss / 0 final pending**, endpoint-to-text **1018.600–1338.100 /
+973.700–1260.000 ms**, peak pending **13940 / 14600 ms**. All minute windows
+report zero loss; final partial minutes drain. Exact queue/RSS tables are in the
+report. RSS baseline/peak/final KiB **1762192/3659248/1529456 /
+1610672/3214608/1460016**, not isolated GPU allocations, leak/pressure/mobile
+qualification. Latency uses one document clock and excludes speech accumulation,
+translation/display; it is an observed range, not percentiles. These are real
+ASR over paced decoded synthetic PCM, **not ten-minute live Korean captions**.
+
+All original short decoded/live tests retain **2.5% CER / 4.545455% WER**, live
+three-period meanings exactly 3, complete sample accounting and capture/inference
+overlap. Five-period decoded meanings exactly 5, zero loss/drained. Live maximum
+mapping error **65.915 ms**, Stop cancelled/no text/**835.375 ms discarded**;
+source isolation, repeat Start and both videos' original playback states pass.
+Actual GPU loss/cached explicit recovery, overload/gap/cancel, zero PCM and pinned
+network checks pass. Final page errors/visibility events/accuracy failures `[]`.
+
+Next unfinished item remains **B2**: broader natural speech/noise/boundary
+recognition, sustained live acquisition/recovery under pressure, storage/GPU
+memory limits, conversion/distribution licensing and evidence-based default
+selection. Original q8 failures remain; no unchanged comparison retry. Learned
+VAD, model timestamp accuracy, full offline/Korean translation/revisions/DOM,
+ten-minute live end-to-end, B3–B6, external installation and Safari/iPhone remain
+**unverified**. No checkbox or stage/whole-framework/iPhone completion claim.
+No required environment/device/permission was absent; neither terminal marker
+applies. Requested AGENTS.md/independent runner file absent at initial read;
+instructions/plan/architecture/prior report read. Only this worktree changes.
+Companion/install/native messaging/server/settings and unrelated files/apps/
+recordings/mounts preserved. No agents, runner edits, stage advance, push/publish/
+app installation or browser access/profile/permission bypass. Credentials,
+weights, user audio/transcripts and `.ralph` logs/state excluded from the commit;
+only owned test browser/profile resources are cleaned up.

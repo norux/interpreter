@@ -2008,3 +2008,202 @@ edits, stage advance, push/publish/app installation or browser access/profile/
 permission bypass. Only test-owned browser/profile resources are cleaned up.
 Credentials, model/runtime weights, user audio/transcripts and ignored `.ralph`
 logs/state are excluded from the commit.
+
+## 2026-10-08 — B2 repeated-speech decoding regression (iteration 1/20)
+
+Related commit: `fix: preserve repeated speech in browser ASR`, containing this
+report. **B2 remains unchecked; no default is selected.** Only B2 advances.
+
+### Failing regression and implementation
+
+Analyzed the preceding sustained English run: eight individual 13.32–13.34 s
+jobs omitted one full speech period despite complete contiguous PCM coverage.
+Replayed those exact sample ranges and a neighboring passing range through the
+production FP16 host/worker, reconstructing samples from the unchanged,
+hash-checked decoded fixture period. No stored transcript, expected text, gain
+change, silence padding or replacement samples enter inference.
+
+The pre-change diagnostic independently reproduced all eight omissions: each
+required English meaning occurred once instead of twice. The neighboring
+128040–141380 ms job retained both periods. This establishes a recognition
+failure on those PCM ranges, independent of live acquisition or paced delivery;
+it does not establish the model's internal cause. Evidence:
+`chrome-20261008-1-replay-before.log` under ignored `.ralph/media-framework/`.
+The process ended with an uncaught `AssertionError` (actual 1, expected 2);
+its shell exit status was not captured, so that status is **unverified**.
+
+The worker now requests `return_timestamps: true` for the experimental FP16
+profile. The unchanged q8 baselines use false. Language/transcribe task,
+256-token bound, model/backend, sample ranges, segmentation, queue budgets,
+cache identity and authoritative source revision remain unchanged. This uses
+Whisper's timestamp logits processor to guide decoding; the host still returns
+text with its original job range. It does not expose or claim accurate model
+word/segment timestamps. The installed Transformers.js 4.3.0 Whisper generator
+skips its seek loop when `max_new_tokens` is explicit, so this retains bounded
+single-job generation rather than introducing retries or a second ASR pass.
+The [Transformers.js ASR API](https://huggingface.co/docs/transformers.js/api/pipelines)
+documents timestamp generation; actual quality/latency is established below.
+
+The post-change diagnostic passes all nine ranges, **exit 0**, with every meaning
+exactly twice; host calls **1098.800–1615.600 ms**. Evidence:
+`chrome-20261008-1-replay-timestamps.log`. The permanent streaming harness now
+retains these nine regressions, asserting <=20% WER, exactly two occurrences of
+each meaning, authoritative identity/revision/range/sample counts, and <2000 ms
+host calls. In the final full run all nine score **2/44 = 4.545455% WER**, with
+**1100.200–1201.500 ms** host calls. Numeric `three` → `3` remains an edit.
+Every original candidate, failing baseline, fixture/sentence/hash/isolation tag,
+accuracy/meaning/latency gate and sustained check is preserved.
+
+### First full-run failure and fixture interaction
+
+First `caffeinate -disu npm run test:framework:chrome:stream` returns **exit 1**,
+`chrome-20261008-1-stream.log`: typecheck, **14 port/normalizer tests /
+101.506750 ms**, six short ASR trials, nine replays, fault/recovery checks and
+short/live Japanese boundary scoring pass. The final English live round fails
+unchanged playback-state equality: its volume changes **0.25 → 0.8845703125**.
+Its later scoring and all continuous trials are **not reached**.
+
+An independent lightweight owned-browser diagnostic passes **30 native button
+cycles**, **exit 0**, without reproducing that volume mutation. It observes the
+Prepare button at **x=656.421875, y=173** beside videos ending at y=188, on the
+native media-control row. It uses actual fixture playback but substitutes button
+handlers and performs no inference; this is UI diagnosis, not ASR acceptance.
+Evidence: `chrome-20261008-1-controls.log`. The mutation's exact cause remains
+**unverified**. The live harness now uses trusted keyboard Enter activation for
+Prepare/Start/Stop, avoiding pointer movement alongside native volume controls.
+Actual activation, visible-document/model readiness, native media controls and
+all playback/volume/mute/rate/source equality assertions remain required. The
+final run passes them; no browser access denial or profile/permission workaround
+is involved, and no production playback behavior or user setting is changed.
+
+### Final real browser measurements
+
+Final `caffeinate -disu npm run test:framework:chrome:stream`: **PASS, exit 0**,
+`chrome-20261008-1-stream-final.log`; typecheck, **14 port/normalizer tests /
+0 failed/skipped/cancelled**, production build and all real browser assertions.
+This is real FP16 WebGPU ASR on synthetic fixture PCM, with separate short and
+three-period **live selected-video** paths. The ten-minute trials remain
+**paced decoded synthetic PCM**, not ten-minute live Korean-caption acceptance.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, locked test Python
+**3.12.15**; unchanged Transformers.js **4.3.0** / locked ORT. Same small FP16
+WebGPU model `onnx-community/whisper-small` at
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, seven files / **487960440 bytes**.
+Four model-bearing browser invocations each prepare one fresh inventory and reuse
+its owned cache; the lightweight control diagnostic downloads no model. No new
+model/dependency/default or committed weights/profile. Verification follows
+inference and does not overlap its measurements.
+
+| Sustained decoded input | Periods / samples | Input / host duration ms | Segments; non-final / final duration ms | CER/WER | Endpoint-to-text min–max ms | Actual host-call min–max ms | Peak pending ms | Baseline / peak / final RSS KiB |
+| --- | --- | --- | --- | --- | --- | --- | ---: | --- |
+| Japanese | 87 / 9705372 | 606585.750 / 607630.000 | 53; 10000–12560 / 9145.750 | **96/3480 = 2.758621% CER** | 1018.600–1338.100 | 1018.500–1337.900 | 13940 | 1762192 / 3659248 / 1529456 |
+| English | 91 / 9706424 | 606651.500 / 607720.800 | 46; 10220–13340 / 11971.500 | **91/2002 = 4.545455% WER** | 973.700–1260.000 | 973.400–1259.300 | 14600 | 1610672 / 3214608 / 1460016 |
+
+**Every meaning occurs exactly 87 / 91 times**, rather than the previous English
+83. Both retain exact contiguous sample/range coverage through EOF, zero reported
+discard and zero final pending. A local Python comparison passes: final English
+text normalizes to exactly 91 original fixture periods with `three` → `3`,
+explaining all 91 edits. Japanese retains 96 edits, versus the previous 93;
+this small CER increase is recorded rather than normalized away. Sustained
+fresh-worker preparation **1434.215375 / 1544.304375 ms** is model loading,
+not recognition latency. Full-band quiet maxima remain 0 ms, so this still
+qualifies carrier-tagged synthetic repetition rather than natural VAD/noise.
+
+| Completed minute | Japanese max / last pending ms | English max / last pending ms | Japanese RSS snapshot KiB | English RSS snapshot KiB |
+| --- | --- | --- | ---: | ---: |
+| 1 | 13360 / 2100 | 14500 / 11960 | 2473200 | 2832784 |
+| 2 | 13240 / 3640 | 14540 / 5300 | 1545408 | 1411744 |
+| 3 | 13920 / 4960 | 14500 / 11960 | 1526096 | 1425136 |
+| 4 | 13860 / 7800 | 14600 / 5300 | 1534304 | 1396096 |
+| 5 | 13940 / 9340 | 14500 / 11980 | 1552672 | 1406032 |
+| 6 | 13760 / 2300 | 14500 / 5300 | 1553904 | 1409152 |
+| 7 | 13940 / 3840 | 14500 / 11960 | 1500272 | 1394560 |
+| 8 | 13860 / 7960 | 14500 / 5200 | 1490384 | 1401472 |
+| 9 | 13900 / 12280 | 14500 / 11880 | 1503392 | 1403456 |
+| 10 | 13920 / 2460 | 14520 / 5320 | 1496288 | 1400464 |
+
+All minute windows report **0 discarded ms**; final partial-minute peaks are
+**9145.750 / 11971.500 ms**, then drain to zero. Initial RSS snapshots are
+**2791344 / 3045824 KiB**; minute snapshots occur within **0.105 / 0.199 s** of
+their boundaries. Overall browser-tree baseline is **1291152 KiB**. RSS samples
+every 250 ms include browser/renderers/GPU process, shared-page double counting,
+allocator retention and harness PCM copies. These are observations, not isolated
+GPU/model allocation, leak freedom, storage/hardware pressure or phone limits.
+Latency uses one document clock after endpoint delivery, excludes accumulation,
+translation/display and reflects observed ranges, not population percentiles.
+RSS uses a separate Node clock with no cross-clock subtraction.
+
+Original regressions also pass:
+
+- Six short decoded trials retain **2.5% CER / 4.545455% WER**, every meaning,
+  zero loss/drained queues; endpoint-to-text **831.100–997.200 /
+  746.000–858.800 ms**, peak pending **8280 / 7880 ms**. Initial preparation
+  **54323.660709 / 1448.657750 ms** is not recognition latency.
+- Five-period decoded inputs retain every meaning five times, **5/200 CER /
+  5/110 WER**, three contiguous segments each, zero loss/drained. Host durations
+  **36128.800 / 34387.800 ms**, peak pending **13000 / 12200 ms**.
+- Five completed live rounds retain **2.5% CER / 4.545455% WER** and all meanings
+  once/three times. Three-period Japanese/English ranges are **80–11860 /
+  11860–20992 ms** and **60–11200 / 11200–20053.3125 ms**. Raw/normalized
+  samples **1007616/335872 / 962560/320853**; last-packet-to-text
+  **1034.300 / 845.100 ms**, pending peaks **13060.6875 / 12270 ms**. Real
+  delivery advances during inference; maximum mapping error across all rounds
+  **65.915 ms**. Short final-packet-to-text **987.400 / 929.400 / 905.900 ms**.
+  Explicit Stop emits cancelled/no text, **835.375 ms discarded / 0 pending**.
+  Capture detach/repeat Start, pre-filter source isolation and both videos'
+  original playback/volume/mute/rate/source states pass.
+- Injected overload/gap/invocation-observed cancel/idle actual GPU loss discard
+  **29940 / 100 / 7480 / 7180 ms**, no text/pending/fallback. Pure zero PCM
+  makes **0 actual ASR calls / 0 transcripts / 0 loss**. Active actual GPU loss
+  discards **7480 / 7180 ms** with no text; same-host explicit cached recovery
+  takes **1231.844916 / 1232.938958 ms**, **0 HTTPS requests**, and all six
+  fresh-epoch utterances retain prior accuracy/meaning and zero loss. Accuracy
+  of interrupted jobs and sustained recovery under pressure remain unverified.
+- Page errors, native visibility events and final accuracy failures are `[]`;
+  original pinned-model/network gates pass. No independent speaker measurement
+  or external-site installation claim is added.
+
+### Required acceptance and remaining work
+
+- PASS: final `npm run verify`, **exit 0**, `chrome-20261008-1-verify.log`:
+  Biome **106 files / 47 ms / no findings**, Ruff/typecheck/unchanged companion
+  build, **100 JS passed / 0 failed/skipped/cancelled / 21024.682459 ms**,
+  **222 Python passed / 67.01 s**. All production/harness changes are covered;
+  subsequent edits only complete these Markdown records.
+- PASS: final streaming command above, **exit 0**, **14 port tests /
+  101.968292 ms** and all real browser assertions. One final invocation, no
+  retry of its passing result. Earlier full invocation's failure is retained.
+- PASS: standalone typecheck and targeted Biome for the two source/test files,
+  **2 files / 21 ms / no findings**; script syntax and whitespace checks,
+  exit 0. Final document-inclusive/staged whitespace and committed cleanliness
+  are checked before delivery.
+- FAIL then corrected: initial post-run Python summary extractor, **exit 1**,
+  `KeyError: 'gpuRecoveries'` after printing sustained/live results. Corrected
+  to the actual `gpuRecoveryRuns` field; extraction and exact normalized-English
+  equality analysis **exit 0**. This is recorded-result analysis, not inference.
+
+Required full-stage `npm run test:framework:chrome` is **FAIL, exit 1**, once,
+`chrome-20261008-1-stage-acceptance.log`: `Missing script: "test:framework:chrome"`.
+B5 full selected-video → ASR → Korean translation → DOM acceptance is still
+unimplemented; no placeholder or ASR-only replacement is added.
+
+Next unfinished item remains **B2**: broader natural speech/noise/boundary
+recognition, sustained live acquisition/recovery under pressure, storage/GPU
+memory limits, conversion/distribution licensing and evidence-based default
+selection. Prior q8 numerical/semantic failures remain recorded and were not
+rerun without new evidence. Model timestamp accuracy, learned VAD, full offline
+interpretation, ten-minute live Korean captions, B3–B6, external installation,
+Safari and iPhone remain **unverified**. No checkbox or selected-stage/
+whole-framework/iPhone completion claim. No required environment/device/
+permission was absent; neither terminal marker applies.
+
+No root/nested AGENTS.md or requested independent runner file
+`2026-10-08T01-12-31-094Z-chrome-verification.txt` exists at the initial read.
+Supplied instructions, plan, architecture and previous report were read. Work
+stays in this worktree. Published companion v0.1.0/install/native messaging/server
+paths, settings and unrelated files/apps/recordings/mounted images are preserved.
+No agents, runner edit, stage advance, push/publish/app installation or browser
+access/profile/permission bypass. Only owned test browser/profile resources are
+cleaned up. Credentials, model/runtime weights, user audio/transcripts and ignored
+`.ralph` state/logs are excluded from the commit.

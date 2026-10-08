@@ -213,6 +213,41 @@ try {
     });
     console.log(JSON.stringify({ run }));
   }
+  // Exact English ranges that omitted a complete speech period in the original
+  // ten-minute run, plus its neighboring passing range. Reconstruct from the
+  // hash-checked decoded period; no stored transcript or expected text is input.
+  await prepare("en");
+  const repetitionReplay = await page.evaluate(async clip => {
+    const period = await readClip(clip);
+    const ranges = [[128040, 141380], [141380, 154700], [181380, 194700], [221360, 234700],
+      [261360, 274700], [408040, 421360], [448040, 461360], [488020, 501360], [528020, 541360]];
+    const results = [];
+    for (const [startMs, endMs] of ranges) {
+      const pcm = new Float32Array((endMs - startMs) * 16);
+      for (let i = 0; i < pcm.length; i++) pcm[i] = period[(startMs * 16 + i) % period.length];
+      const started = performance.now();
+      const result = await host.recognize({ identity, language: "en", utteranceId: `phase-${startMs}`,
+        audioRange: { startMs, endMs }, pcm });
+      results.push({ ...result, samples: (endMs - startMs) * 16, hostMs: performance.now() - started });
+    }
+    return results;
+  }, manifest.clips[1]);
+  observations.repetitionReplay = repetitionReplay;
+  const rotatedPeriod = "Let's meet at the station tomorrow at three in the afternoon. Please do not cancel the reservation. We will not meet today.";
+  for (const replay of repetitionReplay) {
+    assert.deepEqual(replay.revision.identity, { sessionId: "fixture-stream", targetId: "fixture-en", epoch: 3 });
+    assert.equal(replay.revision.language, "en"); assert.equal(replay.revision.final, true); assert.equal(replay.revision.sourceRevision, 1);
+    assert.equal(replay.samples, (replay.revision.audioRange.endMs - replay.revision.audioRange.startMs) * 16);
+    replay.accuracy = errors(`${rotatedPeriod} ${rotatedPeriod}`, replay.revision.text, "en");
+    if (replay.accuracy.rate > 0.2) failures.push(`en/replay-${replay.revision.audioRange.startMs}: WER exceeds preserved 0.2 gate`);
+    replay.meaningCounts = Object.fromEntries(["not meet today", "station tomorrow", "in the afternoon", "not cancel the reservation"]
+      .map(anchor => [anchor, replay.revision.text.toLowerCase().split(anchor).length - 1]));
+    if (Object.values(replay.meaningCounts).some(count => count !== 2))
+      failures.push(`en/replay-${replay.revision.audioRange.startMs}: repeated meaning must occur exactly twice`);
+    if (!(replay.hostMs >= 0 && replay.hostMs < 2000)) failures.push(`en/replay-${replay.revision.audioRange.startMs}: host call exceeds 2000 ms`);
+  }
+  console.log(JSON.stringify({ repetitionReplay }));
+
   // Deliberately unpaced input pressure, not a measured normal-video failure.
   await prepare("ja");
   const overload = await page.evaluate(async clip => {
@@ -389,14 +424,16 @@ try {
     const periods = round >= 4 ? 3 : 1;
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
     await page.evaluate(({ language, duration, round }) => configure(language, duration, round), { language, duration: clip.speechDurationSeconds * periods, round });
-    await page.locator("#prepare").click();
+    // Keep trusted activation without moving the pointer beside native media
+    // volume controls; playback-state equality remains required in every round.
+    await page.locator("#prepare").press("Enter");
     await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 120000, polling: 100 });
     assert.equal(await page.evaluate(() => prepareError), undefined);
     const live = { round, language, periods, baselineRssKiB: await sampleRss() }; peakRssKiB = live.baselineRssKiB;
-    await page.locator("#start").click();
+    await page.locator("#start").press("Enter");
     if (round === 1) {
       await page.waitForFunction(() => normalized.chunks >= 20 || globalThis.liveError, undefined, { polling: 100 });
-      await page.locator("#stop").click();
+      await page.locator("#stop").press("Enter");
     }
     await page.waitForFunction(() => globalThis.finished || globalThis.liveError, undefined, { timeout: 30000, polling: 100 });
     Object.assign(live, await page.evaluate(() => ({ error: liveError, raw, normalized, identity, transcripts, queueStatuses,
