@@ -124,7 +124,9 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
           filterSecond += filterAlpha * (filterFirst - filterSecond);
           boundaryEnergy += filterSecond * filterSecond;
         }
-        const speech = Math.sqrt(energy / frameLength) >= 0.01;
+        // Learned admission can arrive after quiet initial words. Retain their
+        // context at lower energy; only the detector can admit it to ASR.
+        const speech = Math.sqrt(energy / frameLength) >= (detector ? 0.001 : 0.01);
         if (speech || activity || segmentLength || continueSegment) {
           detectedSpeech ||= activity;
           if (!segmentLength) segmentStartMs = frameStartMs;

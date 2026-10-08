@@ -10,6 +10,9 @@ import { build } from "vite";
 
 // B2 fixed EOF alignment qualification only. Real models receive paced decoded
 // synthetic PCM, not live acquisition, natural speech or Korean caption input.
+const quiet = process.argv.includes("--quiet-input");
+const cases = quiet ? [1, 0.25, 0.1].map(gain => ({ gain, tailSamples: 511 }))
+  : [0, 341, 511, 853, 1365].map(tailSamples => ({ gain: 1, tailSamples }));
 const output = resolve(".ralph/media-framework/chrome-eof-build");
 const manifest = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8"));
 for (const clip of manifest.clips) {
@@ -65,7 +68,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 fixed EOF alignment coverage/accuracy; real WASM VAD and FP16 WebGPU ASR over paced decoded synthetic PCM, no live acquisition/translation/DOM", runs: [], failures: [] };
+const observations = { scope: "B2 fixed EOF alignment coverage/accuracy; real WASM VAD and FP16 WebGPU ASR over paced decoded synthetic PCM, no live acquisition/translation/DOM", quiet, runs: [], failures: [] };
 const execute = promisify(execFile);
 let browser; let browserProcess; let browserExit; let profile; let page; let monitor;
 let peakRssKiB = 0;
@@ -112,9 +115,9 @@ try {
   await page.goto(origin); await page.waitForFunction(() => globalThis.prepare);
   observations.baselineRssKiB = await sampleRss();
   monitor = setInterval(() => { void sampleRss().catch(() => {}); }, 250);
-  for (const clip of manifest.clips) for (const tailSamples of [0, 341, 511, 853, 1365]) {
+  for (const clip of manifest.clips) for (const { gain, tailSamples } of cases) {
     await page.bringToFront(); assert.equal(await page.evaluate(() => document.visibilityState), "visible");
-    const run = { language: clip.language, tailSamples, baselineRssKiB: await sampleRss() };
+    const run = { language: clip.language, gain, tailSamples, baselineRssKiB: await sampleRss() };
     observations.runs.push(run); peakRssKiB = run.baselineRssKiB;
     const preparationStart = performance.now();
     await page.locator("#prepare").focus(); await page.locator("#prepare").press("Enter");
@@ -128,16 +131,22 @@ try {
       assert.ok(statuses.every(status => status.state !== "downloading"));
     }
     assert.equal(status.error, undefined); assert.equal(status.last.state, "ready"); assert.equal(status.last.requiredBytes, 487960440);
-    const measured = await page.evaluate(async ({ clip, tailSamples }) => {
+    const measured = await page.evaluate(async ({ clip, gain, tailSamples }) => {
       const original = await readClip(clip);
-      // Keep every original sample in three complete periods. Only known zero
+      // Controlled quieter input, including its original carrier. No trimming,
+      // denoising or gain restoration occurs in the detector or ASR pipeline.
+      const scaled = original.map(sample => sample * gain);
+      // Keep every sample position in three complete periods. Only known zero
       // context is prepended/appended; the recognizer never receives labels.
       const prefixSamples = 512;
       const pcm = new Float32Array(prefixSamples + original.length*3 + tailSamples);
-      for (let repeat = 0; repeat < 3; repeat++) pcm.set(original, prefixSamples + repeat*original.length);
+      for (let repeat = 0; repeat < 3; repeat++) pcm.set(scaled, prefixSamples + repeat*original.length);
       const digest = async samples => [...new Uint8Array(await crypto.subtle.digest('SHA-256', samples.buffer))]
         .map(byte => byte.toString(16).padStart(2,'0')).join('');
       const inputSha256 = await digest(pcm);
+      const originalSha256 = await digest(original);
+      const scaledPeak = scaled.reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0);
+      const scaledRms = Math.sqrt(scaled.reduce((sum, sample) => sum+sample*sample, 0)/scaled.length);
       const identity = {sessionId: 'fixture-eof', targetId: `fixture-${clip.language}`, epoch: 4};
       const statuses = []; const transcripts = []; const invocations = []; const deliveries = []; const detectorFrames = [];
       const executor = { stop: () => host.stop(), recognize: async job => {
@@ -177,10 +186,14 @@ try {
       const rejectedTailPeak = rejectedTail.reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0);
       const rejectedTailRms = rejectedTail.length ? Math.sqrt(rejectedTail.reduce((sum, sample) => sum+sample*sample, 0)/rejectedTail.length) : 0;
       return {outcome,rejectedTailPeak,rejectedTailRms,originalSamples:original.length,inputSamples:pcm.length,inputDurationMs:pcm.length/16,
-        inputSha256,prefixSamples,originalEndSample:prefixSamples+original.length*3,hostDurationMs:performance.now()-start,transcripts,invocations,deliveries,statuses,detectorFrames};
-    }, { clip, tailSamples });
+        originalSha256,scaledPeak,scaledRms,inputSha256,prefixSamples,originalEndSample:prefixSamples+original.length*3,hostDurationMs:performance.now()-start,transcripts,invocations,deliveries,statuses,detectorFrames};
+    }, { clip, gain, tailSamples });
     Object.assign(run, measured, { peakRssKiB, finalRssKiB: await sampleRss() });
-    const fail = message => observations.failures.push(`${clip.language}/tail-${tailSamples}: ${message}`);
+    const fail = message => observations.failures.push(`${clip.language}/gain-${gain}/tail-${tailSamples}: ${message}`);
+    assert.ok(run.scaledPeak > 0 && run.scaledPeak <= gain);
+    assert.ok(run.scaledRms > 0 && run.scaledRms <= run.scaledPeak);
+    const previous = observations.runs.find(other => other !== run && other.language === clip.language);
+    if (previous) assert.equal(run.originalSha256, previous.originalSha256);
     if (run.outcome !== "completed") fail(run.outcome);
     assert.equal(run.inputSamples, 512 + run.originalSamples*3 + tailSamples);
     assert.equal(run.detectorFrames.length, Math.ceil(run.inputSamples/512));

@@ -2935,3 +2935,97 @@ Only owned test browsers/profiles cleaned up. Final document-inclusive unstaged/
 staged whitespace, commit scope and post-commit cleanliness checked before delivery;
 only recognizer, regression tests, report and plan staged. Credentials/weights/user
 audio/transcripts/temporary ignored `.ralph` state are excluded from commits.
+
+
+### 2026-10-08 / chrome / iteration 10/20
+
+관련 commit: 이 기록을 포함한 `fix: retain quiet browser speech onset context`.
+**B2 remains unchecked; no model default is selected.** Only B2 advances.
+
+수행한 변경: added `test:framework:chrome:quiet`, reusing the EOF harness for
+unchanged Japanese/English synthetic sentences at input gains 1/0.25/0.1, three
+complete periods, 512 zero prefix and 511 zero tail samples. Every quality,
+meaning, latency, EOF and queue gate is retained; the original ten EOF cases stay.
+Actual tenth-volume input exposes lost initial context. A failing regression
+reproduces 1,696–3,200 ms instead of 0–3,200 ms; lower only the learned path's
+context-retention RMS from 0.01 to 0.001, keeping learned speech admission at
+probability 0.5, energy-only comparison, all segmentation/job/queue limits and
+exact unfiltered ASR PCM. No new model/backend/dependency/default/settings.
+The unit also verifies 40 s rejected quiet input without ASR and bounded retention.
+
+실행한 명령과 결과 (ignored local `.ralph/media-framework/` evidence):
+
+- FAIL before fix: standalone speech tests, **exit 1**, **18 passed / 1 failed /
+  216.075084 ms**, `chrome-20261008-10-regression.log`: exact 1,696 ms onset loss.
+- PASS after fix: `npm run typecheck` and targeted speech/VAD/normalization tests,
+  **exit 0**, **25 passed / 202.460709 ms**, `chrome-20261008-10-unit.log`.
+  Fake transport/lifecycle, not accuracy.
+- FAIL: `caffeinate -disu npm run test:framework:chrome:quiet`, **exit 1**, twice,
+  `chrome-20261008-10-quiet-{first,final}.log`. Final **six real cases / 3,849 WASM
+  VAD calls / 24 FP16 WebGPU ASR jobs**. Onset **192→32 ms Japanese /
+  1,696→32 ms English** at gain 0.1; every final case **32 ms leading / 0 ms
+  trailing**, exact contiguous PCM, all tail positions, zero loss/drained queue,
+  <10% VAD cost pass. Japanese gains 0.25/0.1 retain latency failures at
+  **2,034.800 / 2,066.100 ms**. English quieter inputs retain `not meet today`
+  only **two** times instead of three; all other meaning counts three.
+  Japanese final **6/120, 7/120, 7/120 CER**, English **3/66, 4/66, 4/66 WER**;
+  gain 0.1 English improves from **10/66 WER**, still fails meaning. Four final
+  qualification failures remain; no third unchanged quiet retry.
+- PASS: explicit Python recorded-result analysis, **exit 0**: all six complete
+  input hashes and every VAD probability/activity are identical before/after;
+  final onset/EOF/exact-job/queue/cost checks pass. Analysis is not another run.
+- PASS: `caffeinate -disu npm run test:framework:chrome:eof`, **exit 0**,
+  `chrome-20261008-10-eof.log`: **ten original cases / 6,419 actual VAD calls /
+  20 ASR jobs**, all gates pass; Japanese **5% CER**, English **4.545455% WER**,
+  every meaning three times, **809.200–1,668.700 ms per endpoint**, **32 ms
+  leading / 0 ms trailing**, exact PCM/ranges, peak pending **16,268 ms**,
+  zero loss/drained queue. Python analysis confirms all input hashes match
+  iteration 9. All per-case measurements and six quiet input hashes are in report.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**,
+  `chrome-20261008-10-stage-acceptance-final.log`: missing B5 full PCM → ASR →
+  Korean translation → DOM harness. An earlier invocation's log-reading wrapper
+  returned 0 while npm reported the same missing script; not passing acceptance.
+  No substitute/placeholder/weaker gate or further unchanged retry.
+- PASS: targeted Biome **3 files / 20 ms**, syntax and preliminary whitespace,
+  **exit 0**. Final document/staged whitespace checked before committing.
+- PASS: final `caffeinate -disu npm run verify`, **exit 0**,
+  `chrome-20261008-10-verify.log`: Biome **115 files / 52 ms**, Ruff/typecheck,
+  unchanged companion **28 main / 10 content modules**, **111 JS passed /
+  0 failed/skipped/cancelled / 21,677.050 ms**, **222 Python passed / 66.92 s**,
+  Python **3.12.15**. Runs after three real browser/model invocations; later edits
+  only complete Markdown records. Required Chrome acceptance still fails.
+
+실제 검증한 범위: controlled attenuated decoded synthetic PCM, actual WASM VAD
+and FP16 WebGPU ASR; no live acquisition, natural quiet/noisy speaker or Korean
+translation/DOM. Owned Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**,
+Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**, locked Transformers.js **4.3.0**/
+ORT. Each browser invocation downloads one fresh inventory of the same pinned
+small FP16 ASR (**487,960,440 bytes / seven files**) and Silero
+(**2,243,022 bytes / one file**), then uses cached fresh workers. Final quiet/EOF
+initial preparation **56,855.619250 / 54,506.992958 ms**; separate from recognition.
+Each has 16 pinned artifact/redirect paths, empty page errors/visibility events;
+no remote inference/companion/Ollama. Final quiet/EOF RSS peaks **3,820,784 /
+4,078,384 KiB**; 250 ms owned-tree samples include preparation/browser/renderers/
+GPU/shared-page double counting/allocators/models/harness PCM. Not isolated model
+memory, leak freedom, pressure/storage or phone qualification.
+
+다음 미완료 항목: **B2**, improve retained quiet Japanese forced-boundary latency
+and English meeting-negation loss with these gates/cases intact, then qualify
+no-pause/quiet phoneme boundaries/natural speakers/noise, earlier louder-noise
+Japanese meaning, sustained learned live pressure/GPU recovery, storage/memory,
+conversion/distribution licensing and default selection. Historical live/noise/
+full-candidate/stream/sustained/VAD/B1 checks are not rerun. Offline full speech/
+interpretation, Korean translation/revisions/DOM, ten-minute live captions, B3–B6,
+installation and Safari/iPhone remain unverified. No required environment/device/
+permission is absent; this is failed qualification/incomplete implementation,
+so no terminal marker or checkbox change is warranted.
+
+Supplied instructions/plan/architecture/prior report read; root/nested AGENTS.md
+and requested independent runner evidence absent at initial read. Only this
+worktree changes; companion/install/native messaging/server/settings and unrelated
+files/apps/recordings/mounted images preserved. No agents, runner edits, stage
+advance, push/publish/app installation or blocked browser/profile/permission
+bypass. Only owned test browsers/profiles cleaned up. Commit scope is recognizer,
+regression test, EOF harness, package script, report and plan. Credentials, weights,
+user audio/transcripts and temporary `.ralph` state are excluded. Post-commit
+cleanliness checked before delivery; no stage/framework/iPhone completion claim.

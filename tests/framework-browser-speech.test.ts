@@ -389,3 +389,33 @@ test("learned short pauses before 10 s retain the ordinary endpoint policy", asy
   assert.deepEqual(jobs.map(job => job.audioRange), [{ startMs: 0, endMs: 5120 }]);
   assert.deepEqual(jobs[0].pcm, new Float32Array(160 * 512).fill(0.05));
 });
+
+test("learned admission retains quiet onset context before delayed speech detection", async () => {
+  for (const detected of [false, true]) {
+    const jobs: AsrJob[] = []; const statuses: SessionStatus[] = []; let frame = 0;
+    const count = detected ? 100 : 1250; // Forty seconds without learned speech.
+    const supplied = new Float32Array(count * 512).fill(0.004);
+    const recognizer = createSpeechRecognizer(identity, "en", {
+      async recognize(job) {
+        jobs.push(structuredClone(job));
+        return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+      }, stop() {},
+    }, status => statuses.push(status), {
+      // The measured quiet English input first receives learned admission at
+      // 1,696 ms. Earlier low-energy context must survive that delayed decision.
+      async detect() { return { speech: frame++ >= 53 && detected }; }, stop() {},
+    });
+    async function* packets() {
+      for (let i = 0; i < count; i++) yield { ...chunk(i, true, 512), pcm: supplied.slice(i * 512, (i + 1) * 512).buffer };
+    }
+    await collect(recognizer.run(packets()));
+    if (detected) {
+      assert.deepEqual(jobs.map(job => job.audioRange), [{ startMs: 0, endMs: 3200 }]);
+      assert.deepEqual(jobs[0].pcm, supplied);
+    } else assert.equal(jobs.length, 0);
+    assert.equal(frame, count);
+    assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+    assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 0);
+    assert.ok(statuses.every(status => (status.queue?.pendingAudioMs ?? 0) <= 20000));
+  }
+});
