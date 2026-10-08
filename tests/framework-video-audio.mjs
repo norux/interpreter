@@ -92,9 +92,18 @@ try {
   assert.ok(silentMedia.length > 10000, `A real encoded silent video/audio fixture must exist (${silentMedia.length} bytes)`);
   await generator.close();
   const observations = [];
-  for (const owned of [false, true]) {
+  for (const { owned, delayedOutput } of [
+    { owned: false, delayedOutput: false }, { owned: true, delayedOutput: false }, { owned: false, delayedOutput: true },
+  ]) {
     const page = await browser.newPage();
     const errors = []; page.on("pageerror", (error) => errors.push(error.message));
+    if (delayedOutput) {
+      const fixture = await readFile("tests/fixtures/video-audio.html", "utf8");
+      const connect = "outputContext.createMediaStreamSource(outputStream).connect(observer);";
+      assert.ok(fixture.includes(connect), "Delayed loopback regression must intercept the real output connection");
+      await page.route(`http://127.0.0.1:${server.address().port}/?owned=${owned}`, route => route.fulfill({ contentType: "text/html",
+        body: fixture.replace(connect, "const source = outputContext.createMediaStreamSource(outputStream); setTimeout(() => source.connect(observer), 700);") }));
+    }
     await page.goto(`http://127.0.0.1:${server.address().port}/?owned=${owned}`);
     await page.waitForFunction(() => globalThis.ready);
     await page.getByRole("button", { name: "Play and observe output" }).click();
@@ -106,7 +115,8 @@ try {
     assert.equal(settings.noiseSuppression, false); assert.equal(settings.suppressLocalAudioPlayback, false);
     assert.deepEqual(await page.evaluate(() => [video.videoWidth, video.videoHeight]), [160, 90]);
     const baseline = await page.evaluate(() => globalThis.measureOutput());
-    assert.ok(Math.abs(baseline.rms / (0.15 * 0.4 / Math.sqrt(2)) - 1) < 0.12, "Output oracle must measure the encoded tone at the original user volume");
+    assert.ok(Math.abs(baseline.rms / (0.15 * 0.4 / Math.sqrt(2)) - 1) < 0.12,
+      `Output oracle must measure the encoded tone at the original user volume: ${JSON.stringify({ owned, delayedOutput, baseline, expectedRms: 0.15 * 0.4 / Math.sqrt(2) })}`);
     assert.ok(baseline.rms > 0.015, `Original playback must have real output samples: ${JSON.stringify(baseline)}`);
     const rounds = [];
     const initialTime = await page.evaluate(() => video.currentTime);
@@ -147,7 +157,7 @@ try {
     assert.match(overflow, /^audio-gap: Video input queue overflow/);
     assert.ok((await page.evaluate(() => globalThis.measureOutput())).rms > 0.015);
     assert.deepEqual(errors, []);
-    observations.push({ outputSettings: settings, siteOwnedGraph: owned, baselineOutputRms: baseline.rms, rounds, overflow, pageErrors: errors });
+    observations.push({ outputSettings: settings, siteOwnedGraph: owned, delayedOutput, baselineOutputRms: baseline.rms, rounds, overflow, pageErrors: errors });
     await page.close();
   }
   console.log(JSON.stringify({ passed: true, scope: "V2 selected-stream Web Audio input and real browser playback output", browser: browser.version(),

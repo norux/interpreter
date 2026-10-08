@@ -911,3 +911,56 @@ typecheck/build, **116 JavaScript / 222 Python tests** (66.91 s). Evidence:
 `.ralph/media-framework/video-fixture-clock-verify.log`. Final whitespace/staged
 scope checks PASS; fixture source metadata and its manifest hashes, generator,
 local retiming helper, regression, package commands, report and plan only.
+
+
+## 2026-10-08 — wait for real loopback audio before the V2 baseline
+
+The restarted `all` run passed core and ordinary verification (124 JS / 222
+Python), then stopped before Chrome at V2's original-volume baseline assertion.
+Evidence: `.ralph/media-framework/2026-10-08T12-13-43-133Z-video-verification.txt`.
+The historical assertion did not log its measured RMS, so its exact low-level
+trigger cannot be established. A subsequent unchanged instrumented run passed;
+this is not evidence of a persistent product-volume defect.
+
+A controlled real-browser regression delays the independent tab-output connection
+by 700 ms. The old fixture declared output ready after `AudioContext.resume()`
+without waiting for loopback samples; it measured **0 RMS** at media time
+**0.261297 s**, then normal **0.04231–0.04238** output after startup. The original
+12% baseline assertion failed. Evidence: `video-baseline-delayed-before.log`.
+This proves a readiness race that can fail the same assertion, not the precise
+cause of the earlier uninstrumented stop.
+
+The fixture now requires actual nonzero loopback samples before setting
+`outputReady`, polling every 25 ms with a five-second failure timeout. The
+existing 250 ms measurement window and all amplitude/frequency/12% playback
+assertions remain. It waits for audio availability, never for a passing amplitude.
+The baseline assertion now includes graph mode, delay case, measured/expected RMS.
+A permanent third V2 scenario delays loopback by 700 ms and runs the same three
+Start/Stop rounds, selected PCM checks and overflow check. Both original ordinary
+and site-owned-graph scenarios remain. No production input/model/audio payload or
+user setting was changed.
+
+Controls on the fixed fixture: deliberately halving playback volume still FAILS
+with RMS **0.0211742333764155**, expected **0.04242640687119285**;
+removing the loopback connection still FAILS after five seconds with explicit
+`Tab output audio did not arrive within 5 seconds`. Evidence:
+`video-baseline-half-volume.log`, `video-baseline-missing-output.log`. These are
+expected negative-control failures, not successful acceptance runs.
+
+Initial complete Video acceptance PASS: **15 unit tests**, all V1–V5 browser
+checks, including delayed baseline RMS **0.042403938410077044** and all original
+speech/isolation/mapping/playback gates. Evidence: `video-baseline-fixed.log`.
+Full lint identified a constant-condition loop in the first readiness implementation;
+replaced it with the sample-availability condition. Final verification is recorded
+below. No existing thresholds/checklists were relaxed or cleared.
+
+
+Final-source `caffeinate -disu npm run test:framework:video`: **PASS**, 15 unit
+checks and every V1–V5 browser check. Baseline RMS ordinary/site-owned/delayed:
+**0.042342196368392745 / 0.04235504403782973 / 0.042437016039684125**.
+Evidence: `.ralph/media-framework/video-baseline-final-fixed.log`.
+Targeted four-file Biome and whitespace: PASS. Full repository verification,
+including the separately requested runner recovery change: **PASS**, lint,
+typecheck/build, **127 JS / 222 Python** (66.90 s).
+Evidence: `.ralph/media-framework/loop-recovery-final-verify.log`.
+Commit: `fix: wait for video output samples before measuring volume`.

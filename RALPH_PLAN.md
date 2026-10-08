@@ -5105,3 +5105,28 @@ runner, dependency, companion과 사용자 설정은 변경하지 않는다.
   나머지 stage 내용과 production/harness/기준 파일 보존 확인; `git diff --check`.
 - 미실행: 새 실제 모델/실시간/10분/전체 Chrome acceptance. 이번에는 계획·보고서만
   변경했고, 위 과거 실측을 근거로 작업 경계를 확정했다. B6의 실패는 미해결이다.
+
+
+### 2026-10-08 / video / repair V2 output observation readiness
+
+관련 commit: 이 기록을 포함한 `fix: wait for video output samples before measuring volume`.
+최신 all run이 core 검증을 통과한 뒤 V2 음량 baseline에서 실패했다. 당시 RMS는
+로그에 없으며, 동일 코드의 instrumented 재실행은 통과했다. 700 ms tab-loopback
+연결 지연을 주면 기존 검사가 RMS 0으로 실패하고 이후 정상 출력으로 돌아오는
+회귀를 확인했다. 과거 중단의 정확한 native 원인으로 단정하지 않는다.
+
+fixture의 outputReady를 실제 loopback 데이터 도착 후 설정하도록 변경하고
+5초 내 미도착은 명시적으로 실패한다. 기존 250 ms 측정과 12% 음량/PCM/overflow
+검사를 유지하고, 지연 관측 시작을 영구 V2 회귀 사례로 추가했다. 실제 반쪽 음량과
+loopback 미연결은 각각 기존 amplitude gate와 새 bounded readiness에서 실패했다.
+초기 전체 Video V1–V5와 15 unit checks 통과; 최종 lint 조건 수정 후 검증은 아래에
+기록한다. 상세 수치·로그는 Video 보고서. B2 완료와 B3 다음 순서, 모든 checkbox,
+companion/production input/모델/음성 payload/사용자 설정은 그대로다.
+
+
+최종 결과: `caffeinate -disu npm run test:framework:video` **PASS**, 15 unit tests와
+V1–V5 실제 브라우저 검증 전부 통과, 지연 baseline RMS 0.042437016039684125.
+`caffeinate -disu npm run verify` **PASS**, lint/typecheck/build, **127 JS /
+222 Python (66.90 s)**. 이 JS 결과에는 별도로 요청받은 runner 자동 복구 회귀도
+포함된다. 로그: `video-baseline-final-fixed.log`, `loop-recovery-final-verify.log`.
+Targeted Biome/whitespace 통과. 모델·번역·후속 stage 완료를 의미하지 않는다.

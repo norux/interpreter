@@ -34,6 +34,14 @@
       observer = outputContext.createAnalyser(); observer.fftSize = 4096;
       outputContext.createMediaStreamSource(outputStream).connect(observer);
       await outputContext.resume();
+      // A running context does not imply that tab loopback has delivered audio yet.
+      const deadline = performance.now() + 5000;
+      const samples = new Float32Array(observer.fftSize);
+      do {
+        if (performance.now() >= deadline) throw new Error('Tab output audio did not arrive within 5 seconds');
+        await new Promise(done => setTimeout(done, 25));
+        observer.getFloatTimeDomainData(samples);
+      } while (samples.every(sample => sample === 0));
       globalThis.outputReady = true;
     } catch (error) { globalThis.outputError = error.message; }
   };
