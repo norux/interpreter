@@ -6912,3 +6912,88 @@ Companion v0.1.0/native messaging/install/settings, core/media/translation/model
 inventories/permissions/fixtures/runner and unrelated files remain unchanged.
 No agents, app install, push/publish, user apps/recordings/mount changes or temporary
 state/credentials/weights/user audio staged. Only owned test browsers are cleaned.
+
+
+### 2026-10-09 KST / chrome / iteration 6/20 — Turbo long/quiet counterexamples
+
+Related commit: `test: qualify Turbo quiet and long speech`. Entry HEAD `6083e3d`
+was clean; repository AGENTS.md and requested independent runner log
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` are absent. Read the supplied
+instructions, plan, architecture and retained Chrome evidence. **B6 only, still
+unchecked; application default remains smallFp16/WebGPU.** All checklist/history
+and strict failure evidence remain.
+
+Hypothesis: qualify iteration 5's successful text-only Turbo noise candidate on
+retained long speech and quieter input before model selection. Reuse existing
+worker/decoding; no production optimization retained. EOF/quiet/sustained harness
+now accepts explicit `--turbo`; unflagged calls keep small. Record/validate exact
+pinned identity/bytes/remote paths, preserving seven ASR files, fixtures/input,
+activation/cache, every score/count, endpoint <2,000 ms, queue/loss and coverage
+assertion. No Node TypeScript-loader requirement, new dependency, public setting,
+model fallback, PCM/segmentation/VAD/text correction or automatic default change.
+Only the new quiet branch is executed; other Turbo branches remain unverified.
+
+Actual serial commands and ignored `.ralph/media-framework/` evidence:
+
+- `npm run test:framework:chrome:replay --
+  .ralph/media-framework/chrome-live-jobs-4hf2rL --turbo-only` **FAIL / exit 1 /
+  300.11892075 s**, `chrome-iteration-6-turbo-long-original`. Both fresh workers
+  process seven runs/38 exact jobs; long Japanese **56/720 CER (7.777777777777778%)**,
+  meeting/negation **19**, tomorrow/afternoon **16**, other three **18**, expected
+  **18 each**. These two count failures are the sole aggregate failures. Long
+  English **19/418 WER**, all meanings **19**; all shorter controls pass. Prepare
+  **193,062.18120800002 / 3,086.4633329999924 ms**, requests **14/0 preparation,
+  0/0 inference**, peak RSS **6,548,688 / 5,799,600 KiB**. Error/page/visibility arrays
+  empty. Replay inference is not live endpoint acceptance. Historical small text
+  on identical hashes/ranges passes **31/720 CER / all meanings 18**, independently
+  read back from `chrome-b6-9-final-replay-summary.json`; no new small run/timing.
+- `npm run test:framework:chrome:quiet -- --turbo` **FAIL / exit 1 /
+  333.527541958 s**, `chrome-iteration-6-turbo-quiet`: six cases/20 actual jobs.
+  Sole failure is Japanese gain **0.1**, **10/120 CER**, meeting/negation **4** vs
+  expected **3**, other five **3**. Other Japanese gains **3/120 CER**, all English
+  gains **3/66 WER**, every other count **3**. All **20 endpoints <2,000 ms**,
+  maximum **1,962.3999999761581 ms**; max pending **16,668 ms**, queues/loss zero at
+  drain, original-tail/frame coverage and exact jobs pass. Prepare initially
+  **188,671.778375 ms**, peak owned-tree RSS **6,994,656 KiB**, page/visibility **[]**.
+  Pace uses decoded synthetic PCM and one document clock; no new selected-video,
+  Korean/DOM/ten-minute proof. No per-inference network counter exists here.
+- `python3 .ralph/media-framework/chrome-iteration-6-readback.py` **PASS / exit 0**,
+  timed wrapper **0.30542775 s**; independent readback JSON/log verifies **76** exact
+  replay PCM/hash/range/identity/revision/raw-text/token associations, **38** trial
+  text pairs, **14** scores/counts and both failures. Manifest digest unchanged
+  `4d9d36dd2a83240fbdfd957b80945efcfa9e96207d9f142e52981b15d892579e`.
+  All six quiet input controls and **20 job hashes/ranges** match the prior small
+  summary; scores/counts/endpoints reproduce the single quiet failure. Consistency
+  PASS does not turn real acoustic FAIL into acceptance. No files/references altered.
+- Focused timestamp/ASR/model/trace unit command **PASS / exit 0**, **13 tests /
+  0 failed/skipped/cancelled / 398.3055 ms**, `chrome-iteration-6-focused-unit`.
+  Mock contracts, not acoustic quality. Node syntax, typecheck, one-file Biome
+  (**26 ms**) and whitespace **PASS / 0**.
+- `npm run verify` **PASS / exit 0 / 92.74097216700001 s**,
+  `chrome-iteration-6-verify`: Biome **148 files / 66 ms**, Ruff/typecheck/companion
+  build, **153 JS / 0 failed / 24,559.281417 ms**, **222 Python / 66.90 s**. No
+  executable edits follow verification.
+
+Environment/pinned bytes and exact per-case endpoint table are in the matching
+Chrome report. No model/revision/dependency changes. No missing required device,
+permission or environment is observed; quality failures do not warrant a blocked
+marker. Default selection cannot rely on Turbo's noise pass while long/quiet
+counts fail. Broader candidate EOF/sustained/Stop/GPU, other archives, production
+selected-video/native Korean/ten-minute final-profile quality remain **UNVERIFIED**.
+
+**NOT RUN:** full `npm run test:framework:chrome`, unchanged small-profile long
+browser suites, further Turbo suites after these disqualifying counterexamples.
+Prior application-default noisy semantic/full acceptance failures remain FAIL;
+full plan commands are required before completion. B6/Chrome/Safari/iPhone/framework
+completion is not claimed. No checkbox or later stage advances; no terminal marker.
+
+Next unfinished **B6**: improve noisy Japanese recognition without introducing
+retained long/quiet omissions or repetitions, then qualify the final profile's
+complete selected-video/native Korean/ten-minute quality and full Chrome acceptance.
+Preserve exact counts, <=20%, endpoint <2,000 ms, queue/loss and every failed input.
+Three intended files only; report/plan append-only and checkboxes unchanged.
+Companion v0.1.0/native messaging/install/settings, production/core/media/translation/
+models/permissions/fixtures/runner, unrelated files and user apps/recordings/mounts
+are preserved. No agents, app install, push/publish or temporary state/credentials/
+weights/user media staged. Only owned test browsers are cleaned; staged whitelist,
+whitespace and clean committed worktree are checked at delivery.

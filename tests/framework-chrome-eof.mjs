@@ -8,10 +8,14 @@ import { promisify } from "node:util";
 import { chromium } from "playwright";
 import { build } from "vite";
 
-// B2 fixed EOF alignment qualification only. Real models receive paced decoded
+// B6 fixed EOF alignment qualification only. Real models receive paced decoded
 // synthetic PCM, not live acquisition, natural speech or Korean caption input.
 const quiet = process.argv.includes("--quiet-input");
 const sustained = process.argv.includes("--sustained-input");
+const turbo = process.argv.includes("--turbo");
+const candidate = turbo ? "turboFp16" : "smallFp16";
+const model = turbo ? { id: "onnx-community/whisper-large-v3-turbo", version: "360ebcde2559d60bb474678be3c1de9ef347d01a", requiredBytes: 1621338971 }
+  : { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732", requiredBytes: 487960440 };
 assert.ok(!(quiet && sustained), "Quiet and sustained qualifications must run separately");
 const cases = quiet ? [1, 0.25, 0.1].map(gain => ({ gain, tailSamples: 511 }))
   : [0, 341, 511, 853, 1365].map(tailSamples => ({ gain: 1, tailSamples }));
@@ -42,7 +46,7 @@ const server = createServer(async (request, response) => {
       globalThis.prepare = () => {
         globalThis.host?.dispose(); globalThis.vad?.dispose(); globalThis.modelStatuses = []; globalThis.vadStatuses = [];
         globalThis.prepared = false; globalThis.prepareError = undefined;
-        globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => modelStatuses.push(status));
+        globalThis.host = createAsrHost(document, '${candidate}', 'webgpu', status => modelStatuses.push(status));
         globalThis.vad = createVadHost(document, status => vadStatuses.push(status));
         Promise.all([host.prepare(), vad.prepare()]).then(() => {globalThis.prepared = true}, error => {globalThis.prepareError = error.message});
       };
@@ -70,7 +74,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 fixed EOF alignment and optional sustained learned coverage/accuracy; real WASM VAD and FP16 WebGPU ASR over paced decoded synthetic PCM, no live acquisition/translation/DOM", quiet, sustained, runs: [], failures: [] };
+const observations = { scope: "B6 fixed EOF alignment and optional quiet/sustained learned coverage/accuracy; explicit candidate over paced decoded synthetic PCM, no default selection/live acquisition/translation/DOM", quiet, sustained, candidate, model, runs: [], failures: [] };
 const execute = promisify(execFile);
 let browser; let browserProcess; let browserExit; let profile; let page; let monitor;
 let peakRssKiB = 0;
@@ -145,7 +149,8 @@ try {
       assert.ok(statuses.some(status => status.state === "cached"));
       assert.ok(statuses.every(status => status.state !== "downloading"));
     }
-    assert.equal(status.error, undefined); assert.equal(status.last.state, "ready"); assert.equal(status.last.requiredBytes, 487960440);
+    assert.equal(status.error, undefined); assert.equal(status.last.state, "ready"); assert.equal(status.last.requiredBytes, model.requiredBytes);
+    assert.deepEqual(status.last.model, { id: model.id, version: model.version });
     if (periods > 3) sustainedMemory = { language: clip.language, periods, start: performance.now(), samples: [] };
     const measured = await page.evaluate(async ({ clip, gain, tailSamples, periods }) => {
       const original = await readClip(clip);
@@ -279,12 +284,12 @@ try {
   observations.visibilityEvents = await page.evaluate(() => visibilityEvents);
   assert.deepEqual(pageErrors, []); assert.deepEqual(observations.visibilityEvents, []);
   observations.remotePaths = [...remotePaths];
-  const pinned = "https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/";
+  const pinned = `https://huggingface.co/${model.id}/resolve/${model.version}/`;
   const vadPinned = "https://huggingface.co/onnx-community/silero-vad/resolve/e71cae966052b992a7eca6b17738916ce0eca4ec/onnx/model.onnx";
   assert.ok(remotePaths.has(vadPinned));
   assert.equal([...remotePaths].filter(path => path.startsWith(pinned)).length, 7);
   assert.ok([...remotePaths].every(path => path.startsWith(pinned)
-    || path.startsWith("https://huggingface.co/api/resolve-cache/models/onnx-community/whisper-small/36050c46d777d46dc4b5f43f6d90574fc38f8732/")
+    || path.startsWith(`https://huggingface.co/api/resolve-cache/models/${model.id}/${model.version}/`)
     || path === vadPinned || path.startsWith("https://huggingface.co/api/resolve-cache/models/onnx-community/silero-vad/e71cae966052b992a7eca6b17738916ce0eca4ec/")
     || path.startsWith("https://us.aws.cdn.hf.co/xet-bridge-us/")), "Only pinned model artifacts/redirects may be remote");
   console.log(JSON.stringify({ passed: observations.failures.length === 0, ...observations }));
