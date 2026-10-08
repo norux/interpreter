@@ -12741,3 +12741,34 @@ Final audit: focused harness Biome **PASS / exit 0 / 30 ms**, `node --check`
 append-only report/plan, unchanged checkboxes/runner and only the four intended
 files staged. No executable change follows the final failing browser run. All
 intended changes are committed; unrelated `.DS_Store` remains untracked/unstaged.
+
+
+## 2026-10-09 KST — Ralph closed at user request
+
+The user explicitly ended Ralph, requested that all intended changes be committed
+and the Ralph plan be deleted, and moved current B6 quality work to
+[GitHub issue #1](https://github.com/norux/interpreter/issues/1).
+No Ralph runner or Codex loop worker remained at the closure check. No loop is
+restarted. The standing supervision goal remains paused; closure does not mean
+its original successful-completion objective or all framework stages were achieved.
+
+Remove `RALPH_PLAN.md` and the README Ralph-start block under this direct user
+authorization, independently of the runner's successful-final-stage cleanup path.
+Keep the runner/tests, architecture, implementations and verification reports.
+Current tab-capture functionality and exact B6 metrics/failures/acceptance criteria
+are retained in the issue and this report. B5a native post-audio-service-loss
+output restoration and fresh-action engine recovery remain unverified; its last
+actual acceptance command failed. Full Chrome, Safari and physical-iPhone
+completion are not claimed. No numerical gate is relaxed and no failing evidence
+is deleted. Previously committed implementation remains at `e3e2430`.
+
+Only closure documentation and plan removal change in this commit. No runtime
+code or new model experiment; no full browser/quality suite rerun is attributed
+to this documentation cleanup. Unrelated untracked `.DS_Store` is preserved and
+is not committed.
+
+Closure checks PASS: no live Ralph process; plan absent; README launch markers
+and plan link absent; issue URL present; GitHub readback confirms issue #1 OPEN
+with the intended B6 metrics, reproduction commands and unchecked acceptance.
+`git diff --check` passes. Runtime/browser suites were not rerun for this
+documentation-only cleanup.

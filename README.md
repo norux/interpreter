@@ -14,27 +14,15 @@ selected and billed by their API provider separately from chat subscriptions.
 
 ## Setup
 
-The proposed [media framework architecture](docs/architecture/media-framework.md)
-defines selected-video interpretation across desktop Chrome, Safari and iPhone
-Safari. It is a design for future builds; the setup below describes the current
-companion implementation.
-
-<!-- ralph-plan:begin -->
-The [Ralph implementation plan](RALPH_PLAN.md) divides that framework into bounded
-stages. After `npm ci` and `uv sync --locked`, preview all stages with
-`node scripts/ralph-loop.mjs all 5 --dry-run`, then start them with
-`node scripts/ralph-loop.mjs all 5` using a logged-in Codex CLI on a feature branch.
-The limit is per stage; each stage must pass acceptance before the next starts.
-On macOS, the runner keeps the display and system awake for the entire run,
-including iteration and stage transitions, and releases that assertion on exit.
-Failed acceptance during a completed-stage recheck is sent to Codex for repair;
-the runner verifies the repair before advancing and preserves the failure logs.
-It stops after two unsuccessful repair verifications, or on a blocker, CLI failure,
-missing commit progress or iteration limit. Rerun the same command to recheck
-completed stages and resume unfinished work. Use a stage name instead of `all` to
-run only that stage. After final verification it deletes the plan and commits
-cleanup. It does not push or publish. This new plan has not been started.
-<!-- ralph-plan:end -->
+The [media framework architecture](docs/architecture/media-framework.md) covers
+Chrome tab audio and selected-video interpretation on Safari/iPhone. The framework
+Ralph run was closed at the user's request on 2026-10-09; its implementation plan
+was removed. This is not a framework-completion claim. Standalone Chrome capture
+and real ASR/translation/DOM are implemented, while capture-loss recovery and full
+acceptance remain unfinished. B6 quality/performance follow-up is tracked in
+[GitHub issue #1](https://github.com/norux/interpreter/issues/1). See the
+[Chrome verification report](docs/verification/media-framework/chrome.md) for
+retained results and failures. The setup below describes the companion build.
 
 ### macOS companion app (development build)
 
