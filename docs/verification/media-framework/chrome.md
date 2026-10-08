@@ -8325,3 +8325,139 @@ application DOM, native offline behavior, ten-minute capture and final quality/
 latency gates remain B4–B6 work. The missing `test:framework:chrome` still belongs
 to B5 and is not replaced by this focused command. No stage-complete marker,
 Safari/iPhone acceptance, push, publication or app installation is claimed.
+
+## 2026-10-08 — B4 document composition, first slice (chrome iteration 1/20)
+
+Commit: `feat: compose Chrome document interpretation and comparison`, containing
+this entry. **B4 remains unchecked and next.** The plan permits a large item to
+span iterations. This supplies a trusted document composition and comparison
+renderer, not an installable standalone extension. Repository `AGENTS.md` and
+requested runner evidence
+`.ralph/media-framework/2026-10-08T13-28-06-822Z-chrome-verification.txt` are absent.
+Reviewed supplied instructions, plan, architecture, current scope and retained
+Chrome evidence. Worktree was clean at entry.
+
+Assumption: compose the existing model/segmentation/native translation ports
+before adding the persistent extension host and validated selected-page channel.
+The smaller step reuses the core session controller, revision store and
+presentation policy. No ASR/VAD/decoder comparison, quality tuning, fallback or
+user setting is added. A controlled document's mocked input does not prove
+current-page extension sample access.
+
+### Implementation
+
+- `apps/chrome/engine.ts` implements `InterpretationEngine` using the existing
+  pinned **smallFp16 / WebGPU** inventory (**487,960,440 bytes**), learned detector
+  and native document Translator. Prepare begins all owned hosts synchronously
+  in the document gesture and requires all preparations to resolve. Progress or
+  cache alone cannot enable Start. Stop/pagehide/hidden invalidate readiness,
+  cancel inference and release owned instances. Interruption requires explicit
+  Stop → Prepare → Start; no implicit recovery/model/backend switch.
+- `packages/engines-browser/pipeline.ts` normalizes selected-video samples once,
+  runs the existing recognizer/translation queue and emits source immediately
+  as `transcript`, then exact `translation` events. Core rejects an unpaired
+  `paired-caption`, so pending sources must use the transcript event. Scheduling
+  keeps four pending utterances/one active translation; output events are bounded
+  at **16** and queue telemetry coalesced. GPU-loss/audio-gap/overload reasons
+  precede stream termination. Cancellation invalidates output synchronously.
+  The host owns translator closure; the stream owns its recognizer/epoch.
+- Translation queue `whenIdle()` lets natural engine input EOF drain accepted
+  translations, including queued finals. Cancellation releases that wait and
+  suppresses late output. Video end/user Stop still explicitly cancel through
+  the unchanged controller; this does not redefine those lifecycle events.
+- `apps/chrome/composition.ts` accepts host-supplied `VideoInput` and explicit
+  opaque target/language selection. Its Prepare/Start/Stop controls assemble
+  controller and policy; the pinned model ID/revision/bytes remain visible.
+  Video times use playback mapping, never session elapsed time. Changing the
+  selection invalidates prior work. No transcript storage or privileged host API.
+- `packages/presentation-web/comparison.ts` inserts text safely in original |
+  video time | Korean rows, with separate revisions/pending/final states. The
+  latest **300** utterances survive Stop. Live captions report measured two-line
+  layout to the unchanged core policy for cadence, final replay, reading duration
+  and **250 ms** fade. Final changes restart at the beginning; old identities/
+  epochs cannot repaint. This is a host-document surface, not yet a page overlay.
+- `build:chrome` exports the composition and module workers alongside B1's
+  preparation document under ignored `apps/chrome/dist/`. Lint/typecheck include
+  the renderer. The executable `test:framework:chrome:composition` is scoped
+  contract/DOM coverage, not a replacement for B5's missing full-stage command.
+
+Creation/context constraints follow the
+[official Translator documentation](https://developer.chrome.com/docs/ai/translator-api).
+No new manifest/platform permission is asserted by this library build. Companion
+v0.1.0, installation/native messaging/server/settings/runner, model inventories,
+prior strict quality gates and failure records are unchanged. No user audio,
+transcript, weights, keys or `.ralph` data enters Git.
+
+### Exact verification
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+test-owned Chromium **153.0.8010.12**. Evidence paths below are under ignored
+`.ralph/media-framework/`. Only owned test browsers were closed; no user browser
+access/profile changes, apps, agents, push/publication or later-stage work.
+
+- **FAIL initial focused runtime** (direct output): `npm run typecheck && node
+  --import tsx --test tests/framework-browser-pipeline.test.ts`, typecheck passes,
+  **0 pass / 3 fail / 94.741875 ms**. New synthetic fixture sent **19,200 bytes**
+  above the unchanged **8,192-byte** limit. Corrected to three contiguous legal
+  packets; no limit relaxed. Next focused run **3 pass / 0 fail / 72.828166 ms**.
+- **FAIL first scoped browser**, exit 1, `chrome-b4-composition-attempt-1.log`:
+  fixture counter collided with read-only `Window.closed`, then `ready` was
+  undefined. Corrected counter to `closedInputs`; the next independent owned
+  headless run **PASS / exit 0**, `chrome-b4-composition-attempt-2.log`. These
+  were fixture defects, not environment/readiness blockers.
+- **PASS final production-source `npm run test:framework:chrome:composition`**,
+  exit 0, `chrome-b4-composition-delivery.log`: typecheck, **11 contract tests /
+  0 failed, skipped or cancelled / 58.905292 ms**, **23-module** Chrome build,
+  actual browser DOM/layout/trusted clicks. Workers, native Translator and PCM
+  input are **explicit mocks**. Checks: activation/default, one Start, source
+  first/exact paired revisions/video mapping/safe text, owned cleanup/history,
+  English reprepare, seek epoch cancellation/late translation suppression, Stop
+  during preparation, measured replay/final restart/fade/stale epoch. **220 px**
+  host: first/second parts **33 / 33** characters of **480**, sequential without
+  omission; **300** rows after **305** inserts; page errors **[]**. Subsequent
+  lint-only test fix preserves its GPU-loss assertion and final verify covers it.
+- **PASS real native regression `npm run test:framework:chrome:translation`**,
+  exit 0, `chrome-b4-native-translation.log`: typecheck, **7 contract tests /
+  0 failed, skipped or cancelled / 47.175583 ms**, existing headed CfT component
+  preparation and actual Japanese/English labeled text → Korean through the
+  document adapter/queue. Creation after startup **340.975083 ms ja / 144.572 ms
+  en**. Pending originals precede exact final source revision **2** pairing;
+  Stop suppresses further work. Queue failures/page errors **[]**. This is native
+  text translation, not real ASR, PCM-to-DOM, offline or final quality/latency.
+  No ASR model download. Existing permitted CfT harness/cache unchanged.
+- **PASS intermediate `npm run verify`**, exit 0, `chrome-b4-verify.log`:
+  lint/typecheck/unchanged companion build, **136 JS / 0 failed, skipped or
+  cancelled / 25,683.739417 ms**, **222 Python / 66.95 s**. This preceded final
+  GPU-loss/idle-wait coverage and UI refinements.
+- **FAIL subsequent `npm run verify`**, exit 1, `chrome-b4-verify-final.log`:
+  Biome rejects the new GPU-loss test's throwing async generator with no yield.
+  Changed only that test to yield a rejected promise; assertions unchanged.
+- **FAIL required `npm run test:framework:chrome`**, exit 1,
+  `chrome-b4-stage-acceptance.log`: full-stage script still missing, assigned to
+  B5. No placeholder/always-pass/reduced assertion or mock substitute. Prior
+  numerical ASR/latency/meaning failures remain failures.
+
+### Remaining B4 work
+
+**UNVERIFIED:** persistent extension document/manifest/permissions, current-page
+selection UI integration, validated bounded page-to-host PCM/control transport
+with acknowledgement/identity checks, selected-video overlay/fullscreen and real
+selected-video PCM → default ASR → native translation → application DOM. This
+is a composition library plus preparation document, not an installable product.
+No B4 acceptance, real acquisition/transcription accuracy or stage completion is
+claimed. No absent environment/device/permission or repeated external blocker was
+encountered. Continue **B4** with that host/channel and actual verification; keep
+the checkbox unchecked until the entire item passes. B5 full/ten-minute/offline
+acceptance, B6 final quality/latency, Safari/iPhone and whole-framework completion
+remain unfinished. All checkboxes remain unchanged. Final verification and
+preservation evidence follows.
+
+Final-source `npm run verify` **PASS / exit 0**,
+`chrome-b4-verify-delivery.log`: Biome **131 files / 42 ms / no findings**,
+Ruff/typecheck, unchanged companion build **28 main / 10 content modules**,
+**138 JS / 0 failed, skipped or cancelled / 25,434.994375 ms**, **222 Python /
+67.00 s**. This includes the GPU-loss and idle-wait tests. No executable edit
+follows that run. Preservation assertions **PASS** (direct tool output): exact
+**13-file** scope, append-only report/plan, all checkboxes unchanged, companion/
+settings/runner untouched, no tracked `.ralph`, documentation-inclusive whitespace
+clean. Staged scope/whitespace and post-commit clean status are checked at delivery.

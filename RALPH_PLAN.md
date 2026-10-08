@@ -5379,3 +5379,71 @@ returns `/Library/Developer/CommandLineTools`), with no `/Applications/Xcode.app
 Do not assume paid enrollment, Xcode installation, iPhone connection or device
 signing is authorized/prepared. These do not block the current Chrome work;
 record actual remaining Safari/iPhone build/signing/device constraints when reached.
+
+### 2026-10-08 / chrome / iteration 1/20 — B4 document composition, first slice
+
+Commit: `feat: compose Chrome document interpretation and comparison`, containing
+this entry. **B4 stays unchecked and next**; large items may span iterations.
+Repository AGENTS.md and requested
+`2026-10-08T13-28-06-822Z-chrome-verification.txt` runner evidence are absent.
+
+Built the document-owned implementation profile (existing pinned smallFp16 /
+WebGPU plus learned detector/native Translator), `InterpretationEngine` stream
+and original/time/Korean comparison renderer. Prepare preserves the gesture and
+requires actual readiness of all hosts. Core sessions/timeline/revisions/policy
+govern caption acceptance/display. Original pending source comes first; exact
+translations pair later, measured long finals replay from their beginning, fade
+is 250 ms and history retains 300 rows. Stop/seek cancel old output; interruption
+requires explicit Stop → Prepare → Start. Added bounded caption events, coalesced
+status, visible GPU-loss/gap/overload and translation idle waiting for accepted
+work at engine input EOF. Added exported composition/worker build and focused
+contract/DOM command. No model/VAD/decoder tuning or fallback.
+
+`npm run test:framework:chrome:composition` **PASS / exit 0**: typecheck,
+**11 contract checks / 58.905292 ms**, **23-module** Chrome build, actual headless
+Chromium **153.0.8010.12** DOM/layout/clicks with **explicit mocked workers,
+native Translator and PCM input**. Checks: activation/default/source-first/exact
+pairing/mapping/safe text, duplicate Start, Stop/seek/late output/preparation,
+replay/final restart/fade/stale epoch/history. **220 px** layout: **33 + 33**
+sequential characters from **480**; **300** rows after **305** inserts; errors
+**[]**. These are not real ASR/translation/acquisition/extension-install evidence.
+Log: `chrome-b4-composition-delivery.log` under ignored `.ralph/media-framework/`.
+Initial unit fixture exceeded the unchanged 8,192-byte limit; corrected fixture.
+First browser fixture collided with Window.closed; corrected counter. Exact
+failures/next passes are retained in the report, without weaker gates.
+
+`npm run test:framework:chrome:translation` **PASS / exit 0**:
+**7 contract checks / 47.175583 ms**, headed real native Japanese/English labeled
+text → Korean, original first/final revision 2 pairing/Stop; failures/errors
+**[]**. Creation after existing CfT native component startup **340.975083 ms ja /
+144.572 ms en**; no ASR model download. `chrome-b4-native-translation.log`. This is text
+translation regression, not complete audio/ASR/DOM or quality/latency acceptance.
+
+Intermediate `npm run verify` **PASS / exit 0**, **136 JS / 222 Python / 66.95 s**,
+`chrome-b4-verify.log`. Subsequent verify **FAIL / exit 1**, throwing test generator
+with no yield (`chrome-b4-verify-final.log`); changed only that test to yield a
+rejected promise, retaining GPU-loss assertions. Required
+`npm run test:framework:chrome` **FAIL / exit 1**, missing B5 full-stage command
+(`chrome-b4-stage-acceptance.log`); no focused mock/native substitute.
+
+**Next B4:** persistent extension host/manifest/permissions, current-page selection
+UI, validated bounded PCM/control channel with acknowledgement/identity checks,
+page overlay and real selected-video PCM → default ASR → native translation →
+application DOM verification. These remain **UNVERIFIED**. No external environment
+blocker established. Build is a composition library plus preparation document,
+not yet an installable standalone product. B4–B6 and all later-stage work remain
+unfinished. Every checkbox/prior failure/gate is unchanged. Companion v0.1.0,
+settings/install/native messaging/server/runner and unrelated apps/files preserved.
+No stage advance, agents, push/publish/install, user audio/transcript/weights/keys
+or temporary `.ralph` state in Git. Final verify/preservation evidence follows;
+no terminal completion or blocker marker is claimed.
+
+Final-source `npm run verify` **PASS / exit 0**,
+`chrome-b4-verify-delivery.log`: Biome **131 files / 42 ms / no findings**,
+Ruff/typecheck, unchanged companion build **28 main / 10 content modules**,
+**138 JS / 0 failed, skipped or cancelled / 25,434.994375 ms**, **222 Python /
+67.00 s**. No executable edit follows this run. Documentation-inclusive
+whitespace, exact **13-file** scope, append-only report/plan, unchanged checkboxes
+and excluded tracked `.ralph` **PASS** (direct preservation assertions). Companion/
+settings/runner are untouched. Staged checks and clean status after commit follow
+at delivery. B4 remains unfinished; subsequent work stays in B4.

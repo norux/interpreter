@@ -11,6 +11,13 @@ export function createTranslationQueue(identity: SessionIdentity, languages: Lan
   const pending = new Map<string, TranscriptRevision>();
   let active: TranscriptRevision | undefined;
   let stopped = false;
+  const waiters = new Set<() => void>();
+
+  function settled() {
+    if (!stopped && (active || pending.size)) return;
+    for (const resolve of waiters) resolve();
+    waiters.clear();
+  }
 
   async function drain() {
     if (active || stopped) return;
@@ -24,7 +31,7 @@ export function createTranslationQueue(identity: SessionIdentity, languages: Lan
         if (caption) receive(caption);
       }
     } catch { if (!stopped) fail("engine-failed"); }
-    finally { active = undefined; if (!stopped) void drain(); }
+    finally { active = undefined; if (!stopped) void drain(); settled(); }
   }
 
   return {
@@ -47,9 +54,15 @@ export function createTranslationQueue(identity: SessionIdentity, languages: Lan
       return true;
     },
     snapshot: () => store.snapshot(),
+    // Input EOF must drain accepted translations before its engine stream ends.
+    whenIdle(): Promise<void> {
+      if (stopped || (!active && !pending.size)) return Promise.resolve();
+      return new Promise(resolve => { waiters.add(resolve); });
+    },
     async cancel() {
       if (stopped) return;
       stopped = true; pending.clear();
+      settled();
       await translator.cancel(selected);
     },
   };

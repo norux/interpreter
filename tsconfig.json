@@ -9,6 +9,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["extension/**/*.ts", "packages/media-web/**/*.ts", "packages/engines-browser/**/*.ts", "apps/chrome/**/*.ts", "tests/**/*.ts", "vite.config.ts", "vite.content.config.ts", "vite.chrome.config.ts"],
+  "include": ["extension/**/*.ts", "packages/media-web/**/*.ts", "packages/engines-browser/**/*.ts", "packages/presentation-web/**/*.ts", "apps/chrome/**/*.ts", "tests/**/*.ts", "vite.config.ts", "vite.content.config.ts", "vite.chrome.config.ts"],
   "exclude": ["tests/framework/types"]
 }

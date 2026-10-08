@@ -166,3 +166,16 @@ test("a final revision of the active utterance fits a one-utterance queue", asyn
   assert.equal(f.queue.snapshot()[0].translation.state, "paired");
   await f.queue.cancel();
 });
+
+test("translation idle wait includes queued finals and releases immediately on cancellation", async () => {
+  const f = queued(2);
+  await f.queue.whenIdle();
+  f.queue.accept(source("one", 1, true)); f.queue.accept(source("two", 1, true));
+  let settled = false; const waiting = f.queue.whenIdle().then(() => { settled = true; });
+  f.calls[0].result.resolve("one"); await tick(); assert.equal(settled, false);
+  f.calls[1].result.resolve("two"); await waiting; assert.equal(settled, true);
+  f.queue.accept(source("three", 1, true));
+  const cancelled = f.queue.whenIdle(); await f.queue.cancel(); await cancelled;
+  f.calls[2].result.resolve("late"); await tick();
+  assert.equal(f.queue.snapshot().find(c => c.source.utteranceId === "three")?.translation.state, "pending");
+});

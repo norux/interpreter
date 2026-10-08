@@ -7,6 +7,11 @@ export default defineConfig({
   worker: { format: "es" },
   build: {
     outDir: "dist", emptyOutDir: true, target: "chrome116",
-    rollupOptions: { input: fileURLToPath(new URL("./apps/chrome/preparation.html", import.meta.url)) },
+    rollupOptions: {
+      input: { preparation: fileURLToPath(new URL("./apps/chrome/preparation.html", import.meta.url)),
+        composition: fileURLToPath(new URL("./apps/chrome/composition.ts", import.meta.url)) },
+      preserveEntrySignatures: "strict",
+      output: { entryFileNames: "[name].js" },
+    },
   },
 });
