@@ -1196,3 +1196,130 @@ unfinished in the supported headed Chromium scope. Only fixture controls,
 acceptance regression, this report and plan progress are included in the repair;
 ignored diagnostics are excluded. Staged whitespace/scope and post-commit clean
 worktree are checked before reporting completion. Later stages remain unfinished.
+
+
+## 2026-10-09 — video repair iteration 1/20: capture-context buffering
+
+Commit: `fix: buffer selected video capture across render clocks`. Scope is the
+failed Video acceptance only. Repository AGENTS.md is absent; supplied instructions,
+plan, architecture, Video history and the independent runner log were inspected.
+Initial worktree was clean.
+
+The runner's `2026-10-08T19-28-46-974Z-video-verification.txt` passes 15 unit
+checks and V1–V4, then fails site-owned English V5 selected waveform correlation
+**0.2852334452377246**, below the unchanged >0.85 gate. It observes **58 chunks**,
+selected tag **0.05991075117994285**, wrong tag **0.0011603308989739636**,
+wrong-speech correlation **0.1376066768099948**, and mapping error
+**0.26133333333382325 ms**. Correct source tags and metadata do not prove
+continuous speech samples.
+
+A focused pre-edit headed V5 diagnostic also **FAILS / exit 1**, delayed-output
+English selected correlation **0.5043939051243118**, **59 chunks**, mapping error
+**4.406666666667661 ms**, selected/wrong tags
+**0.05973805088471991 / 0.0011576142258848396** (`video-current-before.log`).
+That diagnostic exports synthetic reference/PCM after ordinary captures, changing
+subsequent timing; it is not the untouched full acceptance. Its delayed-output
+route retains the original fixture and fails the original assertion. Two further
+focused original-timing probes, site-owned and delayed-output separately, **PASS**
+with all selected correlations **1.0** (`video-current-native.log`,
+`video-current-delayed.log`). These passing probes establish intermittency, not a
+repair. No unchanged full suite was repeated.
+
+Re-analysis of the previously archived failing synthetic capture independently
+**PASSES / exit 0** (`video-current-exhaustive.log`): exhaustive single-sample
+alignment still yields half-second correlation **0.7188289784528917**. Its first
+three 100 ms segments match exactly at offset **−67.42483333333439 ms**; the
+fourth is **0.8326839551486732**, and the fifth matches exactly at
+**−70.09150000000045 ms**. The relative content position changes by **128 samples /
+2.6667 ms** inside one delivered stream. This is a real content discontinuity;
+coarse matching, source selection, encoded packet clock and chunk ordering do not
+explain away that measured failure. The exact Chromium/device scheduling origin
+of the native shift, and the exact sample defect in the runner's unsaved PCM,
+remain **UNVERIFIED**.
+
+The production capture context previously used the default interactive buffering.
+It now requests `latencyHint: "playback"` for the session-owned stream-to-worklet
+context, favoring buffering across its separate render clock. This is the smallest
+input-path buffering change; no shared-context architecture or site graph ownership
+is introduced. No PCM correction, time stretching, timestamp rewriting, gain change,
+source reload, tab-mix input or relaxed assertion is used. The original website
+context and playback settings remain owned by the site. The browser decides the
+actual buffering; the hint is not a guarantee against all native scheduling loss.
+
+The existing V5 harness adds the combined **site-owned graph + one-second delayed
+loopback** scenario, retaining all three original scenarios. Every scenario keeps
+Japanese Start/repeat Start, delayed site-owned restart, explicit English selection,
+native double-click Start, Stop/idempotent cleanup, original-volume output,
+>0.85/<0.35 waveform, tag exclusion, <150 ms mapping and exact PCM assertions.
+No fixture binary, model/profile, contract/core/companion/host or runner changes.
+
+After the input change, focused delayed-output V5 **PASS / exit 0**, **179 real
+chunks / 3 captures**, all selected correlations **1.0**, maximum wrong-source
+correlation **0.22586811070840762**, maximum mapping error
+**35.689000000002125 ms** (`video-current-buffered.log`). This is real browser
+input/output evidence; finite passing captures do not identify the native scheduler
+or establish ASR/translation accuracy.
+
+Final acceptance and repository verification results are recorded below.
+
+Environment: macOS **26.6.2 / 25G83 arm64**, Node **24.15.0**, npm **11.12.1**,
+uv **0.12.23**, existing test-owned headed Chromium **153.0.8010.12**.
+Only this worktree, ordinary existing caches and explicit local tests were used.
+No permission/device/access blocker or bypass, other agent, installation, push or
+publication. Published companion v0.1.0, install paths, user settings, other stages,
+apps/recordings/mounted images and unrelated files are preserved. Credentials,
+weights, user audio/transcripts and temporary `.ralph` data are excluded from the
+commit. Logs and synthetic diagnostic data named here remain ignored under
+`.ralph/media-framework/`.
+
+Physical speaker/listener audibility, long-run acoustic drift, ASR/translation
+accuracy, broader external-site compatibility, Safari/iPhone and whole-framework
+completion remain **UNVERIFIED**. Mocks, PCM acquisition and model readiness are
+not recognition-accuracy evidence.
+
+
+Final-source `npm run test:framework:video`: **PASS / exit 0**, standalone
+adapter compile, **15 unit checks / 0 failed / 0 skipped** (**104.398708 ms**)
+and every V1–V5 real-browser assertion. Evidence: `video-current-acceptance.log`.
+V5: **12 captures / 710 real 8192-byte mono float32 / 48 kHz chunks**;
+selected correlation **0.8875193241492407–1.0**, maximum wrong-source correlation
+**0.25478927236254745**, maximum mapping error **35.420333333333474 ms**.
+Selected tags **0.05974167433303477–0.06022862965325261**, absent tag maximum
+**0.0012027815292155318**, speech RMS **0.039015044078146426–0.05214089253864633**,
+maximum duration error **1.2150280781497713e-12 ms**. All identities, clocks,
+consecutive sequences, source/user settings, disabled/enabled Start, no-PCM-after-
+Stop and original-output bounds pass, with **4 native double-click Starts**.
+Both original videos advance **9.412629–10.48 seconds**; page errors are `[]`.
+
+| Graph / delayed output | Baseline Japanese / English output tags | Selected correlations (Japanese / repeat / English) |
+| --- | --- | --- |
+| Ordinary / no | 0.023995573666370663 / 0.0150202312210863 | 1.0 / 1.0 / 0.8875193241492407 |
+| Site-owned / no | 0.02399064813361437 / 0.015017307594086227 | 1.0 / 1.0 / 1.0 |
+| Ordinary / one second | 0.024038514976957394 / 0.01501736031583239 | 1.0 / 1.0 / 1.0 |
+| Site-owned / one second | 0.024002934337299903 / 0.015022820128041561 | 1.0 / 1.0 / 1.0 |
+
+V3 mapping maxima **90.33033333333333 / 60.625333333333856 ms** remain below
+150 ms; real input-driven cancellation and original output pass. Buffering can
+increase input delivery latency; the actual acoustic offset and every-window
+sample fidelity are not newly guaranteed. All V2 output/restart/overflow and
+V4 ten media routes plus explicitly owned cross-origin frame pass unchanged.
+No full Video acceptance retry follows this passing final-source run.
+
+Targeted Biome on input/harness: **PASS / exit 0**, **2 files / 20 ms**, no findings.
+`tsc -p tsconfig.media-web.json` and `git diff --check`: **PASS / exit 0**.
+
+
+Final-source `npm run verify`: **PASS / exit 0**, Biome **148 files / 55 ms**,
+Ruff/typecheck/unchanged companion build, **153 JavaScript passed / 0 failed /
+0 skipped** (**26237.247958 ms**), **222 Python passed** (**66.99 s**).
+Evidence: `video-current-verify.log`. Expected mock preparation errors in the JS
+log are exercised rejection cases, not failed tests or actual model qualification.
+No executable change follows the final Video acceptance or this verification.
+V1–V5 retain checked status after both required commands pass. No Video checklist
+item remains unfinished in the tested headed Chromium scope; other-stage
+checkboxes are preserved. Staged scope/whitespace and the post-commit clean
+worktree are checked at delivery. This completes Video only.
+
+Pre-commit staged four-file whitelist, append-only history and unchanged-checkbox
+assertions: **PASS / exit 0**. `git diff --cached --check`: **PASS / exit 0**.
+No temporary data, credentials, weights or user media are staged.

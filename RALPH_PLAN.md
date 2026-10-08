@@ -6411,3 +6411,70 @@ The primary source exactly matches the isolated tested source. No actual
 ASR/runtime code changed in this supervisor slice. Commit the two owned
 files and restart `node scripts/ralph-loop.mjs all 20` with a fresh guarded
 runner process; all stage completion and final cleanup gates remain required.
+
+
+### 2026-10-09 KST / video / repair iteration 1/20 — capture-context buffering
+
+Commit: `fix: buffer selected video capture across render clocks`, containing
+this progress entry and the matching Video report. **Video stage only**; all
+V1–V5 retain checked status after both final required commands actually pass.
+Other-stage checkboxes and historical evidence are preserved.
+
+Cause/evidence: independent runner `2026-10-08T19-28-46-974Z-video-verification.txt`
+passes 15 unit checks/V1–V4 then fails site-owned English waveform correlation
+**0.2852334452377246 / required >0.85**, with 58 ordered chunks and correct tags.
+Pre-edit focused headed diagnostic **FAILS / exit 1**, delayed-output English
+**0.5043939051243118**, 59 chunks (`video-current-before.log`). Separate original-
+timing site-owned and delayed-output probes **PASS / exit 0**, each selected
+correlation **1.0**; these establish intermittency, not a repair. No unchanged full
+suite was repeated. Re-analysis of archived failing synthetic PCM **PASS / exit 0**
+(`video-current-exhaustive.log`): exhaustive alignment still gives **0.7188289784528917**,
+with exact 100 ms matches shifting by **128 samples / 2.6667 ms** inside the
+half-second window. Native content discontinuity is established for that archived
+capture; exact native scheduling origin and the runner's unsaved sample defect
+remain **UNVERIFIED**, not attributed to the matcher or worklet without evidence.
+
+Change: the session-owned capture AudioContext requests **playback buffering**
+instead of default interactive buffering across separate render clocks. Website
+playback/graph ownership, actual PCM, timestamp/sample accounting, CORS guards,
+core contracts, companion v0.1.0/install/settings, models and runner are preserved.
+Add combined site-owned + delayed-loopback V5 case with all existing assertions;
+no source/fixture/threshold relaxed or deleted. No unrelated quality tuning or
+later-stage work. Targeted post-change delayed V5 **PASS / exit 0**, **179 chunks /
+3 captures**, all selected correlations **1.0**, mapping maximum **35.689 ms**.
+
+Final `npm run test:framework:video` **PASS / exit 0**
+(`video-current-acceptance.log`): adapter compile, **15 unit checks / 0 failures /
+0 skipped / 104.398708 ms**, every V1–V5 actual browser assertion, **12 V5 captures /
+710 real chunks / 4 native double-click Starts**. Selected correlations
+**0.8875193241492407–1.0**, wrong-source maximum **0.25478927236254745**,
+V5 mapping maximum **35.420333333333474 ms**; all unchanged isolation/output/PCM/
+Stop/state gates pass, page errors **[]**. V3 mapping maxima **90.33033333333333 /
+60.625333333333856 ms**, both <150 ms. No repeat full acceptance after this pass.
+
+Final `npm run verify` **PASS / exit 0** (`video-current-verify.log`): Biome
+**148 / 55 ms**, Ruff/typecheck/build, **153 JS / 0 failed / 0 skipped /
+26237.247958 ms**, **222 Python / 66.99 s**. Targeted two-file Biome,
+standalone media-web compile and `git diff --check` **PASS / exit 0**.
+Serial final acceptance/verify; no executable edit afterward.
+
+Scope: macOS **26.6.2 / 25G83 arm64**, Node **24.15.0**, npm **11.12.1**,
+existing owned headed Chromium **153.0.8010.12**, real synthetic video input and
+independent browser output only. Buffering increases some delivery/mapping delay;
+all measured values remain within original bounds. Every-window fidelity, long-run
+acoustic drift, physical speakers, ASR/translation accuracy, external sites,
+Safari/iPhone and whole-framework completion remain **UNVERIFIED**. No required
+environment/device/permission/access blocker, workaround, apps/settings/recordings/
+mount changes, other agents, installation, push/publication, credentials/weights/
+user media or temporary `.ralph` state in the commit. Repository AGENTS.md absent;
+supplied instructions apply. Detailed exact outcomes and local evidence paths are
+in [Video report](docs/verification/media-framework/video.md).
+
+Next unfinished selected-stage item: **none in the accepted headed Chromium
+scope**. Verify staged whitespace/four-file scope, commit all intended changes and
+check clean worktree at delivery. Stop here; no advancement to Chrome or other
+stages and no whole-framework/iPhone completion claim.
+
+Pre-commit staged four-file whitelist, append-only history and unchanged-checkbox
+assertions: **PASS / exit 0**. `git diff --cached --check`: **PASS / exit 0**.
+No temporary data, credentials, weights or user media are staged.

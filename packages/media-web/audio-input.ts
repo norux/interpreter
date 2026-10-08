@@ -55,7 +55,8 @@ export function createVideoInput(
         throw new Error("permission-required: Start requires user activation");
       }
       if (video.paused || video.ended) throw new Error("suspended: Play the selected video before capture");
-      const context = new view.AudioContext();
+      // Captured media crosses render clocks; favor buffering over interactive output latency.
+      const context = new view.AudioContext({ latencyHint: "playback" });
       active = true;
       const clockId = view.crypto.randomUUID();
       let stream: MediaStream | undefined;

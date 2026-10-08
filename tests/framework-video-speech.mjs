@@ -14,6 +14,7 @@ export async function verifyVideoSpeech(browser, origin) {
   const observations = [];
   for (const { owned, delayedOutput } of [
     { owned: false, delayedOutput: false }, { owned: true, delayedOutput: false }, { owned: false, delayedOutput: true },
+    { owned: true, delayedOutput: true },
   ]) {
     const page = await browser.newPage(); page.setDefaultTimeout(10000);
     const errors = []; page.on("pageerror", (error) => errors.push(error.message));
