@@ -333,3 +333,59 @@ test("learned long pause retains exact context for subsequent speech and rejects
     assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 0);
   }
 });
+
+test("learned short pauses bound long jobs while retaining EOF context unchanged", async () => {
+  for (const tailSamples of [0, 341, 511, 853, 1365]) {
+    const jobs: AsrJob[] = []; const statuses: SessionStatus[] = [];
+    const supplied = new Float32Array(320504 + tailSamples).fill(0.05);
+    supplied.fill(0, 320504);
+    let frame = 0;
+    const recognizer = createSpeechRecognizer(identity, "en", {
+      async recognize(job) {
+        jobs.push(structuredClone(job));
+        return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+      }, stop() {},
+    }, status => statuses.push(status), {
+      // A 224 ms inactive pause after 11 s is shorter than the ordinary 500 ms
+      // endpoint. The short EOF frames remain inactive, as in the measured case.
+      async detect() { const index = frame++; return { speech: (index < 346 || index >= 353) && index < 625 }; }, stop() {},
+    });
+    async function* packets() {
+      for (let offset = 0, sequence = 0; offset < supplied.length; offset += 1600, sequence++) {
+        const packet = supplied.slice(offset, offset + 1600);
+        const startMs = offset / 16; const endMs = startMs + packet.length / 16;
+        yield { ...chunk(sequence), audioRange: { startMs, endMs },
+          capture: { clockId: "fixture", startMs: 9000 + startMs, endMs: 9000 + endMs }, pcm: packet.buffer };
+      }
+    }
+    await collect(recognizer.run(packets()));
+    assert.deepEqual(jobs.map(job => job.audioRange), [
+      { startMs: 0, endMs: 11200 }, { startMs: 11200, endMs: supplied.length / 16 },
+    ]);
+    let offset = 0;
+    for (const job of jobs) {
+      assert.deepEqual(job.pcm, supplied.slice(offset, offset + job.pcm.length));
+      assert.ok(job.pcm.length >= 1600 && job.pcm.length <= 320000);
+      offset += job.pcm.length;
+    }
+    assert.equal(offset, supplied.length);
+    assert.equal(frame, Math.ceil(supplied.length / 512));
+    assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0);
+    assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 0);
+  }
+});
+
+test("learned short pauses before 10 s retain the ordinary endpoint policy", async () => {
+  const jobs: AsrJob[] = []; let frame = 0;
+  const recognizer = createSpeechRecognizer(identity, "ja", {
+    async recognize(job) {
+      jobs.push(structuredClone(job));
+      return { revision: { ...job, sourceRevision: 1, final: true, text: "transport fixture" }, inferenceMs: 1 };
+    }, stop() {},
+  }, () => {}, {
+    async detect() { const index = frame++; return { speech: index < 80 || index >= 87 }; }, stop() {},
+  });
+  await collect(recognizer.run(source(Array.from({ length: 160 }, (_, i) => chunk(i, true, 512)))));
+  assert.deepEqual(jobs.map(job => job.audioRange), [{ startMs: 0, endMs: 5120 }]);
+  assert.deepEqual(jobs[0].pcm, new Float32Array(160 * 512).fill(0.05));
+});
