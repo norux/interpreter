@@ -49,6 +49,13 @@ unresolved B6 work. Recent replay timing is not a live endpoint pass. Default
 selection may change after B6 evaluation. B5 integration is complete; B6 and the complete Chrome acceptance remain
 unfinished. No Chrome-stage completion marker is authorized by B5 measurements.
 
+B6 also has a reproduced **native Korean semantic omission**: the actual B5
+long Japanese source contains two future-time/station clauses, but its translation
+retains only one. The existing native translation command checks Hangul and
+revision pairing; ASR CER/WER checks cannot qualify Korean meaning. Add a permanent
+real-native regression for the exact source below and evaluate negation,
+cancellation, time, future intent and repetitions before checking B6 complete.
+
 
 Verification of this scope update: existing runner tests **20 PASS**, ASR transport
 and speech queue/cancellation regressions **24 PASS**; Chrome dry-run exits 0.
@@ -9520,3 +9527,42 @@ push/publish/app installation or blocked-access workaround. No credentials, mode
 weights, user audio/transcripts or temporary `.ralph` state enter Git. Only owned
 test browsers/profiles are closed/removed. Commit containing this record:
 `test: verify sustained Chrome interpretation`.
+
+
+## 2026-10-09 supervised B6 native Korean meaning regression
+
+After iteration 6’s owned acceptance browser closed, ran a focused copy of the
+existing real native translation harness on **Chromium 153.0.8010.12 / darwin arm64**.
+It retains
+trusted Prepare, actual Chrome native language pairs, original-first and exact
+latest revision pairing, Stop/cleanup and the same component preparation. Only
+its owned profile/build are created. No ASR samples, fixture files, model/default,
+application runtime, existing gates or user browser settings are changed.
+
+**FAIL**, exit **1**, `.ralph/media-framework/supervisor-native-meaning.log`.
+Japanese and English controls each repeat the punctuation-free manifest text
+exactly twice; native Korean retains **two** tomorrow/afternoon-three/station
+occurrences for both. These narrow controls do not qualify every Korean meaning.
+The third case replays the exact actual B5 source, independently of recognition:
+
+```text
+今日は会議をしません 明日の午後3時に駅で会いましょう予約は取り消さないでください 今日は会議をしません明日の午後3時に駅で会いましょう
+```
+
+The real native translator returns:
+
+```text
+나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요 예약을 취소하지 마세요.
+```
+
+The source contains **two** future-time/station clauses; Korean contains **one**
+`내일`, **one** afternoon-three occurrence and **one** station occurrence.
+The source also contains two meeting negations, while the recorded Korean has
+one meeting clause. Latest source revision pairing passes; this is semantic
+omission in actual translation, not a stale or mismatched caption revision.
+The complete synthetic repetition controls and this clipped repeated-prefix
+case must remain distinct. Preserve the exact failed source when introducing
+B6 semantic regression coverage; do not substitute the passing full repetitions.
+The probe checks only selected repeated future-time/station meanings, not PCM,
+ASR, complete Korean semantic quality or full-stage acceptance. B6 remains
+unchecked, including its Japanese white-noise ASR failure and this native omission.

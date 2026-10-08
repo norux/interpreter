@@ -5935,3 +5935,21 @@ user audio/transcripts and `.ralph` are not committed. Only owned browsers/profi
 removed. Commit: `test: verify sustained Chrome interpretation`. Final staged
 whitespace/scope/checkbox preservation and clean committed worktree are checked
 at delivery.
+
+
+### 2026-10-09 supervised B6 native Korean meaning evidence
+
+At clean iteration 6 commit `31413ab`, retain the focused probe run after its
+acceptance browser closed: actual B5 long Japanese source through the real native
+translator **FAIL**, exit 1. Two complete
+punctuation-free manifest periods retain two future-time/station meanings in ja/en
+controls, but the actual clipped repeated-prefix source retains only one of two.
+Exact source, Korean result and scope are retained in the Chrome report's
+“supervised B6 native Korean meaning regression” section. Existing native tests
+check Hangul/revisions and existing accuracy suites score ASR; they do not prove
+Korean semantic quality. B6 must preserve this failed source in real-native
+regression coverage and evaluate negation/cancellation/time/future/repetitions.
+No existing threshold, fixture, default, runtime or checkbox changes. Focused
+probe is text/native only; original full acceptance stays FAIL due Japanese
+white-noise meaning counts. Resume the same supervised all-stage loop after
+this documentation commit; B6 and Safari/iPhone/final cleanup remain unfinished.
