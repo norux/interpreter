@@ -2207,3 +2207,195 @@ No agents, runner edit, stage advance, push/publish/app installation or browser
 access/profile/permission bypass. Only owned test browser/profile resources are
 cleaned up. Credentials, model/runtime weights, user audio/transcripts and ignored
 `.ralph` state/logs are excluded from the commit.
+
+
+## 2026-10-08 — B2 deterministic noise qualification (iteration 2/20)
+
+Related commit: `test: expose browser ASR noise quality failures`, containing
+this report. **B2 remains unchecked; no default is selected.** Only B2 advances.
+
+### Implementation and observable acceptance
+
+Added `npm run test:framework:chrome:noise`, a separate real-browser evaluation
+of the existing production speech recognizer, ASR host and small FP16 WebGPU
+worker. Extending the existing synthetic corpus is the smaller first step before
+acquiring a natural-speaker corpus or introducing another detector/model. The
+existing comparison, streaming/sustained harness, candidates, hashes, isolation
+tags, sentences, numerical/meaning/latency gates and failed baselines are intact.
+No production inference, segmentation, PCM normalization, model/default, user
+setting, dependency lock, companion or later-stage implementation changes.
+
+For each language, five deterministic cases run at real-time cadence:
+
+- Six seconds of white noise with nominal RMS **0.006**, below the existing
+  0.01 frame-energy gate: require zero actual ASR calls and zero text.
+- Six seconds of white noise with nominal RMS **0.02**, and separately a
+  **120 Hz sine hum / RMS 0.04**: require no nonempty recognized text. A model
+  returning an empty string is permitted; generated speech on these known
+  speech-free signals fails even if latency and queue accounting pass.
+- Three complete decoded original speech periods with **0.006 / 0.02** additive
+  white noise, **600 ms leading gap**, then each original period followed by
+  zero alignment to the next 20 ms frame and **800 ms gap**. Noise is added
+  across the entire input, including gaps. The low-noise case must retain three
+  endpoints; both require <=20% aggregate CER/WER and every preserved meaning
+  exactly three times. The louder-noise case additionally requires contiguous
+  actual job coverage from sample zero through exact EOF.
+
+White noise uses xorshift32 seeded **0x12345678**, mapped to a uniform signal
+with amplitude `sqrt(3) * nominal RMS`. No speech samples/sentences or isolation
+tags are removed, gain-scaled, clipped or replaced; expected text never enters
+inference. Noise and gaps are explicit new fixture conditions. Each actual job
+is compared sample-for-sample to its mixed input range before transfer; input
+and job SHA-256, actual samples/ranges, identity/epoch/final/source revision,
+preparation, host calls, endpoint-to-text, queues and owned browser-tree RSS
+are recorded. Audio remains ephemeral; no new audio or model bytes are committed.
+Latency remains <2000 ms after actual endpoint delivery, retained input <=30 s,
+zero reported discard and a drained queue. Cases accumulate quality failures
+so both languages finish; the command exits nonzero on any of them.
+
+### Actual command ledger and environment
+
+- FAIL: first `caffeinate -disu npm run test:framework:chrome:noise`, **exit 1**,
+  `chrome-20261008-2-noise.log` under ignored `.ralph/media-framework/`.
+  Typecheck/build and actual model readiness pass, preparation
+  **64741.750333 ms**. Before the first trial, `page.evaluate` cannot access the
+  module-scoped `createSpeechRecognizer` import. Exposed that import through the
+  owned fixture's global object. **No noise inference or quality was reached.**
+  The targeted lint initially reports one informational template-style finding
+  (exit 0); corrected it before the next browser invocation.
+- FAIL: corrected same command, **exit 1**, once,
+  `chrome-20261008-2-noise-final.log`. Typecheck/build, all **10 completed cases /
+  14 actual ASR jobs**, accounting/identity/ranges/latency/queue checks and pinned
+  model/network checks execute. **Seven cases / nine quality assertions fail**,
+  detailed below. No retry of this unchanged quality failure.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-2-stage-acceptance.log`: missing script. B5's full selected-
+  video PCM → ASR → Korean translation → caption DOM acceptance is unimplemented;
+  the new B2 command does not replace it or add a placeholder success.
+- PASS: `node --check tests/framework-chrome-noise.mjs`, targeted Biome
+  **1 file / 26 ms / no findings**, preliminary whitespace checks, exit 0.
+- PASS: local Python analysis of recorded results, exit 0: all ten cases
+  complete with zero final pending/discard and every actual job equals its input
+  slice. Louder-noise English normalizes to exactly **two** original speech
+  periods with `three` → `3`: **22 missing words + 2 numeric edits = 24 edits**.
+  This is result analysis, not another inference or a passing quality outcome.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**; unchanged
+Transformers.js **4.3.0** / locked ORT. Same small FP16 WebGPU model
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`,
+seven files / **487960440 bytes**. Two browser invocations each prepare one fresh
+inventory, then reuse their owned cache; the first performs no inference.
+The completed run initially prepares in **56440.175833 ms**; its nine fresh
+cached workers prepare in **1217.414917–1221.528584 ms**. These are loading times,
+not transcription latency. All remote paths are pinned model artifacts/allowed
+redirects (**14 unique paths**, exactly **7 pinned primary file paths**).
+Page errors and native visibility events are `[]`. No missing environment,
+device or permission was observed; no browser access/profile/permission bypass.
+
+### Recognition results and accounting
+
+Values below are observed single-case results/ranges, rounded to 0.001 ms;
+raw per-job evidence remains in the named log, not population percentiles.
+Every case reports **0 discarded ms / 0 final pending**. This does not establish
+successful recognition on a failed case. Low-noise controls make no ASR call,
+so their lack of text is energy-gating evidence, not transcription accuracy.
+
+| Language / input | Input / host duration ms | Actual jobs / samples | CER/WER or no-speech text | Meaning / outcome | Endpoint-to-text ms | Peak pending ms |
+| --- | --- | --- | --- | --- | --- | ---: |
+| Japanese / quiet noise | 6000 / 6004.000 | 0 / 0 | No text | PASS | No inference | 0 |
+| Japanese / white noise | 6000 / 6513.500 | 1 / 96000 | ご視聴ありがとうございました | FAIL: fabricated speech | 513.200 | 6000 |
+| Japanese / hum | 6000 / 6444.500 | 1 / 96000 | ご視聴ありがとうございました | FAIL: fabricated speech | 444.600 | 6000 |
+| Japanese / speech + quiet noise | 23940 / 24572.700 | 3 / 119680 each | **3/120 = 2.5% CER** | All seven anchors exactly 3; PASS | 871.800–987.300 | 8100 |
+| Japanese / speech + white noise | 23940 / 24792.900 | 2 / 248960 + 134080 | **49/120 = 40.833333% CER** | Anchor counts 1 or 2; FAIL accuracy/meaning | 852.200–964.300 | 16500 |
+| English / quiet noise | 6000 / 6001.200 | 0 / 0 | No text | PASS | No inference | 0 |
+| English / white noise | 6000 / 6406.700 | 1 / 96000 | Thank you. | FAIL: fabricated speech | 405.900 | 6000 |
+| English / hum | 6000 / 6383.500 | 1 / 96000 | you | FAIL: fabricated speech | 383.300 | 6000 |
+| English / speech + quiet noise | 23040 / 23522.000 | 3 / 114880 each | **4/66 = 6.060606% WER** | `not meet today` only 2; other anchors 3; FAIL meaning | 721.100–837.700 | 7700 |
+| English / speech + white noise | 23040 / 23762.600 | 2 / 240960 + 127680 | **24/66 = 36.363636% WER** | Every anchor only 2; FAIL accuracy/meaning | 722.000–797.900 | 15800 |
+
+English low-noise third-period text says `we will not need today` instead of
+`we will not meet today`; its passing numerical gate cannot override the failed
+meaning gate. Japanese louder noise substitutes meeting/station/time words and
+returns fewer repeated meanings. Its counts are **会議 1, しません 2, 明日 1,
+午後 1, 駅 1, 予約 2, 取り消さない 2**. No normalization removes these errors.
+Neither model-internal causes nor a specific segmentation cause are established.
+
+Original decoded Japanese/English samples per period are **111556 / 106664**;
+noisy speech inputs total **383040 / 368640** samples. Japanese low-noise job
+ranges are **600–8080 / 8380–15860 / 16160–23640 ms**, English
+**600–7780 / 8080–15260 / 15560–22740 ms**. Only known below-gate gap noise is
+skipped at these endpoints. Louder noise uses **0–15560 / 15560–23940 ms**
+Japanese and **0–15060 / 15060–23040 ms** English, with every input sample in
+an actual job through EOF. Missing recognized periods are not input loss.
+Across all fourteen jobs, actual host calls range **381.700–982.000 ms**;
+endpoint-to-text **383.300–987.300 ms**, excluding speech accumulation,
+translation/display. Job sample equality and authoritative identity/revisions
+pass even where their text is wrong.
+
+Measured white-noise RMS for six-second controls is **0.006005269 / 0.020017564**,
+hum **0.04**. For noisy speech, the logged `snrDb` includes the original isolation
+carrier and is averaged over the **entire waveform including gaps**; it is not
+speech-only SNR. Japanese low/high values **18.166835 / 7.709260 dB**, English
+**19.091265 / 8.633690 dB**. Mixed peaks **0.232694 / 0.256783 / 0.237575 /
+0.253527**, all below 1 without clipping. Noise is synthetic stationary white
+noise/a sine, not natural room noise, music or independent acoustic labeling.
+
+| Language / input | Baseline / peak / final owned browser-tree RSS KiB |
+| --- | --- |
+| Japanese / quiet noise | 1300320 / 3772816 / 3497680 |
+| Japanese / white noise | 2232640 / 3806288 / 2242384 |
+| Japanese / hum | 2201472 / 3813360 / 2886368 |
+| Japanese / speech + quiet noise | 1773216 / 3634048 / 2772880 |
+| Japanese / speech + white noise | 1769920 / 3720160 / 2074912 |
+| English / quiet noise | 1601984 / 3695824 / 2362704 |
+| English / white noise | 2238256 / 3657104 / 2954880 |
+| English / hum | 1796304 / 3756928 / 2985440 |
+| English / speech + quiet noise | 1840176 / 3498944 / 2166304 |
+| English / speech + white noise | 1545216 / 3819920 / 1950544 |
+
+Overall baseline **1296128 KiB**. RSS samples every 250 ms include preparation,
+shared-page double counting, allocator retention and browser/renderers/GPU
+process. These are observations, not isolated model/GPU allocation, leak freedom,
+hardware/storage pressure or mobile limits. Latency uses one document clock;
+RSS uses Node's clock without subtracting different clock origins.
+
+
+### Required verification, next item and preservation
+
+PASS: final `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-2-verify.log`: Biome **107 files / 48 ms / no findings**,
+Ruff/typecheck/unchanged companion build, **100 JS passed / 0 failed/skipped/
+cancelled / 21766.127792 ms**, **222 Python passed / 66.90 s**. Verification
+starts after noise inference; measurements do not overlap its workload. Subsequent
+edits complete only these Markdown records. Final document-inclusive unstaged/
+staged whitespace, intended commit and clean worktree are checked before delivery.
+
+**Next unfinished item remains B2:** improve speech-free noise rejection and the
+recorded noisy speech meaning/repetition failures while retaining these cases,
+original fixtures and gates, then rerun real qualification. The new noise command
+must pass before using its scope to qualify a default. A phrase blacklist,
+expected-text injection, sample/sentence removal or relaxed quality criterion
+would not establish that qualification. Broader natural speech/boundary/noise,
+sustained live acquisition/recovery under pressure, storage/GPU memory limits,
+conversion/distribution licensing and evidence-based default selection remain
+unfinished. Existing preparation/comparison/streaming commands are **not rerun
+this iteration** because their source is unchanged; their historical evidence,
+including failed candidates, is retained without claiming a fresh pass.
+
+Learned VAD, natural-speaker robustness, model timestamp accuracy, full offline
+interpretation, ten-minute live PCM → ASR → Korean captions, B3–B6, external
+installation and Safari/iPhone remain **unverified**. This is a measured quality
+failure and incomplete B2 implementation, with no missing required environment,
+device or permission; neither blocked nor stage-complete marker applies. No
+checkbox, default or stage/whole-framework/iPhone completion claim is added.
+
+No root/nested AGENTS.md or requested independent runner file
+`2026-10-08T01-12-31-094Z-chrome-verification.txt` exists at initial read.
+Supplied instructions, plan, architecture and previous report were read. Work
+stays in this worktree. Published companion v0.1.0/install/native messaging/server
+paths, settings and unrelated files/apps/recordings/mounted images are preserved.
+No agents, runner edit, stage advance, push/publish/app installation or browser
+access/profile/permission bypass. Only owned test browser/profile resources are
+closed/removed. Credentials, weights, user audio/transcripts and ignored `.ralph`
+state/logs are excluded from the commit.
