@@ -14,6 +14,10 @@ assert.ok(["--sustained-input", "--gpu-recovery", "--sustained-gpu-recovery"].fi
   "Qualification modes must run separately");
 const sustained = sustainedGpuRecovery || process.argv.includes("--sustained-input");
 const gpuRecovery = sustainedGpuRecovery || process.argv.includes("--gpu-recovery");
+const turbo = process.argv.includes("--turbo");
+const candidate = turbo ? "turboFp16" : "smallFp16";
+const model = turbo ? { id: "onnx-community/whisper-large-v3-turbo", version: "360ebcde2559d60bb474678be3c1de9ef347d01a", requiredBytes: 1621338971 }
+  : { id: "onnx-community/whisper-small", version: "36050c46d777d46dc4b5f43f6d90574fc38f8732", requiredBytes: 487960440 };
 const output = resolve(".ralph/media-framework/chrome-live-learned-build");
 const manifest = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8"));
 for (const clip of manifest.clips) {
@@ -45,7 +49,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, gpuRecovery, sustainedGpuRecovery, generatedMedia: [], liveRuns: [], failures: [] };
+const observations = { scope: "B2 learned WASM VAD and FP16 WebGPU ASR over live selected-video PCM; no translation/caption DOM", sustained, gpuRecovery, sustainedGpuRecovery, candidate, model, generatedMedia: [], liveRuns: [], failures: [] };
 let browser; let browserProcess; let browserExit; let profile; let monitor; let page;
 let peakRssKiB = 0;
 let sustainedMemory;
@@ -194,13 +198,13 @@ try {
         video.src = `/${video.id}-sustained.webm`; video.load();
       })));
     });
-    await page.evaluate(({ language, duration, round, reuseHosts }) => configure(language, duration, round, true, reuseHosts), { language, duration: clip.speechDurationSeconds * periods, round, reuseHosts: recoveryRound });
+    await page.evaluate(({ language, duration, round, reuseHosts, candidate }) => configure(language, duration, round, true, reuseHosts, candidate), { language, duration: clip.speechDurationSeconds * periods, round, reuseHosts: recoveryRound, candidate });
     // Keep trusted activation without moving the pointer beside native media
     // volume controls; playback-state equality remains required in every round.
     const requestsBefore = remoteRequests;
     const preparationStart = performance.now();
     await page.locator("#prepare").press("Enter");
-    await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 120000, polling: 100 });
+    await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: turbo ? 240000 : 120000, polling: 100 });
     assert.equal(await page.evaluate(() => prepareError), undefined);
     const live = { round, language, periods, preparationMs: performance.now()-preparationStart, baselineRssKiB: await sampleRss() }; peakRssKiB = live.baselineRssKiB;
     if (sustained && round >= 6) sustainedMemory = { language, start: performance.now(), samples: [] };
@@ -235,7 +239,8 @@ try {
     sustainedMemory = undefined;
     observations.liveRuns.push(live);
     assert.equal(live.statuses.at(-1).state, "ready");
-    assert.equal(live.statuses.at(-1).requiredBytes, 487960440);
+    assert.equal(live.statuses.at(-1).requiredBytes, model.requiredBytes);
+    assert.deepEqual(live.statuses.at(-1).model, { id: model.id, version: model.version });
     assert.equal(live.vadStatuses.at(-1).state, "ready");
     assert.equal(live.vadStatuses.at(-1).requiredBytes, 2243022);
     if (round) {
@@ -401,12 +406,12 @@ try {
   observations.pageErrors = pageErrors;
   observations.remotePaths = [...remotePaths];
   observations.remoteRequests = remoteRequests;
-  const pinned = "https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/";
+  const pinned = `https://huggingface.co/${model.id}/resolve/${model.version}/`;
   const vadPinned = "https://huggingface.co/onnx-community/silero-vad/resolve/e71cae966052b992a7eca6b17738916ce0eca4ec/onnx/model.onnx";
   assert.ok(remotePaths.has(vadPinned));
   assert.equal([...remotePaths].filter(path => path.startsWith(pinned)).length, 7);
   assert.ok([...remotePaths].every(path => path.startsWith(pinned)
-    || path.startsWith("https://huggingface.co/api/resolve-cache/models/onnx-community/whisper-small/36050c46d777d46dc4b5f43f6d90574fc38f8732/")
+    || path.startsWith(`https://huggingface.co/api/resolve-cache/models/${model.id}/${model.version}/`)
     || path === vadPinned || path.startsWith("https://huggingface.co/api/resolve-cache/models/onnx-community/silero-vad/e71cae966052b992a7eca6b17738916ce0eca4ec/")
     || path.startsWith("https://us.aws.cdn.hf.co/xet-bridge-us/")), "Only pinned model artifacts/redirects may be remote");
   assert.deepEqual(pageErrors, []);

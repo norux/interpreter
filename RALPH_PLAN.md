@@ -3926,3 +3926,110 @@ user data/.ralph state 제외. 최종 verify와 Git 증거는 아래에 기록�
   worker whitelist, transport test, existing noise harness, package command,
   report/plan만 commit; generated assets/weights/profiles/credentials/user data/
   ignored temporary state 제외.
+
+
+### 2026-10-08 / chrome / iteration 19/20
+
+관련 commit: 이 기록을 포함한 `test: qualify turbo sustained live GPU recovery`.
+
+수행한 변경: B2의 기존 turbo FP16 후보를 production selected-video input,
+live Stop during VAD, sustained repetition 및 GPU-loss/recovery 경로에서 평가하도록
+기존 live harness/fixture에 opt-in candidate를 전달한다. 새
+`test:framework:chrome:live:sustained:gpu-recovery:turbo`만 turbo를 선택하며 기존
+명령은 small FP16을 유지한다. 모든 original/sustained scenario와 정확도/의미/
+지연/PCM/queue/accounting/playback/cache/Stop/GPU 기준은 보존한다. 각 round의
+pinned model identity/bytes를 검사하고 해당 후보 artifact만 허용한다. Turbo의
+첫 download/load는 기존 noise harness와 같은 240 s wait, small은 원래 120 s;
+<2,000 ms inference gate는 불변이다. Production policy/default/dependency/
+companion/settings 변경 없음.
+
+실행한 명령과 결과:
+
+- PASS: live harness syntax, fixture/harness Biome lint **two files / 7 ms /
+  no findings**, preliminary whitespace, exit 0.
+- FAIL: `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-19-stage-acceptance.log`: missing full acceptance script.
+  Korean translation/DOM을 model smoke로 대체하지 않는다.
+
+실제 browser/모델 결과와 final verify/Git 증거는 실행 후 아래와
+`docs/verification/media-framework/chrome.md` iteration 19에 기록한다.
+B2–B6는 unchecked이며 다른 stage로 진행하지 않는다.
+
+
+실제 browser 결과:
+
+- FAIL: `caffeinate -disu npm run test:framework:chrome:live:sustained:gpu-recovery:turbo`,
+  exit 1, **한 번만 실행**, `chrome-20261008-19-turbo-live-gpu.log`: typecheck,
+  **27 port passed / 0 failed/skipped/cancelled / 256.120291 ms**, build,
+  **10 completed rounds / 13,665 WASM VAD frames / 46 FP16 WebGPU ASR calls**.
+  Page errors/native visibility events `[]`. 정확히 Japanese recovered 의미 수와
+  endpoint 두 failure categories만 유지한다; rerun/gate relaxation 없음.
+- Japanese recovered **18 periods / 125,568 ms PCM / 126,999.200 ms document**,
+  **20/720 CER**; 내일 anchor **17**, 다른 six **18**. Endpoints
+  **2,095.600 / 2,035.500 ms**가 unchanged <2,000 ms 기준 실패. 해당 jobs
+  **32–11,648 / 49,664–60,384 ms**, submission wait **344.600 / 429.700 ms**,
+  host call **1,751 / 1,605.800 ms**. Final-packet **1,432.700 ms**로 실패를
+  대체하지 않는다. English **19 periods / 126,720 ms PCM / 128,224 ms document**,
+  **19/418 WER**, all meanings **19**, endpoints **1,506.800–1,864 ms**, PASS.
+  Jobs/capture overlaps **13/12 / 10/9**, peak pending **13,748.6875 / 15,220.6875 ms**,
+  zero normal loss/final pending zero. Exact PCM/coverage/contiguous ranges/
+  playback/isolation/mapping/detach pass; detailed boundaries/minute queues in report.
+- PASS within failed command: Japanese/English GPU loss after normalized capture
+  **60,671.375 / 61,780.6875 ms**, ten/four earlier revisions 유지,
+  **56,736–60,320 / 48,064–61,376 ms** interrupted jobs publish none. Capture
+  advances during both calls; explicit retained loss **3,892.6875 / 13,674 ms**,
+  zero pending/detached input/advancing playback. Retry `gpu-lost`, **6,400 bytes**
+  intact, zero workers/new revisions/requests. Same host/session/target explicit
+  cached recovery creates two fresh workers, epoch 1, **3,254.376167 / 3,144.683875 ms**,
+  zero remote requests. Interrupted partial text is not quality scored. Japanese
+  loss round includes an unreferenced phrase in **42,784–44,864 ms** before loss;
+  quality concern remains recorded.
+- Original scored rounds PASS: Japanese **1/40, 1/40, 3/120 CER**, English
+  **1/22, 3/66 WER**, meanings once/three, final packet **1,379.700–1,459 ms**,
+  zero normal loss/drain. Stop during actual VAD returns cancelled/no text,
+  explicit **820.6875 ms** loss/detach/zero pending; restart passes. **ASR calls 0**
+  for that Stop round, so turbo user Stop during ASR remains unverified.
+- Same pinned turbo **1,621,338,971 bytes / seven files**, Silero **2,243,022 /
+  one file**, locked Transformers.js/ORT unchanged. First prepare **160,128.519042 ms**,
+  cached **2,342.474542–3,589.680041 ms**, **16 paths / 16 requests**. Owned Chromium
+  **153.0.8010.12**, macOS **26.6.2/25G83 arm64**, Node **v24.15.0**, npm **11.12.1**,
+  uv **0.12.23**. Initial RSS **1,445,184 KiB**, max post-prepare case peak
+  **5,142,320 KiB**; owned-tree samples include shared pages/GPU/allocators/harness
+  and are not pressure/storage/leak/mobile qualification. Detailed model/clock/
+  memory/source-period/generated-file hashes/bytes in report.
+- PASS: Python recorded-result assertions, exit 0, exactly two Japanese categories,
+  ten pinned model/byte identities, all measured lifecycle/quality/accounting
+  outcomes; generated hashes/bytes/source-period/count/duration match iteration 17.
+  No byte-identical live-job or simultaneous timing comparison claim. Extracted
+  fixture module syntax PASS. Analysis only, no extra inference invocation.
+
+다음 미완료 **B2**: turbo noise 및 sustained Japanese future-time/endpoint failures와
+pre-loss unreferenced phrase 개선, 실제 ASR 중 user Stop/overload/quiet/no-pause/
+natural data/ten-minute live/pressure/licensing 검증 후 default 선택. 이전 small
+및 turbo noise 실패는 유지하고 rerun하지 않았다. Full Chrome acceptance missing
+script로 FAIL; B2–B6 unchecked. Full offline interpretation/Korean translation/
+revision pairing/DOM/installation/Safari/iPhone unverified. 필요한 환경/권한/실기
+부재는 관측되지 않아 terminal marker 없음. Stage/framework/iPhone 완료 주장 없음.
+
+Only this worktree changes; companion/install/native messaging/server/settings/
+unrelated files/apps/recordings/mounted images 보존. Agents/runner edit/stage advance/
+push/publish/app install/blocked browser bypass 없음. Only owned test resources
+정리; model weights/media/credentials/user data/.ralph state 제외. Final verify/Git
+증거는 아래에 기록한다.
+
+
+최종 required verification:
+
+- PASS: `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-19-verify.log`: Biome **115 files / 51 ms / no findings**,
+  Ruff/typecheck, unchanged companion **28 main / 10 content modules**,
+  **113 JS passed / 0 failed/skipped/cancelled / 21,593.026375 ms**,
+  **222 Python passed / 66.93 s**, Python **3.12.15**. Sole actual browser 실행
+  후 final implementation/test sources에서 실행; 이후 Markdown evidence만 수정.
+  Japanese 의미/endpoint 실패와 missing Chrome acceptance는 그대로 유지.
+- PASS: final harness/embedded fixture syntax, targeted Biome **two files / 7 ms /
+  no findings**, exact five-file scope, append-only report/plan, 모든 original
+  checkbox unchanged, document-inclusive unstaged whitespace, exit 0. Staged
+  whitespace/scope와 post-commit clean worktree는 delivery 전에 확인. Package
+  command/live harness/fixture/report/plan만 commit; models/media/profiles/
+  credentials/user data/ignored temporary state/runner changes 제외.

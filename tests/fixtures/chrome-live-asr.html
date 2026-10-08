@@ -25,7 +25,7 @@
   globalThis.visibilityEvents = [];
   document.addEventListener('visibilitychange', () => visibilityEvents.push({state: document.visibilityState, atMs: performance.now()}));
   globalThis.state = () => videos.map(video => ({src: video.src, volume: video.volume, muted: video.muted, rate: video.playbackRate, paused: video.paused}));
-  globalThis.configure = async (language, durationSeconds, round, learned = false, reuseHosts = false) => {
+  globalThis.configure = async (language, durationSeconds, round, learned = false, reuseHosts = false, candidate = 'smallFp16') => {
     if (!reuseHosts) { globalThis.host?.dispose(); globalThis.vad?.dispose(); globalThis.vad = undefined; }
     globalThis.vadStatuses = [];
     globalThis.detectorFrames = []; globalThis.normalizedPcm = [];
@@ -34,7 +34,7 @@
       globalThis.vad = createVadHost(document, status => vadStatuses.push(status));
     }
     globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
-    if (!reuseHosts) globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => statuses.push(status));
+    if (!reuseHosts) globalThis.host = createAsrHost(document, candidate, 'webgpu', status => statuses.push(status));
     globalThis.invocations = [];
     const recognize = host.recognize;
     if (!reuseHosts) host.recognize = async job => {
