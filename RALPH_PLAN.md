@@ -4177,3 +4177,94 @@ do not interpret this completed-video recheck repair as whole-framework completi
 Full `caffeinate -disu npm run verify` PASS: 116 JS / 222 Python (66.91 s),
 lint/typecheck/build. Evidence: `video-fixture-clock-verify.log`. Final whitespace
 and intended scope checks PASS. Commit: `fix: align speech fixture audio packet timestamps`.
+
+
+### 2026-10-08 / chrome / iteration 1/20 — B2 failed ASR input cleanup
+
+Related commit: `fix: close selected-video input after ASR failure`, containing
+this entry. Next unfinished item is B2; all original checkboxes remain unchanged.
+
+Performed: targeted the retained sustained Japanese meaning boundary. A proposed
+64 ms confident-silence guard passed its new segmentation regression but worsened
+real sustained Japanese meaning counts/CER and latency, so the guard and its new
+test are reverted; recognizer and speech tests exactly match HEAD. Two independent
+existing sustained runs also exposed the same missing input cleanup after GPU
+failure (raw chunks **1,448 != 1,447** English, **1,663 != 1,662** Japanese).
+Inspection then identified the live fixture's owned handle not being explicitly
+closed before publishing ASR failure. The only retained code change awaits that
+real input close in its error catch. Every original gate/window/case is unchanged;
+no new evaluation mode, candidate/default, API or production decoding change.
+
+Executed and actual evidence (ignored `.ralph/media-framework/` logs; details in
+`docs/verification/media-framework/chrome.md`):
+
+- FAIL: proposed-policy regression before its experiment, exit 1,
+  `chrome-20261008-restart-1-regression-before.log`; PASS with experimental source,
+  **29 ports / 315.208916 ms**, `chrome-20261008-restart-1-ports.log`. Fake
+  detector/executor segmentation evidence, not accuracy; that experiment is reverted.
+- FAIL: `caffeinate -disu npm run test:framework:chrome:live:sustained:gpu-recovery:turbo`,
+  exit 1, once each in `chrome-20261008-restart-1-baseline.log` and
+  `chrome-20261008-restart-1-final-live.log`: two independent detach failures
+  above. Fresh baseline Japanese recovery also misses meaning counts (meeting/
+  negation **17**, tomorrow/afternoon **16**, others **18**) and one **2,085.800 ms**
+  endpoint; **45/720 = 6.25% CER**. English recovery not reached. No identical
+  third attempt is made without a concrete ownership correction.
+- FAIL after that correction: same sustained turbo command, exit 1, once,
+  `chrome-20261008-restart-1-closed-live.log`: **ten rounds / 13,727 actual WASM
+  VAD frames / 34 actual FP16 WebGPU ASR calls**. Both loss/detach/cached recovery
+  paths PASS, but experimental Japanese recovery produces every meaning **16/18**,
+  **111/720 = 15.416667% CER**, endpoints **1,631.700–2,156.100 ms**; guard rejected.
+  English **19/418 WER**, every meaning **19**, endpoints <=**1,888.500 ms** PASS.
+  Errors/visibility `[]`; no failed fixture/text/gate is removed or softened.
+- PASS on final restored source and retained cleanup: `caffeinate -disu npm run
+  test:framework:chrome:live:gpu-recovery`, exit 0, once,
+  `chrome-20261008-restart-1-restored-gpu.log`: typecheck, **28 original ports**,
+  **ten rounds / 4,077 actual WASM VAD frames / 13 actual small-FP16 WebGPU ASR
+  calls**. Both GPU-loss detach, original playback, exact selected PCM/accounting/
+  bounded queues, no interrupted revision, unprepared retry and explicit cached
+  same-host/target/session fresh-epoch recovery PASS. Recovered Japanese **3/120
+  CER**, English **3/66 WER**, every meaning **3**, zero normal loss/final pending,
+  final packet **1,036.000/840.800 ms**. Bounded candidate check, not sustained
+  turbo qualification or a fallback/default.
+- PASS: final `caffeinate -disu npm run verify`, exit 0,
+  `chrome-20261008-restart-1-restored-verify.log`: Biome **117 files/93 ms/no
+  findings**, Ruff/typecheck, unchanged **28 main/10 content modules**, **116 JS /
+  0 failed/skipped/cancelled / 21,879.875167 ms**, **222 Python / 66.89 s**.
+  Earlier two experimental verifies also PASS **117 JS/222 Python**, with their
+  retired unit test; exact durations/logs in the stage report.
+- FAIL: required `npm run test:framework:chrome`, exit 1, once,
+  `chrome-20261008-restart-1-stage-acceptance.log`, missing full script. No
+  placeholder or model/lifecycle substitution for Korean translation/DOM.
+- PASS: fixture module syntax, targeted Biome and preliminary whitespace. Initial
+  bounded-log summary had a `KeyError` on a sustained-only field; corrected
+  analysis passes without another inference invocation. Final preservation/Git
+  checks below and in the report are performed before delivery.
+
+Owned headed Chromium **153.0.8010.12**, macOS **26.6.2/25G83 arm64**, Node
+**v24.15.0**, npm **11.12.1**, uv **0.12.23**, Python **3.12.15**. Pinned turbo/small/
+Silero hashes and locked dependencies unchanged; model sizes, decoded period
+hashes, RSS/clock limits and lifecycle/ASR metrics are in the report. No new
+weights/candidate. Requested independent runner evidence
+`2026-10-08T07-45-37-544Z-chrome-verification.txt` and root/nested AGENTS.md are absent.
+
+Next B2: resolve sustained Japanese meaning/endpoint failures and the unreferenced
+phrase with an actually passing alternative; finish natural/quiet/no-pause/noise,
+overload/ten-minute/pressure/storage/licensing qualification before default
+selection. Earlier noise/quiet results remain historical; final recognizer is
+unchanged. B2–B6, full translation/DOM/offline/install/Safari/iPhone remain
+unfinished. No required environment/device/permission is absent, so neither
+terminal marker applies. Companion/settings/unrelated user resources preserved;
+no agents, runner/stage changes, push/publish/install/browser bypass. Only fixture
+cleanup and append-only report/plan enter the commit; ignored models/media/
+profiles/credentials/user data/temporary state are excluded.
+
+
+Final preservation checks PASS, exit 0: exact three-file scope; report/plan
+append-only; every prior checkbox unchanged; recognizer/speech tests fully
+restored; original live harness, runner, package/lock and architecture bytes
+unchanged. Explicit assertions on recorded final JSON verify ten rounds,
+4,077 VAD frames/13 real ASR calls, both loss counts/accounting and scored
+fresh-epoch cached recoveries without another inference run. Final fixture
+Biome **one file / 27 ms / no findings**, extracted module `node --check` and
+unstaged `git diff --check` PASS. Only fixture cleanup/report/plan are staged;
+staged scope/whitespace and post-commit clean status are checked at delivery.

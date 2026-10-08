@@ -136,7 +136,10 @@
       globalThis.playbackAfter = state(); globalThis.timesAfter = videos.map(video => video.currentTime);
       globalThis.finished = true;
       globalThis.liveFinishedAtMs = performance.now();
-    } catch(error) { globalThis.liveError = error.message; globalThis.liveFinishedAtMs = performance.now(); }
+    } catch(error) {
+      await handle?.close();
+      globalThis.liveError = error.message; globalThis.liveFinishedAtMs = performance.now();
+    }
   };
   document.querySelector('#stop').onclick = async () => {
     globalThis.stopSnapshot = {atMs: performance.now(), activeInvocations: invocations.filter(job => job.settledAtMs === undefined).length,
