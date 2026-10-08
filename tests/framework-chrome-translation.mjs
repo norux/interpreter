@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { chromium } from "playwright";
@@ -50,9 +50,20 @@ let browser; let browserProcess; let browserExit; let profile;
 const failures = [];
 try {
   profile = await mkdtemp(resolve(".ralph/media-framework/chrome-translation-profile-"));
-  browserProcess = spawn(chromium.executablePath(), ["--no-first-run", "--no-default-browser-check", `--user-data-dir=${profile}`, "--remote-debugging-port=0", "about:blank"], { stdio: "ignore" });
+  // CfT disables background component updates. Register only the required
+  // native components in this owned profile; Chrome downloads and verifies them.
+  const components = ["Chrome TranslateKit", "Chrome TranslateKit en-ja", "Chrome TranslateKit en-ko"];
+  await writeFile(resolve(profile, "Local State"), JSON.stringify({ on_device_translation: {
+    translate_kit_registered: true, translate_kit_packages: { en_ja_registered: true, en_ko_registered: true },
+  } }));
+  const configuration = resolve(profile, "cft-config.json");
+  await writeFile(configuration, JSON.stringify({ requiredComponents: components,
+    requiredComponentsDir: resolve(".ralph/media-framework/chrome-translation-components"), requiredComponentsUpdateTimeout: "120s" }));
+  observations.requiredComponents = components;
+  browserProcess = spawn(chromium.executablePath(), ["--no-first-run", "--no-default-browser-check", `--user-data-dir=${profile}`,
+    `--chrome-for-testing-config=${configuration}`, "--remote-debugging-port=0", "about:blank"], { stdio: "ignore" });
   browserExit = new Promise(done => { browserProcess.once("exit", done); browserProcess.once("error", done); });
-  let port; const deadline = performance.now() + 10000;
+  let port; const deadline = performance.now() + 120000;
   while (performance.now() < deadline && browserProcess.exitCode === null) {
     try { port = (await readFile(resolve(profile, "DevToolsActivePort"), "utf8")).split("\n")[0]; break; }
     catch { await new Promise(done => setTimeout(done, 100)); }
@@ -60,7 +71,14 @@ try {
   assert.ok(port, "Owned Chromium must expose its debugging endpoint");
   browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true });
   observations.browser = browser.version(); observations.platform = `${process.platform}/${process.arch}`;
-  const context = browser.contexts()[0]; const page = context.pages()[0];
+  // The debugging endpoint may precede the first document while CfT downloads.
+  let page;
+  while (performance.now() < deadline && browserProcess.exitCode === null) {
+    page = browser.contexts()[0]?.pages()[0];
+    if (page) break;
+    await new Promise(done => setTimeout(done, 100));
+  }
+  assert.ok(page, "Owned Chromium must finish required native component preparation");
   page.on("pageerror", error => observations.pageErrors.push(error.message));
   for (const fixture of fixtures) {
     const run = { language: fixture.language, target: "ko", checks: [] }; observations.runs.push(run);
@@ -115,7 +133,7 @@ try {
   console.error(JSON.stringify({ passed: false, ...observations, failures, error: error.message }));
   process.exitCode = 1;
 } finally {
-  await browser?.close(); browserProcess?.kill("SIGTERM"); await browserExit;
+  browserProcess?.kill("SIGTERM"); await browser?.close(); await browserExit;
   if (profile) await rm(profile, { recursive: true, force: true });
   await new Promise(done => server.close(done));
 }

@@ -8,7 +8,7 @@ quality/performance tuning. This status and the current Stage chrome section in
 below. Historical observations and failed tests are preserved, not reclassified
 as passes.
 
-**B2 is complete within the revised integration scope; next is B3.** Existing
+**B2 and B3 are complete within their integration scope; next is B4.** Existing
 Japanese/English real recognition, WebGPU/WASM comparison, measured memory/error/
 latency and bounded queue/overload/GPU-loss/cancellation evidence establish the
 integration contracts. Use **smallFp16 / WebGPU** as the implementation default:
@@ -44,7 +44,7 @@ pass before stage completion.
 Small's retained Japanese reservation omissions/extra negation, louder-noise
 meaning failures, Turbo's repetition and previously late live endpoints are still
 unresolved B6 work. Recent replay timing is not a live endpoint pass. Default
-selection may change after B6 evaluation. B3–B6 and the complete Chrome acceptance
+selection may change after B6 evaluation. B4–B6 and the complete Chrome acceptance
 remain unfinished; B2 completion does not authorize a stage-complete marker.
 
 
@@ -8270,3 +8270,58 @@ Final preservation assertions **PASS** (direct tool output): exact seven-file
 scope, append-only plan/report, all checklist lines unchanged, no tracked `.ralph`,
 both native creation failures and stopped states retained. Staged whitespace
 check **PASS**. Commit and post-commit clean-worktree checks follow at delivery.
+
+
+## B3 recovery — explicit Chrome for Testing components, 2026-10-08
+
+**B3 PASS; next is B4.** The preceding readiness failures remain genuine failures.
+They are superseded by native readiness and translation evidence from the repaired
+focused harness, not by the unit tests or download progress alone.
+
+Chrome for Testing disables ordinary background component updates by default.
+The [official configuration documentation](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/chrome_for_testing/chrome_for_testing_configuration.md)
+provides `requiredComponents`, a persistent component directory, and bounded
+startup preparation. Chromium's native installer registers the library and packs
+from its `on_device_translation` registration preferences on the next startup.
+The harness now registers only the native library and English–Japanese/Korean
+packs in a newly created, test-owned profile, then configures Chrome to download
+and verify exactly `Chrome TranslateKit`, `Chrome TranslateKit en-ja`, and
+`Chrome TranslateKit en-ko`. No downloaded pack, translator result, or model
+readiness is injected. User profiles, permissions and production adapters are
+unchanged. Cache files remain ignored under `.ralph/media-framework/`.
+
+The debugging endpoint can precede the first document while dependencies are
+prepared. The harness waits for that document within the same **120-second**
+component startup deadline and terminates its owned process even on startup
+failure. The existing separate trusted gesture per language, preparation
+**120-second** limit, native translation **30-second** limit, and all source/
+revision/identity/cancellation assertions are retained.
+
+Reproduction before repair: `chrome-b3-translation-attempt-2.log`, exit 1, both
+native creations pending after 120 seconds. Independent configured diagnostic:
+`supervisor-cft-translation-2.log`, exit 0; native updater reports library version
+**2025.11.24.0**, en-ja **2024.9.9.1**, en-ko **2024.10.8.1**, then actual Korean
+output for both language pairs. The earlier diagnostic failed to wait for the
+initial document; it is not a passing acceptance run.
+
+**PASS `npm run test:framework:chrome:translation`, exit 0**, evidence
+`chrome-b3-cft-native-acceptance.log`: typecheck, **6 contract regressions**, owned
+headed Chromium **153.0.8010.12 / darwin arm64**, and real labeled Japanese/English
+text through the unchanged document adapter and revision queue. Japanese native
+creation **654.767 ms**, English **138.018 ms**, after component startup; these
+are preparation times, not end-to-end caption latency. Both return genuine
+Korean translations preserving today's negation, tomorrow's station meeting at
+3 p.m., and the instruction not to cancel the reservation. Original pending
+captions appear first; only final source revision 2 pairs with its own translation;
+identity/language pair are exact; Stop suppresses further input/output. Page
+errors and queue failures are **[]**.
+
+**PASS `npm run verify`, exit 0**, evidence `chrome-b3-cft-verify.log`: lint,
+typecheck, unchanged companion build, **133 JS / 0 failed or skipped**, and
+**222 Python / 66.98 s**. No executable edit follows these checks.
+
+Only B3 changes to checked. Full selected-video PCM → ASR → native translation →
+application DOM, native offline behavior, ten-minute capture and final quality/
+latency gates remain B4–B6 work. The missing `test:framework:chrome` still belongs
+to B5 and is not replaced by this focused command. No stage-complete marker,
+Safari/iPhone acceptance, push, publication or app installation is claimed.

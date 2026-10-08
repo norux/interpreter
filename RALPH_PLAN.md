@@ -225,7 +225,7 @@ marker를 낼 수 있다.
 
 - [x] B1. browser engine의 execution host/worker와 model repository를 구현한다. 모델 준비의 ID·버전·다운로드·캐시·실제 로드 상태를 표시하고 document/user activation 제약을 처리한다.
 - [x] B2. 일본어/영어 browser ASR 후보의 실제 WebGPU/WASM 실행과 메모리·지연·정확도를 비교하고 구현용 기본 모델을 선택한다. bounded queue·과부하·GPU loss·cancel 계약을 검증한다. 최종 품질·성능 합격은 B6에서 검증한다.
-- [ ] B3. Chrome Translator document adapter를 구현하고 실제 일본어/영어 → 한국어 지원을 검사한다. 최신 원문 revision과 번역을 정확히 짝짓고 원문을 먼저 표시하며 final 작업이 partial에 밀리지 않게 한다.
+- [x] B3. Chrome Translator document adapter를 구현하고 실제 일본어/영어 → 한국어 지원을 검사한다. 최신 원문 revision과 번역을 정확히 짝짓고 원문을 먼저 표시하며 final 작업이 partial에 밀리지 않게 한다.
 - [ ] B4. 새 Chrome 단독 빌드에 선택 영상 입력·엔진·공통 정책·원문/시간/번역 화면을 연결한다. 기존 companion 빌드의 native messaging/설치 경로는 보존하며 새 빌드에는 필요한 권한만 포함한다.
 - [ ] B5. `test:framework:chrome`이 companion/Ollama가 없는 환경에서 실제 영상 PCM → ASR → 번역 → DOM을 검증하게 한다. 캐시된 모델 offline run, 첫 다운로드 오류, Stop/재시작, 10분 재생의 backlog/지연/손실을 측정한다. B5는 연결·수명주기·입력 보존을 검증하고 품질·성능 수치를 기록하며, 수치 목표를 맞추기 위한 최적화는 B6에서 수행한다.
 - [ ] B6. Chrome 기능 연결과 B5 통합 검증 뒤 마지막으로 ASR·번역 품질과 성능을 개선한다. 일본어 부정·취소·시간·미래 의도, 긴 문장 경계·반복·누락, 영어 fixture와 잡음·작은 음성·연속 발화를 평가한다. 기존 CER/WER ≤20%, 핵심 표현의 기대 횟수 일치, 실시간 endpoint-to-text <2초 기준과 장시간 backlog·손실 검증을 통과하고 수치·메모리·수용 기준을 문서화한다. 실패 문장·기록을 삭제하거나 테스트·기준을 약화시키지 않는다. 기준을 못 맞추면 개선 또는 차단으로 보고한다.
@@ -5345,3 +5345,37 @@ publication. Commit progress only; B4–B6/Safari/iPhone remain unfinished.
 Preservation assertions and staged whitespace **PASS**: exactly seven intended
 files, append-only report/plan, every checkbox unchanged, both native failures
 retained and no tracked `.ralph`. Commit and clean-worktree checks at delivery.
+
+
+### 2026-10-08 supervised B3 recovery — native component preparation
+
+B3 readiness blocker resolved in the existing owned Chromium, without changing
+production translation code. Chrome for Testing background updates are disabled
+by default; the focused harness now registers and explicitly requires the native
+TranslateKit library, en-ja and en-ko components in its new test-owned profile.
+Chrome performs the genuine downloads/verification into an ignored persistent
+component cache. It waits for the first document after bounded startup; both
+languages still require separate real clicks and actual native Korean output.
+No assertion, per-language creation/translation deadline or revision/Stop gate
+is weakened. User profiles/permissions, prior failures and companion are preserved.
+
+`npm run test:framework:chrome:translation` **PASS / exit 0**:
+6 contract regressions and real Japanese/English fixture translations,
+latest-final revision 2 pairing, pending original before translation, exact
+identity/languages and Stop suppression; page errors/queue failures **[]**.
+Native creation after component startup: **654.767 ms ja / 138.018 ms en**,
+Chromium **153.0.8010.12 / darwin arm64**. `npm run verify` **PASS / exit 0**:
+lint/typecheck/build, **133 JS**, **222 Python / 66.98 s**. Evidence:
+`chrome-b3-cft-native-acceptance.log`, `chrome-b3-cft-verify.log`, and independent
+`supervisor-cft-translation-2.log` in ignored `.ralph/media-framework/`.
+
+Only B3 checked; **next B4**. Full Chrome acceptance remains unfinished, with its
+missing complete script assigned to B5 and final quality/performance to B6.
+No completed-stage marker or Safari/iPhone acceptance is claimed.
+
+External readiness noted for later stages: user reports **Apple Developer Program
+not enrolled**. This Mac currently has Command Line Tools only (`xcode-select -p`
+returns `/Library/Developer/CommandLineTools`), with no `/Applications/Xcode.app`.
+Do not assume paid enrollment, Xcode installation, iPhone connection or device
+signing is authorized/prepared. These do not block the current Chrome work;
+record actual remaining Safari/iPhone build/signing/device constraints when reached.
