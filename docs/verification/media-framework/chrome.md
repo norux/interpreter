@@ -10751,3 +10751,127 @@ are committed. Only owned test browsers/profiles/corruption copy are cleaned.
 Related commit: `fix: preserve repeated English browser speech`. Final staged
 whitelist, unchanged checkboxes/history, whitespace and clean committed worktree
 are checked at delivery.
+
+
+## 2026-10-09 KST — B6 noisy-input VAD evidence (chrome iteration 2/20)
+
+**B6 remains unchecked.** Entry HEAD `6bbedd9` was clean. Repository `AGENTS.md`
+and requested independent runner log
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` were absent. Supplied instructions,
+plan, architecture and retained Chrome evidence apply. This partial iteration
+investigates the preserved Japanese white-noise recognition failure. All prior
+failures, checkboxes and acceptance requirements remain.
+
+### Rejected segmentation hypothesis and retained diagnostic change
+
+Assumption: test earlier eligible Japanese short-pause boundaries on the exact
+archived noisy samples before retaining a production change. Fresh-VAD baseline
+reproduces the original noisy-job layout, so it establishes a valid comparison
+for this hypothesis rather than assuming that reset detector state is equivalent.
+Temporarily allow Japanese confirmed short pauses after **3 s** instead of **10 s**,
+keeping the same 160 ms pause, five-frame onset confirmation, midpoint, bounds,
+PCM and real default ASR. Both workers produce **identical jobs, raw generated
+text and scores**. The hypothesis is rejected and the production edit is reverted.
+There is no recognition improvement and no repeated attempt at that hypothesis.
+
+Retain only `tests/framework-chrome-replay.mjs` diagnostics for `--resegment`:
+record each real production VAD result's capture-relative audio range, samples,
+probability, speech decision, original padding and inference measurement. Return
+the detector result unchanged. Require every admitted sample to have exactly one
+observed frame, 512 samples except the actual EOF remainder, contiguous ranges,
+boolean decisions and finite probabilities in [0,1]. Existing archive/job hashes,
+PCM coverage, identity, transfer, decoder, worker/cache/network, CER/WER <=20%
+and exact meaning assertions remain. No new option, model, fallback, text prompt,
+filter, correction, dependency or production behavior is retained.
+
+### Exact executed evidence
+
+All three commands below use:
+`npm run test:framework:chrome:replay -- .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --resegment`.
+Each executes all **four archived runs / twelve real ASR jobs in each of two
+fresh default-model workers**; each is **FAIL / exit 1**, solely on round 2's
+Japanese white-noise exact meaning counts. Logs and corresponding `-summary.json`
+files are ignored local evidence under `.ralph/media-framework/`.
+
+| Source / log basename | Preparation ms (trials 1 / 2) | Peak owned-tree RSS KiB (trials 1 / 2) |
+| --- | ---: | ---: |
+| Original / `chrome-iteration-2-noise-resegment-baseline` | 51,911.347167 / 1,333.6260419999962 | 3,790,464 / 4,302,880 |
+| Rejected 3 s rule / `chrome-iteration-2-noise-resegment-three-seconds` | 51,067.645790999995 / 1,333.353375000006 | 4,001,456 / 4,350,912 |
+| Restored production + final observer / `chrome-iteration-2-noise-vad-evidence` | 52,324.19325 / 1,329.9785829999964 | 4,170,848 / 4,472,048 |
+
+Every command retains Japanese white-noise **9/120 = 7.5% CER**, meeting **2**,
+station **1**, other five meanings **3**, expected **3** for all. Japanese quiet
+noise is **3/120 = 2.5% CER**, all seven meanings **3**; English quiet/white noise
+are **3/66 = 4.545454545454546% WER**, all four meanings **3**. Each trial has three
+jobs per run. Passing error rate does not excuse semantic loss. Preparation remote
+requests **16 / 0**, inference remote requests **0 / 0**, page errors and visibility
+events **[]** for all three commands. RSS includes shared browser/GPU pages and
+observer data; no isolated allocation/leak/mobile pressure inference is justified.
+
+Final observer assertions **PASS within the failed aggregate**: **5,876 frames**
+across eight runs, Japanese **749 frames / 383,040 samples** each, English
+**720 / 368,640** each; Japanese EOF **64 real samples / 448 padding**, English EOF
+**512 / 0**. Independent readback/comparison **PASS / exit 0**,
+`chrome-iteration-2-analysis.json`: **48 exact job comparisons** between final
+and baseline/experiment, **24 original job/text/hash associations**, unchanged
+archive manifest SHA-256
+`5e3e9af50dfaa98fc59f15c091a9deae2a5893e63c41bbf96bde34129cabbb89`,
+and identical probabilities/decisions/ranges/padding between fresh detectors.
+Original sample files independently retain all recorded lengths/digests.
+
+The trace shows the first noisy Japanese period has a **160 ms** inactive interval
+at **1,280–1,440 ms** but no >=160 ms pause between 3 s and its **7,680 ms** trailing
+silence. Quiet Japanese also has **2,624–2,784 ms / 160 ms**. Subsequent noisy
+periods show the corresponding early short intervals and trailing silence. This
+explains why the 3 s rule cannot change this input layout; it does not prove that
+cutting earlier inside these words would improve recognition. Only speech
+probabilities from the pinned Silero detector are reported, not ASR confidence.
+
+Initial independent extractor **FAIL / exit 1**: system Python lacks `zip(strict=)`.
+Replace that diagnostic-only iterator with explicit equal-length assertions;
+corrected extraction **PASS / exit 0** on existing logs. No browser/inference
+repeat for that correction. Node syntax, one-file Biome (**26 ms**) and whitespace
+checks **PASS / exit 0**. Final `npm run verify` evidence is appended below.
+
+### Qualification limits and next unfinished work
+
+macOS **26.6.2 / 25G83 arm64**, Node **v24.15.0**, npm **11.12.1**, owned headed
+Chromium **153.0.8010.12**, locked Transformers.js **4.3.0**. Unchanged default
+smallFp16/WebGPU `onnx-community/whisper-small` revision
+`36050c46d777d46dc4b5f43f6d90574fc38f8732`, **487,960,440 model bytes**;
+unchanged Silero revision `e71cae966052b992a7eca6b17738916ce0eca4ec`, **2,243,022 bytes**.
+No new model identity, revision, dependency or candidate.
+
+**NOT RUN:** full `npm run test:framework:chrome`, unchanged long live/noise,
+ten-minute production-extension/native translation/DOM/GPU suites. The retained
+change observes replay only; these unaffected long suites are not repeated.
+Full plan acceptance remains required before completion. Replay is real ASR
+accuracy on synthetic archived input, not live endpoint, acquisition, real queue
+pressure, native Korean translation or DOM evidence. Unpaced enumeration's empty
+transport revisions never enter the accuracy score. Prior aggregate failures
+remain failures. Complete ten-minute semantic/reference qualification, retained
+fresh-VAD Japanese omissions, natural/site speech, Safari and physical iPhone
+remain **UNVERIFIED**. No whole-framework or device completion claim.
+
+**Next remains B6:** improve raw Japanese white-noise meeting/station recognition
+using the preserved PCM and now-observable detector boundaries; qualify retained
+Japanese omission layouts and valid complete long-run semantics, then run full
+Chrome acceptance. Keep exact counts, <=20%, endpoint <2,000 ms and queue/loss
+gates. No required environment/device/permission is absent; no blocked or stage-
+completion marker applies. Failed hypothesis is stopped without a third attempt.
+
+Three intended files only: replay diagnostics, this report and plan progress log.
+Production recognizer/worker, companion v0.1.0/install/native messaging/settings,
+permissions/models/fixtures/core/runner and unrelated files are unchanged. Preserve
+user apps, recordings and mounts; no agents, install, push/publish, browser/profile
+access workaround, credentials/weights/user media or temporary `.ralph` state in
+Git. Only owned test browsers/profiles are cleaned. Related commit:
+`test: record noisy browser VAD frame evidence`.
+
+
+Final retained-source `npm run verify` **PASS / exit 0**,
+`chrome-iteration-2-verify.log`: Biome **148 files / 70 ms**, Ruff/typecheck,
+unchanged companion build, **154 JS / 0 failures/skips/cancellations /
+26,657.681833 ms**, **222 Python / 66.96 s**. No executable change follows this
+verification. Final staged three-file scope, append-only histories, unchanged
+checkboxes, whitespace and post-commit clean worktree are checked at delivery.

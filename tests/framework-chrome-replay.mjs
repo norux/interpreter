@@ -119,7 +119,8 @@ const server = createServer(async (request, response) => {
         // Only enumerate production VAD/segmentation jobs here. Real ASR below
         // scores them; the empty transport revisions never enter that score.
         const pcm = new Float32Array(Uint8Array.from(atob(base64), byte => byte.charCodeAt(0)).buffer);
-        const jobs = []; const statuses = [];
+        const jobs = []; const statuses = []; const detectionFrames = [];
+        let detectedSamples = 0;
         const recognizer = createSpeechRecognizer(identity, language, {
           async recognize(job) {
             const inputSha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', job.pcm))]
@@ -128,7 +129,15 @@ const server = createServer(async (request, response) => {
             return {revision:{identity, utteranceId:job.utteranceId, audioRange:job.audioRange,
               sourceRevision:1, final:true, text:''}, inferenceMs:0};
           }, stop() {},
-        }, status => statuses.push(status), {detect:frame => vad.detect(frame), stop() {}});
+        }, status => statuses.push(status), {
+          async detect(frame) {
+            const detection = await vad.detect(frame);
+            detectionFrames.push({audioRange:{startMs:startMs+detectedSamples/16,
+              endMs:startMs+(detectedSamples+frame.length)/16}, samples:frame.length, ...detection});
+            detectedSamples += frame.length;
+            return detection;
+          }, stop() {},
+        });
         async function* chunks() {
           for (let offset = 0, sequence = 0; offset < pcm.length; offset += 1600, sequence++) {
             const part = pcm.slice(offset, offset+1600);
@@ -142,7 +151,7 @@ const server = createServer(async (request, response) => {
           }
         }
         for await (const _ of recognizer.run(chunks())) {}
-        return {jobs, statuses};
+        return {jobs, statuses, detectionFrames};
       };` : ''}
       window.addEventListener('pagehide', () => {host?.dispose(); globalThis.vad?.dispose();});
     </script>`); return;
@@ -264,6 +273,20 @@ try {
           identity: run.identity, language: run.language, startMs: run.jobs[0].audioRange.startMs, base64: combined.toString("base64"),
         });
         jobs = segmented.jobs; replay.segmentationStatuses = segmented.statuses;
+        replay.detectionFrames = segmented.detectionFrames;
+        assert.equal(segmented.detectionFrames.length, Math.ceil(combined.length/(4*512)));
+        let detectedSamples = 0;
+        for (const frame of segmented.detectionFrames) {
+          assert.equal(frame.samples, Math.min(512, combined.length/4-detectedSamples));
+          assert.deepEqual(frame.audioRange, {
+            startMs: run.jobs[0].audioRange.startMs+detectedSamples/16,
+            endMs: run.jobs[0].audioRange.startMs+(detectedSamples+frame.samples)/16,
+          });
+          assert.equal(typeof frame.speech, "boolean");
+          assert.ok(Number.isFinite(frame.probability) && frame.probability >= 0 && frame.probability <= 1);
+          detectedSamples += frame.samples;
+        }
+        assert.equal(detectedSamples*4, combined.length, "VAD evidence must cover every admitted sample exactly once");
         assert.ok(jobs.length > 0);
         assert.equal(jobs[0].audioRange.startMs, run.jobs[0].audioRange.startMs, "Resegmentation must preserve the admitted beginning");
         assert.equal(jobs.at(-1).audioRange.endMs, run.jobs.at(-1).audioRange.endMs, "Resegmentation must preserve the admitted EOF");

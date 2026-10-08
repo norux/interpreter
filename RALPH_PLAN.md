@@ -6574,3 +6574,77 @@ unrelated files. No agents, install, push/publish, access/profile workaround,
 credentials/weights/user media or temporary `.ralph` state committed. Detailed
 commands, results, limits and local paths are in the Chrome report. Final staged
 scope/history/checkbox/whitespace and post-commit clean status are verified.
+
+
+### 2026-10-09 KST / chrome / iteration 2/20 — noisy-input VAD evidence
+
+Commit: `test: record noisy browser VAD frame evidence`, with matching Chrome
+report. Entry HEAD `6bbedd9` clean; repository AGENTS.md and requested independent
+`2026-10-08T19-41-49-982Z-chrome-verification.txt` absent. **B6 stays unchecked**;
+only Stage chrome selected. Preserve all historical failures/acceptance and stages.
+
+Hypothesis: earlier confirmed Japanese short pauses could improve exact retained
+noisy recognition. First establish fresh-VAD segmentation equivalence, then try
+**3 s rather than 10 s**, retaining 160 ms pause/five-frame onset/midpoint and PCM.
+All original jobs/raw generation/scores remain identical in both fresh workers;
+reject and revert production change. No repeat of rejected hypothesis. Retain only
+replay `--resegment` diagnostics: each real VAD frame's range/samples/probability/
+boolean/padding/inference measurement, returned unchanged. Assert complete exact
+512-sample framing/real EOF coverage and finite probability/boolean bounds.
+Production ASR/VAD/recognizer, settings and acceptance assertions are unchanged.
+
+Three focused invocations of exact command:
+`npm run test:framework:chrome:replay -- .ralph/media-framework/chrome-live-jobs-noise-PGrAUS --resegment`.
+Baseline, temporary 3 s experiment and restored production + final observer each
+**FAIL / exit 1**, solely on Japanese white-noise counts in both trials. Local logs:
+`chrome-iteration-2-noise-resegment-baseline.log`,
+`chrome-iteration-2-noise-resegment-three-seconds.log`,
+`chrome-iteration-2-noise-vad-evidence.log`; matching summaries under ignored
+`.ralph/media-framework/`. Every command runs all four runs/twelve jobs per worker.
+Japanese white-noise **9/120 = 7.5% CER**, meeting **2**, station **1**, other five
+**3**, expected **3** each. Quiet Japanese **3/120 CER**, English quiet/white
+**3/66 WER**, every required meaning **3**. Preserve aggregate nonzero exit.
+Final preparation **52,324.19325 / 1,329.9785829999964 ms**, remote requests
+**16 / 0**, inference **0 / 0**, owned-tree RSS peaks **4,170,848 / 4,472,048 KiB**;
+page errors/visibility **[]**. Other exact metrics are in the Chrome report.
+
+Final VAD observer checks **PASS within failed aggregate**: **5,876 frames**,
+Japanese **749 / 383,040 samples** and English **720 / 368,640 samples** per run,
+complete frame/EOF coverage. Independent archive/readback **PASS / exit 0**,
+`chrome-iteration-2-analysis.json`: **48 exact job comparisons**, **24 original
+job/text associations**, original input digests and manifest unchanged, detector
+probabilities/decisions/ranges/padding identical between trials. First noisy
+Japanese period has no >=160 ms detected pause between 3 s and trailing silence
+at **7,680 ms**; lowering only this eligibility threshold cannot change its layout.
+That is detector evidence, not proof of an earlier cut's recognition quality.
+Initial extractor **FAIL / exit 1** on unsupported system-Python `zip(strict=)`;
+explicit equal-length checks fix it, corrected extractor **PASS / exit 0** on
+existing logs; no new browser command for that correction.
+
+Final `npm run verify` **PASS / exit 0**, `chrome-iteration-2-verify.log`: Biome
+**148 / 70 ms**, Ruff/typecheck/unchanged companion build, **154 JS / 0 failed /
+0 skipped / 0 cancelled / 26,657.681833 ms**, **222 Python / 66.96 s**. Focused
+Node syntax/one-file Biome (**26 ms**)/whitespace **PASS / exit 0**. No executable
+edit after verification. macOS **26.6.2 / 25G83 arm64**, Node **24.15.0**, npm
+**11.12.1**, owned Chromium **153.0.8010.12**, locked Transformers.js **4.3.0**;
+unchanged smallFp16/WebGPU pin/487,960,440 model bytes and Silero pin/2,243,022 bytes.
+
+**NOT RUN:** full `npm run test:framework:chrome` and unaffected long live,
+ten-minute production-extension/native Korean/DOM/GPU suites in this partial
+observer iteration. Full required acceptance remains necessary before completion.
+Prior failures remain failed; unpaced enumeration/mock transport and replay timing
+are not live PCM/endpoint/queue pressure or native Korean accuracy. Complete long-
+run semantics/reference, retained fresh-VAD Japanese omission layouts, broader
+natural/site speech, Safari/iPhone remain **UNVERIFIED**.
+
+Next unfinished **B6**: raw noisy Japanese meeting/station recognition, other
+retained Japanese omissions and valid full long-run semantic quality, then full
+Chrome acceptance. Preserve <=20%, exact meanings, <2,000 ms and queue/loss gates.
+No required environment/device/permission absent, no blocker/completion marker,
+no later-stage advancement or whole-framework/iPhone claim. Three intended files
+only; original production, companion v0.1.0/install/settings, permissions/models/
+fixtures/core/runner and unrelated files unchanged. No agents, install/push/
+publish, browser/profile-access workaround or user-app/recording/mount changes;
+no credentials/weights/user media or temporary `.ralph` state staged. Detailed
+exact evidence/limits in Chrome report. Append-only history, unchanged checkboxes,
+staged scope/whitespace and post-commit clean status checked at delivery.
