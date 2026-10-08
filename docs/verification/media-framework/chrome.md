@@ -5169,3 +5169,174 @@ Document-inclusive unstaged/staged whitespace, the exact five-file commit scope
 and post-commit worktree cleanliness are checked before delivery. Only package
 command, learned live harness, shared test fixture, report and plan enter the
 commit; ignored temporary evidence/media/models/profiles and user data are excluded.
+
+
+## 2026-10-08 — B2 learned live GPU recovery (iteration 16/20)
+
+Related commit: `test: qualify learned live GPU recovery`, containing this report.
+**B2 remains unchecked; no default is selected.** Only B2 advances.
+
+Assumption: the historical decoded-input GPU recovery check does not qualify
+learned selected-video acquisition. Extend the existing live harness with
+`test:framework:chrome:live:gpu-recovery`, retaining all six original rounds and
+adding Japanese/English loss and recovery rounds. No engine, model, dependency,
+profile, companion, installed build or settings change. Original/sustained
+commands retain their cases and gates.
+
+Test instrumentation wraps the owned ASR worker's real GPUAdapter.requestDevice
+without replacing its device. After entering the production recognize handler,
+it calls the actual GPUDevice.destroy(). Production device-loss notification,
+host rejection, recognizer queue cleanup and capture detachment must follow.
+This is an explicitly injected device failure, not naturally occurring GPU or
+memory pressure. The labels never supply inference input; actual selected-element
+PCM feeds the production normalizer, WASM VAD and FP16 WebGPU ASR.
+
+Loss must interrupt a nonfinal job before the three-period capture endpoint,
+return `gpu-lost`, publish no transcript, report positive discarded duration and
+zero final pending audio, and detach capture while both videos keep playing.
+A retry without Prepare must preserve its caller buffer and fail `gpu-lost`,
+creating zero replacement workers. Explicit activated Prepare must reuse the
+same ASR/VAD hosts, create exactly two fresh workers, load both pinned cached
+models without remote requests and recognize three periods in a fresh epoch.
+Every recovered result must have the new identity. Original <=20% CER/WER,
+exact meaning counts, exact admitted PCM, detector coverage/cost, source isolation,
+time mapping, <=20 s jobs/<=30 s pending, zero normal-run loss, drained queues,
+<2,000 ms final-packet latency and playback/Stop checks remain unchanged.
+Test failure timestamps now record the actual failure instead of retaining the
+previous successful run's completion timestamp.
+
+### Executed evidence
+
+Ignored evidence directory: `.ralph/media-framework/`. Root/nested AGENTS.md and
+requested independent runner file `2026-10-08T01-12-31-094Z-chrome-verification.txt`
+are absent. Supplied instructions, plan, architecture and prior report reviewed.
+
+Diagnostic first invocation: `caffeinate -disu npm run test:framework:chrome:live:gpu-recovery`,
+**exit 0**, `chrome-20261008-16-live-gpu-first.log`: typecheck, **27 focused port
+checks / 0 failed/skipped/cancelled / 253.235375 ms**, build and ten browser rounds.
+All original rounds, real device-loss reporting and same-host cached recovery
+checks pass. However, the first loss cases contain only one period: Japanese
+capture/job endpoint **7,040 ms**, English **6,741.3125 ms**, exactly capture EOF.
+This is **not accepted as loss during active acquisition**. No production defect
+is inferred. Before the second invocation, increase only these loss captures to
+three periods and assert both the captured duration and failed job endpoint are
+below the requested endpoint. No original case or gate is removed or relaxed.
+
+FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+`chrome-20261008-16-stage-acceptance.log`: `Missing script: "test:framework:chrome"`.
+B5's real video → ASR → Korean translation → DOM acceptance is unimplemented;
+this B2 command is not a substitute. No unchanged retry or placeholder.
+PASS: harness syntax and targeted two-file Biome, **exit 0**, initially **7 ms**,
+then **33 ms / no findings** after strengthening the loss gates.
+
+
+Corrected final invocation: `caffeinate -disu npm run test:framework:chrome:live:gpu-recovery`,
+**PASS, exit 0**, once, `chrome-20261008-16-live-gpu-final.log`: typecheck,
+**27 focused tests / 0 failed/skipped/cancelled / 265.590417 ms**, build,
+**ten actual browser rounds / 4,074 WASM VAD frames / 13 WebGPU ASR invocations**
+(two intentionally fail on actual device loss). All retained and new assertions
+pass; failures/page errors/native visibility events `[]`. No third invocation.
+
+| Loss input | Actual raw / normalized samples | Captured ms / failed job range ms | Retained audio explicitly discarded ms | Pending after failure | Host invocation to rejection ms |
+| --- | --- | --- | ---: | ---: | ---: |
+| Japanese | 727040 / 242336 | 15146 / 64–14720 | 15039.375 | 0 | 111.200 |
+| English | 557056 / 185675 | 11604.6875 / 32–11168 | 11530 | 0 | 117.500 |
+
+Both captures fail before the requested three-period endpoints (**20,916.6875 /
+19,999.4375 ms**). Delivered PCM advances during the interrupted host calls:
+Japanese **15,018 → 15,103.375 ms**, English **11,476.6875 → 11,562 ms**.
+These are host rejection observations, not transcription latencies. Final capture
+totals include a closing read after invalidation; reported discarded duration
+counts retained recognizer audio, not every observed shutdown packet. Both loss
+cases return no transcript, detach capture, keep source/volume/mute/rate and
+advancing playback, reject an unprepared retry with the **6,400-byte caller
+buffer intact**, and create **zero automatic replacement workers**.
+
+| Explicit cached recovery | Raw / normalized samples | Error and meaning | ASR ranges ms | Last-packet-to-text ms | Peak pending ms | Baseline / peak / final RSS KiB |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| Japanese / three periods | 1005568 / 335189 | 3/120 = 2.5% CER; all seven anchors 3 | 32–11808; 11808–20949.3125 | 1033.400 | 13364.6875 | 3283456 / 3283456 / 1441152 |
+| English / three periods | 962560 / 320853 | 3/66 = 4.545455% WER; all four anchors 3 | 32–11168; 11168–20053.3125 | 850.800 | 12511.375 | 3451744 / 3451744 / 1541584 |
+
+Recovery Prepare takes **1,325.709292 / 1,425.908666 ms**. Both same-host/same-VAD
+checks pass; exactly two replacement workers are created only by explicit Prepare.
+Each recovery uses the same session/target, **epoch 1**; every returned revision
+matches it. Both models report cached/ready, never downloading; **zero remote
+requests** during Prepare and recovered capture/inference. No silent fallback.
+Exact admitted PCM, complete detector coverage, contiguous bounded jobs,
+**32 ms leading / zero trailing**, zero normal-run loss and drained queues pass.
+VAD totals **450.900 / 445.100 ms**, below the unchanged 10% gate. Selected tags
+**0.060061224 / 0.060018365**, unselected **0.000342770 / 0.000613207**;
+map errors **41.981333 / 51.268000 ms**. Playback/capture-detach checks pass.
+
+Original scored cases retain Japanese **1/40, 1/40, 3/120 CER**, English
+**1/22, 3/66 WER**, every meaning once/three times, zero loss/drained queues and
+last-packet-to-text **822.600–1,046.400 ms**. Original Stop reports cancelled,
+no text/zero pending/positive discard, actual detector processing and detached
+capture; repeat Start passes. This is short live recovery, **not sustained or
+ten-minute recovery**, Korean translation/DOM or naturally occurring pressure.
+
+Environment: owned headed Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83
+arm64**, Node **v24.15.0**, npm **11.12.1**, uv **0.12.23**; locked
+Transformers.js **4.3.0**/ORT unchanged. Same pinned small FP16 WebGPU
+`onnx-community/whisper-small@36050c46d777d46dc4b5f43f6d90574fc38f8732`
+(**seven files / 487,960,440 bytes**) and Silero WASM
+`onnx-community/silero-vad@e71cae966052b992a7eca6b17738916ce0eca4ec`
+(**one file / 2,243,022 bytes**). Each invocation downloads one inventory each
+into its own fresh test context, then reuses cached fresh workers; two invocations,
+no new model. Final initial preparation **52,836.562833 ms**, cached
+**1,319.075125–1,426.429208 ms**, **16 pinned paths / 16 requests** overall.
+Final initial owned-tree RSS **1,449,744 KiB**, maximum case peak **3,895,200 KiB**.
+250 ms owned-tree samples include shared-page double counting, renderers/GPU,
+allocators/models/harness PCM; case peaks start after preparation. Not isolated
+model allocations, preparation peak, leak freedom, pressure or mobile evidence.
+All latency observations use one document clock; VAD inference and Node RSS
+sampling use their own clocks separately. Preparation and final-packet latency
+exclude each other's work, accumulation, translation and display. No population
+percentile or general accuracy claim.
+
+PASS: explicit Python assertions over final recorded results, **exit 0**, tool
+output: ten rounds, no qualification failures, both real-loss cleanup/rejected
+retry records and both cached same-session/fresh-epoch recoveries match.
+This is evidence analysis, not another inference invocation.
+
+### Remaining work and preservation
+
+**Next unfinished item is B2:** resolve retained Japanese louder-noise meaning
+and sustained repetition/endpoint failures; qualify natural/no-pause/quiet
+phoneme boundaries, sustained learned live GPU recovery, ten-minute live input,
+memory/storage pressure and conversion/distribution licensing before selecting
+a default. None of those prior failing suites is rerun or reclassified here.
+Other candidate/stream/EOF/quiet/noise/sustained/VAD/B1 commands remain historical.
+Full offline streaming/interpretation, Korean translation/revisions/DOM, B3–B6,
+installation and Safari/iPhone remain **unverified**. B2–B6 stay unchecked.
+No required environment/device/permission is absent; incomplete implementation
+and qualification warrant neither terminal marker. No stage/framework/iPhone
+completion claim.
+
+Only this worktree changes. Companion v0.1.0/install/native messaging/server/user
+settings and unrelated files/apps/recordings/mounted images preserved. No agents,
+runner edit, stage advance, push/publish/app installation or blocked-browser/
+profile/permission bypass. Only owned test browser/profile resources cleaned up.
+Credentials, model weights, user audio/transcripts and ignored temporary state
+are excluded from the commit. Required repository verification follows.
+
+
+### Final required verification and Git checks
+
+PASS: `caffeinate -disu npm run verify`, **exit 0**,
+`chrome-20261008-16-verify.log`: Biome **115 files / 53 ms / no findings**, Ruff,
+typecheck, unchanged companion build (**28 main / 10 content modules**),
+**113 JS passed / 0 failed/skipped/cancelled / 21,566.812833 ms**,
+**222 Python passed / 66.95 s**, Python **3.12.15**. Executed after both browser
+invocations on the final test sources; later edits complete Markdown evidence only.
+PASS: final syntax, targeted two-file Biome **7 ms / no findings**, recorded
+same-target/same-session/fresh-epoch quality/cache assertions (both runs), and
+actual capture advance during interrupted jobs (corrected run only), **exit 0**.
+The first diagnostic remains insufficient active-loss evidence. Required full
+Chrome acceptance remains FAIL; prior Japanese qualification failures remain
+unresolved, and B2–B6 remain unchecked.
+
+Document-inclusive unstaged/staged whitespace, exact five-file commit scope and
+post-commit cleanliness are checked before delivery. Only package command, live
+harness, shared test fixture, report and plan enter the commit; no ignored state,
+credentials, model weights or user data. No runner change or stage advance.

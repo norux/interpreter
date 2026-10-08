@@ -25,18 +25,19 @@
   globalThis.visibilityEvents = [];
   document.addEventListener('visibilitychange', () => visibilityEvents.push({state: document.visibilityState, atMs: performance.now()}));
   globalThis.state = () => videos.map(video => ({src: video.src, volume: video.volume, muted: video.muted, rate: video.playbackRate, paused: video.paused}));
-  globalThis.configure = async (language, durationSeconds, round, learned = false) => {
-    globalThis.host?.dispose(); globalThis.vad?.dispose(); globalThis.vad = undefined; globalThis.vadStatuses = [];
+  globalThis.configure = async (language, durationSeconds, round, learned = false, reuseHosts = false) => {
+    if (!reuseHosts) { globalThis.host?.dispose(); globalThis.vad?.dispose(); globalThis.vad = undefined; }
+    globalThis.vadStatuses = [];
     globalThis.detectorFrames = []; globalThis.normalizedPcm = [];
-    if (learned) {
+    if (learned && !reuseHosts) {
       const { createVadHost } = await import('/vad.js');
       globalThis.vad = createVadHost(document, status => vadStatuses.push(status));
     }
     globalThis.statuses = []; globalThis.prepared = false; globalThis.prepareError = undefined;
-    globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => statuses.push(status));
+    if (!reuseHosts) globalThis.host = createAsrHost(document, 'smallFp16', 'webgpu', status => statuses.push(status));
     globalThis.invocations = [];
     const recognize = host.recognize;
-    host.recognize = async job => {
+    if (!reuseHosts) host.recognize = async job => {
       const invocation = {audioRange: {...job.audioRange}, samples: job.pcm.length, atMs: performance.now(), deliveredAtStartMs: normalized.samples/16};
       if (learned) {
         const captured = new Float32Array(normalized.samples);
@@ -54,11 +55,11 @@
     await Promise.all(videos.map(video => video.seeking ? new Promise(done => video.addEventListener('seeked', done, {once: true})) : Promise.resolve()));
     const candidates = await catalog.discover();
     target = candidates[videos.findIndex(video => video.id === language)].target;
-    identity = {sessionId: `live-asr-${round}`, targetId: target.id, epoch: 0};
+    identity = {sessionId: `live-asr-${reuseHosts ? round-1 : round}`, targetId: target.id, epoch: reuseHosts ? 1 : 0};
     globalThis.identity = identity;
     timeline = createTimeline(identity);
     globalThis.selectedLanguage = language; globalThis.endAtSeconds = durationSeconds;
-    globalThis.transcripts = []; globalThis.queueStatuses = []; globalThis.liveError = undefined; globalThis.finished = false;
+    globalThis.transcripts = []; globalThis.queueStatuses = []; globalThis.liveError = undefined; globalThis.finished = false; globalThis.liveFinishedAtMs = undefined;
     globalThis.raw = {chunks: 0, samples: 0, rates: [], selectedTagPower: 0, otherTagPower: 0, windows: 0, maxMapErrorMs: 0};
     globalThis.normalized = {chunks: 0, samples: 0, first: undefined, last: undefined};
     globalThis.normalizedDeliveries = [];
@@ -135,7 +136,7 @@
       globalThis.playbackAfter = state(); globalThis.timesAfter = videos.map(video => video.currentTime);
       globalThis.finished = true;
       globalThis.liveFinishedAtMs = performance.now();
-    } catch(error) { globalThis.liveError = error.message; }
+    } catch(error) { globalThis.liveError = error.message; globalThis.liveFinishedAtMs = performance.now(); }
   };
   document.querySelector('#stop').onclick = async () => { await recognizer.cancel(identity); await handle?.close(); };
   window.addEventListener('pagehide', () => { void recognizer?.close(); void handle?.close(); host?.dispose(); vad?.dispose(); catalog.dispose(); });

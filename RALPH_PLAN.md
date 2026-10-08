@@ -3616,3 +3616,109 @@ Final required verification:
   post-commit worktree cleanliness are checked before delivery. Only package
   command, learned live harness, shared fixture, report and plan are committed;
   credentials/weights/user data/ignored temporary state and generated media excluded.
+
+
+### 2026-10-08 / chrome / iteration 16/20
+
+Related commit: this record is included in `test: qualify learned live GPU recovery`.
+**B2 remains unchecked; no default is selected.** Extend only B2's existing learned
+live harness with `test:framework:chrome:live:gpu-recovery`: retain six original
+rounds, inject actual runtime GPUDevice destruction after the production handler
+enters recognition, then require explicit same-host cached Prepare and fresh-epoch
+three-period Japanese/English recognition. Require failure before capture EOF,
+detached input, no stale text, positive discarded duration/zero pending, no
+automatic worker/retry/fallback and no remote recovery fetch. Keep all existing
+quality/meaning/PCM/isolation/mapping/playback/queue/latency gates. Fix only the
+test's stale completion timestamp on failure; no engine/model/settings change.
+
+Exact passing/failing/unverified evidence in stage report and ignored
+`.ralph/media-framework/`:
+
+- Diagnostic first `caffeinate -disu npm run test:framework:chrome:live:gpu-recovery`,
+  **exit 0**, `chrome-20261008-16-live-gpu-first.log`: typecheck, **27 tests /
+  253.235375 ms**, build, ten rounds, original checks and both cached recoveries
+  pass. Its one-period loss jobs end at capture EOF **7,040 / 6,741.3125 ms**;
+  do not count it as active-acquisition loss acceptance. Strengthen loss captures
+  to three periods and assert nonfinal failed job and pre-EOF failure for the
+  second invocation. All original cases/gates retained.
+- FAIL: required `npm run test:framework:chrome`, **exit 1**, once,
+  `chrome-20261008-16-stage-acceptance.log`, missing B5 full video → ASR → Korean
+  translation → DOM script. No placeholder or substitute.
+- PASS: harness syntax, targeted two-file Biome **7 / 33 ms / no findings**,
+  and preliminary whitespace, **exit 0**.
+
+
+Corrected final browser acceptance:
+
+- PASS: second/final `caffeinate -disu npm run test:framework:chrome:live:gpu-recovery`,
+  **exit 0**, `chrome-20261008-16-live-gpu-final.log`: typecheck, **27 tests /
+  265.590417 ms**, build, **ten rounds / 4,074 VAD frames / 13 ASR invocations**,
+  with two intentionally interrupted actual GPU jobs. No third invocation.
+- Active Japanese/English loss: normalized **242,336 / 185,675 samples**,
+  captured **15,146 / 11,604.6875 ms**, failed jobs **64–14,720 / 32–11,168 ms**,
+  before their three-period capture endpoints. Acquisition advances during both
+  interrupted host calls. `gpu-lost`, no text, explicitly discarded retained
+  **15,039.375 / 11,530 ms**, zero pending, detached capture/preserved playback.
+  Final capture includes a closing read after invalidation, not all retained
+  queue audio. No automatic workers; unprepared retries reject `gpu-lost` with
+  **6,400 bytes** still caller-owned.
+- Explicit same-ASR/same-VAD Prepare alone creates two fresh workers and restores
+  both cached models with **zero remote requests**. Recoveries keep session/target
+  and use epoch 1: Japanese **3/120 = 2.5% CER**, English **3/66 = 4.545455% WER**,
+  every meaning three times, exact PCM/full coverage, bounded contiguous jobs,
+  zero normal loss/drained queues. Last-packet latency **1,033.400 / 850.800 ms**,
+  pending peak **13,364.6875 / 12,511.375 ms**. Isolation/mapping/playback/detach
+  and all original quality/Stop/restart checks pass. Report retains exact ranges,
+  failure/recovery sample counts, clocks, model identities, RSS and limitations.
+- Original scored rounds retain Japanese **1/40, 1/40, 3/120 CER**, English
+  **1/22, 3/66 WER**, exact meaning counts and **822.600–1,046.400 ms**
+  final-packet latency. Page errors/native visibility/failures `[]`.
+- PASS: explicit Python recorded-result assertions, **exit 0**, ten-round and
+  real-loss/retry/fresh-epoch cached recovery accounting; analysis only.
+
+Same owned Chromium **153.0.8010.12**, macOS **26.6.2 / 25G83 arm64**, Node
+**v24.15.0**/npm **11.12.1**/uv **0.12.23**, locked Transformers.js **4.3.0**/ORT
+and pinned small FP16 **487,960,440 bytes** / Silero **2,243,022 bytes**.
+One fresh inventory each per invocation, cached workers thereafter; two runs,
+no new model. Final first preparation **52,836.562833 ms**, cached
+**1,319.075125–1,426.429208 ms**, **16 pinned paths/requests** overall.
+Owned-tree initial RSS **1,449,744 KiB**, maximum case peak **3,895,200 KiB**,
+250 ms sampling with shared-page/browser/GPU/allocator/harness inclusion; not
+isolated model memory, leak/pressure/storage/mobile evidence.
+
+**Next B2:** historical Japanese louder-noise meaning and sustained repetition/
+endpoint failures, natural/no-pause/quiet phoneme boundaries, sustained learned
+live GPU recovery, ten-minute live input, memory/storage pressure, licensing and
+default choice. This pass is short live recovery, not those qualifications.
+Previous suites are not rerun/reclassified. Korean translation/revisions/DOM,
+full offline interpretation, B3–B6, installation and Safari/iPhone remain unverified.
+No checkbox changes. Required environment/device/permission is present; neither
+terminal marker applies. No stage/framework/iPhone completion claim.
+
+Instructions/plan/architecture/prior report reviewed; root/nested AGENTS.md and
+requested independent runner evidence absent. Only this worktree changes;
+companion/install/native messaging/server/settings and unrelated files/apps/
+recordings/mounted images preserved. No agents, runner changes, stage advance,
+push/publish/app installation or browser/profile/permission bypass. Only owned
+test browsers/profiles cleaned up; credentials/weights/user audio/transcripts/
+ignored temporary state excluded. Required final verify and commit checks follow.
+
+
+Final required verification:
+
+- PASS: `caffeinate -disu npm run verify`, **exit 0**,
+  `chrome-20261008-16-verify.log`: Biome **115 files / 53 ms**, Ruff/typecheck,
+  unchanged companion **28 main / 10 content modules**, **113 JS passed /
+  0 failed/skipped/cancelled / 21,566.812833 ms**, **222 Python passed / 66.95 s**,
+  Python **3.12.15**. Runs after both browser invocations on final test sources;
+  later changes complete Markdown evidence only. Full Chrome acceptance remains
+  FAIL and historical Japanese quality failures remain unresolved. B2–B6 unchecked.
+- PASS: final syntax, targeted two-file Biome **7 ms / no findings**,
+  same-target/session/epoch cache/quality recorded-result assertions for both runs,
+  capture advance during interrupted jobs in the corrected run only, **exit 0**.
+  First diagnostic is still insufficient active-loss evidence; analysis is not
+  another inference invocation.
+- Document-inclusive unstaged/staged whitespace, exact five-file commit scope
+  and post-commit worktree cleanliness are checked before delivery. Only package
+  command, learned live harness, shared test fixture, report and plan committed;
+  credentials/weights/user data/ignored temporary state excluded.
