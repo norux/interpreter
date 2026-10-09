@@ -12,4 +12,4 @@ Verified after the transition:
 
 The earlier real ~58-second conversation and WeSpeaker results are recorded in [speaker/caption verification](captions/conversation-speakers.md). They were not rerun solely for the branding/removal change. Local transition logs are ignored under `.ralph/jamak-*.log`.
 
-README, AGENTS.md and the current architecture/convention/testing documentation were updated together. Old verification reports remain historical evidence. Application license selection is pending; model licenses are documented independently.
+README, AGENTS.md and the current architecture/convention/testing documentation were updated together. Old verification reports remain historical evidence. The application and brand assets use MIT, as selected by the owner; model licenses remain documented independently.

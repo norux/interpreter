@@ -64,5 +64,6 @@
   },
   "dependencies": {
     "@huggingface/transformers": "4.3.0"
-  }
+  },
+  "license": "MIT"
 }

@@ -15,6 +15,8 @@ Read the relevant feature verification document when changing recognition, trans
 
 State assumptions and observable success criteria before coding. Preserve the existing architecture and use the smallest change that satisfies the request. Establish a failing regression check for bugs. Keep unrelated changes out. Internal channel names, CSS selectors and model cache keys may retain the old `interpreter` prefix for compatibility; user-facing branding is Jamak.
 
+Application code and brand assets are MIT-licensed; keep upstream model attribution and separate licenses intact.
+
 Never commit credentials, model weights, user recordings, `.ralph` output or OS metadata. Synthetic, reproducible test fixtures belong in `tests/fixtures`.
 
 ## Documentation synchronization — required for feature changes

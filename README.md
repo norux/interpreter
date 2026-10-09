@@ -59,3 +59,7 @@ See [Architecture](docs/architecture/media-framework.md), [Coding conventions](d
 Chrome SODA and TranslateKit provide local recognition and translation when available. The fallback uses Whisper large-v3-turbo with Silero VAD. WeSpeaker provides session-local speaker embeddings. Short responses may have no speaker assignment; overlapping speech, noise and similar voices can reduce accuracy.
 
 Model weights have their own licenses. See [model attribution and speaker verification](docs/verification/captions/conversation-speakers.md) and the [architecture model inventory](docs/architecture/media-framework.md#models).
+
+## License
+
+[MIT](LICENSE). Model weights and dependencies retain their own licenses.
