@@ -28,7 +28,7 @@ const speech = view.SpeechRecognition ?? view.webkitSpeechRecognition;
 const localSpeechSupported = !!speech?.available && !!speech.install && "processLocally" in new speech();
 function usingLocalSpeech() {
   const source = selectedSource();
-  return localSpeechSupported && (source === "en" || source === "ja" && !navigator.gpu);
+  return localSpeechSupported && (source === "en" || source === "ja");
 }
 function render(value: BackgroundSnapshot) {
   snapshot = value;

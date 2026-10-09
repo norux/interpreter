@@ -27,10 +27,12 @@ Whisper timestamps describe acoustic segments, which can contain part of a sente
 
 ## Models
 
+Manual English and Japanese share Chrome's on-device streaming path. Interim results publish after a 180 ms coalescing gate; native finals bypass it. The existing revision pipeline shows drafts before translation and preserves paired translations while corrections are pending. WebGPU availability does not override a supported native speech API. Unsupported native speech uses the Whisper fallback.
+
 | Task | Runtime/model | Conditions |
 | --- | --- | --- |
-| Recognition | Chrome SODA, local SpeechRecognition | Preferred for English; Japanese on devices without WebGPU; required local API and language packs |
-| Recognition | Whisper large-v3-turbo FP16 through Transformers.js/ONNX | Preferred for Japanese on WebGPU devices; automatic/Korean modes and fallback; ~1.6 GB speech model; automatic mode shares acoustic encoding between detection and transcription |
+| Recognition | Chrome SODA, local SpeechRecognition | Preferred for manual English/Japanese; required local API and language packs |
+| Recognition | Whisper large-v3-turbo FP16 through Transformers.js/ONNX | Automatic/Korean modes and fallback when native speech is unsupported; WebGPU required; ~1.6 GB speech model; automatic mode shares acoustic encoding between detection and transcription |
 | Voice activity for fallback | Silero VAD | Bundled ONNX runtime; pinned artifact |
 | Translation | Chrome TranslateKit | Local Translator API and English/Japanese → Korean packs |
 | Speaker embeddings | WeSpeaker VoxCeleb ResNet34-LM q8 | Local WASM worker; ~6.7 MB first download |

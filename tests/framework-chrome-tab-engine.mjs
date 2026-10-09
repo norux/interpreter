@@ -71,7 +71,7 @@ assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.action.default_popup, "popup.html");
 const observations = { scope: latency ? "Six isolated synthetic sentences: estimated last audible PCM sample to complete Korean meaning in actual page DOM, <=1000 ms; no public-video/ten-minute acceptance"
   : "Production popup/offscreen ownership, real local streaming or turbo WebGPU/native Korean/page/reference lifetime and source retirement; no strict sentence-end latency/public-video/ten-minute acceptance",
-  pageErrors: [], checks: [], runs: [], companionEndpoints: [], speechMode: localSpeech ? "Production preference: Japanese Whisper / English Chrome on-device streaming" : "Whisper snapshots", modelProvisioning: modelDirectory ? "Two SHA-256 verified official ONNX files seeded into extension cache; actual remaining model downloads and real inference" : "Official pinned model downloads and browser-managed SODA components", translatorProvisioning: "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations" };
+  pageErrors: [], checks: [], runs: [], companionEndpoints: [], speechMode: localSpeech ? "Production preference: Japanese / English Chrome on-device streaming" : "Whisper snapshots", modelProvisioning: modelDirectory ? "Two SHA-256 verified official ONNX files seeded into extension cache; actual remaining model downloads and real inference" : "Official pinned model downloads and browser-managed SODA components", translatorProvisioning: "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations" };
 function serve(request, response) {
   const url = new URL(request.url, "http://localhost");
   const model = modelDirectory && modelFiles.find(([, filename]) => url.pathname === `/${filename}`);
@@ -263,7 +263,7 @@ try {
   ];
   let runtime;
   for (const scenario of scenarios) {
-    const nativeSpeech = localSpeech && scenario.language === 'en';
+    const nativeSpeech = localSpeech;
     await page.goto(`${origin}/?language=${scenario.language}&mode=${scenario.mode}`);
     const source=scenario.mode==='iframe'?page.frameLocator('iframe'):page;
     let popup=await openPopup();
@@ -521,9 +521,18 @@ try {
       }
       const report = `.ralph/caption-conversation/live${japaneseConversation ? '-ja' : ''}.json`;
       const mediaState = await page.evaluate(()=>({currentTime:media.currentTime,duration:media.duration,ended:media.ended,loop:media.loop,events:mediaEvents}));
-      const result = {state:completed.state,fixtureSha256:createHash('sha256').update(media.get('/conversation.wav')).digest('hex'),mediaState,captions,frames,native,meaning,accuracy,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
+      const playAtMs = mediaState.events.find(event=>event.type==='playing').atMs;
+      const firstSource = frames.find(frame=>frame.text && frame.opacity!=='0');
+      const firstKorean = frames.find(frame=>/[가-힣]/.test(frame.text) && frame.opacity!=='0');
+      const latency = {firstSourceVisibleMs:firstSource?.atMs-playAtMs,firstKoreanVisibleMs:firstKorean?.atMs-playAtMs};
+      const result = {state:completed.state,fixtureSha256:createHash('sha256').update(media.get('/conversation.wav')).digest('hex'),mediaState,latency,captions,frames,native,meaning,accuracy,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
       await mkdir('.ralph/caption-conversation', {recursive:true});
       await writeFile(report, JSON.stringify(result,null,2));
+      if (nativeSpeech) {
+        assert.ok(native.some(event=>event.type==='start' && event.local && event.trackKind==='audio'));
+        assert.ok(native.some(event=>event.type==='result' && event.finals.includes(false)), 'Native interim speech must arrive before final');
+        assert.equal(result.workers.some(event=>event.type==='asr-job'),false,'Native conversation must not perform Whisper snapshot inference');
+      }
       assert.ok(captions.length >= 8, 'Conversation must be split into readable phrases');
       assert.ok(new Set(captions.map(c=>c.source.speakerId).filter(Boolean)).size >= 2, 'Both actual voices must receive labels');
       assert.ok(captions.every(c=>c.translation.state==='paired'), 'Every final source revision must retain its matching translation');
@@ -552,7 +561,7 @@ try {
       assert.equal(frames.filter(f=>f.text).at(-1)?.utteranceId,captions.at(-1)?.source.utteranceId,
         'The last caption must finish too; Stop cannot mask a growing display backlog');
       assert.equal(frames.at(-1)?.text,'','The last completed caption must fade while the session remains running');
-      console.log(JSON.stringify({phase:'conversation',language:scenario.language,captions:captions.length,finals:captions.filter(c=>c.source.final).length,frames:frames.length,accuracy,translationDetails:meaning?.filter(turn=>turn.missingKoreanDetails.length),report}));
+      console.log(JSON.stringify({phase:'conversation',language:scenario.language,captions:captions.length,finals:captions.filter(c=>c.source.final).length,frames:frames.length,latency,accuracy,translationDetails:meaning?.filter(turn=>turn.missingKoreanDetails.length),report}));
       popup=await openPopup();await popup.click('#stop');await waitState(value=>value?.state==='ready');await popup.close();
       continue;
     }

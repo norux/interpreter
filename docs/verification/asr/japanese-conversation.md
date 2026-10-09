@@ -2,6 +2,8 @@
 
 2026-10-09, macOS arm64, Chrome for Testing 153.0.8010.12. 실제 production 확장의 popup → offscreen 탭 캡처 → 로컬 ASR → TranslateKit → 페이지 자막 경로로 검사했다. 서버 인식이나 대체 번역을 주입하지 않았다.
 
+현재 수동 일본어는 사용자의 실시간 받아쓰기 요청에 따라 영어와 같은 Chrome SODA 중간 결과 경로를 우선한다. 아래 Whisper 선택·리베이스 측정은 이 선택 변경 전의 기록이며, 최신 선택과 결과는 마지막 절에 기록한다. 자동 감지와 Chrome 로컬 인식을 지원하지 않는 환경의 fallback은 Whisper를 유지한다.
+
 ## 오디오와 재현
 
 `tests/fixtures/conversation/ja/conversation.wav`는 Kyoko / Reed 일본어 음성을 사용하는 75.980초, 24 kHz mono PCM16 합성 대화다. 서로 다른 8개 발화가 주말 약속, 시간 변경, 채식, 예약 취소 금지, 비가 올 때의 대안, 빌린 책을 이어간다. 자동 반복이나 사용자 녹음이 없다.
@@ -9,17 +11,17 @@
 WAV SHA-256: `994b71fce873d0f2706b6359bc275a42d8622c82b9eaa3a5dfce310cd8d90958`. `python3 tests/fixtures/conversation/generate.py --japanese`로 다시 생성해 같은 해시를 확인했다. Reed는 OS 표시 언어에 의존하지 않는 `com.apple.eloquence.ja-JP.Reed` 식별자를 사용한다.
 
 - 수동: `npm run test:conversation` 후 <http://127.0.0.1:8790/?language=ja>. 확장에서도 일본어를 선택한다.
-- 실제 경로: `npm run test:conversation:ja:live`. WebGPU와 공식 Chrome 번역 구성 요소가 필요하다. [Testing](../../testing.md)의 로컬 모델 재사용 설정을 따른다.
+- 실제 경로: `npm run test:conversation:ja:live`. Chrome 로컬 음성 API·일본어/영어/한국어 SODA 팩과 공식 번역 구성 요소가 필요하다. Whisper fallback 비교는 `node tests/framework-chrome-tab-engine.mjs --japanese-conversation --whisper`로 실행하고 [Testing](../../testing.md)의 WebGPU·로컬 모델 재사용 설정을 따른다.
 - 회귀: `node --import tsx --test tests/framework-browser-streaming.test.ts tests/framework-browser-translation.test.ts`.
 - 팝업 선택·준비: `node tests/framework-chrome-popup.mjs` (브라우저 API mock; 실제 인식 정확도 검사가 아님).
 
-## 발견과 수정
+## Whisper 개선 당시의 발견과 수정
 
 Chrome SODA의 일본어 결과는 질문 문장부호를 생략하고 여러 절을 누적했다. `まだ行ってないよ`를 `まだ大人ってないよ`로, 서점에서 책을 보고 싶다는 문장을 `日本屋` / `本みたいな`로 인식했다. 한국어 번역에서는 서점과 잊었을 때 알려달라는 뒷부분이 사라졌다.
 
 Whisper 비교에서는 단어 인식이 좋아졌지만 시간 구간을 각각 확정하면서 `1時半なら` / `大丈夫`와 같은 조각을 별도 번역했다. 12초 경계에서는 다음 문장의 앞부분을 확정하고 오디오를 버렸으며, 보관한 시간 구간의 문장부호가 바뀌면 확정된 앞부분을 다시 내보내기도 했다.
 
-- WebGPU가 있는 기기의 일본어는 기존 Whisper large-v3-turbo FP16 + Silero VAD를 우선한다. 영어는 Chrome 로컬 인식을 유지하고, WebGPU가 없는 일본어 기기도 Chrome 로컬 인식을 사용할 수 있다. 팝업 설명·다운로드·캐시 검사도 같은 선택을 따른다.
+- 당시에는 WebGPU가 있는 기기의 일본어에 기존 Whisper large-v3-turbo FP16 + Silero VAD를 우선했다. 영어는 Chrome 로컬 인식을 유지했고, WebGPU가 없는 일본어 기기도 Chrome 로컬 인식을 사용할 수 있었다. 이 선택은 아래 실시간 받아쓰기 변경에서 교체했다.
 - 시간 구간 사이의 미완성 텍스트를 이어 문장으로 확정한다. 12초 경계에서 앞의 완성된 구간을 제거할 수 있으면 뒤의 미완성 PCM을 다음 창에 남긴다. 경계가 없는 긴 발화의 제한과 EOF 처리도 유지한다.
 - 보관한 구간에서 문장부호가 바뀌어도 이미 확정한 접두사를 반복하지 않는다.
 - 일본어 ASCII `?` / `!`도 번역 문장 경계로 처리한다. 문장부호가 없는 회화체 끝 표현 뒤의 새 단어나 연결 표현도 나눠 번역한다. `よく`, `きつね鍋`, `行った駅` 같은 단어·관계절을 임의로 자르지 않는 회귀 검사를 추가했다.
@@ -60,3 +62,15 @@ TranslateKit은 정확한 원문 `妹`도 “언니”로 옮겼고, 문장부�
 추가 일본어 재검사는 재시작 없는 단일 재생, CER 17/357 (4.76%)였으나 `借りていた本`을 `書いていた本`으로 인식해 빌린 책의 원문·번역 내용 검사가 실패했다. 앞 화자의 문장과 다음 화자의 시작이 하나의 12초 창에 섞인 것도 보고서에서 확인했다. 이 현상을 줄이려고 수동 일본어에도 자동 모드의 240 ms VAD 경계를 적용해 봤지만, 실제 실행에서 문장 안의 쉼까지 잘라 `土曜日は` / `妹の引っ越しを手伝うから` 등의 조각을 별도 번역했다. CER 20/357 (5.60%), ASR 73회였고 “이사”의 한국어 내용 검사가 실패했다. borrowed-book 오류가 있었던 기존 실행은 ASR 54회였다. 이 변경과 전용 mock 검사는 **제외했다**. mock 174개 통과만으로 실제 품질 개선을 주장하지 않으며, 최종 수동 일본어는 기존 문장 확인·미완성 보관 정책을 유지한다.
 
 따라서 리베이스된 일본어가 매 실행의 내용 검사를 안정적으로 통과한다고 주장할 수 없다. 통과한 실행과 누락·오인식 실행을 모두 기록했으며, 종료 뒤 재인식과 책의 관계 표현·일부 번역 오류는 미해결 제한이다. 자막 스택의 검증과 자동 감지의 중복 작업 제거는 이 일본어 정확도 제한과 별도로 확인했다. 로컬 보고서는 `.ralph/caption-conversation/rebase-audio-trace-passed-ja.json`, `rebase-replay-failed-ja.json`, `rebase-mixed-turn-failed-ja.json`, `rebase-short-pause-rejected-ja.json`에 각각 보관한다.
+
+## 영어와 같은 실시간 받아쓰기 경로
+
+사용자 요청에 따라 수동 일본어도 영어와 동일하게 Chrome 로컬 인식을 우선하도록 바꿨다. WebGPU 유무와 관계없이 지원되는 SpeechRecognition API·언어 팩을 사용한다. 기존 native 경로의 중간 결과를 180 ms 간격으로 모아 전송하고 native final은 즉시 전송한다. 같은 utterance ID의 revision으로 교정하므로 문장 확정을 기다리는 Whisper snapshot 경로를 거치지 않는다. 팝업의 캐시 확인·설치·모델 정보도 이 선택을 따른다. 자동 감지·한국어와 unsupported-native fallback의 Whisper 정책 및 앞선 일본어 번역·오디오 보관 수정은 유지했다.
+
+WebGPU가 있는 팝업의 일본어 캐시 검사에서 이전 구현은 Start 활성화를 기다리다 3초 timeout으로 실패했다. 수정 후 캐시 준비, 일본어/영어/한국어 native 팩 설치, 영어와 같은 모델 선택, 미지원 API의 Whisper fallback, 자동·한국어 선택 검사를 통과했다. `node --import tsx --test tests/framework-browser-local-speech.test.ts tests/framework-browser-translation.test.ts` 33개와 `npm run verify`의 173개·자막 스택 검사도 통과했다. README·AGENTS·아키텍처·검사 문서를 갱신했고, 코딩 규약과 기존 날짜별 영어·자동 감지 검증 문서는 각각 revision 원칙과 과거 실행 기록이 유효해 수정하지 않았다.
+
+실제 `npm run test:conversation:ja:live`에서는 native 로컬 탭 오디오와 중간 결과를 확인했고 Whisper 추론 호출은 0회였다. 재생 `playing` 이벤트부터 첫 visible 원문까지 **1,056 ms**, 첫 한국어까지 **1,105.4 ms**였다. 비교용 리베이스 Whisper 실행의 같은 화면 측정은 원문 6,007.5 ms, 한국어 6,153.2 ms였다. native 값은 짧은 중간 텍스트의 첫 표시이고 Whisper 값은 문장 확인 뒤 첫 표시이므로 전체 문장의 확정 시간을 6초에서 1초로 줄였다는 뜻은 아니다. 이 장치·합성 WAV 한 번의 초기 표시 측정이며 일반적인 1초 보장은 아니다.
+
+17개 최종 자막의 CER는 **9/357 (2.52%)**였다. 원문 내용 anchor는 8개 발화 모두 남았지만 `カフェの向かいに本屋`를 `カフェの向かい日本屋`로 인식해 한국어가 “카페 맞은편에 일본 가게”가 됐다. “서점” anchor 실패로 전체 내용 정확도 검사는 **실패**했다. 질문 문장부호·제안의 극성 오류도 남는다. 정확도 gate를 완화하거나 특정 테스트 문장으로 원문을 교정하지 않았다.
+
+이 실패 전에 검사된 native 시작·interim·Whisper 호출 없음과 보고서의 first-display 측정은 유효하다. 저장된 실제 프레임을 별도로 검사해 17개 최종 revision의 번역 pairing, 모든 ID 표시, 읽은 ID 재등장 없음, 마지막 자막의 페이드 완료를 확인했다. 전체 live 명령은 내용 검사 실패에서 중단되어 뒤의 Stop·이동 검사를 통과했다고 주장하지 않는다. 로컬 상세 보고서는 `.ralph/caption-conversation/native-streaming-ja.json`이다.
