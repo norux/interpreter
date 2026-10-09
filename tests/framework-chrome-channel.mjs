@@ -1,7 +1,7 @@
 // Owned, headed extension/content integration. No ASR/Translator mock is used:
 // engines are deliberately not prepared. This tests real PCM transport only.
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { Script } from "node:vm";
@@ -17,9 +17,11 @@ await build({ configFile: false, logLevel: "warn", build: { outDir: output, empt
 await build({ configFile: false, logLevel: "warn", build: { outDir: output, emptyOutDir: false,
   rollupOptions: { input: { "service-worker": resolve("tests/fixtures/selected-action.ts") }, output: { entryFileNames: "[name].js" } } } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
-assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture"]);
+assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen"]);
 assert.equal(manifest.host_permissions, undefined);
-assert.equal(manifest.action.default_popup, undefined);
+assert.equal(manifest.action.default_popup, "popup.html");
+delete manifest.action.default_popup;
+await writeFile(`${output}/manifest.json`, JSON.stringify(manifest));
 assert.equal(manifest.key, undefined);
 assert.equal(manifest.background.type, "module");
 const contentScript = await readFile(`${output}/content.js`, "utf8");
@@ -108,11 +110,11 @@ try {
   await worker.evaluate(tabId => chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, files: ["content.js"] }), tabId);
   await host.waitForFunction(() => document.querySelector('#video').options.length === 3);
   assert.equal(await host.locator('#video').inputValue(), "", "A target must be explicitly confirmed");
-  assert.equal(await host.getByRole("button", { name: "Prepare selected language" }).isDisabled(), true);
+  assert.equal(await host.getByRole("button", { name: "모델 준비" }).isDisabled(), true);
   const id = await host.locator('#video option').nth(1).getAttribute("value");
-  await host.locator('#video').selectOption(id); await host.getByRole("button", { name: "Use selected video" }).click();
-  await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent === 'Prepare selected language').disabled);
-  assert.match(await host.locator('#app').innerText(), /onnx-community\/whisper-small/);
+  await host.locator('#video').selectOption(id); await host.getByRole("button", { name: "영상 선택" }).click();
+  await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent === '모델 준비').disabled);
+  assert.match(await host.locator('#app').textContent(), /onnx-community\/whisper-large-v3-turbo/);
   // Adapter integration in the same eligible host, without preparing engines.
   await host.evaluate(async tabId => {
     const { createRemoteVideoInput, channelName } = await import('./channel.js');

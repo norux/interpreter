@@ -1,0 +1,368 @@
+{
+  "date": "2026-10-09",
+  "build": "apps/chrome/dist",
+  "browser": "153.0.8010.12",
+  "platform": "darwin/arm64",
+  "owner": "offscreen extension document; toolbar popup controls; optional read-only reference window",
+  "regressionBefore": {
+    "referenceClosure": "Real production capture became inactive after closing its owner/reference window; expected active=true, observed false."
+  },
+  "verification": {
+    "typecheck": "PASS",
+    "biome": "PASS; 46 focused files",
+    "buildChrome": "PASS",
+    "javascript": "PASS; 167 tests",
+    "foregroundComposition": "PASS; includes deferred preparation across hidden tabs",
+    "foregroundChannel": "PASS; actual selected-video PCM/output regression"
+  },
+  "modelProvisioning": "Two official pinned ONNX files SHA-256 verified and prefilled from local streamed test mirror; remaining model files downloaded normally. Actual turbo WebGPU inference and Chrome-managed native translations, no substituted outputs.",
+  "fourInputs": [
+    {
+      "language": "ja",
+      "mode": "video",
+      "captions": [
+        {
+          "source": {
+            "identity": {
+              "sessionId": "d964dde7-18b0-4bde-9b20-97c49c1b7933",
+              "targetId": "tab-488189556-a1b3fe46-13be-4f39-902a-2c403e6ba048",
+              "epoch": 0
+            },
+            "audioRange": {
+              "startMs": 224,
+              "endMs": 14912
+            },
+            "utteranceId": "speech-1",
+            "language": "ja",
+            "sourceRevision": 1,
+            "final": true,
+            "text": "今日は会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください今日は会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください今日は"
+          },
+          "translation": {
+            "state": "paired",
+            "revision": {
+              "identity": {
+                "sessionId": "d964dde7-18b0-4bde-9b20-97c49c1b7933",
+                "targetId": "tab-488189556-a1b3fe46-13be-4f39-902a-2c403e6ba048",
+                "epoch": 0
+              },
+              "utteranceId": "speech-1",
+              "sourceRevision": 1,
+              "translationRevision": 1,
+              "languages": {
+                "source": "ja",
+                "target": "ko"
+              },
+              "text": "나는 오늘 회의를 하지 않을 것이다 내일 오후 3시에 역에서 뵙겠습니다 예약을 취소하지 마십시오 나는 오늘 회의를 하지 않을 것이다 내일 오후 3시에 역에서 뵙겠습니다 예약을 취소하지 마십시오 오늘",
+              "final": true
+            }
+          }
+        },
+        {
+          "source": {
+            "identity": {
+              "sessionId": "d964dde7-18b0-4bde-9b20-97c49c1b7933",
+              "targetId": "tab-488189556-a1b3fe46-13be-4f39-902a-2c403e6ba048",
+              "epoch": 0
+            },
+            "audioRange": {
+              "startMs": 14912,
+              "endMs": 25056
+            },
+            "utteranceId": "speech-2",
+            "language": "ja",
+            "sourceRevision": 1,
+            "final": true,
+            "text": "会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください今日は会議をしません明日の午後3時に"
+          },
+          "translation": {
+            "state": "paired",
+            "revision": {
+              "identity": {
+                "sessionId": "d964dde7-18b0-4bde-9b20-97c49c1b7933",
+                "targetId": "tab-488189556-a1b3fe46-13be-4f39-902a-2c403e6ba048",
+                "epoch": 0
+              },
+              "utteranceId": "speech-2",
+              "sourceRevision": 1,
+              "translationRevision": 2,
+              "languages": {
+                "source": "ja",
+                "target": "ko"
+              },
+              "text": "회의가 없습니다 내일 오후 3시에 역에서 뵙겠습니다 예약을 취소하지 마십시오 나는 오늘 회의를 하지 않을 것이다 내일 오후 3시",
+              "final": true
+            }
+          }
+        }
+      ],
+      "hiddenPreparation": true,
+      "referenceClosure": true,
+      "referenceRestoration": true
+    },
+    {
+      "language": "en",
+      "mode": "iframe",
+      "captions": [
+        {
+          "source": {
+            "identity": {
+              "sessionId": "77661191-2f1a-44fa-a151-3186128f1f63",
+              "targetId": "tab-488189556-de807d24-3022-41fc-9124-ee373ee5ae97",
+              "epoch": 0
+            },
+            "audioRange": {
+              "startMs": 224,
+              "endMs": 8256
+            },
+            "utteranceId": "speech-1",
+            "language": "en",
+            "sourceRevision": 1,
+            "final": true,
+            "text": " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet today."
+          },
+          "translation": {
+            "state": "paired",
+            "revision": {
+              "identity": {
+                "sessionId": "77661191-2f1a-44fa-a151-3186128f1f63",
+                "targetId": "tab-488189556-de807d24-3022-41fc-9124-ee373ee5ae97",
+                "epoch": 0
+              },
+              "utteranceId": "speech-1",
+              "sourceRevision": 1,
+              "translationRevision": 1,
+              "languages": {
+                "source": "en",
+                "target": "ko"
+              },
+              "text": "우리는 오늘 만나지 않을 것입니다. 내일 오후 3시에 역에서 만나자. 예약을 취소하지 마십시오. 우리는 오늘 만나지 않을 것입니다.",
+              "final": true
+            }
+          }
+        },
+        {
+          "source": {
+            "identity": {
+              "sessionId": "77661191-2f1a-44fa-a151-3186128f1f63",
+              "targetId": "tab-488189556-de807d24-3022-41fc-9124-ee373ee5ae97",
+              "epoch": 0
+            },
+            "audioRange": {
+              "startMs": 8256,
+              "endMs": 14912
+            },
+            "utteranceId": "speech-2",
+            "language": "en",
+            "sourceRevision": 1,
+            "final": true,
+            "text": " Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet today."
+          },
+          "translation": {
+            "state": "paired",
+            "revision": {
+              "identity": {
+                "sessionId": "77661191-2f1a-44fa-a151-3186128f1f63",
+                "targetId": "tab-488189556-de807d24-3022-41fc-9124-ee373ee5ae97",
+                "epoch": 0
+              },
+              "utteranceId": "speech-2",
+              "sourceRevision": 1,
+              "translationRevision": 2,
+              "languages": {
+                "source": "en",
+                "target": "ko"
+              },
+              "text": "내일 오후 3시에 역에서 만나자. 예약을 취소하지 마십시오. 우리는 오늘 만나지 않을 것입니다.",
+              "final": true
+            }
+          }
+        }
+      ],
+      "hiddenPreparation": true,
+      "referenceClosure": true,
+      "referenceRestoration": true
+    },
+    {
+      "language": "en",
+      "mode": "audio",
+      "captions": [
+        {
+          "source": {
+            "identity": {
+              "sessionId": "45580341-aec8-41e6-979a-6d8d7840d75a",
+              "targetId": "tab-488189556-88295dd9-ffd1-4b5e-b589-3d6097b4fb11",
+              "epoch": 0
+            },
+            "audioRange": {
+              "startMs": 192,
+              "endMs": 8224
+            },
+            "utteranceId": "speech-1",
+            "language": "en",
+            "sourceRevision": 1,
+            "final": true,
+            "text": " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet today."
+          },
+          "translation": {
+            "state": "paired",
+            "revision": {
+              "identity": {
+                "sessionId": "45580341-aec8-41e6-979a-6d8d7840d75a",
+                "targetId": "tab-488189556-88295dd9-ffd1-4b5e-b589-3d6097b4fb11",
+                "epoch": 0
+              },
+              "utteranceId": "speech-1",
+              "sourceRevision": 1,
+              "translationRevision": 1,
+              "languages": {
+                "source": "en",
+                "target": "ko"
+              },
+              "text": "우리는 오늘 만나지 않을 것입니다. 내일 오후 3시에 역에서 만나자. 예약을 취소하지 마십시오. 우리는 오늘 만나지 않을 것입니다.",
+              "final": true
+            }
+          }
+        },
+        {
+          "source": {
+            "identity": {
+              "sessionId": "45580341-aec8-41e6-979a-6d8d7840d75a",
+              "targetId": "tab-488189556-88295dd9-ffd1-4b5e-b589-3d6097b4fb11",
+              "epoch": 0
+            },
+            "audioRange": {
+              "startMs": 8224,
+              "endMs": 14880
+            },
+            "utteranceId": "speech-2",
+            "language": "en",
+            "sourceRevision": 1,
+            "final": true,
+            "text": " Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet today."
+          },
+          "translation": {
+            "state": "paired",
+            "revision": {
+              "identity": {
+                "sessionId": "45580341-aec8-41e6-979a-6d8d7840d75a",
+                "targetId": "tab-488189556-88295dd9-ffd1-4b5e-b589-3d6097b4fb11",
+                "epoch": 0
+              },
+              "utteranceId": "speech-2",
+              "sourceRevision": 1,
+              "translationRevision": 2,
+              "languages": {
+                "source": "en",
+                "target": "ko"
+              },
+              "text": "내일 오후 3시에 역에서 만나자. 예약을 취소하지 마십시오. 우리는 오늘 만나지 않을 것입니다.",
+              "final": true
+            }
+          }
+        }
+      ],
+      "hiddenPreparation": true,
+      "referenceClosure": true,
+      "referenceRestoration": true
+    },
+    {
+      "language": "ja",
+      "mode": "web-audio",
+      "captions": [
+        {
+          "source": {
+            "identity": {
+              "sessionId": "cc1fbd3a-e07a-4c53-9869-d9e5f4b97561",
+              "targetId": "tab-488189556-c933be02-6afe-440a-89fc-e30392c2080c",
+              "epoch": 0
+            },
+            "audioRange": {
+              "startMs": 160,
+              "endMs": 11840
+            },
+            "utteranceId": "speech-1",
+            "language": "ja",
+            "sourceRevision": 1,
+            "final": true,
+            "text": "今日は会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください今日は会議をしません明日の午後3時に駅で会いましょう"
+          },
+          "translation": {
+            "state": "paired",
+            "revision": {
+              "identity": {
+                "sessionId": "cc1fbd3a-e07a-4c53-9869-d9e5f4b97561",
+                "targetId": "tab-488189556-c933be02-6afe-440a-89fc-e30392c2080c",
+                "epoch": 0
+              },
+              "utteranceId": "speech-1",
+              "sourceRevision": 1,
+              "translationRevision": 1,
+              "languages": {
+                "source": "ja",
+                "target": "ko"
+              },
+              "text": "나는 오늘 회의를 하지 않을 것이다 내일 오후 3시에 역에서 뵙겠습니다 예약을 취소하지 마십시오 나는 오늘 회의를 하지 않을 것이다 내일 오후 3시에 역에서 뵙겠습니다",
+              "final": true
+            }
+          }
+        },
+        {
+          "source": {
+            "identity": {
+              "sessionId": "cc1fbd3a-e07a-4c53-9869-d9e5f4b97561",
+              "targetId": "tab-488189556-c933be02-6afe-440a-89fc-e30392c2080c",
+              "epoch": 0
+            },
+            "audioRange": {
+              "startMs": 11840,
+              "endMs": 21792
+            },
+            "utteranceId": "speech-2",
+            "language": "ja",
+            "sourceRevision": 1,
+            "final": true,
+            "text": "予約は取り消さないでください今日は会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください今日は"
+          },
+          "translation": {
+            "state": "paired",
+            "revision": {
+              "identity": {
+                "sessionId": "cc1fbd3a-e07a-4c53-9869-d9e5f4b97561",
+                "targetId": "tab-488189556-c933be02-6afe-440a-89fc-e30392c2080c",
+                "epoch": 0
+              },
+              "utteranceId": "speech-2",
+              "sourceRevision": 1,
+              "translationRevision": 2,
+              "languages": {
+                "source": "ja",
+                "target": "ko"
+              },
+              "text": "예약을 취소하지 마십시오 나는 오늘 회의를 하지 않을 것이다 내일 오후 3시에 역에서 뵙겠습니다 예약을 취소하지 마십시오 오늘",
+              "final": true
+            }
+          }
+        }
+      ],
+      "hiddenPreparation": true,
+      "referenceClosure": true,
+      "referenceRestoration": true
+    }
+  ],
+  "lifecycle": [
+    "Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation"
+  ],
+  "nativeCaptureLoss": [
+    "Owned Chrome native audio-service loss retires unfinished real ASR and capture",
+    "Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation"
+  ],
+  "intermediateFailure": "First four-input run passed all four close/reopen translation flows but failed during the final source-navigation preparation cancellation. Source invalidation now dispatches Stop directly for the known tab. Final four-input and focused lifecycle commands passed.",
+  "limits": [
+    "Generated Japanese/English speech fixtures, not public videos or ten-minute verification.",
+    "Native translation components were already provisioned; first language-pack download was not exercised.",
+    "The earlier strict two-second noise latency gate remains failed and was not relaxed.",
+    "No new independent acoustic amplitude/physical-listening measurement is claimed for offscreen playback."
+  ],
+  "screenshot": "../settings/browser-popup.png"
+}

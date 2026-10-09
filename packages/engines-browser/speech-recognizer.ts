@@ -5,17 +5,15 @@ import type { createAsrHost } from "./asr-host";
 import type { AsrJob } from "./asr-protocol";
 
 // Experimental 16 kHz profiles: energy-only 20 ms frames/500 ms endpoint and
-// speech-band pause cuts after 10 s; learned 32 ms frames/500 ms detected pauses,
-// shortened to five frames (160 ms) after 6 s for English / 10 s for Japanese
-// to avoid forcing a cut through quiet speech whose detected pause can shrink
-// by one or two frames.
+// speech-band pause cuts after 10 s; learned 32 ms frames/800 ms detected pauses.
+// Long speech still uses 160 ms pauses after 6 s (English) / 10 s (Japanese)
+// to avoid reaching the hard maximum in the middle of a word.
 // Both keep a 20 s maximum segment and 10 s queue headroom during inference.
 // Learned short pauses split near their midpoint after 160 ms of sustained
 // onset, avoiding cuts on isolated detector hits inside quiet words. After
 // 1,500 ms of detected silence, submit without another onset/EOF, retaining
-// 256 ms of context for the next segment. The first result can submit after
-// 512 ms with speech probability below 0.05 to leave time for decoder warmup;
-// later segments retain their onset/EOF policy. Neither path filters ASR samples.
+// 256 ms of context for the next segment. Brief hesitations stay in the same
+// sentence, including the first result. Neither path filters ASR samples.
 // The original energy-only profile remains a comparison, never a fallback.
 export function createSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
@@ -65,7 +63,6 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
       let detectedSpeech = false;
       let segmentStartMs = 0;
       let quietSamples = 0;
-      let confidentQuietSamples = 0;
       let boundaryQuietSamples = 0;
       let pauseCut: number | undefined;
       let onsetSamples = 0;
@@ -112,7 +109,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
         }
         segment.copyWithin(0, length, segmentLength);
         segmentLength -= length; segmentStartMs += length / 16;
-        detectedSpeech = false; quietSamples = 0; confidentQuietSamples = 0; boundaryQuietSamples = 0;
+        detectedSpeech = false; quietSamples = 0; boundaryQuietSamples = 0;
         pauseCut = undefined; onsetSamples = 0;
         continueSegment = continuous;
       }
@@ -124,7 +121,7 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
         if (detector) {
           if (!activity) { pauseCut = undefined; onsetSamples = 0; }
           else {
-            if (detectedSpeech && quietSamples >= (segmentLength >= 16000 * (language === "en" ? 6 : 10) ? 2560 : 8000)) {
+            if (detectedSpeech && quietSamples >= (segmentLength >= 16000 * (language === "en" ? 6 : 10) ? 2560 : 12800)) {
               pauseCut = segmentLength - Math.floor(quietSamples / (2 * frameSamples)) * frameSamples;
             }
             if (pauseCut !== undefined) {
@@ -155,11 +152,9 @@ export function createSpeechRecognizer(identity: SessionIdentity, language: "ja"
           segment.set(frame.subarray(0, frameLength), segmentLength);
           segmentLength += frameLength;
           quietSamples = (detector ? activity : speech) ? 0 : quietSamples + frameLength;
-          confidentQuietSamples = !activity && detection?.probability !== undefined && detection.probability < 0.05
-            ? confidentQuietSamples + frameLength : 0;
           boundaryQuietSamples = Math.sqrt(boundaryEnergy / frameLength) >= 0.01 ? 0 : boundaryQuietSamples + frameLength;
           if (bufferedSamples > 16000 * 30) { stop("overloaded"); return; }
-          if (detector && detectedSpeech && (quietSamples >= 24000 || (utterance === 0 && confidentQuietSamples >= 8192))) finishSegment(true, segmentLength - 4096);
+          if (detector && detectedSpeech && quietSamples >= 24000) finishSegment(true, segmentLength - 4096);
           else if (!detector && quietSamples >= 8000) finishSegment();
           else if (segmentLength === segment.length || (!detector && segmentLength >= 16000 * 10 && boundaryQuietSamples >= 3200)) finishSegment(true);
         } else bufferedSamples -= frameLength;

@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "description": "Local whole-tab audio interpretation development build.",
   "minimum_chrome_version": "138",
-  "permissions": ["activeTab", "scripting", "tabCapture"],
+  "permissions": ["activeTab", "scripting", "tabCapture", "offscreen"],
   "background": { "service_worker": "service-worker.js", "type": "module" },
-  "action": { "default_title": "Interpret tab audio" },
+  "action": { "default_title": "Interpret tab audio", "default_popup": "popup.html" },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co"
   },

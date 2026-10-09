@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Interpreter</title><link rel="stylesheet" href="./host.css"></head>
+<body class="popup">
+<header class="header"><span class="mark" aria-hidden="true">I</span><div><h1>Interpreter</h1><p class="subtitle">탭의 음성을 한국어 자막으로</p></div></header>
+<section class="setup"><label>영상 언어 <select id="language"><option value="ja">日本語 · 일본어</option><option value="en">English · 영어</option></select></label></section>
+<main class="interpretation-controls">
+<button type="button" id="prepare" disabled>모델 준비</button><button type="button" id="start" disabled>번역 시작</button><button type="button" id="stop" disabled>중지</button>
+<p id="status" class="preparation-status" role="status">연결 중…</p>
+<details><summary>모델 정보</summary><p>Whisper large-v3-turbo · FP16<br>최초 약 1.6GB 다운로드 · 기기 내 실행</p><p id="diagnostic"></p></details>
+</main>
+<button type="button" id="reference">원문 · 번역 기록 열기</button>
+<script type="module" src="./popup.ts"></script></body></html>

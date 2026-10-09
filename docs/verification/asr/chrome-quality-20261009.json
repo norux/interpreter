@@ -1,0 +1,1013 @@
+{
+  "date": "2026-10-09",
+  "scope": "Synthetic Japanese/English fixture audio with additive noise and speech-free noise; real learned VAD, production segmentation and WebGPU inference. Not public-video or natural-speech acceptance.",
+  "before": {
+    "model": {
+      "id": "onnx-community/whisper-small",
+      "version": "36050c46d777d46dc4b5f43f6d90574fc38f8732",
+      "requiredBytes": 487960440
+    },
+    "passed": false,
+    "failures": [
+      "ja/speech-white-noise: every preserved meaning must occur exactly three times"
+    ],
+    "runs": [
+      {
+        "language": "ja",
+        "mode": "quiet-noise",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "ja",
+        "mode": "white-noise",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "ja",
+        "mode": "hum",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "ja",
+        "mode": "speech-quiet-noise",
+        "accuracy": {
+          "metric": "CER",
+          "edits": 3,
+          "referenceUnits": 120,
+          "rate": 0.025
+        },
+        "meaningCounts": {
+          "会議": 3,
+          "しません": 3,
+          "明日": 3,
+          "午後": 3,
+          "駅": 3,
+          "予約": 3,
+          "取り消さない": 3
+        },
+        "endpointLatenciesMs": [
+          1228.6000000238419,
+          1460.2999999523163,
+          852.8000000715256
+        ],
+        "noSpeechAsrCalls": null,
+        "maxPendingAudioMs": 9300,
+        "droppedAudioMs": 0,
+        "text": [
+          "今日は、会議をしません、明日の午後3時に駅で会いましょう、予約は取り消さないでください。",
+          "今日は、会議をしません、明日の午後3時に駅で会いましょう、予約は取り消さないでください。",
+          "今日は、会議をしません、明日の午後3時に、駅で会いましょう、予約は取り消さないでください。"
+        ]
+      },
+      {
+        "language": "ja",
+        "mode": "speech-white-noise",
+        "accuracy": {
+          "metric": "CER",
+          "edits": 9,
+          "referenceUnits": 120,
+          "rate": 0.075
+        },
+        "meaningCounts": {
+          "会議": 2,
+          "しません": 3,
+          "明日": 3,
+          "午後": 3,
+          "駅": 1,
+          "予約": 3,
+          "取り消さない": 3
+        },
+        "endpointLatenciesMs": [
+          1105.3999999761581,
+          1459.2999999523163,
+          853.1999999284744
+        ],
+        "noSpeechAsrCalls": null,
+        "maxPendingAudioMs": 9300,
+        "droppedAudioMs": 0,
+        "text": [
+          "今日は、帰りをしません。明日の午後3時にエクで会いましょう。予約は取り消さないでください。",
+          "今日は、会議をしません。明日の午後3時に行きで会いましょう。予約は取り消さないでください。",
+          "今日は、会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。"
+        ]
+      },
+      {
+        "language": "en",
+        "mode": "quiet-noise",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "en",
+        "mode": "white-noise",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "en",
+        "mode": "hum",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "en",
+        "mode": "speech-quiet-noise",
+        "accuracy": {
+          "metric": "WER",
+          "edits": 3,
+          "referenceUnits": 66,
+          "rate": 0.045454545454545456
+        },
+        "meaningCounts": {
+          "not meet today": 3,
+          "station tomorrow": 3,
+          "in the afternoon": 3,
+          "not cancel the reservation": 3
+        },
+        "endpointLatenciesMs": [
+          1226.3999999761581,
+          1196.6000000238419,
+          680.5
+        ],
+        "noSpeechAsrCalls": null,
+        "maxPendingAudioMs": 9000,
+        "droppedAudioMs": 0,
+        "text": [
+          " We will not meet today, let's meet at the station tomorrow at 3 in the afternoon, please do not cancel the reservation.",
+          " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation.",
+          " We will not meet today, let's meet at the station tomorrow at 3 in the afternoon, please do not cancel the reservation."
+        ]
+      },
+      {
+        "language": "en",
+        "mode": "speech-white-noise",
+        "accuracy": {
+          "metric": "WER",
+          "edits": 3,
+          "referenceUnits": 66,
+          "rate": 0.045454545454545456
+        },
+        "meaningCounts": {
+          "not meet today": 3,
+          "station tomorrow": 3,
+          "in the afternoon": 3,
+          "not cancel the reservation": 3
+        },
+        "endpointLatenciesMs": [
+          943.7000000476837,
+          1324.7000000476837,
+          755.3999999761581
+        ],
+        "noSpeechAsrCalls": null,
+        "maxPendingAudioMs": 8800,
+        "droppedAudioMs": 0,
+        "text": [
+          " We will not meet today, let's meet at the station tomorrow at 3 in the afternoon, please do not cancel the reservation.",
+          " We will not meet today, let's meet at the station tomorrow at 3 in the afternoon, please do not cancel the reservation.",
+          " We will not meet today, let's meet at the station tomorrow at 3 in the afternoon, please do not cancel the reservation."
+        ]
+      }
+    ],
+    "browser": "153.0.8010.12",
+    "platform": "darwin/arm64"
+  },
+  "after": {
+    "model": {
+      "id": "onnx-community/whisper-large-v3-turbo",
+      "version": "360ebcde2559d60bb474678be3c1de9ef347d01a",
+      "requiredBytes": 1621338971
+    },
+    "passed": false,
+    "failures": [
+      "ja/speech-quiet-noise: endpoint-to-text exceeds preserved 2000 ms gate"
+    ],
+    "runs": [
+      {
+        "language": "ja",
+        "mode": "quiet-noise",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "ja",
+        "mode": "white-noise",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "ja",
+        "mode": "hum",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "ja",
+        "mode": "speech-quiet-noise",
+        "accuracy": {
+          "metric": "CER",
+          "edits": 3,
+          "referenceUnits": 120,
+          "rate": 0.025
+        },
+        "meaningCounts": {
+          "会議": 3,
+          "しません": 3,
+          "明日": 3,
+          "午後": 3,
+          "駅": 3,
+          "予約": 3,
+          "取り消さない": 3
+        },
+        "endpointLatenciesMs": [
+          2075.5,
+          1844.5,
+          1275
+        ],
+        "noSpeechAsrCalls": null,
+        "maxPendingAudioMs": 10100,
+        "droppedAudioMs": 0,
+        "text": [
+          "今日は会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください",
+          "今日は会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください",
+          "今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。"
+        ]
+      },
+      {
+        "language": "ja",
+        "mode": "speech-white-noise",
+        "accuracy": {
+          "metric": "CER",
+          "edits": 3,
+          "referenceUnits": 120,
+          "rate": 0.025
+        },
+        "meaningCounts": {
+          "会議": 3,
+          "しません": 3,
+          "明日": 3,
+          "午後": 3,
+          "駅": 3,
+          "予約": 3,
+          "取り消さない": 3
+        },
+        "endpointLatenciesMs": [
+          1990,
+          1844.5,
+          1320.2000000476837
+        ],
+        "noSpeechAsrCalls": null,
+        "maxPendingAudioMs": 10100,
+        "droppedAudioMs": 0,
+        "text": [
+          "今日は会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください",
+          "今日は会議をしません明日の午後3時に駅で会いましょう予約は取り消さないでください",
+          "今日は、会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。"
+        ]
+      },
+      {
+        "language": "en",
+        "mode": "quiet-noise",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "en",
+        "mode": "white-noise",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "en",
+        "mode": "hum",
+        "accuracy": null,
+        "meaningCounts": null,
+        "endpointLatenciesMs": [],
+        "noSpeechAsrCalls": 0,
+        "maxPendingAudioMs": 6000,
+        "droppedAudioMs": 0,
+        "text": []
+      },
+      {
+        "language": "en",
+        "mode": "speech-quiet-noise",
+        "accuracy": {
+          "metric": "WER",
+          "edits": 3,
+          "referenceUnits": 66,
+          "rate": 0.045454545454545456
+        },
+        "meaningCounts": {
+          "not meet today": 3,
+          "station tomorrow": 3,
+          "in the afternoon": 3,
+          "not cancel the reservation": 3
+        },
+        "endpointLatenciesMs": [
+          1793,
+          1691.3000000715256,
+          1186.2000000476837
+        ],
+        "noSpeechAsrCalls": null,
+        "maxPendingAudioMs": 9500,
+        "droppedAudioMs": 0,
+        "text": [
+          " We will not meet today, let's meet at the station tomorrow at 3 in the afternoon, please do not cancel the reservation.",
+          " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation.",
+          " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation."
+        ]
+      },
+      {
+        "language": "en",
+        "mode": "speech-white-noise",
+        "accuracy": {
+          "metric": "WER",
+          "edits": 3,
+          "referenceUnits": 66,
+          "rate": 0.045454545454545456
+        },
+        "meaningCounts": {
+          "not meet today": 3,
+          "station tomorrow": 3,
+          "in the afternoon": 3,
+          "not cancel the reservation": 3
+        },
+        "endpointLatenciesMs": [
+          1813.8000000715256,
+          1773.1000000238419,
+          1191.1000000238419
+        ],
+        "noSpeechAsrCalls": null,
+        "maxPendingAudioMs": 9600,
+        "droppedAudioMs": 0,
+        "text": [
+          " We will not meet today, let's meet at the station tomorrow at 3 in the afternoon, please do not cancel the reservation",
+          " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation.",
+          " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation."
+        ]
+      }
+    ],
+    "browser": "153.0.8010.12",
+    "platform": "darwin/arm64"
+  },
+  "afterModelTransport": "Exact pinned official ONNX files fetched separately, size/SHA-256 verified, then served through a local HTTP test mirror. Production model URLs/cache/loading/inference unchanged. The original online Turbo attempt timed out after 240 seconds during download.",
+  "verifiedWeights": {
+    "encoder_model_fp16.onnx": {
+      "bytes": 1274342603,
+      "sha256": "fdadc70836e6b028fd5e580417c312208dad073d2d01e509e2d127c1373399d8"
+    },
+    "decoder_model_merged_fp16.onnx": {
+      "bytes": 344227339,
+      "sha256": "fdf10afca73a0c7bf87286cfb96cf7028a9edbc9bb02512509a526f95b126c9d"
+    }
+  },
+  "commands": {
+    "js": "npm run test:js — 164 passed after building the companion extension required by build tests; initial invocation had two missing-build failures.",
+    "focused": "node --import tsx --test tests/framework-browser-translation.test.ts tests/framework-browser-speech.test.ts — 39 passed",
+    "types": "npm run typecheck — passed",
+    "build": "npm run build:chrome — passed",
+    "overlay": "node tests/framework-chrome-overlay.mjs — passed (compact background, control clearance, fullscreen, revisions and long-text paging)",
+    "tabCapture": "node tests/framework-chrome-tab-host.mjs — passed after fixing Stop availability during capture before model preparation",
+    "composition": "node tests/framework-chrome-composition.mjs — passed, mocked model/native outputs; real DOM/lifecycle",
+    "layout": "Headless production host HTML/CSS with real composition controls; 900/390 px, light/dark, no horizontal overflow, diagnostics collapsed",
+    "nativeTabFlow": "Passed: real production tab action/capture → pinned Turbo WebGPU ASR → real Chrome native Korean translation → history/page captions; video, cross-origin iframe, audio element and no-element Web Audio, plus Stop during actual inference and late-result rejection."
+  },
+  "unverified": [
+    "Natural/public video accuracy",
+    "Ten-minute sustained acceptance",
+    "Full Chrome stage qualification"
+  ],
+  "nativeTabFlow": {
+    "passed": true,
+    "checks": [
+      "Four production-action runs: Japanese top video, English cross-origin iframe video, English audio-only and Japanese no-element Web Audio → real default ASR → native Korean → elapsed comparison and page DOM; Stop retires output/capture"
+    ],
+    "browser": "153.0.8010.12",
+    "runs": [
+      {
+        "language": "ja",
+        "mode": "video",
+        "preparationMs": 6105.625042,
+        "final": {
+          "utterance": "speech-1",
+          "sourceRevision": "1",
+          "translationRevision": "1",
+          "state": "paired",
+          "sourceFinal": "true",
+          "translationFinal": "true",
+          "source": "今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会いましょう。",
+          "time": "0.0–16.9 s",
+          "korean": "나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요."
+        },
+        "overlayTexts": [
+          "今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会い",
+          "나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 "
+        ]
+      },
+      {
+        "language": "en",
+        "mode": "iframe",
+        "preparationMs": 3298.9276670000036,
+        "final": {
+          "utterance": "speech-1",
+          "sourceRevision": "1",
+          "translationRevision": "1",
+          "state": "paired",
+          "sourceFinal": "true",
+          "translationFinal": "true",
+          "source": " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet today.",
+          "time": "0.0–8.1 s",
+          "korean": "우리는 오늘 만나지 않을 것입니다. 내일 오후 3시에 역에서 만나자. 예약을 취소하지 마십시오. 우리는 오늘 만나지 않을 것입니다."
+        },
+        "overlayTexts": [
+          "We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet toda",
+          "우리는 오늘 만나지 않을 것입니다. 내일 오후 3시에 역에서 만나자. 예약을 취소하지 마십시오. 우리는 오늘 만나지 않을 것입니다."
+        ]
+      },
+      {
+        "language": "en",
+        "mode": "audio",
+        "preparationMs": 3070.857124999995,
+        "final": {
+          "utterance": "speech-1",
+          "sourceRevision": "1",
+          "translationRevision": "1",
+          "state": "paired",
+          "sourceFinal": "true",
+          "translationFinal": "true",
+          "source": " We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet today.",
+          "time": "0.1–8.1 s",
+          "korean": "우리는 오늘 만나지 않을 것입니다. 내일 오후 3시에 역에서 만나자. 예약을 취소하지 마십시오. 우리는 오늘 만나지 않을 것입니다."
+        },
+        "overlayTexts": [
+          "We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet toda",
+          "우리는 오늘 만나지 않을 것입니다. 내일 오후 3시에 역에서 만나자. 예약을 취소하지 마십시오. 우리는 오늘 만나지 않을 것입니다."
+        ]
+      },
+      {
+        "language": "ja",
+        "mode": "web-audio",
+        "preparationMs": 2984.0934579999957,
+        "final": {
+          "utterance": "speech-1",
+          "sourceRevision": "1",
+          "translationRevision": "1",
+          "state": "paired",
+          "sourceFinal": "true",
+          "translationFinal": "true",
+          "source": "今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。",
+          "time": "0.0–14.7 s",
+          "korean": "나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다."
+        },
+        "overlayTexts": [
+          "今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会い",
+          "나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 "
+        ],
+        "cancellations": [
+          {
+            "reason": "asr-stop",
+            "snapshot": {
+              "at": 27577.199999928474,
+              "rows": "今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。\t0.0–14.7 s\t나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다.",
+              "pending": [
+                {
+                  "type": "asr-job",
+                  "workerId": 3,
+                  "requestId": 2,
+                  "at": 27543.299999952316,
+                  "identity": {
+                    "sessionId": "f28e5932-ab52-4e8e-a8db-5b47416659e2",
+                    "targetId": "tab-2085752028-178dba12-c583-4094-bb78-371a31a8410e",
+                    "epoch": 0
+                  },
+                  "language": "ja",
+                  "samples": 44544,
+                  "utteranceId": "speech-1",
+                  "audioRange": {
+                    "startMs": 0,
+                    "endMs": 2784
+                  }
+                }
+              ]
+            },
+            "engine": [
+              {
+                "type": "prepare",
+                "candidate": "turboFp16",
+                "device": "webgpu"
+              },
+              {
+                "type": "prepare"
+              },
+              {
+                "workerId": 4,
+                "at": 21359.100000023842,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "cached",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 4,
+                "at": 21359.5,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "loading",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 3,
+                "at": 21372.199999928474,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "cached",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 3,
+                "at": 21372.799999952316,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "loading",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 4,
+                "at": 21497.399999976158,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "ready",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 4,
+                "at": 21497.399999976158,
+                "type": "ready"
+              },
+              {
+                "workerId": 3,
+                "at": 24378.899999976158,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "ready",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 3,
+                "at": 24379.600000023842,
+                "type": "ready"
+              },
+              {
+                "type": "asr-job",
+                "workerId": 3,
+                "requestId": 2,
+                "at": 27543.299999952316,
+                "identity": {
+                  "sessionId": "f28e5932-ab52-4e8e-a8db-5b47416659e2",
+                  "targetId": "tab-2085752028-178dba12-c583-4094-bb78-371a31a8410e",
+                  "epoch": 0
+                },
+                "language": "ja",
+                "samples": 44544,
+                "utteranceId": "speech-1",
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 2784
+                }
+              },
+              {
+                "type": "terminated",
+                "workerId": 3,
+                "at": 27577.899999976158
+              },
+              {
+                "type": "terminated",
+                "workerId": 4,
+                "at": 27578
+              }
+            ],
+            "translations": []
+          },
+          {
+            "reason": "translation-stop",
+            "snapshot": {
+              "at": 48014.199999928474,
+              "settled": false,
+              "rows": "今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。\t0.0–14.7 s\t나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다."
+            },
+            "engine": [
+              {
+                "type": "prepare",
+                "candidate": "turboFp16",
+                "device": "webgpu"
+              },
+              {
+                "type": "prepare"
+              },
+              {
+                "workerId": 6,
+                "at": 29695.5,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "cached",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 6,
+                "at": 29697.100000023842,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "loading",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 5,
+                "at": 29710,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "cached",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 5,
+                "at": 29710.699999928474,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "loading",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 6,
+                "at": 29835.100000023842,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "ready",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 6,
+                "at": 29835.100000023842,
+                "type": "ready"
+              },
+              {
+                "workerId": 5,
+                "at": 32402.199999928474,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "ready",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 5,
+                "at": 32402.899999976158,
+                "type": "ready"
+              },
+              {
+                "type": "asr-job",
+                "workerId": 5,
+                "requestId": 2,
+                "at": 46242.10000002384,
+                "identity": {
+                  "sessionId": "881a9730-398a-40d7-8e19-6dc2ff026c6d",
+                  "targetId": "tab-2085752028-178dba12-c583-4094-bb78-371a31a8410e",
+                  "epoch": 0
+                },
+                "language": "ja",
+                "samples": 213504,
+                "utteranceId": "speech-1",
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 13344
+                }
+              },
+              {
+                "type": "asr-result",
+                "workerId": 5,
+                "requestId": 2,
+                "at": 48009.199999928474,
+                "text": "予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会いましょう。",
+                "inferenceMs": 1762.5999999046326
+              },
+              {
+                "type": "terminated",
+                "workerId": 5,
+                "at": 48016.60000002384
+              },
+              {
+                "type": "terminated",
+                "workerId": 6,
+                "at": 48016.60000002384
+              }
+            ],
+            "translations": [
+              {
+                "source": "予約は取り消さないでください。",
+                "at": 48013.60000002384,
+                "settled": true,
+                "end": 48017.299999952316,
+                "error": "AbortError"
+              }
+            ]
+          },
+          {
+            "reason": "navigation",
+            "snapshot": {
+              "at": 63164.10000002384,
+              "rows": "今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。明日の午後3時に駅で会いましょう。予約は取り消さないでください。今日は会議をしません。\t0.0–14.7 s\t나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다. 내일 오후 3시에 역에서 만나요. 예약을 취소하지 마십시오. 나는 오늘 회의를 하지 않을 것이다.",
+              "pending": [
+                {
+                  "type": "asr-job",
+                  "workerId": 7,
+                  "requestId": 2,
+                  "at": 63154.10000002384,
+                  "identity": {
+                    "sessionId": "7646e29d-75c1-4a9d-be1b-a09747efa021",
+                    "targetId": "tab-2085752028-178dba12-c583-4094-bb78-371a31a8410e",
+                    "epoch": 0
+                  },
+                  "language": "ja",
+                  "samples": 157696,
+                  "utteranceId": "speech-1",
+                  "audioRange": {
+                    "startMs": 0,
+                    "endMs": 9856
+                  }
+                }
+              ]
+            },
+            "engine": [
+              {
+                "type": "prepare",
+                "candidate": "turboFp16",
+                "device": "webgpu"
+              },
+              {
+                "type": "prepare"
+              },
+              {
+                "workerId": 8,
+                "at": 50183,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "cached",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 8,
+                "at": 50184,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "loading",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 7,
+                "at": 50193.799999952316,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "cached",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 7,
+                "at": 50194.699999928474,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "loading",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 8,
+                "at": 50335.199999928474,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/silero-vad",
+                    "version": "e71cae966052b992a7eca6b17738916ce0eca4ec"
+                  },
+                  "state": "ready",
+                  "requiredBytes": 2243022,
+                  "downloadedBytes": 2243022
+                }
+              },
+              {
+                "workerId": 8,
+                "at": 50335.299999952316,
+                "type": "ready"
+              },
+              {
+                "workerId": 7,
+                "at": 52802.10000002384,
+                "type": "status",
+                "status": {
+                  "model": {
+                    "id": "onnx-community/whisper-large-v3-turbo",
+                    "version": "360ebcde2559d60bb474678be3c1de9ef347d01a"
+                  },
+                  "state": "ready",
+                  "requiredBytes": 1621338971,
+                  "downloadedBytes": 1621338971
+                }
+              },
+              {
+                "workerId": 7,
+                "at": 52802.39999997616,
+                "type": "ready"
+              },
+              {
+                "type": "asr-job",
+                "workerId": 7,
+                "requestId": 2,
+                "at": 63154.10000002384,
+                "identity": {
+                  "sessionId": "7646e29d-75c1-4a9d-be1b-a09747efa021",
+                  "targetId": "tab-2085752028-178dba12-c583-4094-bb78-371a31a8410e",
+                  "epoch": 0
+                },
+                "language": "ja",
+                "samples": 157696,
+                "utteranceId": "speech-1",
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 9856
+                }
+              },
+              {
+                "type": "terminated",
+                "workerId": 7,
+                "at": 63193.39999997616
+              },
+              {
+                "type": "terminated",
+                "workerId": 8,
+                "at": 63193.39999997616
+              }
+            ],
+            "translations": []
+          }
+        ]
+      }
+    ],
+    "modelTransport": "The exact checksum-verified official ONNX files were preloaded into the disposable extension cache from an explicit local test mirror. Only the ignored test copy of the manifest allowed that fixture origin. Shipping permissions, CSP, model URLs and native Translator were unchanged.",
+    "earlierAttempts": "Direct large extension-resource prefill terminated the test browser (SIGTRAP); another startup exceeded the old 10-second debugging-endpoint deadline. Streaming a local test mirror into the cache and allowing native-component startup time completed all four real flows."
+  },
+  "screenshots": [
+    "../settings/browser-start.png",
+    "../settings/browser-start-narrow.png",
+    "../settings/browser-start-dark.png",
+    "../captions/browser-compact.png"
+  ]
+}

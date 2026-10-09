@@ -7,13 +7,16 @@ import { createBrowserPipeline } from "../../packages/engines-browser/pipeline";
 import { createSpeechRecognizer } from "../../packages/engines-browser/speech-recognizer";
 import { createVadHost } from "../../packages/engines-browser/vad-host";
 
-export function createChromeEngine(document: Document, source: "ja" | "en", receive: (message: string) => void) {
+export function createChromeEngine(document: Document, source: "ja" | "en", receive: (message: string, progress?: string) => void, execution: "foreground" | "offscreen" = "foreground") {
   const languages = { source, target: "ko" };
-  const model = registeredCandidate(asrCandidates.smallFp16.model, "fp16");
-  const report = (status: ModelStatus) => receive(`${status.model.id} @ ${status.model.version}: ${status.state}; ${status.downloadedBytes ?? 0}/${status.requiredBytes} bytes${status.reason ? ` (${status.reason})` : ""}`);
-  const asr = createAsrHost(document, "smallFp16", "webgpu", report);
-  const vad = createVadHost(document, report);
-  const translator = createDocumentTranslator(document, languages, status => receive(`Translator ${source} → ko: ${status.state}${status.progress === undefined ? "" : ` ${Math.round(status.progress * 100)}%`}${status.reason ? ` (${status.reason})` : ""}`));
+  const model = registeredCandidate(asrCandidates.turboFp16.model, "fp16");
+  const report = (status: ModelStatus) => receive(`${status.model.id} @ ${status.model.version}: ${status.state}; ${status.downloadedBytes ?? 0}/${status.requiredBytes} bytes${status.reason ? ` (${status.reason})` : ""}`,
+    status.state === "downloading" ? `음성 인식 모델 다운로드 · ${Math.floor((status.downloadedBytes ?? 0) / status.requiredBytes * 100)}%`
+      : status.state === "loading" ? "음성 인식 모델을 불러오는 중…" : undefined);
+  const asr = createAsrHost(document, "turboFp16", "webgpu", report, execution);
+  const vad = createVadHost(document, report, execution);
+  const translator = createDocumentTranslator(document, languages, status => receive(`Translator ${source} → ko: ${status.state}${status.progress === undefined ? "" : ` ${Math.round(status.progress * 100)}%`}${status.reason ? ` (${status.reason})` : ""}`,
+    status.state === "preparing" ? `번역 모델 준비${status.progress === undefined ? " 중…" : ` · ${Math.round(status.progress * 100)}%`}` : undefined), execution);
   let ready = false;
   let preparing = false;
   let disposed = false;
@@ -56,7 +59,7 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
     },
   };
   function interrupt() { generation++; stopResources(); if (identity) void port.cancel(identity); }
-  function suspend() { if (document.visibilityState !== "visible") interrupt(); }
+  function suspend() { if (execution === "foreground" && document.visibilityState !== "visible" && pipeline) interrupt(); }
   document.addEventListener("visibilitychange", suspend);
   document.defaultView?.addEventListener("pagehide", interrupt);
 

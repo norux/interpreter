@@ -81,3 +81,16 @@ test("tab PCM uses elapsed capture time with no video anchor and cannot survive 
   assert.equal((await next).done,true);assert.equal((await iterator.next()).done,true);
   await handle.close();assert.equal(f.stops,1);assert.equal(f.closes,1);
 });
+
+
+test("offscreen input consumes a worker-authorized ID with runtime-only extension APIs", async t => {
+  fixture(t);
+  Object.defineProperty(globalThis, "chrome", { configurable: true, value: { runtime: {} } });
+  const input = createChromeTabInput(12, "worklet.js", { maxChunkBytes: 8192, maxAudioQueueMs: 100 }, () => {});
+  try {
+    await input.capture("id");
+    assert.equal((await input.input.probe(input.target)).state, "available");
+    await input.stop();
+    assert.equal((await input.input.probe(input.target)).state, "unavailable");
+  } finally { await input.dispose(); }
+});

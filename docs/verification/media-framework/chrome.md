@@ -1,5 +1,27 @@
 # Chrome stage — B1 preparation and B2 ASR evaluation
 
+## Browser quality update — 2026-10-09
+
+The browser application's default is now pinned **large-v3-turbo FP16 / WebGPU**,
+with 800 ms ordinary pauses and the same 1.5-second first/later silence endpoint.
+This supersedes the smallFp16 default described in the historical records below.
+The existing long-speech pause policy, audio limits and strict test gates remain.
+See [the focused quality results](../asr/chrome-quality-20261009.json) for measured
+recognition, latency, test scope and unresolved acceptance. This update does not
+mark B6 or the full Chrome stage complete.
+
+On the preserved synthetic Japanese white-noise input, CER improves from 7.5%
+to 2.5% and every required meaning appears three times; quiet Japanese remains
+2.5% CER and English remains 4.545% WER in both noise conditions. Speech-free noise
+makes zero ASR calls. The preserved strict noise gates still **FAIL** because
+one first Japanese endpoint takes 2,075.5 ms, exceeding its 2,000 ms gate. The
+user explicitly accepted additional latency for this quality update. Real default
+Turbo → native Korean → page/history flows pass for video, cross-origin iframe,
+audio-only and no-element Web Audio, including Stop during actual inference.
+Official ONNX weights were checksum-verified and supplied by an isolated local
+test mirror after the direct online download timed out; this is not fresh online
+download acceptance. Natural/public-video and ten-minute acceptance remain unverified.
+
 ## Current scope and next work — 2026-10-09
 
 The user explicitly separated B2 engine integration/model selection from final
@@ -12772,3 +12794,39 @@ and plan link absent; issue URL present; GitHub readback confirms issue #1 OPEN
 with the intended B6 metrics, reproduction commands and unchecked acceptance.
 `git diff --check` passes. Runtime/browser suites were not rerun for this
 documentation-only cleanup.
+
+
+## 2026-10-09 KST — browser extension window ownership
+
+The production action now opens a compact toolbar popup. A persistent offscreen
+extension document owns model preparation, tab capture/playback, ASR/VAD and
+native translation. `tab-host.html` is a read-only comparison/history viewer;
+its pagehide disposes only that view. Popup closure, reference closure and tab
+switches keep execution running. Stop and original-tab navigation/closure retire
+the session. Reopening the reference view restores up to 300 captions.
+
+Regression before the change: closing the real production host stopped capture
+(expected active=true, observed false). After the change, actual turbo WebGPU
+and Chrome native Korean captions continue after both UI surfaces are closed.
+The four input cases (Japanese video, English cross-origin iframe, English audio,
+Japanese Web Audio) all pass close/reopen history and continued page-caption checks.
+Native loss of the owned test Chrome audio service retires an unfinished actual
+ASR job, clears its overlay and releases capture. Source navigation/closure during
+preparation and explicit Stop/late-caption rejection also pass.
+
+Commands run: `npm run typecheck`, focused Biome (46 files), `npm run build:chrome`,
+`npm run test:js` (167 pass), foreground composition/channel browser regressions,
+and `INTERPRETER_TEST_MODEL_DIRECTORY=/tmp node tests/framework-chrome-tab-engine.mjs`
+with the default four scenarios, `--lifecycle` via the tab-host harness and
+`--capture-loss`. The two official ONNX files were individually SHA-256 verified
+before cache prefill; remaining model downloads and inference were real. Native
+language components were already available. First native language-pack download,
+public-video/ten-minute qualification and independent offscreen acoustic-output
+measurement are unverified. The earlier strict noise latency failure remains.
+
+The first four-scenario run passed the requested close/reopen flows but failed in
+its final navigation cancellation. Known-tab invalidation now sends Stop directly;
+final four-scenario, focused lifecycle and native-loss runs pass. Raw accepted
+captions, setup, intermediate failure and verification scope are retained in
+[browser-background-20261009.json](browser-background-20261009.json).
+See [the actual toolbar popup](../settings/browser-popup.png).

@@ -11,10 +11,12 @@ const container = document.querySelector("#app") as HTMLElement;
 const tabId = Number(new URLSearchParams(location.search).get("tab"));
 if (!Number.isSafeInteger(tabId) || tabId <= 0) {
   status.textContent = "Open this window using Interpreter on the video page."; confirm.disabled = true;
+  (status.parentElement as HTMLDetailsElement).open = true;
 } else {
   const remote = createRemoteVideoInput(chrome.tabs.connect(tabId, { name: channelName, frameId: 0 }));
   const pageOutput = createRemoteVideoOutput(chrome.tabs.connect(tabId, { name: overlayChannelName, frameId: 0 }), message => {
     status.textContent = message; select.disabled = true; language.disabled = true; confirm.disabled = true; selected = null; void app.select(null, language.value as "ja" | "en");
+    (status.parentElement as HTMLDetailsElement).open = true;
   });
   const app = createChromeComposition(container, remote.input, remote.stop, pageOutput);
   let candidates: readonly MediaCandidate[] = [];
@@ -36,7 +38,11 @@ if (!Number.isSafeInteger(tabId) || tabId <= 0) {
       for (const item of next) select.add(new Option(`${item.label} · ${Math.round(item.width)}×${Math.round(item.height)} · ${item.playing ? "playing" : "paused"}`, item.target.id));
       select.value = next.some(item => item.target.id === previous) ? previous : "";
       confirm.disabled = select.disabled || !select.value;
-    } catch (error) { status.textContent = `Page connection unavailable: ${String(error)}. Stop and reopen Interpreter on the video page.`; await app.select(null, "ja"); }
+    } catch (error) {
+      status.textContent = `Page connection unavailable: ${String(error)}. Stop and reopen Interpreter on the video page.`;
+      (status.parentElement as HTMLDetailsElement).open = true;
+      await app.select(null, "ja");
+    }
   }
   select.onchange = () => { confirm.disabled = select.disabled || !select.value; };
   language.onchange = () => { void app.select(selected, language.value as "ja" | "en"); };

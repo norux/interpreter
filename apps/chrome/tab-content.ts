@@ -7,7 +7,7 @@ if (!owner.interpreterTabOverlayHost) {
   let display: ReturnType<typeof serveVideoOutput> | undefined;
   chrome.runtime.onConnect.addListener(port => {
     if (port.name !== tabOverlayChannelName || port.sender?.id !== chrome.runtime.id
-      || !port.sender.url?.startsWith(`${chrome.runtime.getURL("tab-host.html")}?`)) { port.disconnect(); return; }
+      || (port.sender.url !== chrome.runtime.getURL("service-worker.js") && (port.sender.url || port.sender.tab))) { port.disconnect(); return; }
     display?.dispose(); display = serveVideoOutput(port, undefined, document);
   });
   window.addEventListener("pagehide", () => display?.dispose());

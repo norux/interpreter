@@ -136,7 +136,7 @@ try {
     const run = { language: clip.language, mode, baselineRssKiB: await sampleRss() };
     observations.runs.push(run); peakRssKiB = run.baselineRssKiB;
     const preparationStart = performance.now();
-    await page.locator("#prepare").focus(); await page.locator("#prepare").press("Enter");
+    await page.locator("#prepare").click();
     await page.waitForFunction(() => globalThis.prepared || globalThis.prepareError, undefined, { timeout: 240000, polling: 100 });
     run.preparationMs = performance.now() - preparationStart;
     const status = await page.evaluate(() => ({ error: prepareError, last: modelStatuses.at(-1), vadStatuses }));

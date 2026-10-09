@@ -2,6 +2,18 @@ import type { CaptionRevision, LanguagePair, SessionIdentity, TextTranslator, Tr
 import { sameIdentity } from "../core/identity";
 import { createRevisionStore } from "../core/revision-store";
 
+function fillerOnly(text: string, language: string) {
+  const normalized = text.normalize("NFKC").toLowerCase();
+  const words = (language === "ja" ? normalized.replace(/[〜~]/gu, "ー") : normalized)
+    .replace(/[\p{P}\p{S}]/gu, " ").trim().split(/\s+/);
+  // Only suppress entire filler utterances; short answers and sentence content
+  // stay intact, including an interjection followed by meaningful speech.
+  const filler = language === "en" ? /^(?:u+h+|u+m+|h+m+|m+h+m+|e+r+m*|a+h+|o+h+)$/
+    : language === "ja" ? /^(?:え[えー]*|あ[あー]*|お[おー]*|うー+ん+|んー+|えー*っと)$/
+    : language === "ko" ? /^(?:음+|어+|오+|아+|흠+|으+음+)$/ : undefined;
+  return words.every(word => !word || filler?.test(word));
+}
+
 export function createTranslationQueue(identity: SessionIdentity, languages: LanguagePair, translator: TextTranslator,
   maxPendingUtterances: number, maxStoredCaptions: number,
   receive: (caption: CaptionRevision) => void, fail: (reason: "overloaded" | "engine-failed") => void) {
@@ -36,7 +48,8 @@ export function createTranslationQueue(identity: SessionIdentity, languages: Lan
 
   return {
     accept(source: TranscriptRevision): boolean {
-      if (stopped || !sameIdentity(selected, source.identity) || source.language !== pair.source || !source.text || source.text.length > 16384) return false;
+      if (stopped || !sameIdentity(selected, source.identity) || source.language !== pair.source || !source.text || source.text.length > 16384
+        || fillerOnly(source.text, source.language)) return false;
       const caption = store.accept({ type: "transcript", revision: source });
       if (!caption) return false;
       receive(caption); // ASR paints now, with pending translation for this revision.

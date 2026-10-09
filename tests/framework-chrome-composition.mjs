@@ -115,15 +115,15 @@ try {
   observations.browser = browser.version(); observations.platform = `${process.platform}/${process.arch}`;
   const page = await browser.newPage(); page.on("pageerror", error => observations.pageErrors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.address().port}/`); await page.waitForFunction(() => ready);
-  const prepare = page.getByRole("button", { name: "Prepare selected language", exact: true });
-  const start = page.getByRole("button", { name: "Start interpretation", exact: true });
-  const stop = page.getByRole("button", { name: "Stop interpretation", exact: true });
+  const prepare = page.getByRole("button", { name: "모델 준비", exact: true });
+  const start = page.getByRole("button", { name: "번역 시작", exact: true });
+  const stop = page.getByRole("button", { name: "중지", exact: true });
   assert.equal(await prepare.isDisabled(), true); assert.equal(await start.isDisabled(), true);
   await page.evaluate(() => select()); assert.equal(await prepare.isDisabled(), false);
   assert.equal(await page.evaluate(() => nativeCreations.length), 0);
   await prepare.click(); await page.waitForFunction(() => !document.querySelector('#app button:nth-child(2)').disabled);
   assert.deepEqual(await page.evaluate(() => nativeCreations.map(({source,target,active})=>({source,target,active}))), [{source:"ja", target:"ko", active:true}]);
-  assert.deepEqual(await page.evaluate(() => workers.flatMap(worker=>worker.messages.filter(m=>m.type==='prepare' && m.candidate).map(m=>({candidate:m.candidate,device:m.device})))), [{candidate:"smallFp16",device:"webgpu"}]);
+  assert.deepEqual(await page.evaluate(() => workers.flatMap(worker=>worker.messages.filter(m=>m.type==='prepare' && m.candidate).map(m=>({candidate:m.candidate,device:m.device})))), [{candidate:"turboFp16",device:"webgpu"}]);
   await start.dblclick();
   await page.waitForFunction(() => translations.length === 1);
   assert.equal(await page.evaluate(() => opened.length), 1);
@@ -140,7 +140,7 @@ try {
   assert.equal(await page.evaluate(() => pageOutputEvents.filter(e=>e.type==='activate').length), 1);
   assert.equal(await page.evaluate(() => pageOutputEvents.find(e=>e.type==='activate').target.id), 'selected');
   assert.deepEqual(await page.evaluate(() => pageOutputEvents.filter(e=>e.type==='caption').map(e=>e.caption.translation.state)), ['pending','paired']);
-  observations.checks.push("Trusted preparation gesture, smallFp16/WebGPU default, one Start, original-first/pending DOM and exact paired revisions/video mapping/text safety");
+  observations.checks.push("Trusted preparation gesture, turboFp16/WebGPU default, one Start, original-first/pending DOM and exact paired revisions/video mapping/text safety");
   await stop.click(); await page.waitForFunction(() => closedInputs === 1);
   assert.equal(await row.count(), 1); assert.equal(await page.locator("#app .interpreter-live").textContent(), "");
   assert.ok(await page.evaluate(() => workers.every(worker=>worker.terminated)));
@@ -164,6 +164,39 @@ try {
   assert.equal(await start.isDisabled(), true); assert.equal(await page.evaluate(() => opened.length), 2);
   assert.ok(await page.evaluate(() => nativeCreations.at(-1).signal.aborted));
   observations.checks.push("Stop during all-host preparation cannot restore readiness or start input");
+
+  await page.evaluate(() => { loads.length = 0; });
+  await prepare.click();
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', {configurable:true, value:'hidden'});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  assert.equal(await page.evaluate(() => workers.slice(-2).some(worker => worker.terminated)), false, "Switching tabs must not terminate preparation workers");
+  assert.equal(await page.evaluate(() => nativeCreations.at(-1).signal.aborted), false, "Language-pack preparation must survive switching tabs");
+  await page.evaluate(() => { for (const load of loads) load(); });
+  await page.waitForFunction(() => !document.querySelector('#app button:nth-child(2)').disabled);
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    Reflect.deleteProperty(document, 'visibilityState');
+    document.dispatchEvent(new Event('visibilitychange'));
+    deferPreparation = false;
+  });
+  assert.equal(await start.isEnabled(), true, "Prepared models must remain usable after returning to the tab");
+  await start.click(); await page.waitForFunction(() => translations.length === 3);
+  await page.evaluate(() => translations[2].resolve('탭 전환 후 번역'));
+  await page.waitForFunction(() => document.querySelector('#app tbody tr:last-child').dataset.translationState === 'paired');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', {configurable:true, value:'hidden'});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForFunction(() => opened.at(-1).closed && workers.slice(-2).every(worker => worker.terminated));
+  await page.evaluate(() => {
+    Reflect.deleteProperty(document, 'visibilityState');
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await prepare.waitFor({state:'visible'});
+  assert.equal(await start.isDisabled(), true, "Active interpretation still stops when hidden");
+  observations.checks.push("Tab switching during preparation and after hidden completion retains both model workers and native translator; returning starts real composition without preparing again (mocked inference)");
 
   await page.evaluate(() => {
     const c=caption(0); view.compare(c); policy.accept({type:'paired-caption', caption:c});
@@ -247,24 +280,24 @@ try {
     await tabApp.select({id:'tab-target',documentId:'tab-host',frameId:'tab'},'en');
   });
   await prepare.click(); await page.waitForFunction(() => !document.querySelector('#app button:nth-child(2)').disabled);
-  await start.click(); await page.waitForFunction(() => translations.length===3);
+  await start.click(); await page.waitForFunction(() => translations.length===4);
   const tabRow=page.locator('#app tbody tr'); await tabRow.waitFor();
   assert.equal(await page.locator('#app th').nth(1).textContent(),'Capture elapsed');
   assert.match(await tabRow.locator('td').nth(1).textContent(),/^0\.0–/);
   assert.equal(await page.locator('video').count(),0);
-  await page.evaluate(() => translations[2].resolve('합성 탭 번역'));
+  await page.evaluate(() => translations[3].resolve('합성 탭 번역'));
   await page.waitForFunction(() => document.querySelector('#app tbody tr').dataset.translationState==='paired');
   assert.equal(await tabRow.locator('td').nth(2).textContent(),'합성 탭 번역');
   await stop.click(); assert.equal(await prepare.isDisabled(),true);
   await page.evaluate(async () => {await tabApp.select({id:'tab-target',documentId:'tab-host',frameId:'tab'},'en')});
   await prepare.click(); await page.waitForFunction(() => !document.querySelector('#app button:nth-child(2)').disabled);
-  await start.click(); await page.waitForFunction(() => translations.length===4);
+  await start.click(); await page.waitForFunction(() => translations.length===5);
   await page.evaluate(() => tabApp.select(null,'en'));
-  await page.evaluate(() => translations[3].resolve('late tab translation'));
+  await page.evaluate(() => translations[4].resolve('late tab translation'));
   await page.waitForTimeout(100);
   assert.equal(await tabRow.last().getAttribute('data-translation-state'),'pending');
   assert.equal(await page.locator('#app .interpreter-live').textContent(),'');
-  assert.equal(await page.evaluate(() => translations[3].signal.aborted),true);
+  assert.equal(await page.evaluate(() => translations[4].signal.aborted),true);
   assert.equal(await start.isDisabled(),true); assert.equal(await prepare.isDisabled(),true);
   observations.checks.push('No-video tab composition uses capture elapsed, pairs synthetic revisions, requires recapture after Stop and rejects late translation after tab retirement');
   await page.evaluate(async () => {await tabApp.dispose()});

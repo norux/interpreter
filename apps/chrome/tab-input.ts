@@ -38,7 +38,7 @@ export function createChromeTabInput(tabId: number, workletUrl: string,
   }
   function removed(id: number) { if (id === tabId) interrupted("target-invalidated: Captured tab closed"); }
   function pagehide() { void stop(); }
-  chrome.tabs.onUpdated.addListener(updated); chrome.tabs.onRemoved.addListener(removed);
+  chrome.tabs?.onUpdated.addListener(updated); chrome.tabs?.onRemoved.addListener(removed);
   window.addEventListener("pagehide", pagehide);
   const input: VideoInput = {
     async probe(selected) {
@@ -102,13 +102,13 @@ export function createChromeTabInput(tabId: number, workletUrl: string,
     },
   };
   return { target, input, stop,
-    async capture() {
+    async capture(streamId?: string) {
       if (disposed) throw new Error("context-destroyed: Tab input disposed");
       if (current) throw new Error("Tab capture already active or starting");
       const owned: Capture = { retired: false }; current = owned;
       try {
         // Obtain and consume in this document; stream IDs are single-use and expire.
-        const id = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
+        const id = streamId ?? await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
         if (owned.retired) throw new Error("cancelled: Capture stopped during authorization");
         const stream = await navigator.mediaDevices.getUserMedia({ audio: {
           mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: id },
@@ -126,7 +126,7 @@ export function createChromeTabInput(tabId: number, workletUrl: string,
       } catch (error) { await release(owned); throw error; }
     },
     async dispose() {
-      disposed = true; chrome.tabs.onUpdated.removeListener(updated); chrome.tabs.onRemoved.removeListener(removed);
+      disposed = true; chrome.tabs?.onUpdated.removeListener(updated); chrome.tabs?.onRemoved.removeListener(removed);
       window.removeEventListener("pagehide", pagehide); await stop();
     },
   };

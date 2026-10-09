@@ -1,13 +1,8 @@
 <!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tab audio interpreter</title></head>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Interpreter · 원문과 번역</title><link rel="stylesheet" href="./host.css"></head>
 <body>
-<h1>Tab audio interpreter</h1>
-<p>All audio from the tab where you invoked Interpreter is captured, including frames, advertisements and simultaneous sounds. Other tabs and microphones are excluded. No video selection is required.</p>
-<p>Prepare the language here, then Start. Keep this window open and visible. After Stop, capture the original tab again before preparing. Navigation or tab closure requires a fresh extension action.</p>
-<p id="fullscreen-support">Captions appear at the bottom of the page, including fullscreen containers. Native video fullscreen hides page captions; comparison remains here.</p>
-<p id="connection" role="status"></p><p id="overlay-status" role="status"></p>
-<label>Source language <select id="language"><option value="ja">Japanese</option><option value="en">English</option></select></label>
-<button type="button" id="capture">Capture tab audio</button>
+<header class="header"><span class="mark" aria-hidden="true">I</span><div><h1>원문 · 번역 기록</h1><p class="subtitle">이 창을 닫아도 영상의 자막은 계속 표시됩니다.</p></div></header>
+<p id="connection" role="status"></p>
 <main id="app"></main><script type="module" src="./tab-host.ts"></script>
 </body></html>

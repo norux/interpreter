@@ -19,7 +19,7 @@ function deferred<T>() {
 }
 
 // Fake native API/translation tests verify contracts, never real accuracy.
-function fixture() {
+function fixture(execution: "foreground" | "offscreen" = "foreground") {
   const loads: ReturnType<typeof deferred<{ translate: (text: string, options: { signal: AbortSignal }) => Promise<string>; destroy: () => void }>>[] = [];
   const calls: { text: string; signal: AbortSignal; result: ReturnType<typeof deferred<string>> }[] = [];
   const signals: AbortSignal[] = [];
@@ -38,9 +38,28 @@ function fixture() {
     },
   }) });
   const statuses: { state: string; progress?: number; reason?: string }[] = [];
-  const host = createDocumentTranslator(document as unknown as Document, pair, status => statuses.push(status));
+  const host = createDocumentTranslator(document as unknown as Document, pair, status => statuses.push(status), execution);
   return { host, document, loads, native, calls, signals, progresses, statuses, destroyed: () => destroyed };
 }
+
+test("offscreen Translator prepares and translates while hidden, with explicit Stop cancellation", async () => {
+  const f = fixture("offscreen");
+  f.document.visibilityState = "hidden"; f.document.defaultView.navigator.userActivation.isActive = false;
+  try {
+    const prepared = f.host.prepare();
+    assert.equal(f.loads.length, 1, "Native create still enforces Chrome's platform gesture/download policy");
+    f.document.dispatchEvent(new Event("visibilitychange"));
+    f.loads[0].resolve(f.native); await prepared;
+    const stream = f.host.translate(source(), pair)[Symbol.asyncIterator]();
+    const result = stream.next(); f.document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(f.calls[0].signal.aborted, false);
+    f.calls[0].result.resolve("숨겨진 문서의 번역");
+    assert.equal((await result).value?.text, "숨겨진 문서의 번역"); await stream.return?.();
+    const interrupted = f.host.translate(source("two"), pair)[Symbol.asyncIterator]().next();
+    f.host.stop(); assert.equal(f.calls[1].signal.aborted, true);
+    f.calls[1].result.resolve("늦은 번역"); await assert.rejects(interrupted, /Abort/);
+  } finally { await f.host.close(); }
+});
 
 test("document Translator probes real API states without creation and preserves synchronous activation", async () => {
   const f = fixture();
@@ -65,6 +84,31 @@ test("document Translator probes real API states without creation and preserves 
     await iterator.return?.();
     await assert.rejects(f.host.translate(source(), { source: "ja", target: "en" })[Symbol.asyncIterator]().next(), /language-pair-unsupported/);
     await assert.rejects(f.host.translate({ ...source(), text: "x".repeat(16385) }, pair)[Symbol.asyncIterator]().next(), /Invalid translation source/);
+  } finally { await f.host.close(); }
+});
+
+test("document Translator retains preparation and ready resources across hidden tabs, but pagehide still cancels", async () => {
+  const f = fixture();
+  try {
+    const prepared = f.host.prepare();
+    f.document.visibilityState = "hidden"; f.document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(f.signals[0].aborted, false);
+    f.loads[0].resolve(f.native); await prepared;
+    f.document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(f.destroyed(), 0);
+    await assert.rejects(f.host.translate(source(), pair)[Symbol.asyncIterator]().next(), /execution-context-unavailable/);
+    f.document.visibilityState = "visible"; f.document.dispatchEvent(new Event("visibilitychange"));
+    f.document.defaultView.Translator.availability = async () => "available";
+    assert.equal((await f.host.probe()).state, "available");
+    const stream = f.host.translate(source(), pair)[Symbol.asyncIterator]();
+    const translated = stream.next(); f.calls[0].result.resolve("돌아온 뒤 번역");
+    assert.equal((await translated).value?.text, "돌아온 뒤 번역"); await stream.return?.();
+    f.host.stop();
+    const closing = f.host.prepare();
+    f.document.defaultView.dispatchEvent(new Event("pagehide"));
+    assert.equal(f.signals[1].aborted, true);
+    f.loads[1].resolve(f.native); await assert.rejects(closing, { name: "AbortError" });
+    assert.equal(f.destroyed(), 2);
   } finally { await f.host.close(); }
 });
 
@@ -121,6 +165,43 @@ function queued(limit = 3) {
   const queue = createTranslationQueue(identity, pair, translator, limit, 300, caption => captions.push(caption), reason => failures.push(reason));
   return { queue, calls, captions, failures, cancellations: () => cancellations };
 }
+
+test("translation queue skips filler-only speech but preserves meaningful short and mixed speech", async () => {
+  const f = queued();
+  for (const text of ["えー…", "うーん、ああ〜", "う～ん…", "ん〜", "おー！", "あー えっと…", " … "]) {
+    assert.equal(f.queue.accept({ ...source(), text, final: true }), false, text);
+  }
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.captions.length, 0);
+  assert.equal(f.queue.snapshot().length, 0);
+  for (const text of ["はい。", "いいえ。", "うん。", "ううん。", "あの", "ああ、予約は取り消さないでください。", "音", "海"]) {
+    assert.equal(f.queue.accept({ ...source(text), text, final: true }), true, text);
+    f.calls.at(-1)?.result.resolve("의미 있는 번역");
+    await f.queue.whenIdle();
+  }
+  assert.equal(f.calls.length, 8);
+  assert.deepEqual(f.failures, []);
+});
+
+test("English and Korean fillers skip translation without removing short answers or real sentences", async () => {
+  for (const [language, fillers, meaningful] of [
+    ["en", ["Um…", "uh, hmm~", "Oh!", "ahhh", "erm…"], ["No.", "Yes.", "Oh no!", "Um, please do not cancel it.", "umbrella"]],
+    ["ko", ["음~", "오~", "어…", "흠, 음…"], ["네.", "아니요.", "오, 예약은 취소하지 마세요.", "음악", "오늘"]],
+  ] as const) {
+    const calls: string[] = [];
+    const translator: TextTranslator = { async *translate(source, languages) {
+      calls.push(source.text);
+      yield { identity, utteranceId: source.utteranceId, sourceRevision: 1, translationRevision: 1, languages, text: "meaningful", final: true };
+    }, async cancel() {}, async close() {} };
+    const queue = createTranslationQueue(identity, { source: language, target: "ko" }, translator, 4, 300, () => {}, () => assert.fail("Unexpected failure"));
+    for (const text of fillers) assert.equal(queue.accept({ ...source(), language, text, final: true }), false, text);
+    for (const text of meaningful) {
+      assert.equal(queue.accept({ ...source(text), language, text, final: true }), true, text);
+      await queue.whenIdle();
+    }
+    assert.deepEqual(calls, [...meaningful]);
+  }
+});
 
 test("translation queue paints sources first, coalesces revisions, prioritizes finals and rejects stale pairs", async () => {
   const f = queued(4);

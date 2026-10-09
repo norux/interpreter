@@ -3,7 +3,7 @@ import { vadCandidate } from "./model";
 
 // One detector per speech session: state cannot cross an epoch or be shared by
 // two recognizers. Stop terminates inference/preparation, retaining only cache.
-export function createVadHost(document: Document, receive: (status: ModelStatus) => void) {
+export function createVadHost(document: Document, receive: (status: ModelStatus) => void, execution: "foreground" | "offscreen" = "foreground") {
   let worker: Worker | undefined;
   let pending: { type: "prepare" | "detect"; samples?: number; resolve(value?: { probability: number; inferenceMs: number; samples: number; paddingSamples: number }): void; reject(error: Error): void } | undefined;
   let requestId = 0;
@@ -21,9 +21,9 @@ export function createVadHost(document: Document, receive: (status: ModelStatus)
     operation?.reject(new Error(reason));
   }
   function request(type: "prepare" | "detect", pcm?: Float32Array) {
-    if (disposed || !document.defaultView?.isSecureContext || document.visibilityState !== "visible") return Promise.reject(new Error("A visible secure document is required"));
+    if (disposed || !document.defaultView?.isSecureContext || (execution === "foreground" && document.visibilityState !== "visible")) return Promise.reject(new Error("A visible secure document is required"));
     if (pending) return Promise.reject(new Error("overloaded"));
-    if (type === "prepare" && (!document.defaultView.navigator.userActivation.isActive || ready)) return Promise.reject(new Error("Press Prepare after Stop in this document"));
+    if (type === "prepare" && ((execution === "foreground" && !document.defaultView.navigator.userActivation.isActive) || ready)) return Promise.reject(new Error("Press Prepare after Stop in this document"));
     if (type === "detect" && (!ready || ended || !pcm || !(pcm.buffer instanceof ArrayBuffer)
       || pcm.length < 1 || pcm.length > 512 || !pcm.every(sample => Number.isFinite(sample) && Math.abs(sample) <= 1))) return Promise.reject(new Error("Invalid VAD frame or detector not ready"));
     if (!worker) {
@@ -65,7 +65,7 @@ export function createVadHost(document: Document, receive: (status: ModelStatus)
     worker.postMessage({ version: 1, requestId, type, pcm: transferred }, transferred ? [transferred.buffer] : []);
     return result;
   }
-  const suspend = () => { if (document.visibilityState !== "visible") stop(); };
+  const suspend = () => { if (execution === "foreground" && document.visibilityState !== "visible" && pending?.type === "detect") stop(); };
   document.addEventListener("visibilitychange", suspend);
   document.defaultView?.addEventListener("pagehide", stop);
   return {

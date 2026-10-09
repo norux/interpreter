@@ -12,7 +12,7 @@ await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: { ou
 await build({ configFile: false, logLevel: "warn", build: { outDir: output, emptyOutDir: false,
   rollupOptions: { input: { "overlay-channel": resolve("apps/chrome/overlay-channel.ts"), channel: resolve("apps/chrome/channel.ts") }, preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } } } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
-assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture"]); assert.equal(manifest.host_permissions, undefined);
+assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen"]); assert.equal(manifest.host_permissions, undefined);
 const server = createServer(async (request, response) => {
   try {
     const path = new URL(request.url, "http://localhost").pathname;
@@ -87,6 +87,15 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-interpreter-overlay]').getBoundingClientRect().width===320);
   observations.checks.push('Owned overlay follows selected-video resize and page scroll without changing the video element');
   await host.evaluate(() => sendPair('합성 번역 결과')); await page.waitForFunction(() => document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live span').textContent==='합성 번역 결과');
+  const compact = await cue.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    const host = element.getRootNode().host.getBoundingClientRect();
+    return { width: box.width, left: box.left, right: box.right, bottom: box.bottom,
+      hostWidth: host.width, hostLeft: host.left, hostRight: host.right, hostBottom: host.bottom };
+  });
+  assert.ok(compact.width < compact.hostWidth * 0.9, 'Short captions must have a compact background');
+  assert.ok(compact.left > compact.hostLeft && compact.right < compact.hostRight, 'Captions must stay inside the player');
+  assert.ok(compact.bottom <= compact.hostBottom - 48, 'Captions must sit above playback controls');
   await host.evaluate(() => { source={...source,sourceRevision:2,final:true};sendPending();sendPair('긴 최종 번역 '.repeat(80),2); });
   await page.waitForFunction(() => document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live span').textContent.startsWith('긴 최종'));
   const initial = await cue.textContent(); assert.ok(initial.length > 0 && initial.length < '긴 최종 번역 '.repeat(80).trim().length);

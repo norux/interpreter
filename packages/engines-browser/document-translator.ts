@@ -15,7 +15,7 @@ interface TranslatorApi {
 }
 
 export function createDocumentTranslator(document: Document, languages: LanguagePair,
-  receive: (status: { state: "preparing" | "ready" | "stopped" | "failed"; progress?: number; reason?: ReasonCode }) => void) {
+  receive: (status: { state: "preparing" | "ready" | "stopped" | "failed"; progress?: number; reason?: ReasonCode }) => void, execution: "foreground" | "offscreen" = "foreground") {
   const pair = { ...languages };
   let translator: NativeTranslator | undefined;
   let preparing: AbortController | undefined;
@@ -26,8 +26,8 @@ export function createDocumentTranslator(document: Document, languages: Language
   function api(): TranslatorApi | undefined {
     return (document.defaultView as (Window & { Translator?: TranslatorApi }) | null)?.Translator;
   }
-  function eligible() {
-    return !disposed && document.defaultView?.isSecureContext && document.visibilityState === "visible";
+  function eligible(visible = true) {
+    return !disposed && document.defaultView?.isSecureContext && (execution === "offscreen" || !visible || document.visibilityState === "visible");
   }
   function supported() { return (pair.source === "ja" || pair.source === "en") && pair.target === "ko"; }
   function stop() {
@@ -36,7 +36,7 @@ export function createDocumentTranslator(document: Document, languages: Language
     translator?.destroy(); translator = undefined;
     receive({ state: "stopped", reason: "cancelled" });
   }
-  const suspend = () => { if (document.visibilityState !== "visible") stop(); };
+  const suspend = () => { if (execution === "foreground" && document.visibilityState !== "visible" && active) stop(); };
   document.addEventListener("visibilitychange", suspend);
   document.defaultView?.addEventListener("pagehide", stop);
 
@@ -103,7 +103,7 @@ export function createDocumentTranslator(document: Document, languages: Language
       const native = api();
       if (!eligible() || !native) throw new Error("execution-context-unavailable");
       if (!supported()) throw new Error("language-pair-unsupported");
-      if (!document.defaultView?.navigator.userActivation.isActive) throw new Error("Press Prepare in this document to start");
+      if (execution === "foreground" && !document.defaultView?.navigator.userActivation.isActive) throw new Error("Press Prepare in this document to start");
       if (preparing || translator) throw new Error("Stop before preparing another translator");
       const operation = new AbortController(); preparing = operation;
       receive({ state: "preparing" });
@@ -117,7 +117,7 @@ export function createDocumentTranslator(document: Document, languages: Language
             });
           },
         });
-        if (operation.signal.aborted || !eligible()) { loaded.destroy(); throw new DOMException("Translation preparation stopped", "AbortError"); }
+        if (operation.signal.aborted || !eligible(false)) { loaded.destroy(); throw new DOMException("Translation preparation stopped", "AbortError"); }
         translator = loaded; receive({ state: "ready" });
       } catch (error) {
         if (!operation.signal.aborted) receive({ state: "failed", reason: error instanceof DOMException && error.name === "NotSupportedError" ? "language-pair-unsupported" : "model-load-failed" });

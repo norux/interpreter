@@ -39,14 +39,17 @@ const archive = sustained ? await mkdtemp(resolve(".ralph/media-framework/chrome
 await build({ configFile: false, logLevel: "warn", build: { outDir: output, emptyOutDir: false,
   rollupOptions: { input: { "service-worker": resolve("tests/fixtures/selected-action.ts") }, output: { entryFileNames: "[name].js" } } } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
-assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture"]);
+assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen"]);
 assert.equal(manifest.host_permissions, undefined);
+assert.equal(manifest.action.default_popup, "popup.html");
+delete manifest.action.default_popup;
+await writeFile(`${output}/manifest.json`, JSON.stringify(manifest));
 assert.equal(manifest.key, undefined);
 const observations = { scope: sustained
   ? "B5 real extension offline lifecycle plus ten-minute Japanese selected-video PCM → ASR → native Korean → DOM, continuous identity/queues/loss/timing/memory; B6 quality gates separate"
   : lifecycle
   ? "B5 real extension first-download failure, cached offline Japanese/English PCM → ASR → native Korean → DOM, active inference Stop/restart; no ten-minute or B6 final quality acceptance"
-  : "B4 real selected-video adapter/host under test-owned action: PCM → smallFp16/WebGPU → native Korean translation → comparison/live/overlay DOM; no B5 ten-minute or B6 final quality acceptance",
+  : "B4 real selected-video adapter/host under test-owned action: PCM → turboFp16/WebGPU → native Korean translation → comparison/live/overlay DOM; no B5 ten-minute or B6 final quality acceptance",
   actionEntry: "test-owned selected-video action; production tab action is checked by :tab-host",
   archive, generatedMedia, pageErrors: [], consoleErrors: [], checks: [], runs: [], productionPermissions: manifest.permissions, modelRequests: [], companionEndpoints: [] };
 const server = createServer(async (request, response) => {
@@ -248,9 +251,9 @@ try {
   assert.equal(observations.context.secure, true); assert.equal(observations.context.visible, "visible");
   assert.equal(observations.context.translator, "function"); assert.equal(observations.context.gpu, true);
   observations.checks.push("Exact production permission mask/test-owned selected-video native action grant; real secure visible extension Translator/WebGPU context");
-  const prepare = host.getByRole("button", { name:"Prepare selected language", exact:true });
-  const start = host.getByRole("button", { name:"Start interpretation", exact:true });
-  const stop = host.getByRole("button", { name:"Stop interpretation", exact:true });
+  const prepare = host.getByRole("button", { name:"모델 준비", exact:true });
+  const start = host.getByRole("button", { name:"번역 시작", exact:true });
+  const stop = host.getByRole("button", { name:"중지", exact:true });
   if (lifecycle) {
     // Observe the real Stop click before production handlers invalidate resources.
     await stop.evaluate(button => button.addEventListener('click', () => {
@@ -290,9 +293,9 @@ try {
     const remoteBefore = network.filter(value=>value.startsWith('https:')).length;
     await host.locator('#language').selectOption(fixture.language);
     const id = await host.locator('#video option').nth(index+1).getAttribute('value');
-    await host.locator('#video').selectOption(id); await host.getByRole('button',{name:'Use selected video'}).click();
+    await host.locator('#video').selectOption(id); await host.getByRole('button',{name:'영상 선택'}).click();
     await prepare.waitFor({state:'visible'});
-    await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(b=>b.textContent==='Prepare selected language').disabled);
+    await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(b=>b.textContent==='모델 준비').disabled);
     assert.equal(await start.isDisabled(),true);
     await host.evaluate(() => {
       globalThis.rowObservations=[];
@@ -328,7 +331,7 @@ try {
         assert.equal(failure.engine.some(event=>event.type==='ready'),false);
         assert.equal(await start.isDisabled(),true);
         await stop.click();
-        await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('Stopped.'));
+        await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('중지됨'));
         await host.waitForTimeout(500);
         assert.equal(await start.isDisabled(),true);
         assert.equal(await prepare.isEnabled(),true);
@@ -338,17 +341,17 @@ try {
       await host.evaluate(()=>{engineObservations=[];rowObservations=[]});
     }
     const began=performance.now(); await prepare.click();
-    await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(b=>b.textContent==='Start interpretation').disabled || document.querySelector('#app').textContent.includes('Preparation failed:'),undefined,{timeout:240000,polling:100});
+    await host.waitForFunction(() => ![...document.querySelectorAll('button')].find(b=>b.textContent==='번역 시작').disabled || document.querySelector('#app').textContent.includes('Preparation failed:'),undefined,{timeout:240000,polling:100});
     run.preparationMs=performance.now()-began; run.preparation=await host.locator('#app > section').first().innerText();
     run.engine=await host.evaluate(()=>engineObservations);
     console.log(JSON.stringify({preparation:run}));
     assert.equal(await start.isDisabled(),false,run.preparation);
-    assert.ok(run.engine.some(event=>event.type==='prepare' && event.candidate==='smallFp16' && event.device==='webgpu'));
-    assert.ok(run.engine.some(event=>event.type==='status' && event.status.model.id==='onnx-community/whisper-small' && event.status.state==='ready' && event.status.requiredBytes===487960440));
+    assert.ok(run.engine.some(event=>event.type==='prepare' && event.candidate==='turboFp16' && event.device==='webgpu'));
+    assert.ok(run.engine.some(event=>event.type==='status' && event.status.model.id==='onnx-community/whisper-large-v3-turbo' && event.status.state==='ready' && event.status.requiredBytes===1621338971));
     assert.ok(run.engine.some(event=>event.type==='status' && event.status.model.id==='onnx-community/silero-vad' && event.status.state==='ready'));
     if (mode.startsWith('offline')) {
       assert.equal(run.engine.some(event=>event.type==='status' && event.status.state==='downloading'),false);
-      for (const model of ['onnx-community/whisper-small','onnx-community/silero-vad']) {
+      for (const model of ['onnx-community/whisper-large-v3-turbo','onnx-community/silero-vad']) {
         assert.ok(run.engine.some(event=>event.type==='status' && event.status.model.id===model && event.status.state==='cached'));
       }
       run.checks.push('Fresh ASR/VAD workers load cached weights and native translator offline without downloading');
@@ -363,7 +366,7 @@ try {
       await stop.click();
       run.stopSnapshot=await host.evaluate(()=>stopSnapshot);
       assert.equal(run.stopSnapshot.pending.length,1,'Stop must occur during actual unfinished ASR, not after a result');
-      await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('Stopped.'));
+      await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('중지됨'));
       await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
       const retained=await host.locator('#app tbody').innerText();
       await host.waitForTimeout(2000);
@@ -502,7 +505,7 @@ try {
         [{paused:false,muted:false,volume:0.4},{paused:false,muted:false,volume:0.25}]);
       run.checks.push('Actual ten-minute one-epoch PCM sequence/clock/ack continuity, bounded zero-loss running queues, per-minute ASR/native Korean DOM progress and original playback');
     }
-    await stop.click(); await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('Stopped.'));
+    await stop.click(); await host.waitForFunction(()=>document.querySelector('#app > section').textContent.includes('중지됨'));
     await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
     const retained=await host.locator('#app tbody').innerText();
     await host.waitForTimeout(500);
@@ -568,8 +571,8 @@ try {
       archivedRuns.push(saved);
       await writeFile(resolve(archive,'manifest.json'),JSON.stringify({
         scope:'Owned synthetic production-extension ASR inputs; replay reproducibility only, not whole-run accuracy or endpoint acceptance',
-        format:'float32-le',sampleRate:16000,channels:1,candidate:'smallFp16',
-        model:{id:'onnx-community/whisper-small',version:'36050c46d777d46dc4b5f43f6d90574fc38f8732',requiredBytes:487960440},
+        format:'float32-le',sampleRate:16000,channels:1,candidate:'turboFp16',
+        model:{id:'onnx-community/whisper-large-v3-turbo',version:'360ebcde2559d60bb474678be3c1de9ef347d01a',requiredBytes:1621338971},
         runs:archivedRuns,
       },null,2));
       run.archivedJobs=saved.jobs.length;

@@ -14,6 +14,32 @@ selected and billed by their API provider separately from chat subscriptions.
 
 ## Setup
 
+### Browser Chrome extension — quality update
+
+The browser-only build (`apps/chrome/dist`) uses pinned Whisper large-v3-turbo
+FP16 on WebGPU. Model preparation downloads about 1.6 GB the first time; subsequent
+sessions reuse the browser cache. Build with `npm run build:chrome`, reload this
+folder in Chrome, and use **모델 준비 → 번역 시작**. The companion build is separate.
+
+Short hesitations now stay in the same sentence: the ordinary detected pause is
+800 ms, and the first utterance waits for the same 1.5-second silence endpoint as
+later utterances. Existing long-speech boundaries and audio/queue limits remain.
+Standalone filler utterances are skipped before translation; meaningful short
+answers and sentences that begin with an interjection are preserved.
+
+The toolbar popup has language, model preparation, Start and Stop controls. Audio
+capture, model downloads and interpretation run in an offscreen extension document:
+closing the popup, switching tabs or closing the optional **원문 · 번역 기록**
+window does not stop them. Reopening the reference window restores the latest
+300 captions. **중지**, original-tab navigation/closure, or extension reload ends
+the session. Captions have backgrounds behind the text and sit above playback
+controls. Whisper/VAD files stay in this Chrome profile's extension Cache Storage
+after Stop; Chrome manages native translation language packs separately. No
+companion or Downloads-folder file is used.
+
+Measured synthetic-speech quality and remaining limitations are recorded in
+[the quality check](docs/verification/asr/chrome-quality-20261009.json).
+
 The [media framework architecture](docs/architecture/media-framework.md) covers
 Chrome tab audio and selected-video interpretation on Safari/iPhone. The framework
 Ralph run was closed at the user's request on 2026-10-09; its implementation plan

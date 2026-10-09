@@ -32,7 +32,13 @@ test("VAD host preserves ASR PCM, bounds frames and pending work, invalidates St
     await assert.rejects(host.prepare(), /overloaded/);
     const selected = registeredCandidate(vadCandidate.model, "fp32");
     worker.reply({ type: "status", status: { model: selected.model, state: "loading", requiredBytes: selected.requiredBytes } });
+    document.visibilityState = "hidden"; document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(worker.terminated, false, "Preparation must survive switching tabs");
     worker.reply({ type: "ready" }); await preparation;
+    document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(worker.terminated, false, "Prepared VAD must remain ready while hidden");
+    await assert.rejects(host.detect(new Float32Array(512)), /visible secure document/);
+    document.visibilityState = "visible"; document.dispatchEvent(new Event("visibilitychange"));
     assert.equal(statuses.at(-1)?.state, "loading");
     for (const pcm of [new Float32Array(0), new Float32Array(513), new Float32Array(512).fill(NaN),
       new Float32Array(512).fill(1.01), new Float32Array(new SharedArrayBuffer(2048))]) await assert.rejects(host.detect(pcm), /Invalid VAD/);
@@ -62,6 +68,20 @@ test("VAD host preserves ASR PCM, bounds frames and pending work, invalidates St
     await assert.rejects(invalid, /Invalid VAD worker response/);
     assert.equal(workers[3].terminated, true);
     host.dispose(); host.dispose(); await assert.rejects(host.prepare(), /visible secure document/);
+    document.visibilityState = "hidden"; window.navigator.userActivation.isActive = false;
+    const background = createVadHost(document as unknown as Document, () => {}, "offscreen");
+    try {
+      const prepared = background.prepare(); const current = workers.at(-1);
+      current?.reply({ type: "ready" }); await prepared;
+      const detected = background.detect(pcm);
+      document.dispatchEvent(new Event("visibilitychange"));
+      assert.equal(current?.terminated, false);
+      current?.reply({ type: "result", probability: 0.8, inferenceMs: 1, samples: 512, paddingSamples: 0 });
+      assert.equal((await detected).speech, true);
+      const cancelled = background.detect(pcm); background.stop();
+      await assert.rejects(cancelled, /VAD stopped/);
+    } finally { background.dispose(); }
+
   } finally {
     host.dispose();
     if (original) Object.defineProperty(globalThis, "Worker", original); else Reflect.deleteProperty(globalThis, "Worker");

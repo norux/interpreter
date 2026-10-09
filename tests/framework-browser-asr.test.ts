@@ -51,7 +51,15 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
       } finally { unsupported.dispose(); }
     }
     const preparation = host.prepare(); const worker = workers[0];
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(worker.terminated, false, "Preparation must continue in a hidden tab");
     worker.reply({ type: "ready" }); await preparation;
+    document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(worker.terminated, false, "A prepared model must survive until the tab returns");
+    await assert.rejects(host.recognize(job()), /visible secure document/);
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
     const input = job(); const originalIdentity = { ...input.identity };
     const recognition = host.recognize(input);
     assert.equal(input.pcm.byteLength, 0, "PCM ownership transfers to the worker");
@@ -72,6 +80,15 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
     const lost = host.recognize(job()); current.reply({ type: "gpu-lost" });
     await assert.rejects(lost, /gpu-lost/);
     await assert.rejects(host.recognize(job()), /gpu-lost/); assert.equal(current.terminated, true);
+    const visible = host.prepare(); const resumed = workers.at(-1); resumed?.reply({ type: "ready" }); await visible;
+    const hidden = host.recognize(job());
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await assert.rejects(hidden, /ASR stopped/); assert.equal(resumed?.terminated, true);
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    const closing = host.prepare(); const closedWorker = workers.at(-1);
+    document.defaultView?.dispatchEvent(new Event("pagehide"));
+    await assert.rejects(closing, /ASR stopped/); assert.equal(closedWorker?.terminated, true);
     host.dispose(); host.dispose(); await assert.rejects(host.prepare(), /visible secure document/);
     const turbo = createAsrHost(document, "turboFp16", "webgpu", () => {});
     try {
@@ -81,6 +98,22 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
       await assert.rejects(preparing, /Invalid ASR worker response/);
       assert.equal(current?.terminated, true, "Another candidate's readiness must fail without fallback");
     } finally { turbo.dispose(); }
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    (document.defaultView?.navigator.userActivation as { isActive: boolean }).isActive = false;
+    const background = createAsrHost(document, "turboFp16", "webgpu", () => {}, "offscreen");
+    try {
+      const prepared = background.prepare(); const current = workers.at(-1);
+      current?.reply({ type: "ready" }); await prepared;
+      const recognition = background.recognize(job());
+      document.dispatchEvent(new Event("visibilitychange"));
+      assert.equal(current?.terminated, false, "Offscreen inference survives hidden document events");
+      current?.reply({ type: "result", text: "background result", inferenceMs: 1 });
+      assert.equal((await recognition).revision.text, "background result");
+      const cancelled = background.recognize(job()); background.stop();
+      await assert.rejects(cancelled, /ASR stopped/);
+      assert.equal(current?.terminated, true);
+    } finally { background.dispose(); }
+
   } finally {
     host.dispose();
     if (original) Object.defineProperty(globalThis, "Worker", original); else Reflect.deleteProperty(globalThis, "Worker");
