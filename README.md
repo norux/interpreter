@@ -14,6 +14,7 @@
 - Updates captions as speech arrives and corrects them as recognition completes.
 - Distinguishes speakers with background colors, without speaker labels.
 - Shows ready captions immediately below earlier captions in a bounded toast-style stack. Visible captions read concurrently and leave oldest first; each completed part remains for 4–6 seconds, then fades out.
+- Keeps captions visible over fullscreen videos and players, including fullscreen videos inside embedded frames. Playback controls remain clickable.
 - Opens a separate original/translation history window.
 - Runs speech recognition, translation and speaker analysis locally. No API key or companion app required.
 

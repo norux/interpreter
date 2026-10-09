@@ -18,6 +18,9 @@ const server = createServer(async (request, response) => {
     const path = new URL(request.url, "http://localhost").pathname;
     if (path.endsWith(".webm")) { response.setHeader("Content-Type", "video/webm"); response.end(await readFile(`tests/fixtures/video-speech${path}`)); return; }
     response.setHeader("Content-Type", "text/html");
+    if (path === '/embedded') {
+      response.end('<!doctype html><video id="embedded" src="/en.webm" controls></video><button onclick="embedded.requestFullscreen()">Fullscreen embedded video</button>');return;
+    }
     response.end(`<!doctype html><meta charset="utf-8"><title>Selected overlay fixture</title><style>
       #player {width:320px} #player:fullscreen {width:100vw;background:black} #player:fullscreen video {width:100%;height:80vh}
       video {width:320px;height:180px} body {height:1800px} </style>
@@ -49,7 +52,7 @@ try {
   const host = await context.newPage(); host.on("pageerror", error => observations.pageErrors.push(error.message));
   await host.goto(`chrome-extension://${extensionId}/host.html?tab=${tabId}`);
   await host.waitForFunction(() => document.querySelector('#video').options.length === 3);
-  assert.match(await host.locator("#fullscreen-support").textContent(), /Video-only fullscreen hides page captions/);
+  assert.match(await host.locator("#fullscreen-support").textContent(), /비디오·플레이어 전체화면/);
   await host.evaluate(async tabId => {
     const { createRemoteVideoOutput, overlayChannelName } = await import('./overlay-channel.js');
     globalThis.failures = [];
@@ -107,21 +110,80 @@ try {
   assert.equal(await page.evaluate(() => document.visibilityState), 'visible');
   assert.equal(await page.evaluate(() => document.fullscreenEnabled), true);
   await page.getByRole('button',{name:'Fullscreen player',exact:true}).click();
-  await page.waitForFunction(() => document.fullscreenElement?.id==='player' && document.querySelector('[data-interpreter-overlay]').parentElement===player);
+  await page.waitForFunction(() => document.fullscreenElement?.id==='player' && document.querySelector('[data-interpreter-overlay]').matches(':popover-open'));
   assert.equal(await page.locator('[data-interpreter-overlay]').evaluate(node=>getComputedStyle(node).display), 'flex');
   await page.evaluate(() => document.exitFullscreen()); await page.waitForFunction(() => !document.fullscreenElement);
-  await page.getByRole('button',{name:'Fullscreen video',exact:true}).click(); await page.waitForFunction(() => document.fullscreenElement===ja && getComputedStyle(document.querySelector('[data-interpreter-overlay]')).display==='none', undefined, {timeout:5000});
-  assert.equal(await page.locator('[data-interpreter-overlay]').evaluate(node=>getComputedStyle(node).display), 'none');
+  await page.getByRole('button',{name:'Fullscreen video',exact:true}).click();
+  await page.waitForFunction(() => document.fullscreenElement===ja && document.querySelector('[data-interpreter-overlay]').matches(':popover-open'), undefined, {timeout:5000});
+  assert.equal(await page.locator('[data-interpreter-overlay]').evaluate(node=>getComputedStyle(node).display), 'flex');
+  await page.screenshot({path:'.ralph/media-framework/selected-video-fullscreen.png'});
+  assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth/2,innerHeight/2)===ja),true,'The caption layer must not intercept video input');
   await page.evaluate(() => document.exitFullscreen()); await page.waitForFunction(() => !document.fullscreenElement);
+  await page.waitForFunction(() => !document.querySelector('[data-interpreter-overlay]').hasAttribute('popover'));
   await host.evaluate(() => display.clear(identity)); await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
   await host.evaluate(() => sendPair('late after Stop',3)); assert.equal(await page.locator('[data-interpreter-overlay]').count(),0);
-  observations.checks.push('Container fullscreen moves owned overlay inside its surface; video-only fullscreen explicitly hides it; Stop removes overlay and blocks late results');
+  observations.checks.push('Container and video-only fullscreen keep the overlay in the top layer; Stop removes it and blocks late results');
   await host.evaluate(() => {identity={...identity,sessionId:'restart'};source={...source,identity,sourceRevision:1};display.activate(target,identity);sendPending()});
   await cue.waitFor();
   await page.evaluate(() => ja.remove()); await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
   await host.waitForFunction(() => failures.length===1); assert.match(await host.evaluate(() => failures[0]),/context-destroyed/);
   assert.equal(await page.locator('[data-interpreter-overlay]').count(),0); assert.equal(await page.locator('#en').count(),1);
   observations.checks.push('Restart and selected element invalidation remove resources, fail visibly, and never switch to the other video');
+  // Shipping whole-tab presentation also covers a cross-origin video iframe.
+  const tabPage=await context.newPage();tabPage.on('pageerror',error=>observations.pageErrors.push(error.message));
+  await tabPage.goto(`${origin}/?tab-fullscreen`);
+  const captionTabId=await worker.evaluate(async url=>(await chrome.tabs.query({})).find(tab=>tab.url===url).id,tabPage.url());
+  const tabCue=tabPage.locator('[data-interpreter-overlay] .interpreter-live span').first();
+  await worker.evaluate(async tabId => {
+    await chrome.scripting.executeScript({target:{tabId,frameIds:[0]},files:['tab-content.js']});
+    globalThis.tabFailures=[];globalThis.tabAcks=[];globalThis.tabSequence=0;
+    globalThis.tabPort=chrome.tabs.connect(tabId,{name:'interpreter-tab-overlay-v1',frameId:0});
+    tabPort.onDisconnect.addListener(()=>tabFailures.push('disconnected'));
+    tabPort.onMessage.addListener(message=>tabAcks.push(message.sequence));
+    globalThis.tabIdentity={sessionId:'tab-fullscreen',targetId:'tab-fullscreen',epoch:0};
+    globalThis.sendTab=(id,text,revision=1)=>tabPort.postMessage({version:1,sequence:tabSequence++,type:'caption',caption:{source:{identity:tabIdentity,utteranceId:id,sourceRevision:revision,
+      language:'en',text:'Synthetic fullscreen source',final:false,audioRange:{startMs:id==='one'?0:1000,endMs:id==='one'?1000:2000}},
+      translation:{state:'paired',revision:{identity:tabIdentity,utteranceId:id,sourceRevision:revision,translationRevision:revision,
+        languages:{source:'en',target:'ko'},text,final:false}}}});
+    tabPort.postMessage({version:1,sequence:tabSequence++,type:'activate',identity:tabIdentity,
+      target:{id:tabIdentity.targetId,documentId:'fixture',frameId:'tab',scope:'tab-mix',tabId}});
+    sendTab('one','전체화면 첫 자막');sendTab('two','전체화면 다음 자막');
+  },captionTabId);
+  await tabPage.waitForFunction(() => document.querySelector('[data-interpreter-overlay]')?.shadowRoot.querySelectorAll('.interpreter-live').length===2);
+  await tabPage.evaluate(origin => {
+    const button=document.createElement('button');button.textContent='Fullscreen tab video';button.onclick=()=>en.requestFullscreen();document.body.append(button);
+    const frame=document.createElement('iframe');frame.id='embedded-frame';frame.allowFullscreen=true;
+    frame.src=`${origin.replace('127.0.0.1','localhost')}/embedded`;document.body.append(frame);
+  },origin);
+  await tabPage.getByRole('button',{name:'Fullscreen tab video',exact:true}).click();
+  await tabPage.waitForFunction(() => document.fullscreenElement===en && document.querySelector('[data-interpreter-overlay]').matches(':popover-open'));
+  await worker.evaluate(() => sendTab('two','전체화면에서도 교정된 자막',2));
+  await tabPage.waitForFunction(() => document.querySelector('[data-interpreter-overlay]').shadowRoot.textContent.includes('전체화면에서도 교정된 자막'));
+  await tabPage.screenshot({path:'.ralph/media-framework/tab-video-fullscreen.png'});
+  const fullGeometry=await tabCue.evaluate(node=>{const r=node.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight}});
+  assert.ok(fullGeometry.left>=0 && fullGeometry.right<=fullGeometry.width && fullGeometry.top>=0 && fullGeometry.bottom<=fullGeometry.height-48);
+  assert.equal(await tabPage.evaluate(() => document.elementFromPoint(innerWidth/2,innerHeight/2)===en),true);
+  await tabPage.evaluate(() => document.exitFullscreen());
+  await tabPage.waitForFunction(() => !document.fullscreenElement && !document.querySelector('[data-interpreter-overlay]').hasAttribute('popover'));
+  await tabPage.frameLocator('#embedded-frame').getByRole('button',{name:'Fullscreen embedded video',exact:true}).click();
+  await tabPage.waitForFunction(() => document.fullscreenElement?.id==='embedded-frame' && document.querySelector('[data-interpreter-overlay]').matches(':popover-open'));
+  await worker.evaluate(() => sendTab('two','임베드 영상 전체화면 자막',3));
+  await tabPage.waitForFunction(() => document.querySelector('[data-interpreter-overlay]').shadowRoot.textContent.includes('임베드 영상 전체화면 자막'));
+  await tabPage.screenshot({path:'.ralph/media-framework/tab-iframe-fullscreen.png'});
+  await worker.evaluate(() => tabPort.postMessage({version:1,sequence:tabSequence++,type:'clear',identity:tabIdentity}));
+  await tabPage.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
+  assert.equal(await tabPage.locator(':popover-open').count(),0,'Stop must remove the fullscreen top layer');
+  await worker.evaluate(() => sendTab('two','late after fullscreen Stop',4));
+  const ackDeadline=performance.now()+5000;
+  while(!await worker.evaluate(() => tabAcks.at(-1)===tabSequence-1)) {
+    assert.ok(performance.now()<ackDeadline,'Late caption must be acknowledged after fullscreen Stop');
+    await new Promise(done=>setTimeout(done,20));
+  }
+  assert.equal(await tabPage.locator('[data-interpreter-overlay]').count(),0);
+  assert.deepEqual(await worker.evaluate(() => tabFailures),[]);
+  await tabPage.evaluate(() => document.exitFullscreen());await tabPage.waitForFunction(() => !document.fullscreenElement);
+  await tabPage.close();
+  observations.checks.push('Shipping whole-tab port preserves stacked captions and corrections over video and cross-origin iframe fullscreen, restores inline output, passes pointer input, and removes the top layer on Stop');
   // The reference document is an actual browser DOM; these captions are synthetic.
   const liveTiming = await host.evaluate(async () => {
     const {createVideoOverlay}=await import('./overlay.js');

@@ -23,6 +23,8 @@ Navigation, target loss and Stop invalidate the session and release resources. S
 - Speaker inference runs independently of text presentation. Stable session-local IDs select background colors; no “speaker 1” labels are rendered.
 - Very short or uncertain speech can remain unassigned. Speaker numbers are anonymous clusters, not personal identity.
 
+The page overlay stays attached to the document root. During Fullscreen API playback it uses a manual popover to enter the browser's top layer above fullscreen video, player or iframe surfaces; normal `z-index` cannot place a page overlay above that layer. Leaving fullscreen removes the popover state and restores normal positioning without recreating the view or presentation policy. Its transparent background/backdrop and `pointer-events:none` preserve playback controls and avoid focus-taking UI. Stop/disposal removes the surface, including an open fullscreen popover.
+
 Whisper timestamps describe acoustic segments, which can contain part of a sentence or several sentences. Join unfinished pieces before publishing. At the 12-second snapshot limit, retain an incomplete trailing phrase's PCM when a complete preceding segment can be trimmed; drain at EOF, an automatic-mode speech boundary or a settled pause, with a bounded flush when no usable boundary exists. A punctuation correction inside retained audio must not repeat a committed prefix. Japanese translation splits ASCII/full-width sentence punctuation and conversational endings before a new-script word or discourse marker, preserving word-internal text such as `よく` and relative verbs such as `行った駅`.
 
 ## Models

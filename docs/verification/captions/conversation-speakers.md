@@ -50,3 +50,20 @@ Jamak 전환 후에는 legacy 앱과 전용 검사를 제거하고 `npm run veri
 최종 변경에서 `npm run verify`는 린트, 두 종류의 타입 검사, Chrome 빌드, 166개 단위·fixture 테스트와 다중 자막 안정성 검사를 통과했다. `npm run test:framework:chrome:overlay`는 실제 확장 포트, 영상 크기·스크롤·전체화면, 긴 자막의 두 줄 재생 및 Stop 정리를 통과했다. `npm run test:conversation:live`의 실제 SODA/TranslateKit 대화 재생에서는 확정 자막 9개가 모두 표시됐고, 최대 두 자막이 함께 보였으며, 읽은 자막 재등장과 마지막 자막 미완료가 없었다. 원문·번역의 정확한 revision pairing과 화자 번호 일관성도 유지했다. 로컬 화면 기록은 `.ralph/caption-conversation/live.json`이다.
 
 팝업의 `모델 정보`는 역할/모델 두 열로 실제 준비된 모델 구성을 표시한다. 준비 전에는 선택한 모드의 예상 구성을 표시한다. `node tests/framework-chrome-popup.mjs`로 자동 모드의 네 모델, 수동 SODA 구성 및 실제 준비 결과가 팝업 API의 예측을 덮어쓰는 경우를 검사했다. 이 표와 다운로드 표시 변경은 모델 가중치·번역 경로를 변경하지 않는다.
+
+## 비디오와 임베드 영상의 전체화면 자막
+
+2026-10-09, macOS arm64, Chrome for Testing 153.0.8010.12. 기존 구현은 플레이어 컨테이너 전체화면만 지원하고 비디오 자체가 `document.fullscreenElement`가 되면 자막을 숨겼다. 비디오 전체화면에서도 열린 최상위 표시 레이어를 요구하는 회귀 검사를 먼저 추가했고, 수정 전에는 5초 timeout으로 실패했다.
+
+`apps/chrome/overlay.ts`는 같은 자막 host/view/policy를 document root에 유지하고 전체화면에서만 manual popover로 표시한다. Popover의 최상위 레이어 동작은 [Chrome Popover API 문서](https://developer.chrome.com/blog/introducing-popover-api)를 따른다. 비디오·플레이어·iframe 전체화면 위에 자막이 표시되고, 종료 시 popover 상태만 제거한다. 영상이나 전체화면 대상을 바꾸지 않으며 투명 배경/backdrop과 pointer passthrough로 재생 컨트롤을 유지한다. Stop/dispose는 열린 최상위 레이어까지 제거한다.
+
+`npm run verify`의 lint, 두 종류 타입 검사, Chrome 빌드, 173개 단위·fixture 검사와 제어된 시계의 자막 스택 검사를 통과했다. 실제 브라우저 확장 포트 검사 `npm run test:framework:chrome:overlay`는 다음을 확인했다.
+
+- 선택 영상의 일반/컨테이너/비디오 자체 전체화면, 영상 크기·스크롤·긴 자막의 두 줄 표시와 일반 화면 복구.
+- shipping `tab-content.js`와 실제 service-worker 포트로 전달한 두 개 합성 자막의 전체화면 스택, revision 교정 및 영상으로의 pointer passthrough.
+- `127.0.0.1` 부모 페이지와 `localhost` iframe의 서로 다른 origin에서 iframe 내부 비디오의 실제 Fullscreen API 전환과 페이지 자막 표시.
+- 전체화면 상태의 Stop, 열린 popover 제거, 이후 늦은 자막을 수신·ack하더라도 화면이 다시 생기지 않는 동작.
+
+확장 검사는 합성 accepted-caption 입력이며 ASR/번역 정확도나 실제 오디오의 새 측정이 아니다. 테스트 복사본의 localhost 권한을 사용하므로 toolbar의 activeTab 권한 승인을 새로 검증한 것도 아니다. `selected-video-fullscreen.png`, `tab-video-fullscreen.png`, `tab-iframe-fullscreen.png`는 `.ralph/media-framework/`에 저장해 육안으로 검토했고, 영상 위 자막·스택·컨트롤 위 여백을 확인했다.
+
+shipping 탭 경로를 검사하면서 service worker의 동적 import 제한과 첫 port 메시지가 도착하기 전 DOM을 읽는 검사 오류가 발생했다. 테스트가 실제 service-worker 포트로 합성 envelope를 보내고 자막 host 생성까지 기다리도록 수정했다. 기존 선택 영상 fixture와 shipping 탭 fixture를 한 페이지에 주입했을 때 서로의 채널이 끊겨, 실제 제품과 같은 별도 페이지로 분리한 뒤 통과했다. 이를 위해 production 채널 검증을 완화하지 않았다. README·AGENTS·아키텍처·검사 지침과 기존 host의 전체화면 안내를 동기화했다. 코딩 규약의 revision·읽기 시간·비대화형 표시 원칙과 기존 언어별 인식 검증 기록은 유효해 수정하지 않았다.

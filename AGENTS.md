@@ -37,6 +37,8 @@ Automatic mode supports English/Japanese/Korean speech and requires the local Wh
 
 Ready captions stack below earlier captions and accrue reading time concurrently. Retire completed rows oldest first, preserve each row’s measured two-line parts and correction offsets, and never spend the reading time of clipped/offscreen rows. The model-information table uses the prepared engine’s actual model list when available.
 
+Fullscreen captions use a manual popover in the page's top layer, including video-only and embedded-frame fullscreen. Keep the overlay noninteractive, preserve caption revisions and reading progress through entry/exit, and remove the top-layer surface on Stop/disposal. Do not replace the page's fullscreen target or modify its video element.
+
 Download progress must come from background preparation state, survive popup closure and reflect the current model stage. Keep stages without reported progress indeterminate; downloaded files do not imply that model loading is complete.
 
 ## Verification and delivery

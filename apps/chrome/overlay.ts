@@ -10,13 +10,14 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
   if (!viewWindow) throw new Error("Overlay requires a live video document");
   const window = viewWindow;
   const host = document.createElement("div"); host.dataset.interpreterOverlay = "";
-  host.style.cssText = "position:fixed;pointer-events:none;z-index:2147483647;align-items:end;box-sizing:border-box";
+  host.style.cssText = "position:fixed;pointer-events:none;z-index:2147483647;align-items:end;box-sizing:border-box;margin:0;border:0;padding:0;background:transparent;overflow:visible";
   const shadow = host.attachShadow({ mode: "open" });
   const container = document.createElement("div");
   container.style.width = "100%";
   const view = createComparisonView(container, video ? "video" : "capture"); view.activate(identity);
   const style = document.createElement("style");
-  style.textContent = `table, p { display:none }
+  style.textContent = `:host::backdrop { background:transparent; pointer-events:none }
+    table, p { display:none }
     .interpreter-stack { width:min(84%,760px); margin:0 auto; }
     .interpreter-live { width:100%; box-sizing:border-box; margin:0 auto; padding:6px 18px;
       color:white; text-align:center; min-height:0; font:600 clamp(16px,2vw,26px)/1.65 system-ui,sans-serif;
@@ -43,26 +44,26 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
   function position() {
     if (disposed) return;
     const fullscreen = document.fullscreenElement;
+    if (host.parentElement !== document.documentElement) document.documentElement.append(host);
+    const popover = fullscreen ? "manual" : null;
+    if (host.popover !== popover) host.popover = popover;
     if (!video) {
-      const parent = fullscreen && !(fullscreen instanceof window.HTMLMediaElement) ? fullscreen : document.documentElement;
-      if (host.parentElement !== parent) parent.append(host);
-      host.style.display = fullscreen instanceof window.HTMLMediaElement ? "none" : "flex";
+      host.style.display = "flex";
       host.style.left = "0"; host.style.top = "0"; host.style.width = "100%"; host.style.height = "100%";
       const bottom = Math.max(64, window.innerHeight * 0.14);
       host.style.paddingBottom = `${bottom}px`;
       container.style.setProperty("--interpreter-stack-height", `${Math.max(0, window.innerHeight - bottom - 16)}px`);
-      return;
+    } else {
+      const rect = video.getBoundingClientRect();
+      host.style.display = !video.isConnected || rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth || (fullscreen !== null && fullscreen !== video && !fullscreen.contains(video)) ? "none" : "flex";
+      host.style.left = `${rect.left}px`; host.style.top = `${rect.top}px`; host.style.width = `${rect.width}px`; host.style.height = `${rect.height}px`;
+      const bottom = Math.min(96, Math.max(64, rect.height * 0.18));
+      host.style.paddingBottom = `${bottom}px`;
+      container.style.setProperty("--interpreter-stack-height", `${Math.max(0, rect.height - bottom - 16)}px`);
     }
-    const parent = fullscreen && fullscreen !== video && fullscreen.contains(video) ? fullscreen : document.documentElement;
-    if (host.parentElement !== parent) parent.append(host);
-    const rect = video.getBoundingClientRect();
-    // A video's native fullscreen surface cannot contain injected DOM. Keep the
-    // comparison host available instead of claiming this overlay is visible.
-    host.style.display = !video.isConnected || rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth || (fullscreen !== null && (fullscreen === video || !fullscreen.contains(video))) ? "none" : "flex";
-    host.style.left = `${rect.left}px`; host.style.top = `${rect.top}px`; host.style.width = `${rect.width}px`; host.style.height = `${rect.height}px`;
-    const bottom = Math.min(96, Math.max(64, rect.height * 0.18));
-    host.style.paddingBottom = `${bottom}px`;
-    container.style.setProperty("--interpreter-stack-height", `${Math.max(0, rect.height - bottom - 16)}px`);
+    // Fullscreen video/iframe surfaces cover ordinary page DOM regardless of
+    // z-index. A manual popover paints above them without taking input focus.
+    if (fullscreen && host.style.display !== "none" && !host.matches(":popover-open")) host.showPopover();
   }
   const resize = new window.ResizeObserver(position); if (video) resize.observe(video);
   window.addEventListener("scroll", position, true); window.addEventListener("resize", position);
