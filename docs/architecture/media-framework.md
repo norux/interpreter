@@ -23,12 +23,14 @@ Navigation, target loss and Stop invalidate the session and release resources. S
 - Speaker inference runs independently of text presentation. Stable session-local IDs select background colors; no “speaker 1” labels are rendered.
 - Very short or uncertain speech can remain unassigned. Speaker numbers are anonymous clusters, not personal identity.
 
+Whisper timestamps describe acoustic segments, which can contain part of a sentence or several sentences. Join unfinished pieces before publishing. At the 12-second snapshot limit, retain an incomplete trailing phrase's PCM when a complete preceding segment can be trimmed; drain at EOF, an automatic-mode speech boundary or a settled pause, with a bounded flush when no usable boundary exists. A punctuation correction inside retained audio must not repeat a committed prefix. Japanese translation splits ASCII/full-width sentence punctuation and conversational endings before a new-script word or discourse marker, preserving word-internal text such as `よく` and relative verbs such as `行った駅`.
+
 ## Models
 
 | Task | Runtime/model | Conditions |
 | --- | --- | --- |
-| Recognition | Chrome SODA, local SpeechRecognition | Preferred when the required local API and language packs are available |
-| Automatic recognition / fallback | Whisper large-v3-turbo FP16 through Transformers.js/ONNX | WebGPU-capable device; larger first download; automatic mode shares acoustic encoding between language detection and transcription |
+| Recognition | Chrome SODA, local SpeechRecognition | Preferred for English; Japanese on devices without WebGPU; required local API and language packs |
+| Recognition | Whisper large-v3-turbo FP16 through Transformers.js/ONNX | Preferred for Japanese on WebGPU devices; automatic/Korean modes and fallback; ~1.6 GB speech model; automatic mode shares acoustic encoding between detection and transcription |
 | Voice activity for fallback | Silero VAD | Bundled ONNX runtime; pinned artifact |
 | Translation | Chrome TranslateKit | Local Translator API and English/Japanese → Korean packs |
 | Speaker embeddings | WeSpeaker VoxCeleb ResNet34-LM q8 | Local WASM worker; ~6.7 MB first download |

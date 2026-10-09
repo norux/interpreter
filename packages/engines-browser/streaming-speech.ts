@@ -34,14 +34,14 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
   function complete(text: string) {
     const trimmed = text.trim().replace(/["'”’」』）)]*$/u, "");
     if (detectedLanguage === "ja") return /[。！？!?]$/u.test(trimmed)
-      || /(?:ませんでした|ません|ました|ます|でした|です|ましょう|ください|でしょう|だった|だよ|だね)$/u.test(trimmed);
+      || /(?:ませんでした|ません|ました|ます|でした|です|ましょう|ください|でしょう|だった|大丈夫|(?:る|た|だ|ない|ます|です|て|で|く|いい)[よね]|んだ|んだけど|かな|しよう)$/u.test(trimmed);
     if (detectedLanguage === "ko") return /[.!?。！？]$/u.test(trimmed);
     if (/[!?]$/u.test(trimmed)) return true;
     const clause = /[,;:]$/u.test(trimmed) && (/^\s*let['’]s\b/iu.test(trimmed) || /\b(?:am|is|are|was|were|have|has|had|do|does|did|will|would|can|could|must|should|may|might|shall|[a-z]+ed)\b/iu.test(trimmed));
     return (/\.$/u.test(trimmed) || clause) && !/\b(?:mr|mrs|ms|dr|prof|st|vs|etc|e\.g|i\.e|[a-z]|and|but|because|if|when|that|to|the|of|for|with|at|in)[.,;:]$/iu.test(trimmed);
   }
   function sentences(text: string) {
-    return detectedLanguage === "ja" ? text.split(/(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u)
+    return detectedLanguage === "ja" ? text.split(/(?<=[。！？!?])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u)
       : [...splitters[detectedLanguage].segment(text)].flatMap(sentence => sentence.segment.split(
         /(?<=[,;:])\s+(?=(?:let['’]s|please|i|we|you|he|she|they|it|this|that|there)\b)/iu,
       ));
@@ -70,7 +70,7 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
     results.push({ identity: selected, utteranceId: `speech-${++utterance}`, language: detectedLanguage,
       sourceRevision: 1, final: true, text: text.trim(), audioRange: range }); wake?.();
   }
-  function accept(segments: readonly AsrSegment[], decodedStartMs: number, analyzedEndMs: number, final: boolean) {
+  function accept(segments: readonly AsrSegment[], decodedStartMs: number, analyzedEndMs: number, final: boolean, finishUtterance: boolean) {
     const text = segments.map(segment => segment.text).join("");
     const current = normalized(text);
     const endings = new Set<number>();
@@ -87,15 +87,20 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
       // A timestamp segment may contain multiple sentences; they share its
       // coarse acoustic range rather than inventing word-level timestamps.
       for (const sentence of sentences(segment.text)) {
+        const sentenceStart = normalized(prefix).length;
         prefix += sentence;
         const position = normalized(prefix).length;
         if (position <= committed) continue;
-        pending += sentence; pendingStartMs ??= decodedStartMs + segment.startMs;
+        let offset = 0;
+        // A punctuation correction can merge a committed sentence with its
+        // unfinished successor inside the same retained acoustic segment.
+        while (offset < sentence.length && normalized(sentence.slice(0, offset)).length < committed - sentenceStart) offset++;
+        pending += offset ? sentence.slice(offset).replace(/^[\s。、！？!?,]+/u, "") : sentence;
+        pendingStartMs ??= decodedStartMs + segment.startMs;
         const behindLiveEdge = decodedStartMs + segment.endMs <= analyzedEndMs - 320;
         const followingWords = normalized(text.slice(prefix.length)).length > 0;
         const pause = quietSamples >= 3840 && speechEndMs <= analyzedEndMs - 80;
-        if (final || (position <= stable && (complete(pending) && previousEndings.has(position) && (followingWords || behindLiveEdge || pause)
-          || quietSamples >= 25600 && speechEndMs <= analyzedEndMs - 1000))) {
+        if (complete(pending) && (final || position <= stable && previousEndings.has(position) && (followingWords || behindLiveEdge || pause))) {
           publish(pending, { startMs: pendingStartMs, endMs: decodedStartMs + segment.endMs });
           committed = position; pending = ""; pendingStartMs = undefined;
         }
@@ -104,7 +109,15 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
       if (normalized(prefix).length <= committed) trimEndMs = decodedStartMs + segment.endMs;
     }
     previous = current; previousEndings = endings;
-    if (final) trimEndMs = analyzedEndMs;
+    // Timestamp segments are acoustic ranges, not sentences. Join their
+    // unfinished text and retain a trailing phrase across the snapshot limit.
+    // EOF (or a window with no usable sentence boundary) still drains once.
+    const settledPause = current.length <= stable && quietSamples >= 25600 && speechEndMs <= analyzedEndMs - 1000;
+    if (pending && (settledPause || final && (finishUtterance || trimEndMs <= decodedStartMs))) {
+      publish(pending, { startMs: pendingStartMs ?? decodedStartMs, endMs: analyzedEndMs });
+      committed = current.length; pending = "";
+    }
+    if ((final || settledPause) && !pending) trimEndMs = analyzedEndMs;
     // Once the entire decoded speech is confirmed during silence, discard its
     // decoded quiet tail too; it cannot start another noise-only ASR job.
     if (committed === current.length && speechEndMs <= analyzedEndMs - 240 && quietSamples >= 3840) trimEndMs = analyzedEndMs;
@@ -124,7 +137,8 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
     const boundary = boundaries[0];
     const samples = Math.min(length, 16000 * 12, boundary === undefined ? Infinity : Math.round((boundary - startMs) * 16));
     const analyzedEndMs = startMs + samples / 16;
-    const final = ended || samples === 16000 * 12 || boundary !== undefined && analyzedEndMs >= boundary;
+    const finishUtterance = ended || boundary !== undefined && analyzedEndMs >= boundary;
+    const final = finishUtterance || samples === 16000 * 12;
     decodedEndMs = analyzedEndMs; decodedQuietSamples = quietSamples;
     if (quietSamples >= 3840) pauseDecodedEndMs = endMs;
     try {
@@ -141,7 +155,7 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
         // Its PCM stays in the growing snapshot, including the initial words.
         if (!final && analyzedEndMs - decodedStartMs < 2000 && (output.revision.confidence?.value ?? 0) < 0.65) return;
       }
-      accept(output.segments, decodedStartMs, analyzedEndMs, final);
+      accept(output.segments, decodedStartMs, analyzedEndMs, final, finishUtterance);
       report("running");
     } catch (error) {
       if (!stopped) stop(error instanceof Error && error.message === "gpu-lost" ? "gpu-lost" : "engine-failed");

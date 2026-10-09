@@ -3,14 +3,22 @@
 <meta charset="utf-8">
 <title>자연스러운 대화 자막 테스트</title>
 <style>body{max-width:800px;margin:48px auto;padding:0 24px;font:18px/1.6 system-ui}audio{width:100%}summary{cursor:pointer}li{margin:12px 0}</style>
-<h1>약 1분 영어 대화 테스트</h1>
+<h1 id="heading">약 1분 대화 테스트</h1>
+<p><a href="?language=en">영어 대화</a> · <a href="?language=ja">일본어 대화</a></p>
 <p>두 화자가 주말 약속을 정하는 합성 음성입니다. 문장을 반복하지 않으며, 재생이 끝나면 자동으로 멈춥니다.</p>
 <p>확장 프로그램에서 이 탭의 자막을 시작한 뒤 재생하세요. 자막 교정 중 원문으로 바뀌는지, 다음 문장이 이전 문장을 너무 일찍 지우는지 확인할 수 있습니다.</p>
-<audio controls preload="metadata" src="conversation.wav"><track kind="captions" src="conversation.vtt" srclang="en" label="English"></audio>
+<audio controls preload="metadata"><track kind="captions" src="conversation.vtt" srclang="en" label="English"></audio>
 <p id="duration"></p>
 <details><summary>기준 대화문과 발화 시간</summary><ol id="script"></ol></details>
 <script type="module">
-const manifest = await (await fetch('manifest.json')).json();
+const japanese = new URL(location.href).searchParams.get('language') === 'ja';
+const directory = japanese ? 'ja/' : '';
+document.querySelector('#heading').textContent = `약 1분 ${japanese ? '일본어' : '영어'} 대화 테스트`;
+const audio = document.querySelector('audio');
+audio.src = `${directory}conversation.wav`;
+const track = audio.querySelector('track');
+track.kind = 'captions'; track.src = `${directory}conversation.vtt`; track.srclang = japanese ? 'ja' : 'en'; track.label = japanese ? '日本語' : 'English';
+const manifest = await (await fetch(`${directory}manifest.json`)).json();
 document.querySelector('#duration').textContent = `길이: ${manifest.durationSeconds.toFixed(1)}초 · ${manifest.turns.length}개 발화 · 자동 반복 없음`;
 for (const turn of manifest.turns) {
   const item = document.createElement('li');

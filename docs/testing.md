@@ -26,12 +26,17 @@ The checked-in fixture uses Samantha/Kyoko/Yuna synthetic voices; `python3 tests
 | --- | --- |
 | `npm run test:captions-stability` | Ready captions appear immediately below earlier captions; visible reading clocks overlap; a narrow-screen burst of 12 rows remains bounded and all rows display before retiring oldest first; corrections, speaker colors, 4-second final holds and 250 ms fades remain correct |
 | `npm run test:speakers` | Actual local WeSpeaker embeddings on the synthetic two-voice conversation; downloads model files when uncached |
-| `npm run test:conversation` | Serves the ~58-second English conversation at `http://127.0.0.1:8790` for manual extension testing |
+| `npm run test:conversation` | Serves two-voice conversations at `http://127.0.0.1:8790`: English (~58 s) or Japanese (~76 s, `?language=ja`) |
 | `npm run test:conversation:live` | Production popup → offscreen tab audio → Chrome local recognition/translation → page overlay; final pairing, sentence order, speaker consistency, completion/fade and Stop |
+| `npm run test:conversation:ja:live` | Production Japanese Whisper → TranslateKit → overlay; CER ≤12%, eight turns' source/Korean content, two speakers, ordered display without replay, completion/fade and Stop; lexical relationship errors are reported separately in `missingKoreanDetails`; local report `.ralph/caption-conversation/live-ja.json` |
 | `npm run test:framework:chrome:overlay` | Extension transport, visible geometry, fullscreen and cleanup |
 | `npm run test:framework:chrome:tab-input` | Real action-authorized capture/playback and target lifecycle |
 
 Native recognition/translation checks require compatible desktop Chrome, installed local speech/translation packs, a graphical session, and the official Chrome translation components expected by the harness at `.ralph/media-framework/chrome-translation-components`. They are explicit local checks, not CI prerequisites. Some media fixture regeneration uses macOS `say`/`afconvert`; checked-in synthetic fixtures are available without regeneration.
+
+Japanese conversation verification requires WebGPU and the pinned Whisper/Silero artifacts. To reuse already downloaded official Whisper weights, set `INTERPRETER_TEST_MODEL_DIRECTORY` to a directory containing `interpreter-turbo-encoder-verified.onnx` and `interpreter-turbo-decoder.onnx`; the harness verifies their registered sizes and SHA-256 values before seeding only its disposable extension cache. Other artifacts still use official downloads. A passed content/flow gate does not establish exact Japanese word recognition or perfect translation of kinship, politeness or implied subjects.
+
+The conversation report records media playback state/events and each ASR job's PCM RMS/peak. If text repeats after playback ends, compare playback restarts, job audio ranges and input energy before attributing the repeat to recognition or caption timers. These diagnostics do not change production audio processing.
 
 For a caption bug, first reproduce it with a failing focused check. For audio or model behavior, inspect the actual conversation and run the corresponding real model/browser check. Report synthetic display tests separately from native inference. Do not call a test passed because preparation, mocked text or PCM acquisition succeeded.
 

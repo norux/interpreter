@@ -23,7 +23,9 @@ export function createChromeEngine(document: Document, source: "ja" | "en" | "ko
   const asr = createAsrHost(document, "turboFp16", "webgpu", report, execution);
   const vad = createVadHost(document, report, execution);
   const local = (source === "ja" || source === "en") && execution === "offscreen" && audioTrack ? createLocalSpeechHost(document, source, audioTrack, receive) : undefined;
-  const usingLocal = local?.supported === true;
+  // Japanese SODA omits punctuation and misrecognizes conversational clauses;
+  // use the existing Whisper model on devices with WebGPU.
+  const usingLocal = local?.supported === true && (source === "en" || !document.defaultView?.navigator.gpu);
   const translator = createDocumentTranslator(document, languages, status => receive(`Translator ${source} → ko: ${status.state}${status.progress === undefined ? "" : ` ${Math.round(status.progress * 100)}%`}${status.reason ? ` (${status.reason})` : ""}`,
     status.state === "preparing" ? `번역 모델 준비${status.progress === undefined ? " 중…" : ` · ${Math.round(status.progress * 100)}%`}` : undefined,
     status.state === "preparing" ? status.progress : undefined), execution);

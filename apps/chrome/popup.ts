@@ -26,6 +26,10 @@ type SpeechApi = { available?: (options: { langs: string[]; processLocally: true
 const view = window as Window & { SpeechRecognition?: SpeechApi; webkitSpeechRecognition?: SpeechApi; Translator?: { availability(options: { sourceLanguage: string; targetLanguage: string }): Promise<string> } };
 const speech = view.SpeechRecognition ?? view.webkitSpeechRecognition;
 const localSpeechSupported = !!speech?.available && !!speech.install && "processLocally" in new speech();
+function usingLocalSpeech() {
+  const source = selectedSource();
+  return localSpeechSupported && (source === "en" || source === "ja" && !navigator.gpu);
+}
 function render(value: BackgroundSnapshot) {
   snapshot = value;
   const busy = ["preparing", "starting", "running", "stopping", "failed"].includes(value.state);
@@ -47,14 +51,14 @@ function render(value: BackgroundSnapshot) {
   }
   translationControls.hidden = setup;
   const native = value.models && value.source === source ? value.models.some(model => model.name === "Chrome SODA")
-    : (source === "ja" || source === "en") && localSpeechSupported;
+    : usingLocalSpeech();
   modelDescription.textContent = source === "auto"
     ? "영어 · 일본어 · 한국어를 발화별로 자동 감지합니다.\n한국어 발화는 원문을 표시하고, 영어·일본어는 한국어로 번역합니다.\n처음 모델 다운로드 후 기기에서 처리합니다."
     : source === "ko"
     ? "음성 인식: Whisper large-v3-turbo · FP16 + Silero VAD\n한국어 원문을 표시하며 번역은 생략합니다.\n창을 닫아도 준비가 계속 진행됩니다."
     : native
     ? `음성 인식: Chrome SODA · ${source === "ja" ? "일본어" : "영어"}\nChrome 시작용 영어·한국어 팩 포함\n번역: Chrome TranslateKit · 한국어\n창을 닫아도 다운로드가 계속 진행됩니다.`
-    : "음성 인식: Whisper large-v3-turbo · FP16 + Silero VAD\n번역: Chrome TranslateKit · 한국어\n최초 한 번 다운로드하며, 창을 닫아도 계속 진행됩니다.";
+    : "음성 인식: Whisper large-v3-turbo · FP16 + Silero VAD\n번역: Chrome TranslateKit · 한국어\n음성 모델 약 1.6 GB · WebGPU 필요\n최초 한 번 다운로드하며, 창을 닫아도 계속 진행됩니다.";
   prepare.hidden = !setup;
   prepare.textContent = checking ? "모델 확인 중…" : value.state === "preparing" ? "다운로드 · 준비 중…" : "모델 다운로드";
   prepare.disabled = busy || checking || tabId === undefined;
@@ -100,7 +104,7 @@ async function ensureReady() {
     const sources = source === "auto" ? ["en", "ja"] : source === "ko" ? [] : [source];
     const translations = await Promise.all(sources.map(sourceLanguage => view.Translator?.availability({ sourceLanguage, targetLanguage: "ko" })));
     let cached = translations.every(state => state === "available");
-    if (cached && localSpeechSupported && (source === "ja" || source === "en")) {
+    if (cached && usingLocalSpeech()) {
       cached = await speech?.available?.({ langs: localSpeechLanguages(source as "ja" | "en"), processLocally: true }) === "available";
     } else if (cached) {
       for (const selected of [registeredCandidate(asrCandidates.turboFp16.model, "fp16"), registeredCandidate(vadCandidate.model, "fp32")]) {
@@ -127,7 +131,7 @@ prepare.onclick = () => {
   prepare.disabled = true;
   // The browser keeps downloading even after this action popup disappears.
   const source = selectedSource();
-  if (localSpeechSupported && (source === "ja" || source === "en")) void speech?.install?.({ langs: localSpeechLanguages(source as "ja" | "en"), processLocally: true }).catch(error => {
+  if (usingLocalSpeech()) void speech?.install?.({ langs: localSpeechLanguages(source as "ja" | "en"), processLocally: true }).catch(error => {
     if (!disposed) status.textContent = `음성 인식 모델 준비 실패: ${error.message}`;
   });
   action("prepare");

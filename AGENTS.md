@@ -19,6 +19,8 @@ Application code and brand assets are MIT-licensed; keep upstream model attribut
 
 Never commit credentials, model weights, user recordings, `.ralph` output or OS metadata. Synthetic, reproducible test fixtures belong in `tests/fixtures`.
 
+On WebGPU devices, Japanese uses Whisper large-v3-turbo; English prefers Chrome local speech. Japanese can use Chrome local speech when WebGPU is absent. Keep engine selection, popup model descriptions and cached-model checks consistent. Whisper timestamp segments are not sentence boundaries: preserve unfinished speech across snapshot cuts and never replay a committed prefix after punctuation corrections. Drain retained tails at a completed automatic speech boundary before detecting the next turn's language.
+
 ## Documentation synchronization — required for feature changes
 
 Whenever a feature is added, removed or modified, review and update all of the following in the same change:
@@ -31,7 +33,7 @@ Make concrete edits wherever the behavior or instructions changed. If a document
 
 ## Automatic language invariants
 
-Automatic mode supports English/Japanese/Korean speech and requires the local Whisper WebGPU path. Automatic detection is opt-in; the popup defaults to manual Japanese. Selecting English/Japanese/Korean disables detection. Manual English/Japanese can continue using SODA; manual Korean uses fixed-language Whisper and bypasses translation. `auto` is a session selection, never a transcript language: each utterance carries its detected `en`, `ja` or `ko` through recognition, translation and overlay validation. English/Japanese translate to Korean; Korean speech bypasses native translation and pairs with its original text. Preserve first-word PCM and queued speech boundaries during inference. Recent language is a session-local tie breaker, not a fixed language per speaker. Stop/navigation must retire both prepared translation pairs and pending recognition.
+Automatic mode supports English/Japanese/Korean speech and requires the local Whisper WebGPU path. Automatic detection is opt-in; the popup defaults to manual Japanese. Selecting English/Japanese/Korean disables detection. Manual English prefers SODA; manual Japanese prefers Whisper on WebGPU and uses SODA without WebGPU; manual Korean uses fixed-language Whisper and bypasses translation. `auto` is a session selection, never a transcript language: each utterance carries its detected `en`, `ja` or `ko` through recognition, translation and overlay validation. English/Japanese translate to Korean; Korean speech bypasses native translation and pairs with its original text. Preserve first-word PCM and queued speech boundaries during inference. Recent language is a session-local tie breaker, not a fixed language per speaker. Stop/navigation must retire both prepared translation pairs and pending recognition.
 
 Ready captions stack below earlier captions and accrue reading time concurrently. Retire completed rows oldest first, preserve each row’s measured two-line parts and correction offsets, and never spend the reading time of clipped/offscreen rows. The model-information table uses the prepared engine’s actual model list when available.
 
@@ -40,5 +42,7 @@ Download progress must come from background preparation state, survive popup clo
 ## Verification and delivery
 
 Run `npm run verify` for broad changes. For a scoped change, run the checks listed in `docs/testing.md` that demonstrate its behavior. Distinguish mocked display tests from real audio/model/browser verification. Report commands, failures and environment limitations honestly.
+
+For Japanese recognition or translation changes, use the non-looping two-voice `tests/fixtures/conversation/ja` fixture and `npm run test:conversation:ja:live`. Check final source/Korean meanings and actual display completion; preparation or a paired translation alone does not prove quality. Record remaining recognition/translation errors explicitly.
 
 Use Conventional Commits with one intent per commit. Push, publish, rename a remote repository or modify external settings only when the user has authorized the action.

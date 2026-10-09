@@ -86,6 +86,21 @@ test("automatic streaming retains uncertain initial PCM until later snapshots id
   } finally { await f.recognizer.cancel(identity); await stream.return?.(); }
 });
 
+test("automatic speech boundaries drain an unfinished tail before the next language", async () => {
+  const text = "今日は晴れです。そのあと本";
+  const f = fixture("auto", [{ language: "ja", confidence: 0.99, text, segments: [
+    { text: "今日は晴れです。", startMs: 0, endMs: 500 },
+    { text: "そのあと本", startMs: 500, endMs: 1000 },
+  ] }]);
+  const stream = f.recognizer.run(f.input)[Symbol.asyncIterator](); const first = stream.next();
+  try {
+    await f.feed(32); await f.feed(8, false);
+    assert.equal(f.jobs.length, 2, "A completed speech boundary must not leave PCM queued for re-detection");
+    assert.equal((await first).value?.text, "今日は晴れです。");
+    assert.equal((await stream.next()).value?.text, "そのあと本");
+  } finally { await f.recognizer.cancel(identity); await stream.return?.(); }
+});
+
 test("streaming confirms corrected sentence text without waiting for silence or EOF", async () => {
   const f = fixture("en", [
     { text: "We will meet.", segments: [{ text: "We will meet.", startMs: 0, endMs: 1000 }] },
@@ -214,6 +229,26 @@ test("input EOF drains an unfinished phrase once while retaining real PCM ranges
   assert.deepEqual(results[0].audioRange, { startMs: 0, endMs: 320 }); assert.equal(jobs[0].pcm.length, 5120);
 });
 
+test("Japanese snapshot limit joins timestamp fragments and retains the unfinished next sentence", async () => {
+  const first = [
+    { text: "1時半なら", startMs: 0, endMs: 3000 },
+    { text: "大丈夫。", startMs: 3000, endMs: 6000 },
+    { text: "肉を使わない", startMs: 6000, endMs: 12000 },
+  ];
+  const next = [{ text: "肉を使わない料理もあるかな？", startMs: 0, endMs: 7000 }];
+  const f = fixture("ja", Array.from({ length: 11 }, () => ({ text: "1時半なら", segments: [{ text: "1時半なら", startMs: 0, endMs: 1000 }] }))
+    .concat([{ text: first.map(s=>s.text).join(""), segments: first }, { text: next[0].text, segments: next }]));
+  const stream = f.recognizer.run(f.input)[Symbol.asyncIterator](); const pending = stream.next();
+  try {
+    await f.feed(375);
+    assert.equal((await pending).value?.text, "1時半なら大丈夫。");
+    await f.feed(32);
+    assert.equal(f.jobs.at(-1)?.audioRange.startMs, 6000, "Incomplete speech must be decoded with the following audio");
+    const second = stream.next(); await f.feed(32);
+    assert.equal((await second).value?.text, "肉を使わない料理もあるかな？");
+  } finally { await f.recognizer.cancel(identity); await stream.return?.(); }
+});
+
 
 test("a stable sentence emits even when the model puts its following words in the same timestamp segment", async () => {
   const f = fixture("en", [
@@ -226,6 +261,18 @@ test("a stable sentence emits even when the model puts its following words in th
     const result = await Promise.race([pending, tick().then(() => undefined)]);
     assert.equal(result?.value?.text, "We will not meet today.");
     assert.deepEqual(result?.value?.audioRange, { startMs: 0, endMs: 2048 });
+  } finally { await f.recognizer.cancel(identity); await stream.return?.(); }
+});
+
+test("Japanese punctuation correction cannot replay a committed prefix in the retained timestamp segment", async () => {
+  const first = "いいね。それから本";
+  const corrected = "いいね、それから本を持っていくよ。";
+  const f = fixture("ja", [first, first, corrected, corrected].map(text=>({ text, segments: [{ text, startMs: 0, endMs: 1000 }] })));
+  const stream = f.recognizer.run(f.input)[Symbol.asyncIterator](); const pending = stream.next();
+  try {
+    await f.feed(64); assert.equal((await pending).value?.text, "いいね。");
+    const next = stream.next(); await f.feed(64);
+    assert.equal((await next).value?.text, "それから本を持っていくよ。");
   } finally { await f.recognizer.cancel(identity); await stream.return?.(); }
 });
 

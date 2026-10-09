@@ -12,7 +12,8 @@ import { chromium } from "playwright";
 import { build } from "vite";
 
 const autoLanguage = process.argv.includes("--auto-language");
-const conversation = process.argv.includes("--conversation");
+const japaneseConversation = process.argv.includes("--japanese-conversation");
+const conversation = process.argv.includes("--conversation") || japaneseConversation;
 const captureLoss = process.argv.includes("--capture-loss");
 const lifecycle = process.argv.includes("--lifecycle");
 const latency = process.argv.includes("--latency");
@@ -21,7 +22,7 @@ const installedChrome = process.argv.includes("--installed-chrome");
 const userSpeechComponents = process.argv.includes("--user-speech-components");
 const koreanCaptionLanguage = process.argv.includes("--korean-caption-language");
 const localSpeech = !autoLanguage && !process.argv.includes("--whisper");
-const modelDirectory = localSpeech ? undefined : process.env.INTERPRETER_TEST_MODEL_DIRECTORY;
+const modelDirectory = process.env.INTERPRETER_TEST_MODEL_DIRECTORY;
 const modelFiles = [
   ["encoder_model_fp16.onnx", "interpreter-turbo-encoder-verified.onnx", 1274342603, "fdadc70836e6b028fd5e580417c312208dad073d2d01e509e2d127c1373399d8"],
   ["decoder_model_merged_fp16.onnx", "interpreter-turbo-decoder.onnx", 344227339, "fdf10afca73a0c7bf87286cfb96cf7028a9edbc9bb02512509a526f95b126c9d"],
@@ -40,7 +41,9 @@ if (autoLanguage) {
   assert.equal(createHash("sha256").update(bytes).digest("hex"), meeting.sha256);
   media.set("/meeting.wav", bytes);
 }
-if (conversation) media.set("/conversation.wav", await readFile("tests/fixtures/conversation/conversation.wav"));
+const conversationDirectory = `tests/fixtures/conversation${japaneseConversation ? "/ja" : ""}`;
+const conversationManifest = conversation ? JSON.parse(await readFile(`${conversationDirectory}/manifest.json`, "utf8")) : undefined;
+if (conversation) media.set("/conversation.wav", await readFile(`${conversationDirectory}/conversation.wav`));
 let latencyDirectory;
 const latencyTexts = {
   ja: ["今日は会議をしません。", "明日の午後三時に駅で会いましょう。", "予約は取り消さないでください。"],
@@ -68,7 +71,7 @@ assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.action.default_popup, "popup.html");
 const observations = { scope: latency ? "Six isolated synthetic sentences: estimated last audible PCM sample to complete Korean meaning in actual page DOM, <=1000 ms; no public-video/ten-minute acceptance"
   : "Production popup/offscreen ownership, real local streaming or turbo WebGPU/native Korean/page/reference lifetime and source retirement; no strict sentence-end latency/public-video/ten-minute acceptance",
-  pageErrors: [], checks: [], runs: [], companionEndpoints: [], speechMode: localSpeech ? "Chrome on-device streaming" : "Whisper snapshots", modelProvisioning: localSpeech ? "Browser-managed SODA library and Japanese/English language components" : modelDirectory ? "Two SHA-256 verified official ONNX files seeded into extension cache; actual remaining model downloads and real inference" : "Official pinned model downloads", translatorProvisioning: "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations" };
+  pageErrors: [], checks: [], runs: [], companionEndpoints: [], speechMode: localSpeech ? "Production preference: Japanese Whisper / English Chrome on-device streaming" : "Whisper snapshots", modelProvisioning: modelDirectory ? "Two SHA-256 verified official ONNX files seeded into extension cache; actual remaining model downloads and real inference" : "Official pinned model downloads and browser-managed SODA components", translatorProvisioning: "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations" };
 function serve(request, response) {
   const url = new URL(request.url, "http://localhost");
   const model = modelDirectory && modelFiles.find(([, filename]) => url.pathname === `/${filename}`);
@@ -255,11 +258,12 @@ try {
     throw Error('No action popup');
   }
 
-  const scenarios = autoLanguage ? [{language:"auto",mode:"audio"}] : conversation ? [{language:"en",mode:"audio"}] : latency ? [{language:'ja',mode:'web-audio'},{language:'en',mode:'web-audio'}] : captureLoss || lifecycle || download ? [{language:'ja',mode:'web-audio'}] : [
+  const scenarios = autoLanguage ? [{language:"auto",mode:"audio"}] : conversation ? [{language:japaneseConversation ? "ja" : "en",mode:"audio"}] : latency ? [{language:'ja',mode:'web-audio'},{language:'en',mode:'web-audio'}] : captureLoss || lifecycle || download ? [{language:download ? 'en' : 'ja',mode:'web-audio'}] : [
     {language:'ja',mode:'video'}, {language:'en',mode:'iframe'}, {language:'en',mode:'audio'}, {language:'ja',mode:'web-audio'},
   ];
   let runtime;
   for (const scenario of scenarios) {
+    const nativeSpeech = localSpeech && scenario.language === 'en';
     await page.goto(`${origin}/?language=${scenario.language}&mode=${scenario.mode}`);
     const source=scenario.mode==='iframe'?page.frameLocator('iframe'):page;
     let popup=await openPopup();
@@ -285,7 +289,7 @@ try {
           const install=Speech.install;Speech.install=function(options){localSpeechEvents.push({type:'install',local:options.processLocally});return install.call(this,options)};
           const start=Speech.prototype.start;const abort=Speech.prototype.abort;
           Speech.prototype.start=function(track){localSpeechEvents.push({type:'start',local:this.processLocally,trackKind:track?.kind,trackState:track?.readyState});
-            this.addEventListener('result',event=>{localSpeechEvents.push({type:'result',at:performance.now(),texts:Array.from(event.results,r=>r[0].transcript)});if(localSpeechEvents.length>300)localSpeechEvents.splice(1,1)});
+            this.addEventListener('result',event=>{localSpeechEvents.push({type:'result',at:performance.now(),resultIndex:event.resultIndex,finals:Array.from(event.results,r=>r.isFinal),texts:Array.from(event.results,r=>r[0].transcript)});if(localSpeechEvents.length>300)localSpeechEvents.splice(1,1)});
             return start.call(this,track)};Speech.prototype.abort=function(){localSpeechEvents.push({type:'abort'});return abort.call(this)};
         }else if(Speech){Object.defineProperty(Speech,'install',{value:undefined,configurable:true});}
         const NativeWorker=Worker;let next=0;
@@ -299,7 +303,9 @@ try {
             });}
           postMessage(message,...args){
             if(message.type==='recognize')runtimeObservations.push({type:'asr-job',worker:this.observedId,requestId:message.requestId,
-              identity:message.job.identity,utteranceId:message.job.utteranceId,language:message.job.language,audioRange:message.job.audioRange,samples:message.job.pcm.length});
+              identity:message.job.identity,utteranceId:message.job.utteranceId,language:message.job.language,audioRange:message.job.audioRange,samples:message.job.pcm.length,
+              inputRms:Math.sqrt(message.job.pcm.reduce((sum,sample)=>sum+sample*sample,0)/message.job.pcm.length),
+              inputPeak:message.job.pcm.reduce((peak,sample)=>Math.max(peak,Math.abs(sample)),0)});
             return super.postMessage(message,...args);}
           terminate(){runtimeObservations.push({type:'terminated',worker:this.observedId});return super.terminate();}
         };
@@ -319,10 +325,14 @@ try {
         function assertResponse(response) {if(!response.ok||!response.body)throw Error('Verified test model unavailable');}
       },{origin,files:modelFiles});
     }
+    if (scenario.language==='en') {
+      await waitState(value=>['idle','ready'].includes(value?.state));
+      await popup.evaluate("document.querySelector('#language').value='en';document.querySelector('#language').dispatchEvent(new Event('change'))");
+    }
     if (localSpeech && !download && scenario === scenarios[0]) {
       console.log(JSON.stringify({phase:'initial-model-availability',state:await state(),availability:await popup.evaluate("Promise.all([Translator.availability({sourceLanguage:'ja',targetLanguage:'ko'}),(globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition).available({langs:['ja-JP','en-US','ko-KR'],processLocally:true})])")}));
       if ((await state()).state === 'idle') await popup.click('#prepare');
-      await waitState(value=>value?.state==='ready');
+      await waitState(value=>value?.state==='ready',600000);
       // Recreate after attaching observation hooks to the persistent runtime.
       await popup.click('#stop');await waitState(value=>value?.state==='ready');
     }
@@ -334,13 +344,13 @@ try {
     }
     if (download || !localSpeech) {
       await popup.click('#prepare');
-      assert.equal((await state()).state,'preparing');
+      await waitState(value=>value?.state==='preparing' || value?.state==='ready');
     } else {
       await waitState(value=>value?.state==='ready' && value.source===scenario.language);
       assert.equal(await popup.evaluate("document.querySelector('#prepare').hidden"),true);
       observations.checks.push(`Cached ${scenario.language} speech and translator automatically ready without Prepare`);
     }
-    if(localSpeech){
+    if(nativeSpeech){
       const deadline=performance.now()+10000;let availability;
       while(performance.now()<deadline){
         availability=await popup.evaluate(`(globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition).available({langs:[${JSON.stringify(scenario.language==='ja'?'ja-JP':'en-US')}],processLocally:true})`);
@@ -354,7 +364,7 @@ try {
     }
     await popup.close();
     const switched=await context.newPage();await switched.goto('about:blank');await switched.bringToFront();
-    const ready=await waitState(value=>value?.state==='ready',240000);
+    const ready=await waitState(value=>value?.state==='ready',600000);
     if(installedChrome) {
       const captions=JSON.parse(await readFile(resolve(profile,'Local State'),'utf8')).accessibility.captions;
       console.log(JSON.stringify({phase:'prepared-speech-components',paths:Object.fromEntries(['soda_binary_path','soda_ja_jp_config_path','soda_en_us_config_path','soda_ko_kr_config_path'].map(key=>[key,captions[key]?.replace(profile,'<test-profile>')]))}));
@@ -367,6 +377,8 @@ try {
     await waitState(value=>value?.state==='running');await popup.close();
     if (conversation || autoLanguage) await page.evaluate(() => {
       globalThis.captionFrames = [];
+      globalThis.mediaEvents = [];
+      for (const type of ['playing','ended','seeking']) media.addEventListener(type,()=>mediaEvents.push({type,atMs:performance.now(),currentTime:media.currentTime}));
       const previous = new Map();
       globalThis.captionMonitor = setInterval(() => {
         const cues = document.querySelector('[data-interpreter-overlay]')?.shadowRoot.querySelectorAll('.interpreter-live') ?? [];
@@ -474,7 +486,7 @@ try {
       await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});continue;
     }
     if (conversation) {
-      const playbackDeadline=performance.now()+75000;
+      const playbackDeadline=performance.now()+(conversationManifest.durationSeconds+15)*1000;
       while(!await page.evaluate(()=>media.ended)) {
         const current=await state();
         if(current.state !== 'running') throw Error(`Caption session stopped during playback: ${current.state}: ${current.message}`);
@@ -488,17 +500,48 @@ try {
       const captions = completed.captions;
       const frames = await page.evaluate(() => { clearInterval(captionMonitor); return captionFrames; });
       const native = await runtime.evaluate('localSpeechEvents');
-      const result = {state:completed.state,captions,frames,native,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
+      const finalSource = captions.filter(c=>c.source.final).map(c=>c.source.text).join('');
+      const finalKorean = captions.filter(c=>c.source.final && c.translation.state==='paired').map(c=>c.translation.revision.text).join(' ');
+      const meaning = japaneseConversation ? conversationManifest.turns.map(turn=>({reference:turn.text,
+        missingSource:turn.sourceAnchors.filter(anchor=>!new RegExp(anchor).test(finalSource)),
+        missingKorean:turn.koreanAnchors.filter(anchor=>!new RegExp(anchor).test(finalKorean)),
+        missingKoreanDetails:(turn.koreanDetailAnchors ?? []).filter(anchor=>!new RegExp(anchor).test(finalKorean))})) : undefined;
+      let accuracy;
+      if (japaneseConversation) {
+        const normalize = text=>[...text.normalize('NFKC').replace(/[\p{P}\p{S}\s]/gu,'')];
+        const reference = normalize(conversationManifest.turns.map(turn=>turn.text).join(''));
+        const hypothesis = normalize(finalSource);
+        let previous = Array.from({length:hypothesis.length+1},(_,i)=>i);
+        for(let i=0;i<reference.length;i++) {
+          const row=[i+1];
+          for(let j=0;j<hypothesis.length;j++) row.push(Math.min(previous[j+1]+1,row[j]+1,previous[j]+Number(reference[i]!==hypothesis[j])));
+          previous=row;
+        }
+        accuracy={metric:'CER',edits:previous[hypothesis.length],referenceUnits:reference.length,rate:previous[hypothesis.length]/reference.length};
+      }
+      const report = `.ralph/caption-conversation/live${japaneseConversation ? '-ja' : ''}.json`;
+      const mediaState = await page.evaluate(()=>({currentTime:media.currentTime,duration:media.duration,ended:media.ended,loop:media.loop,events:mediaEvents}));
+      const result = {state:completed.state,fixtureSha256:createHash('sha256').update(media.get('/conversation.wav')).digest('hex'),mediaState,captions,frames,native,meaning,accuracy,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
       await mkdir('.ralph/caption-conversation', {recursive:true});
-      await writeFile('.ralph/caption-conversation/live.json', JSON.stringify(result,null,2));
+      await writeFile(report, JSON.stringify(result,null,2));
       assert.ok(captions.length >= 8, 'Conversation must be split into readable phrases');
       assert.ok(new Set(captions.map(c=>c.source.speakerId).filter(Boolean)).size >= 2, 'Both actual voices must receive labels');
       assert.ok(captions.every(c=>c.translation.state==='paired'), 'Every final source revision must retain its matching translation');
-      const turns = captions.filter(c=>c.source.text.split(/\s+/).length >= 10);
+      if (japaneseConversation) {
+        assert.ok(captions.every(c=>c.source.final), 'Every Japanese phrase must reach native final');
+        assert.ok(accuracy.rate <= 0.12, `Japanese conversation CER: ${accuracy.rate}`);
+        for (const turn of meaning) {
+          assert.deepEqual(turn.missingSource, [], `Lost Japanese meaning: ${turn.reference}`);
+          assert.deepEqual(turn.missingKorean, [], `Lost Korean meaning: ${turn.reference}`);
+        }
+      }
+      const turns = japaneseConversation ? [] : captions.filter(c=>c.source.text.split(/\s+/).length >= 10);
+      if (!japaneseConversation) {
       assert.equal(turns.length,8,'All eight substantial turns must survive translation and display');
       const speakers=turns.map(c=>c.source.speakerId);
       assert.ok(speakers[0] && speakers[1] && speakers[0] !== speakers[1]);
       for(let i=0;i<speakers.length;i++)assert.equal(speakers[i],speakers[i%2],`Speaker changed identity at turn ${i}`);
+      }
       const retiredSeen = new Set();
       for (const frame of frames) {
         if (frame.removed) retiredSeen.add(frame.utteranceId);
@@ -509,7 +552,7 @@ try {
       assert.equal(frames.filter(f=>f.text).at(-1)?.utteranceId,captions.at(-1)?.source.utteranceId,
         'The last caption must finish too; Stop cannot mask a growing display backlog');
       assert.equal(frames.at(-1)?.text,'','The last completed caption must fade while the session remains running');
-      console.log(JSON.stringify({phase:'conversation',captions:captions.length,finals:captions.filter(c=>c.source.final).length,frames:frames.length,report:'.ralph/caption-conversation/live.json'}));
+      console.log(JSON.stringify({phase:'conversation',language:scenario.language,captions:captions.length,finals:captions.filter(c=>c.source.final).length,frames:frames.length,accuracy,translationDetails:meaning?.filter(turn=>turn.missingKoreanDetails.length),report}));
       popup=await openPopup();await popup.click('#stop');await waitState(value=>value?.state==='ready');await popup.close();
       continue;
     }

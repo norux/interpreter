@@ -55,10 +55,12 @@ export function createDocumentTranslator(document: Document, languages: Language
       const operation = { identity, controller: new AbortController() };
       active = operation;
       try {
-        // ASR can omit punctuation between Japanese polite sentence endings.
+        // ASR can omit punctuation between Japanese sentence endings. Casual
+        // endings need a new-script word or discourse marker: never split よく
+        // or relative clauses such as 行った駅 just because a verb ended.
         // Keep spaces within time phrases; splitting every word loses context.
         const phrases = source.language === "ja" ? source.text.split(
-          /(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u,
+          /(?<=[。！？!?])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])|(?<=大丈夫|(?:る|た|だ|ない|ます|です|て|で|く|いい)[よね]|んだ|んだけど|かな|しよう)\s*(?=[\p{Script=Han}\p{Script=Katakana}]|ところで|それから|まだ|でも|じゃあ|もちろん|ありがとう)/u,
         ).map(phrase => phrase.trim()).filter(Boolean) : [source.text];
         const native = translator;
         let text = "";

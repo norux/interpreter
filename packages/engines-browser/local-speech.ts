@@ -120,7 +120,7 @@ export function createLocalSpeechHost(document: Document, language: "ja" | "en",
             startMs: index ? boundaries[index - 1].endMs : draft.startMs, endMs: boundary.endMs,
           }));
           for (const [spanIndex, span] of spans.entries()) {
-            const parts = boundaries.length ? [span.text.trim()].filter(Boolean) : (language === "ja" ? span.text.trim().split(/(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u)
+            const parts = boundaries.length ? [span.text.trim()].filter(Boolean) : (language === "ja" ? span.text.trim().split(/(?<=[。！？!?])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u)
               : [...sentences.segment(span.text.trim())].flatMap(sentence => sentence.segment.split(/\s+(?=(?:let['’]s|please do|we will)\b)/iu)))
               .map(text => text.trim()).filter(Boolean);
             for (const [index, text] of parts.entries()) {

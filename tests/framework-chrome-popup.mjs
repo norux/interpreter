@@ -22,6 +22,7 @@ try {
   const page = await browser.newPage();
   await page.addInitScript(() => {
     const params = new URL(location.href).searchParams;
+    if (!params.has("gpu")) Object.defineProperty(navigator, "gpu", { value: undefined, configurable: true });
     const fresh = params.has("fresh") || params.has("downloading");
     globalThis.commands = []; globalThis.installs = [];
     globalThis.translationProbes = [];
@@ -153,6 +154,17 @@ try {
   await page.getByRole("button", { name: "모델 다운로드", exact: true }).click();
   await page.waitForFunction(() => saved.source === "en" && !document.querySelector("#start").disabled);
   assert.equal(await page.locator("#diagnostic").count(), 0);
+  await page.goto(`${url}?gpu`);
+  await page.waitForFunction(() => !document.querySelector("#prepare").disabled);
+  assert.match(await page.locator("#model-description").textContent(), /Whisper large-v3-turbo/u);
+  assert.match(await page.locator("#model-description").textContent(), /1.6 GB/u);
+  assert.equal(await page.locator("#start").isVisible(), false, "Japanese speech packs cannot bypass Whisper model preparation on WebGPU");
+  await page.getByRole("button", { name: "모델 다운로드", exact: true }).click();
+  await page.waitForFunction(() => !document.querySelector("#start").disabled);
+  assert.deepEqual(await page.evaluate(() => installs), [], "Japanese Whisper must not download unrelated SODA language packs");
+  await page.locator("#language").selectOption("en");
+  await page.waitForFunction(() => saved.source === "en" && !document.querySelector("#start").disabled);
+  assert.match(await page.locator("#model-description").textContent(), /Chrome SODA/u);
   await page.goto(`${url}?downloading`);
   await page.getByText("백그라운드 다운로드 중…", { exact: true }).waitFor();
   assert.equal(await page.locator("#start").isVisible(), false);

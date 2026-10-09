@@ -335,6 +335,44 @@ test("Japanese ASR phrase breaks preserve one complete translation revision", as
   } finally { await f.host.close(); }
 });
 
+test("Japanese ASCII question marks preserve the following sentence in translation", async () => {
+  const f = fixture();
+  try {
+    const prepared = f.host.prepare(); f.loads[0].resolve(f.native); await prepared;
+    const iterator = f.host.translate({ ...source(), text: "日曜日の午後1時半はどう? 駅の東口で待ち合わせよう!" }, pair)[Symbol.asyncIterator]();
+    const pending = iterator.next();
+    assert.equal(f.calls[0].text, "日曜日の午後1時半はどう?");
+    f.calls[0].result.resolve("일요일 오후 1시 반은 어때?"); await tick();
+    assert.equal(f.calls[1].text, "駅の東口で待ち合わせよう!");
+    f.calls[1].result.resolve("역 동쪽 출구에서 만나자!");
+    assert.equal((await pending).value?.text, "일요일 오후 1시 반은 어때? 역 동쪽 출구에서 만나자!");
+    await iterator.return?.();
+  } finally { await f.host.close(); }
+});
+
+test("Japanese conversational endings separate unpunctuated clauses without splitting よく or relative verbs", async () => {
+  const f = fixture();
+  try {
+    const prepared = f.host.prepare(); f.loads[0].resolve(f.native); await prepared;
+    const iterator = f.host.translate({ ...source(), text: "最近野菜をよく食べてるんだキノコのスープがあるよ予約が必要か確認しておくねまだ予約は取り消さないでね" }, pair)[Symbol.asyncIterator]();
+    const pending = iterator.next();
+    for (const [index, text] of ["最近野菜をよく食べてるんだ", "キノコのスープがあるよ", "予約が必要か確認しておくね", "まだ予約は取り消さないでね"].entries()) {
+      assert.equal(f.calls[index].text, text);
+      f.calls[index].result.resolve(`문장 ${index}`); await tick();
+    }
+    assert.equal((await pending).value?.text, "문장 0 문장 1 문장 2 문장 3"); await iterator.return?.();
+    const conversation = f.host.translate({ ...source(), text: "1時半なら大丈夫ところでそのカフェには肉を使わない料理もあるかな" }, pair)[Symbol.asyncIterator]();
+    const joined = conversation.next(); assert.equal(f.calls[4].text, "1時半なら大丈夫");
+    f.calls[4].result.resolve("1시 반이면 괜찮습니다."); await tick();
+    assert.equal(f.calls[5].text, "ところでそのカフェには肉を使わない料理もあるかな");
+    f.calls[5].result.resolve("고기를 사용하지 않는 요리도 있을까요?");
+    assert.equal((await joined).value?.text, "1시 반이면 괜찮습니다. 고기를 사용하지 않는 요리도 있을까요?"); await conversation.return?.();
+    const relative = f.host.translate({ ...source(), text: "昨日行った駅でよく本を読む きつね鍋を食べる" }, pair)[Symbol.asyncIterator]();
+    const result = relative.next(); assert.equal(f.calls[6].text, "昨日行った駅でよく本を読む きつね鍋を食べる");
+    f.calls[6].result.resolve("관계절을 보존한 문장"); await result; await relative.return?.();
+  } finally { await f.host.close(); }
+});
+
 test("cancelling a Japanese phrase translation discards all parts and suppresses remaining native calls", async () => {
   const f = fixture();
   try {

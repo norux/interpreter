@@ -26,6 +26,7 @@
     "test:speakers": "node tests/speaker-conversation-browser.mjs",
     "test:auto-language:live": "node tests/framework-chrome-tab-engine.mjs --auto-language",
     "test:conversation:live": "node tests/framework-chrome-tab-engine.mjs --conversation",
+    "test:conversation:ja:live": "node tests/framework-chrome-tab-engine.mjs --japanese-conversation",
     "test:captions-stability": "node tests/captions-stability-browser.mjs",
     "test:conversation": "python3 -m http.server 8790 --bind 127.0.0.1 --directory tests/fixtures/conversation",
     "test:framework:chrome:asr": "npm run typecheck && node --import tsx --test tests/framework-browser-model.test.ts tests/framework-browser-asr.test.ts && node tests/framework-chrome-asr.mjs",
