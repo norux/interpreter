@@ -17,7 +17,8 @@ interface TranslatorApi {
 export function createDocumentTranslator(document: Document, languages: LanguagePair,
   receive: (status: { state: "preparing" | "ready" | "stopped" | "failed"; progress?: number; reason?: ReasonCode }) => void, execution: "foreground" | "offscreen" = "foreground") {
   const pair = { ...languages };
-  let translator: NativeTranslator | undefined;
+  const translators = new Map<string, NativeTranslator>();
+  const sources = pair.source === "auto" ? ["en", "ja"] : [pair.source];
   let preparing: AbortController | undefined;
   let active: { identity: SessionIdentity; controller: AbortController } | undefined;
   let disposed = false;
@@ -29,11 +30,12 @@ export function createDocumentTranslator(document: Document, languages: Language
   function eligible(visible = true) {
     return !disposed && document.defaultView?.isSecureContext && (execution === "offscreen" || !visible || document.visibilityState === "visible");
   }
-  function supported() { return (pair.source === "ja" || pair.source === "en") && pair.target === "ko"; }
+  function supported() { return (pair.source === "auto" || pair.source === "ja" || pair.source === "en") && pair.target === "ko"; }
   function stop() {
     preparing?.abort(); preparing = undefined;
     active?.controller.abort(); active = undefined;
-    translator?.destroy(); translator = undefined;
+    for (const translator of translators.values()) translator.destroy();
+    translators.clear();
     receive({ state: "stopped", reason: "cancelled" });
   }
   const suspend = () => { if (execution === "foreground" && document.visibilityState !== "visible" && active) stop(); };
@@ -43,8 +45,9 @@ export function createDocumentTranslator(document: Document, languages: Language
   const port: TextTranslator = {
     async *translate(source, requested) {
       if (!eligible()) throw new Error("execution-context-unavailable");
+      const translator = translators.get(source.language);
       if (!translator) throw new Error("model-load-failed");
-      if (!supported() || requested.source !== pair.source || requested.target !== pair.target || source.language !== pair.source) throw new Error("language-pair-unsupported");
+      if (!supported() || !sources.includes(requested.source) || requested.target !== pair.target || source.language !== requested.source) throw new Error("language-pair-unsupported");
       if (!source.text || source.text.length > 16384 || !Number.isSafeInteger(source.sourceRevision) || source.sourceRevision <= 0) throw new Error("Invalid translation source");
       if (active) throw new Error("overloaded");
       const identity = { ...source.identity };
@@ -54,7 +57,7 @@ export function createDocumentTranslator(document: Document, languages: Language
       try {
         // ASR can omit punctuation between Japanese polite sentence endings.
         // Keep spaces within time phrases; splitting every word loses context.
-        const phrases = pair.source === "ja" ? source.text.split(
+        const phrases = source.language === "ja" ? source.text.split(
           /(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u,
         ).map(phrase => phrase.trim()).filter(Boolean) : [source.text];
         const native = translator;
@@ -70,7 +73,7 @@ export function createDocumentTranslator(document: Document, languages: Language
         if (!eligible()) throw new Error("execution-context-unavailable");
         if (typeof text !== "string" || !text.trim() || text.length > 16384) throw new Error("Invalid translation result");
         yield { identity, utteranceId, sourceRevision, translationRevision: ++translationRevision,
-          languages: { ...pair }, text, final };
+          languages: { ...requested }, text, final };
       } finally { if (active === operation) active = undefined; }
     },
     async cancel(identity) {
@@ -92,10 +95,10 @@ export function createDocumentTranslator(document: Document, languages: Language
       if (!eligible() || !api()) return { state: "unavailable", reason: "execution-context-unavailable", message: "Translator requires an eligible visible secure document" };
       if (!supported()) return { state: "unavailable", reason: "language-pair-unsupported", message: "Only Japanese/English to Korean is supported by this adapter" };
       try {
-        const state = await api()?.availability({ sourceLanguage: pair.source, targetLanguage: pair.target });
+        const states = await Promise.all(sources.map(sourceLanguage => api()?.availability({ sourceLanguage, targetLanguage: pair.target })));
         if (!eligible()) return { state: "unavailable", reason: "execution-context-unavailable", message: "Document suspended during probe" };
-        if (state === "available") return { state: "available" };
-        if (state === "downloadable" || state === "downloading") return { state: "download-required", reason: "download-required", message: "Press Prepare to download or finish loading this language pair" };
+        if (states.every(state => state === "available")) return { state: "available" };
+        if (states.every(state => state === "available" || state === "downloadable" || state === "downloading")) return { state: "download-required", reason: "download-required", message: "Press Prepare to download or finish loading this language pair" };
         return { state: "unavailable", reason: "language-pair-unsupported", message: "Browser cannot translate this language pair" };
       } catch { return { state: "unavailable", reason: "execution-context-unavailable", message: "Translator capability probe failed" }; }
     },
@@ -104,23 +107,31 @@ export function createDocumentTranslator(document: Document, languages: Language
       if (!eligible() || !native) throw new Error("execution-context-unavailable");
       if (!supported()) throw new Error("language-pair-unsupported");
       if (execution === "foreground" && !document.defaultView?.navigator.userActivation.isActive) throw new Error("Press Prepare in this document to start");
-      if (preparing || translator) throw new Error("Stop before preparing another translator");
+      if (preparing || translators.size) throw new Error("Stop before preparing another translator");
       const operation = new AbortController(); preparing = operation;
       receive({ state: "preparing" });
       try {
         // Call create before any await: a capability probe must not consume the
         // activation needed to begin the browser-owned language-pack download.
-        const loaded = await native.create({ sourceLanguage: pair.source, targetLanguage: pair.target, signal: operation.signal,
-          monitor(monitor) {
-            monitor.addEventListener("downloadprogress", event => {
-              if (preparing === operation && !operation.signal.aborted && Number.isFinite(event.loaded) && event.loaded >= 0 && event.loaded <= 1) receive({ state: "preparing", progress: event.loaded });
-            });
-          },
-        });
-        if (operation.signal.aborted || !eligible(false)) { loaded.destroy(); throw new DOMException("Translation preparation stopped", "AbortError"); }
-        translator = loaded; receive({ state: "ready" });
+        await Promise.all(sources.map(async sourceLanguage => {
+          const loaded = await native.create({ sourceLanguage, targetLanguage: pair.target, signal: operation.signal,
+            monitor(monitor) {
+              monitor.addEventListener("downloadprogress", event => {
+                if (preparing === operation && !operation.signal.aborted && Number.isFinite(event.loaded) && event.loaded >= 0 && event.loaded <= 1) receive({ state: "preparing", progress: event.loaded });
+              });
+            },
+          });
+          if (operation.signal.aborted || !eligible(false)) { loaded.destroy(); throw new DOMException("Translation preparation stopped", "AbortError"); }
+          translators.set(sourceLanguage, loaded);
+        }));
+        receive({ state: "ready" });
       } catch (error) {
         if (!operation.signal.aborted) receive({ state: "failed", reason: error instanceof DOMException && error.name === "NotSupportedError" ? "language-pair-unsupported" : "model-load-failed" });
+        operation.abort();
+        if (preparing === operation) {
+          for (const translator of translators.values()) translator.destroy();
+          translators.clear();
+        }
         throw error;
       } finally { if (preparing === operation) preparing = undefined; }
     },

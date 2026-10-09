@@ -6,7 +6,7 @@ import { createStreamingSpeechRecognizer } from "../packages/engines-browser/str
 
 const identity = { sessionId: "streaming", targetId: "tab" as MediaTargetId, epoch: 0 };
 const tick = () => new Promise<void>(resolve => setImmediate(resolve));
-function fixture(language: "en" | "ja", outputs: { text: string; segments: AsrSegment[] }[]) {
+function fixture(language: "en" | "ja" | "ko" | "auto", outputs: { text: string; segments: AsrSegment[]; language?: "en" | "ja" | "ko"; confidence?: number }[]) {
   const jobs: AsrJob[] = []; const statuses: SessionStatus[] = [];
   let sequence = 0; let returned = 0; let detectorStops = 0; let executorStops = 0;
   const queued: AudioChunk[] = [];
@@ -20,8 +20,9 @@ function fixture(language: "en" | "ja", outputs: { text: string; segments: AsrSe
     async recognize(job) {
       jobs.push(structuredClone(job));
       const output = outputs[Math.min(jobs.length - 1, outputs.length - 1)];
-      return { revision: { identity, utteranceId: job.utteranceId, audioRange: job.audioRange, language,
-        sourceRevision: 1, final: true, text: output.text }, inferenceMs: 0, segments: output.segments };
+      return { revision: { identity, utteranceId: job.utteranceId, audioRange: job.audioRange, language: output.language ?? language,
+        sourceRevision: 1, final: true, text: output.text,
+        ...(output.confidence === undefined ? {} : { confidence: { measure: "whisper-language-probability", value: output.confidence } }) }, inferenceMs: 0, segments: output.segments };
     }, stop() { executorStops++; },
   }, status => statuses.push(status), {
     async detect(pcm) { return { speech: pcm.some(sample => sample !== 0) }; }, stop() { detectorStops++; },
@@ -38,6 +39,52 @@ function fixture(language: "en" | "ja", outputs: { text: string; segments: AsrSe
   }
   return { recognizer, input, feed, jobs, statuses, get returned() { return returned; }, get stops() { return [executorStops, detectorStops]; } };
 }
+
+test("automatic streaming re-detects each turn and preserves its onset while input stays open", async () => {
+  const f = fixture("auto", [
+    { language: "en", text: "Hello.", segments: [{ text: "Hello.", startMs: 0, endMs: 1000 }] },
+    { language: "en", text: "Hello.", segments: [{ text: "Hello.", startMs: 0, endMs: 1000 }] },
+    { language: "ja", text: "こんにちは。", segments: [{ text: "こんにちは。", startMs: 0, endMs: 1000 }] },
+    { language: "ja", text: "こんにちは。", segments: [{ text: "こんにちは。", startMs: 0, endMs: 1000 }] },
+    { language: "ko", text: "안녕하세요.", segments: [{ text: "안녕하세요.", startMs: 0, endMs: 1000 }] },
+    { language: "ko", text: "안녕하세요.", segments: [{ text: "안녕하세요.", startMs: 0, endMs: 1000 }] },
+  ]);
+  const stream = f.recognizer.run(f.input)[Symbol.asyncIterator]();
+  try {
+    const originals: TranscriptRevision[] = [];
+    for (let turn = 0; turn < 3; turn++) {
+      const next = stream.next();
+      await f.feed(32); await f.feed(8, false);
+      const result = await Promise.race([next, tick().then(() => undefined)]);
+      assert.ok(result?.value, "A turn must emit without waiting for EOF or the next speaker");
+      originals.push(result.value);
+    }
+    assert.deepEqual(originals.map(source => source.language), ["en", "ja", "ko"]);
+    assert.deepEqual(originals.map(source => source.text), ["Hello.", "こんにちは。", "안녕하세요."]);
+    assert.equal(f.jobs.every(job => job.language === "auto"), true);
+    for (const [index, original] of originals.entries()) assert.ok(original.audioRange.startMs <= index * 1280,
+      "Detection must retain the beginning of each turn");
+    assert.equal(f.returned, 0);
+  } finally { await f.recognizer.cancel(identity); await stream.return?.(); }
+});
+
+test("automatic streaming retains uncertain initial PCM until later snapshots identify the language", async () => {
+  const f = fixture("auto", [
+    { language: "en", confidence: 0.4, text: "A mistaken beginning.", segments: [{ text: "A mistaken beginning.", startMs: 0, endMs: 900 }] },
+    { language: "ja", confidence: 0.98, text: "こんにちは。明日の会議です。", segments: [{ text: "こんにちは。明日の会議です。", startMs: 0, endMs: 1800 }] },
+    { language: "ja", confidence: 0.98, text: "こんにちは。明日の会議です。", segments: [{ text: "こんにちは。明日の会議です。", startMs: 0, endMs: 1800 }] },
+  ]);
+  const stream = f.recognizer.run(f.input)[Symbol.asyncIterator](); const next = stream.next();
+  try {
+    await f.feed(32);
+    assert.equal(await Promise.race([next, tick().then(() => undefined)]), undefined);
+    await f.feed(32); await f.feed(8, false);
+    const result = await next;
+    assert.equal(result.value?.language, "ja"); assert.equal(result.value?.text, "こんにちは。");
+    assert.equal(result.value?.audioRange.startMs, 0);
+    assert.equal(f.jobs.every(job => job.audioRange.startMs === 0), true, "Language correction must replay the original onset PCM");
+  } finally { await f.recognizer.cancel(identity); await stream.return?.(); }
+});
 
 test("streaming confirms corrected sentence text without waiting for silence or EOF", async () => {
   const f = fixture("en", [
@@ -251,4 +298,19 @@ test("stalled incremental inference retains bounded headroom and fails without h
   assert.equal(calls, 1); assert.equal(stops, 1);
   assert.ok(statuses.every(status => (status.queue?.pendingAudioMs ?? 0) <= 22000));
   assert.equal(statuses.at(-1)?.queue?.pendingAudioMs, 0); assert.equal(statuses.at(-1)?.queue?.droppedAudioMs, 22016);
+});
+
+
+test("manual Korean streaming fixes every ASR job to Korean without language detection", async () => {
+  const f = fixture("ko", [{ text: "안녕하세요.", confidence: 0.1, segments: [{ text: "안녕하세요.", startMs: 0, endMs: 1000 }] }]);
+  const stream = f.recognizer.run(f.input)[Symbol.asyncIterator]();
+  try {
+    const next = stream.next();
+    await f.feed(32); await f.feed(8, false);
+    const result = await next;
+    assert.equal(result.value?.language, "ko");
+    assert.equal(result.value?.text, "안녕하세요.");
+    assert.ok(f.jobs.length > 0);
+    assert.ok(f.jobs.every(job => job.language === "ko"));
+  } finally { await f.recognizer.cancel(identity); await stream.return?.(); }
 });

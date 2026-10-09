@@ -37,7 +37,8 @@ export function createTranslationQueue(identity: SessionIdentity, languages: Lan
     if (!source) return;
     pending.delete(source.utteranceId); active = source;
     try {
-      for await (const revision of translator.translate(source, pair)) {
+      const requested = pair.source === "auto" ? { source: source.language, target: pair.target } : pair;
+      for await (const revision of translator.translate(source, requested)) {
         if (stopped) return;
         const caption = store.accept({ type: "translation", revision });
         if (caption) receive(caption);
@@ -48,11 +49,20 @@ export function createTranslationQueue(identity: SessionIdentity, languages: Lan
 
   return {
     accept(source: TranscriptRevision): boolean {
-      if (stopped || !sameIdentity(selected, source.identity) || source.language !== pair.source || !source.text || source.text.length > 16384
+      if (stopped || !sameIdentity(selected, source.identity) || (pair.source === "auto"
+        ? !["en", "ja", "ko"].includes(source.language) : source.language !== pair.source) || !source.text || source.text.length > 16384
         || fillerOnly(source.text, source.language)) return false;
       const caption = store.accept({ type: "transcript", revision: source });
       if (!caption) return false;
       receive(caption); // ASR paints now, with pending translation for this revision.
+      if ((pair.source === "auto" || pair.source === "ko") && source.language === pair.target) {
+        pending.delete(source.utteranceId);
+        const paired = store.accept({ type: "translation", revision: { identity: source.identity, utteranceId: source.utteranceId,
+          sourceRevision: source.sourceRevision, translationRevision: source.sourceRevision,
+          languages: { source: source.language, target: pair.target }, text: source.text, final: source.final } });
+        if (paired) receive(paired);
+        return true;
+      }
       // An active revision and its queued replacement are one utterance. Count
       // unique IDs so a final can replace an active partial even at the limit.
       const utterances = new Set(pending.keys());

@@ -1,0 +1,8 @@
+[
+  {"language":"en","voice":"Samantha","text":"Hello everyone. We will meet tomorrow at the station."},
+  {"language":"ja","voice":"Kyoko","text":"こんにちは。明日の午後三時に駅で会いましょう。"},
+  {"language":"ko","voice":"Yuna","text":"안녕하세요. 내일 오후 세 시에 역에서 만나겠습니다."},
+  {"language":"en","voice":"Samantha","text":"Please keep the reservation. Thank you for joining the meeting."},
+  {"language":"ja","voice":"Kyoko","text":"予約は取り消さないでください。会議に参加してくれてありがとうございます。"},
+  {"language":"ko","voice":"Yuna","text":"예약을 취소하지 마세요. 회의에 참석해 주셔서 감사합니다."}
+]

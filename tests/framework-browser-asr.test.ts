@@ -9,7 +9,7 @@ const job = (): AsrJob => ({ identity: { sessionId: "asr-unit", targetId: "video
 
 test("ASR transport rejects malformed, oversized, nonfinite and mistimed PCM", () => {
   assert.equal(validAsrJob(job()), true);
-  for (const invalid of [null, {}, { ...job(), language: "ko" }, { ...job(), identity: { ...job().identity, epoch: -1 } },
+  for (const invalid of [null, {}, { ...job(), language: "fr" }, { ...job(), identity: { ...job().identity, epoch: -1 } },
     { ...job(), pcm: new Float32Array(16000 * 30 + 1) }, { ...job(), pcm: new Float32Array(1599) },
     { ...job(), pcm: new Float32Array(16000).fill(Number.NaN) }, { ...job(), pcm: new Float32Array(16000).fill(1.01) },
     { ...job(), audioRange: { startMs: 1000, endMs: 2100 } }, { ...job(), pcm: new Int16Array(16000) },
@@ -114,6 +114,19 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
         segments: [{ text: "Timed sentence.", startMs: 0, endMs: 900 }] });
       assert.deepEqual((await timed).segments,
         [{ text: "Timed sentence.", startMs: 0, endMs: 900 }]);
+
+      const automatic = background.recognize({ ...job(), language: "auto" });
+      current?.reply({ type: "result", text: "한국어 발화", language: "ko", languageConfidence: 0.91, inferenceMs: 1 });
+      const detected = await automatic;
+      assert.equal(detected.revision.language, "ko");
+      assert.deepEqual(detected.revision.confidence, { measure: "whisper-language-probability", value: 0.91 });
+      for (const detection of [{}, { language: "fr", languageConfidence: 0.9 }, { language: "en", languageConfidence: NaN },
+        { language: "ja", languageConfidence: 1.1 }]) {
+        const invalid = background.recognize({ ...job(), language: "auto" });
+        workers.at(-1)?.reply({ type: "result", text: "Invalid detection", inferenceMs: 1, ...detection });
+        await assert.rejects(invalid, /Invalid ASR language detection/);
+        const prepared = background.prepare(); workers.at(-1)?.reply({ type: "ready" }); await prepared;
+      }
 
       for (const segments of [undefined, [{ text: "Bad", startMs: -1, endMs: 900 }],
         [{ text: "Bad", startMs: 0, endMs: 1001 }], [{ text: "Bad", startMs: NaN, endMs: 900 }],

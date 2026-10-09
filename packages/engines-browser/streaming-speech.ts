@@ -6,12 +6,16 @@ import type { AsrSegment } from "./asr-protocol";
 
 // Whisper decodes growing audio snapshots. Only text agreed by two successive
 // snapshots is committed; a decoder's provisional full stop is not sufficient.
-export function createStreamingSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en",
+export function createStreamingSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en" | "ko" | "auto",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
   receive: (status: SessionStatus) => void,
   detector: { detect(pcm: Float32Array): Promise<{ speech: boolean }>; stop(): void }): SpeechRecognizer {
   const selected = { ...identity };
-  const sentenceSplitter = new Intl.Segmenter(language, { granularity: "sentence" });
+  let detectedLanguage: "en" | "ja" | "ko" = language === "auto" ? "en" : language;
+  const splitters = { en: new Intl.Segmenter("en", { granularity: "sentence" }),
+    ja: new Intl.Segmenter("ja", { granularity: "sentence" }), ko: new Intl.Segmenter("ko", { granularity: "sentence" }) };
+  const boundaries: number[] = [];
+  let lastBoundarySpeechEndMs = -1;
   let started = false; let stopped = false; let ended = false; let active = false;
   let failure: Error | undefined;
   let input: AsyncIterator<AudioChunk> | undefined;
@@ -25,19 +29,20 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
 
   function normalized(text: string) {
     return text.normalize("NFKC").toLowerCase().replace(/\p{P}/gu, "")
-      .replace(/\s+/gu, language === "ja" ? "" : " ").trim();
+      .replace(/\s+/gu, detectedLanguage === "ja" ? "" : " ").trim();
   }
   function complete(text: string) {
     const trimmed = text.trim().replace(/["'”’」』）)]*$/u, "");
-    if (language === "ja") return /[。！？!?]$/u.test(trimmed)
+    if (detectedLanguage === "ja") return /[。！？!?]$/u.test(trimmed)
       || /(?:ませんでした|ません|ました|ます|でした|です|ましょう|ください|でしょう|だった|だよ|だね)$/u.test(trimmed);
+    if (detectedLanguage === "ko") return /[.!?。！？]$/u.test(trimmed);
     if (/[!?]$/u.test(trimmed)) return true;
     const clause = /[,;:]$/u.test(trimmed) && (/^\s*let['’]s\b/iu.test(trimmed) || /\b(?:am|is|are|was|were|have|has|had|do|does|did|will|would|can|could|must|should|may|might|shall|[a-z]+ed)\b/iu.test(trimmed));
     return (/\.$/u.test(trimmed) || clause) && !/\b(?:mr|mrs|ms|dr|prof|st|vs|etc|e\.g|i\.e|[a-z]|and|but|because|if|when|that|to|the|of|for|with|at|in)[.,;:]$/iu.test(trimmed);
   }
   function sentences(text: string) {
-    return language === "ja" ? text.split(/(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u)
-      : [...sentenceSplitter.segment(text)].flatMap(sentence => sentence.segment.split(
+    return detectedLanguage === "ja" ? text.split(/(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u)
+      : [...splitters[detectedLanguage].segment(text)].flatMap(sentence => sentence.segment.split(
         /(?<=[,;:])\s+(?=(?:let['’]s|please|i|we|you|he|she|they|it|this|that|there)\b)/iu,
       ));
   }
@@ -57,11 +62,12 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
   function trim(samples: number) {
     buffer.copyWithin(0, samples, length); length -= samples; startMs += samples / 16;
     previous = ""; previousEndings.clear(); committed = 0;
+    while (boundaries.length && boundaries[0] <= startMs) boundaries.shift();
   }
   function publish(text: string, range: { startMs: number; endMs: number }) {
     if (!text.trim()) return;
     if (results.length >= 16) { stop("overloaded"); return; }
-    results.push({ identity: selected, utteranceId: `speech-${++utterance}`, language,
+    results.push({ identity: selected, utteranceId: `speech-${++utterance}`, language: detectedLanguage,
       sourceRevision: 1, final: true, text: text.trim(), audioRange: range }); wake?.();
   }
   function accept(segments: readonly AsrSegment[], decodedStartMs: number, analyzedEndMs: number, final: boolean) {
@@ -106,7 +112,7 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
     if (samples) trim(samples);
   }
   function due() {
-    return length >= 1600 && speechEndMs > startMs && (ended || length >= 16000 * 12
+    return length >= 1600 && speechEndMs > startMs && (boundaries.length > 0 || ended || length >= 16000 * 12
       || length >= 16000 && (endMs - decodedEndMs >= 1000
         || quietSamples >= 3840 && endMs - pauseDecodedEndMs >= 1000
         || quietSamples >= 25600 && decodedQuietSamples < 25600));
@@ -115,9 +121,10 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
     if (active || stopped || !due()) return;
     active = true;
     const decodedStartMs = startMs;
-    const samples = Math.min(length, 16000 * 12);
+    const boundary = boundaries[0];
+    const samples = Math.min(length, 16000 * 12, boundary === undefined ? Infinity : Math.round((boundary - startMs) * 16));
     const analyzedEndMs = startMs + samples / 16;
-    const final = ended || samples === 16000 * 12;
+    const final = ended || samples === 16000 * 12 || boundary !== undefined && analyzedEndMs >= boundary;
     decodedEndMs = analyzedEndMs; decodedQuietSamples = quietSamples;
     if (quietSamples >= 3840) pauseDecodedEndMs = endMs;
     try {
@@ -125,6 +132,15 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
         audioRange: { startMs: decodedStartMs, endMs: analyzedEndMs }, pcm: buffer.slice(0, samples), timestamps: true });
       if (stopped) return;
       if (!output.segments) throw new Error("Missing incremental ASR timestamps");
+      if (language === "auto") {
+        const nextLanguage = output.revision.language;
+        if (nextLanguage !== "en" && nextLanguage !== "ja" && nextLanguage !== "ko") throw new Error("Invalid detected language");
+        if (nextLanguage !== detectedLanguage) { previous = ""; previousEndings.clear(); committed = 0; }
+        detectedLanguage = nextLanguage;
+        // Short uncertain speech needs more evidence before becoming a caption.
+        // Its PCM stays in the growing snapshot, including the initial words.
+        if (!final && analyzedEndMs - decodedStartMs < 2000 && (output.revision.confidence?.value ?? 0) < 0.65) return;
+      }
       accept(output.segments, decodedStartMs, analyzedEndMs, final);
       report("running");
     } catch (error) {
@@ -144,6 +160,10 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
       buffer.set(frame.subarray(0, frameLength), length); length += frameLength;
       endMs = frameStartMs + frameLength / 16;
       if (detection.speech) { speechEndMs = endMs; quietSamples = 0; } else quietSamples += frameLength;
+      if (language === "auto" && quietSamples >= 3840 && speechEndMs > startMs && speechEndMs !== lastBoundarySpeechEndMs) {
+        if (boundaries.length >= 16) { stop("overloaded"); return; }
+        boundaries.push(speechEndMs + 240); lastBoundarySpeechEndMs = speechEndMs;
+      }
       // Keep onset context until learned admission, without decoding noise.
       if (speechEndMs <= startMs && length >= 16000 * 12) trim(length - 4096);
       void decode(); frameLength = 0;

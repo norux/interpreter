@@ -1,0 +1,129 @@
+{
+  "date": "2026-10-09",
+  "scope": "Synthetic sequential three-language meeting in production extension; real local inference and native translation, not general accuracy or sub-second caption latency",
+  "passed": true,
+  "browser": "153.0.8010.12",
+  "platform": "darwin/arm64",
+  "model": {
+    "id": "onnx-community/whisper-large-v3-turbo",
+    "revision": "360ebcde2559d60bb474678be3c1de9ef347d01a",
+    "dtype": "fp16",
+    "device": "webgpu"
+  },
+  "fixture": {
+    "path": "tests/fixtures/multilingual/meeting.wav",
+    "sha256": "ca98a4f37fb0c25363f7e29cbe495396279268115ff1b75a2ce00337db15d6e3",
+    "durationSeconds": 25.3050625
+  },
+  "provisioning": "Two SHA-256 verified official ONNX files seeded into extension cache; actual remaining model downloads and real inference",
+  "checks": [
+    "Six alternating en/ja/ko turns retain their first words, use per-turn native Korean translation, render the overlay, survive popup closure, and stop on navigation"
+  ],
+  "captionCount": 11,
+  "nativeTranslationCalls": 7,
+  "inferenceCalls": 24,
+  "timing": {
+    "languageDetectionMs": {
+      "first": 1630.7,
+      "subsequentMin": 878.3,
+      "subsequentMedian": 884.2,
+      "subsequentMax": 930.6,
+      "samples": [
+        1630.7,
+        897.3,
+        886.8,
+        884.2,
+        882.9,
+        879.1,
+        930.6,
+        897.6,
+        879.3,
+        879.6,
+        878.3,
+        879.9,
+        881.5,
+        893.6,
+        885.6,
+        883.3,
+        879.6,
+        883.8,
+        882.5,
+        884.5,
+        900.3,
+        911.1,
+        915,
+        893.7
+      ]
+    },
+    "inferenceMs": {
+      "first": 1770.1,
+      "subsequentMin": 943.1,
+      "subsequentMedian": 1052.5,
+      "subsequentMax": 1172.4,
+      "samples": [
+        1770.1,
+        1072.7,
+        1057.6,
+        943.1,
+        1038.7,
+        1130.2,
+        1169.6,
+        1000.2,
+        1046.5,
+        1060.7,
+        981.2,
+        981.6,
+        1002.8,
+        1022.2,
+        1036,
+        1052.5,
+        1057.4,
+        1050.9,
+        1052.4,
+        1054.7,
+        1061.3,
+        1145.8,
+        1172.4,
+        1153.2
+      ]
+    }
+  },
+  "turns": [
+    {
+      "language": "en",
+      "reference": "Hello everyone. We will meet tomorrow at the station.",
+      "observed": "Hello everyone. we will meet tomorrow at the station.",
+      "captions": 2
+    },
+    {
+      "language": "ja",
+      "reference": "こんにちは。明日の午後三時に駅で会いましょう。",
+      "observed": "こんにちは明日の午後3時に駅で会いましょう。",
+      "captions": 1
+    },
+    {
+      "language": "ko",
+      "reference": "안녕하세요. 내일 오후 세 시에 역에서 만나겠습니다.",
+      "observed": "안녕하세요. 내일 오후 3시에 여기서 만나겠습니다.",
+      "captions": 2
+    },
+    {
+      "language": "en",
+      "reference": "Please keep the reservation. Thank you for joining the meeting.",
+      "observed": "Please keep the reservation. Thank you for joining the meeting.",
+      "captions": 2
+    },
+    {
+      "language": "ja",
+      "reference": "予約は取り消さないでください。会議に参加してくれてありがとうございます。",
+      "observed": "予約は取り消さないでください。 会議に参加してくれてありがとうございます。",
+      "captions": 2
+    },
+    {
+      "language": "ko",
+      "reference": "예약을 취소하지 마세요. 회의에 참석해 주셔서 감사합니다.",
+      "observed": "예약을 취소하지 마세요. 회의에 참석해 주셔서 감사합니다.",
+      "captions": 2
+    }
+  ]
+}

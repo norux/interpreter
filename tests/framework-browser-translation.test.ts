@@ -19,7 +19,7 @@ function deferred<T>() {
 }
 
 // Fake native API/translation tests verify contracts, never real accuracy.
-function fixture(execution: "foreground" | "offscreen" = "foreground") {
+function fixture(execution: "foreground" | "offscreen" = "foreground", selectedPair = pair) {
   const loads: ReturnType<typeof deferred<{ translate: (text: string, options: { signal: AbortSignal }) => Promise<string>; destroy: () => void }>>[] = [];
   const calls: { text: string; signal: AbortSignal; result: ReturnType<typeof deferred<string>> }[] = [];
   const signals: AbortSignal[] = [];
@@ -38,9 +38,59 @@ function fixture(execution: "foreground" | "offscreen" = "foreground") {
     },
   }) });
   const statuses: { state: string; progress?: number; reason?: string }[] = [];
-  const host = createDocumentTranslator(document as unknown as Document, pair, status => statuses.push(status), execution);
+  const host = createDocumentTranslator(document as unknown as Document, selectedPair, status => statuses.push(status), execution);
   return { host, document, loads, native, calls, signals, progresses, statuses, destroyed: () => destroyed };
 }
+
+test("automatic translator prepares both native pairs once and reuses them when language changes", async () => {
+  const f = fixture("offscreen", { source: "auto", target: "ko" });
+  try {
+    const prepared = f.host.prepare();
+    assert.equal(f.loads.length, 2, "Both create calls must begin within the preparation gesture");
+    f.loads.forEach(load => { load.resolve(f.native); }); await prepared;
+    for (const [index, language] of ["en", "ja", "en"].entries()) {
+      const input = { ...source(`turn-${index}`, 1, true), language };
+      const stream = f.host.translate(input, { source: language, target: "ko" })[Symbol.asyncIterator]();
+      const next = stream.next(); f.calls[index].result.resolve(`번역 ${index}`);
+      const result = (await next).value;
+      assert.equal(result?.languages.source, language); await stream.return?.();
+    }
+    assert.equal(f.loads.length, 2, "Switching language cannot reload a prepared translator");
+  } finally { await f.host.close(); }
+  assert.equal(f.destroyed(), 2);
+});
+
+test("a failed automatic preparation destroys the ready pair and rejects a late second pair", async () => {
+  const f = fixture("offscreen", { source: "auto", target: "ko" });
+  try {
+    const prepared = f.host.prepare();
+    f.loads[0].resolve(f.native); await tick();
+    f.loads[1].reject(new Error("Second pair failed"));
+    await assert.rejects(prepared, /Second pair failed/);
+    assert.equal(f.destroyed(), 1);
+    assert.ok(f.signals.every(signal => signal.aborted));
+    const next = f.host.prepare(); f.host.stop();
+    f.loads[2].resolve(f.native); f.loads[3].resolve(f.native);
+    await assert.rejects(next, /Abort/); await tick();
+    assert.equal(f.destroyed(), 3);
+  } finally { await f.host.close(); }
+});
+
+test("late cancelled automatic preparation cannot destroy replacement translators", async () => {
+  const f = fixture("offscreen", { source: "auto", target: "ko" });
+  try {
+    const old = f.host.prepare(); f.host.stop();
+    const current = f.host.prepare();
+    f.loads[2].resolve(f.native); f.loads[3].resolve(f.native); await current;
+    f.loads[0].resolve(f.native); f.loads[1].resolve(f.native);
+    await assert.rejects(old, /Abort/); await tick();
+    assert.equal(f.destroyed(), 2, "Only the cancelled operation's late pairs are destroyed");
+    const stream = f.host.translate({ ...source(), language: "en" }, { source: "en", target: "ko" })[Symbol.asyncIterator]();
+    const next = stream.next(); f.calls[0].result.resolve("새 번역기");
+    assert.equal((await next).value?.text, "새 번역기"); await stream.return?.();
+  } finally { await f.host.close(); }
+  assert.equal(f.destroyed(), 4);
+});
 
 test("offscreen Translator prepares and translates while hidden, with explicit Stop cancellation", async () => {
   const f = fixture("offscreen");
@@ -199,7 +249,8 @@ test("English and Korean fillers skip translation without removing short answers
       assert.equal(queue.accept({ ...source(text), language, text, final: true }), true, text);
       await queue.whenIdle();
     }
-    assert.deepEqual(calls, [...meaningful]);
+    assert.deepEqual(calls, language === "ko" ? [] : [...meaningful]);
+    if (language === "ko") assert.deepEqual(queue.snapshot().map(caption => caption.translation.state === "paired" ? caption.translation.revision.text : undefined), [...meaningful]);
   }
 });
 

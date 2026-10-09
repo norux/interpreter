@@ -9,21 +9,24 @@ import { createSpeakerHost } from "../../packages/engines-browser/speaker-host";
 import { createStreamingSpeechRecognizer } from "../../packages/engines-browser/streaming-speech";
 import { createVadHost } from "../../packages/engines-browser/vad-host";
 
-export function createChromeEngine(document: Document, source: "ja" | "en", receive: (message: string, progress?: string) => void, execution: "foreground" | "offscreen" = "foreground", audioTrack?: () => MediaStreamTrack | undefined) {
+export function createChromeEngine(document: Document, source: "ja" | "en" | "ko" | "auto", receive: (message: string, progress?: string, fraction?: number) => void, execution: "foreground" | "offscreen" = "foreground", audioTrack?: () => MediaStreamTrack | undefined) {
   const languages = { source, target: "ko" };
   const model = registeredCandidate(asrCandidates.turboFp16.model, "fp16");
   const report = (status: ModelStatus) => receive(`${status.model.id} @ ${status.model.version}: ${status.state}; ${status.downloadedBytes ?? 0}/${status.requiredBytes} bytes${status.reason ? ` (${status.reason})` : ""}`,
     status.state === "downloading" ? `음성 인식 모델 다운로드 · ${Math.floor((status.downloadedBytes ?? 0) / status.requiredBytes * 100)}%`
-      : status.state === "loading" ? "음성 인식 모델을 불러오는 중…" : undefined);
+      : status.state === "loading" ? "음성 인식 모델을 불러오는 중…" : undefined,
+    status.state === "downloading" ? (status.downloadedBytes ?? 0) / status.requiredBytes : undefined);
   const speaker = createSpeakerHost(document, status => receive(`Speaker ${status.state}: ${status.downloadedBytes ?? 0}/${status.requiredBytes}`,
-    status.state === "downloading" ? "화자 구분 모델 다운로드 중…" : status.state === "loading" ? "화자 구분 모델을 불러오는 중…" : undefined));
+    status.state === "downloading" ? "화자 구분 모델 다운로드 중…" : status.state === "loading" ? "화자 구분 모델을 불러오는 중…" : undefined,
+    status.state === "downloading" ? (status.downloadedBytes ?? 0) / status.requiredBytes : undefined));
   let speakerReady = false;
   const asr = createAsrHost(document, "turboFp16", "webgpu", report, execution);
   const vad = createVadHost(document, report, execution);
-  const local = execution === "offscreen" && audioTrack ? createLocalSpeechHost(document, source, audioTrack, receive) : undefined;
+  const local = (source === "ja" || source === "en") && execution === "offscreen" && audioTrack ? createLocalSpeechHost(document, source, audioTrack, receive) : undefined;
   const usingLocal = local?.supported === true;
   const translator = createDocumentTranslator(document, languages, status => receive(`Translator ${source} → ko: ${status.state}${status.progress === undefined ? "" : ` ${Math.round(status.progress * 100)}%`}${status.reason ? ` (${status.reason})` : ""}`,
-    status.state === "preparing" ? `번역 모델 준비${status.progress === undefined ? " 중…" : ` · ${Math.round(status.progress * 100)}%`}` : undefined), execution);
+    status.state === "preparing" ? `번역 모델 준비${status.progress === undefined ? " 중…" : ` · ${Math.round(status.progress * 100)}%`}` : undefined,
+    status.state === "preparing" ? status.progress : undefined), execution);
   let ready = false;
   let preparing = false;
   let disposed = false;
@@ -34,7 +37,7 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
   function stopResources() { ready = false; local?.stop(); asr.stop(); vad.stop(); translator.stop(); speaker.stop(); speakerReady = false; }
   const port: InterpretationEngine = {
     async probe(pair) {
-      const native = await translator.probe();
+      const native = source === "ko" ? { state: "available" as const } : await translator.probe();
       return { availability: pair.source !== source || pair.target !== "ko"
         ? { state: "unavailable", reason: "language-pair-unsupported", message: "Prepare the selected source language" }
         : native.state !== "available" && native.state !== "download-required" ? native
@@ -81,7 +84,7 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
       const current = ++generation; preparing = true;
       try {
         // Local speech observes Chrome's popup-initiated language-pack download.
-        await Promise.all([usingLocal ? local.prepare() : asr.prepare(), usingLocal ? undefined : vad.prepare(), translator.prepare(), speaker.prepare().then(() => { speakerReady = true; }).catch(error => {
+        await Promise.all([usingLocal ? local.prepare() : asr.prepare(), usingLocal ? undefined : vad.prepare(), source === "ko" ? undefined : translator.prepare(), speaker.prepare().then(() => { speakerReady = true; }).catch(error => {
           if (current === generation) receive(`화자 구분 모델 준비 실패: ${String(error)}`);
         })]);
         if (disposed || current !== generation) throw new DOMException("Preparation stopped", "AbortError");
@@ -90,6 +93,14 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
       finally { if (current === generation) preparing = false; }
     },
     get ready() { return ready; },
+    get models() {
+      return [
+        { task: source === "auto" ? "언어 감지 · 받아쓰기" : "받아쓰기", name: usingLocal ? "Chrome SODA" : "Whisper large-v3-turbo · FP16 / WebGPU" },
+        ...usingLocal ? [] : [{ task: "발화 감지", name: "Silero VAD" }],
+        ...source === "ko" ? [] : [{ task: "한국어 번역", name: "Chrome TranslateKit" }],
+        { task: "화자 구분", name: "WeSpeaker VoxCeleb ResNet34-LM · q8" },
+      ];
+    },
     get running() { return !usingLocal || local.running; },
   };
 }

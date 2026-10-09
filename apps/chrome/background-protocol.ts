@@ -2,10 +2,12 @@ import type { CaptionRevision, MediaTarget, SessionIdentity } from "../../packag
 
 export type BackgroundSnapshot = {
   state: "idle" | "preparing" | "ready" | "starting" | "running" | "stopping" | "failed";
-  source: "ja" | "en";
+  source: "ja" | "en" | "ko" | "auto";
   tabId?: number;
   message: string;
   diagnostic?: string;
+  downloadProgress?: number;
+  models?: { task: string; name: string }[];
   target?: MediaTarget;
   identity?: SessionIdentity;
   captions: CaptionRevision[];
@@ -13,7 +15,7 @@ export type BackgroundSnapshot = {
 
 export type BackgroundCommand =
   | { type: "snapshot" | "stop" }
-  | { type: "prepare"; tabId: number; source: "ja" | "en" }
+  | { type: "prepare"; tabId: number; source: "ja" | "en" | "ko" | "auto" }
   | { type: "start"; tabId: number; streamId: string };
 
 export const backgroundChannel = "interpreter-background-v1";

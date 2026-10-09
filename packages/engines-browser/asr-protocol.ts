@@ -5,7 +5,7 @@ export interface AsrJob {
   readonly identity: SessionIdentity;
   readonly utteranceId: string;
   readonly audioRange: AudioRange;
-  readonly language: "ja" | "en";
+  readonly language: "ja" | "en" | "ko" | "auto";
   readonly pcm: Float32Array;
   readonly timestamps?: true;
 }
@@ -26,7 +26,7 @@ export function validAsrJob(value: unknown): value is AsrJob {
     || !Number.isSafeInteger(identity.epoch) || identity.epoch < 0
     || typeof job.utteranceId !== "string" || !job.utteranceId.length || job.utteranceId.length > 256
     || (job.timestamps !== undefined && job.timestamps !== true)
-    || !["ja", "en"].includes(job.language ?? "") || !range
+    || !["ja", "en", "ko", "auto"].includes(job.language ?? "") || !range
     || !Number.isFinite(range.startMs) || range.startMs < 0 || !Number.isFinite(range.endMs)
     || !(job.pcm instanceof Float32Array) || !(job.pcm.buffer instanceof ArrayBuffer)
     || job.pcm.byteOffset !== 0 || job.pcm.byteLength !== job.pcm.buffer.byteLength

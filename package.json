@@ -24,6 +24,7 @@
     "test:framework:video": "tsc -p tsconfig.media-web.json && node --import tsx --test tests/framework-video-input.test.ts tests/framework-video-worklet.test.ts tests/framework-video-fixture.test.mjs && node tests/framework-video.mjs",
     "test:js": "node --import tsx --test tests/*.test.ts tests/framework-video-fixture.test.mjs",
     "test:speakers": "node tests/speaker-conversation-browser.mjs",
+    "test:auto-language:live": "node tests/framework-chrome-tab-engine.mjs --auto-language",
     "test:conversation:live": "node tests/framework-chrome-tab-engine.mjs --conversation",
     "test:captions-stability": "node tests/captions-stability-browser.mjs",
     "test:conversation": "python3 -m http.server 8790 --bind 127.0.0.1 --directory tests/fixtures/conversation",

@@ -10,7 +10,7 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
   let ready = false;
   let disposed = false;
   let failure: string | undefined;
-  let pending: { type: "prepare" | "recognize"; timestamps: boolean; durationMs: number; resolve(value: { text: string; inferenceMs: number; segments?: AsrSegment[] } | undefined): void; reject(error: Error): void } | undefined;
+  let pending: { type: "prepare" | "recognize"; timestamps: boolean; durationMs: number; language: AsrJob["language"] | undefined; resolve(value: { text: string; inferenceMs: number; segments?: AsrSegment[]; language?: "en" | "ja" | "ko"; languageConfidence?: number } | undefined): void; reject(error: Error): void } | undefined;
   function stop() {
     requestId++; ready = false;
     worker?.terminate(); worker = undefined;
@@ -45,6 +45,16 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
         if (data.type === "ready") { ready = true; pending = undefined; operation.resolve(undefined); return; }
         if (data.type === "result" && "text" in data && typeof data.text === "string" && data.text.length <= 16384
           && "inferenceMs" in data && typeof data.inferenceMs === "number" && Number.isFinite(data.inferenceMs) && data.inferenceMs >= 0) {
+          let language: "en" | "ja" | "ko" | undefined;
+          let languageConfidence: number | undefined;
+          if (operation.language === "auto") {
+            if (!("language" in data) || !["en", "ja", "ko"].includes(String(data.language))
+              || !("languageConfidence" in data) || typeof data.languageConfidence !== "number"
+              || !Number.isFinite(data.languageConfidence) || data.languageConfidence < 0 || data.languageConfidence > 1) {
+              fail("Invalid ASR language detection"); return;
+            }
+            language = data.language as "en" | "ja" | "ko"; languageConfidence = data.languageConfidence;
+          }
           let segments: AsrSegment[] | undefined;
           if (operation.timestamps) {
             if (!("segments" in data) || !Array.isArray(data.segments) || data.segments.length > 256) { fail("Invalid ASR timestamps"); return; }
@@ -58,7 +68,7 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
             }
             if (segments.map(segment => segment.text).join("").trim() !== data.text.trim()) { fail("Invalid ASR timestamp text"); return; }
           }
-          pending = undefined; operation.resolve({ text: data.text, inferenceMs: data.inferenceMs, segments }); return;
+          pending = undefined; operation.resolve({ text: data.text, inferenceMs: data.inferenceMs, segments, language, languageConfidence }); return;
         }
         fail("Invalid ASR worker response");
       };
@@ -66,7 +76,7 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
       worker.onmessageerror = () => fail("ASR worker transport failed");
     }
     requestId++; failure = undefined;
-    const result = new Promise<{ text: string; inferenceMs: number; segments?: AsrSegment[] } | undefined>((resolve, reject) => { pending = { type, timestamps: job?.timestamps === true, durationMs: (job?.pcm.length ?? 0) / 16, resolve, reject }; });
+    const result = new Promise<{ text: string; inferenceMs: number; segments?: AsrSegment[]; language?: "en" | "ja" | "ko"; languageConfidence?: number } | undefined>((resolve, reject) => { pending = { type, language: job?.language, timestamps: job?.timestamps === true, durationMs: (job?.pcm.length ?? 0) / 16, resolve, reject }; });
     worker.postMessage({ version: 1, requestId, type, candidate, device, job }, job ? [job.pcm.buffer as ArrayBuffer] : []);
     return result;
   }
@@ -89,7 +99,8 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
       const utteranceId = job.utteranceId; const language = job.language;
       const output = await request("recognize", job);
       if (!output) throw new Error("Missing ASR output");
-      return { revision: { identity, audioRange, utteranceId, language, sourceRevision: 1, final: true, text: output.text }, inferenceMs: output.inferenceMs, segments: output.segments };
+      return { revision: { identity, audioRange, utteranceId, language: output.language ?? language, sourceRevision: 1, final: true, text: output.text,
+        ...(output.languageConfidence === undefined ? {} : { confidence: { measure: "whisper-language-probability", value: output.languageConfidence } }) }, inferenceMs: output.inferenceMs, segments: output.segments };
     },
     stop,
     dispose() {

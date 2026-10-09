@@ -417,3 +417,26 @@ test("synthetic input traverses queue/engine/store with video times and matching
   assert.equal(captions.length, 2);
   assert.equal(statuses.at(-1)?.state, "idle");
 });
+
+test("automatic sessions accept each supported source language while retaining exact translation pairing", async () => {
+  const h = harness();
+  const automatic = { source: "auto", target: "ko" };
+  h.probeLater(Promise.resolve({ ...capabilities, languages: automatic }));
+  await h.controller.start(target, automatic);
+  const session = h.controller.identity as SessionIdentity;
+  try {
+    for (const [index, language] of ["en", "ja", "ko"].entries()) {
+      const original = { ...source(1, true, session, `turn-${index}`), language,
+        audioRange: { startMs: index * 100, endMs: (index + 1) * 100 } };
+      h.engines[0].feed.push({ type: "transcript", revision: original });
+      h.engines[0].feed.push({ type: "translation", revision: { ...translation(1, 1, true, session),
+        utteranceId: original.utteranceId, languages: { source: language, target: "ko" } } });
+    }
+    h.engines[0].feed.push({ type: "transcript", revision: { ...source(1, true, session, "unsupported"), language: "fr" } });
+    await until(() => h.controller.snapshot().filter(caption => caption.translation.state === "paired").length === 3);
+    const captions = h.controller.snapshot();
+    assert.deepEqual(captions.map(caption => caption.source.language), ["en", "ja", "ko"]);
+    assert.ok(captions.every(caption => caption.translation.state === "paired"
+      && caption.source.language === caption.translation.revision.languages.source));
+  } finally { await h.controller.stop(); }
+});

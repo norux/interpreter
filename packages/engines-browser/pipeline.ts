@@ -63,7 +63,8 @@ export function createBrowserPipeline(identity: SessionIdentity, languages: Lang
         try {
           for await (const source of recognizer.run(trackedAudio(audio))) {
             if (stopped) return;
-            if (!sameIdentity(selected, source.identity) || source.language !== languages.source) { fail("engine-failed"); return; }
+            if (!sameIdentity(selected, source.identity) || (languages.source === "auto"
+              ? !["en", "ja", "ko"].includes(source.language) : source.language !== languages.source)) { fail("engine-failed"); return; }
             if (translations.accept(source)) voices?.observe(source);
           }
           await translations.whenIdle();

@@ -1,0 +1,49 @@
+{
+  "provenance": "Local macOS say, Samantha/Kyoko/Yuna; synthetic speech, no user recordings",
+  "durationSeconds": 25.3050625,
+  "sha256": "ca98a4f37fb0c25363f7e29cbe495396279268115ff1b75a2ce00337db15d6e3",
+  "turns": [
+    {
+      "language": "en",
+      "voice": "Samantha",
+      "text": "Hello everyone. We will meet tomorrow at the station.",
+      "startSeconds": 0.0,
+      "endSeconds": 3.00375
+    },
+    {
+      "language": "ja",
+      "voice": "Kyoko",
+      "text": "こんにちは。明日の午後三時に駅で会いましょう。",
+      "startSeconds": 3.35375,
+      "endSeconds": 6.8668125
+    },
+    {
+      "language": "ko",
+      "voice": "Yuna",
+      "text": "안녕하세요. 내일 오후 세 시에 역에서 만나겠습니다.",
+      "startSeconds": 7.2168125,
+      "endSeconds": 10.8350625
+    },
+    {
+      "language": "en",
+      "voice": "Samantha",
+      "text": "Please keep the reservation. Thank you for joining the meeting.",
+      "startSeconds": 11.1850625,
+      "endSeconds": 14.457125
+    },
+    {
+      "language": "ja",
+      "voice": "Kyoko",
+      "text": "予約は取り消さないでください。会議に参加してくれてありがとうございます。",
+      "startSeconds": 14.807125,
+      "endSeconds": 20.386875
+    },
+    {
+      "language": "ko",
+      "voice": "Yuna",
+      "text": "예약을 취소하지 마세요. 회의에 참석해 주셔서 감사합니다.",
+      "startSeconds": 20.736875,
+      "endSeconds": 24.9550625
+    }
+  ]
+}

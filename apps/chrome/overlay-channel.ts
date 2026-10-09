@@ -24,7 +24,7 @@ function caption(value: unknown): value is CaptionRevision {
   if (!record(value) || !record(value.source) || !record(value.translation)) return false;
   const source = value.source;
   if (!identity(source.identity) || !text(source.utteranceId) || !integer(source.sourceRevision) || source.sourceRevision === 0
-    || !text(source.text, 12000) || typeof source.final !== "boolean" || !["ja", "en"].includes(String(source.language))
+    || !text(source.text, 12000) || typeof source.final !== "boolean" || !["ja", "en", "ko"].includes(String(source.language))
     || source.speakerId !== undefined && (!integer(source.speakerId) || source.speakerId < 1 || source.speakerId > 8)
     || !range(source.audioRange) || (value.videoRange !== undefined && !range(value.videoRange))) return false;
   if (value.translation.state === "pending") return true;

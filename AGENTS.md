@@ -29,6 +29,14 @@ Whenever a feature is added, removed or modified, review and update all of the f
 
 Make concrete edits wherever the behavior or instructions changed. If a document remains accurate, explicitly report that it was reviewed and why no edit was needed. Do not add meaningless edits just to touch a file. Do not mark the work complete while documentation contradicts implementation, or present planned platforms as supported.
 
+## Automatic language invariants
+
+Automatic mode supports English/Japanese/Korean speech and requires the local Whisper WebGPU path. Automatic detection is opt-in; the popup defaults to manual Japanese. Selecting English/Japanese/Korean disables detection. Manual English/Japanese can continue using SODA; manual Korean uses fixed-language Whisper and bypasses translation. `auto` is a session selection, never a transcript language: each utterance carries its detected `en`, `ja` or `ko` through recognition, translation and overlay validation. English/Japanese translate to Korean; Korean speech bypasses native translation and pairs with its original text. Preserve first-word PCM and queued speech boundaries during inference. Recent language is a session-local tie breaker, not a fixed language per speaker. Stop/navigation must retire both prepared translation pairs and pending recognition.
+
+Ready captions stack below earlier captions and accrue reading time concurrently. Retire completed rows oldest first, preserve each row’s measured two-line parts and correction offsets, and never spend the reading time of clipped/offscreen rows. The model-information table uses the prepared engine’s actual model list when available.
+
+Download progress must come from background preparation state, survive popup closure and reflect the current model stage. Keep stages without reported progress indeterminate; downloaded files do not imply that model loading is complete.
+
 ## Verification and delivery
 
 Run `npm run verify` for broad changes. For a scoped change, run the checks listed in `docs/testing.md` that demonstrate its behavior. Distinguish mocked display tests from real audio/model/browser verification. Report commands, failures and environment limitations honestly.

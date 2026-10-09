@@ -4,7 +4,7 @@ import { backgroundChannel, eventChannel, type BackgroundCommand, type Backgroun
 import { createChromeEngine } from "./engine";
 import { createChromeTabInput } from "./tab-input";
 
-let snapshot: BackgroundSnapshot = { state: "idle", source: "ja", message: "영상 언어를 선택하고 모델을 준비하세요.", captions: [] };
+let snapshot: BackgroundSnapshot = { state: "idle", source: "ja", message: "음성 언어를 선택하고 모델을 준비하세요.", captions: [] };
 let engine: ReturnType<typeof createChromeEngine> | undefined;
 let capture: ReturnType<typeof createChromeTabInput> | undefined;
 let controller: ReturnType<typeof createSessionController> | undefined;
@@ -15,6 +15,7 @@ function publish() {
   void chrome.runtime.sendMessage({ channel: eventChannel, type: "status" }).catch(() => {});
 }
 function update(state: BackgroundSnapshot["state"], message: string) {
+  if (state !== "preparing") snapshot.downloadProgress = undefined;
   snapshot.state = state; snapshot.message = message; publish();
 }
 function emit(fields: object) {
@@ -46,17 +47,18 @@ async function command(value: BackgroundCommand) {
   if (value.type === "stop") { await stop(); return snapshot; }
   if (value.type === "prepare") {
     if (engine || stopping) throw new Error("먼저 중지를 눌러주세요.");
-    if (!Number.isSafeInteger(value.tabId) || value.tabId <= 0 || !["ja", "en"].includes(value.source)) throw new Error("번역할 탭과 언어를 선택하세요.");
+    if (!Number.isSafeInteger(value.tabId) || value.tabId <= 0 || !["auto", "ja", "en", "ko"].includes(value.source)) throw new Error("번역할 탭과 언어를 선택하세요.");
     const current = ++generation;
     snapshot = { state: "preparing", source: value.source, tabId: value.tabId,
       message: "음성 인식과 번역 모델 준비 중…", captions: [] };
-    engine = createChromeEngine(document, value.source, (diagnostic, progress) => {
+    engine = createChromeEngine(document, value.source, (diagnostic, progress, fraction) => {
       if (current !== generation) return;
       snapshot.diagnostic = diagnostic;
-      if (progress && progress === snapshot.message) return;
-      if (progress) snapshot.message = progress;
+      if (progress && progress === snapshot.message && fraction === snapshot.downloadProgress) return;
+      if (progress) { snapshot.message = progress; snapshot.downloadProgress = fraction; }
       publish();
     }, "offscreen", () => capture?.audioTrack);
+    snapshot.models = engine.models;
     const owned = engine;
     // Preparation starts while Chrome forwards the popup click's user gesture.
     const prepared = owned.prepareFromGesture(); publish();

@@ -37,7 +37,7 @@ async function connectOutput(snapshot: BackgroundSnapshot) {
     if (last) output.compare(last);
   } catch { if (current === generation) outputSession = undefined; }
 }
-async function control(command: { type: string; tabId?: number; source?: "ja" | "en" }) {
+async function control(command: { type: string; tabId?: number; source?: "ja" | "en" | "ko" | "auto" }) {
   if (command.type === "prepare" && command.tabId && command.source) {
     await ensureRuntime();
     const previous = selectedTabId; const current = generation;

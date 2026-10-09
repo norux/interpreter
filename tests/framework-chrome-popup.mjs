@@ -24,10 +24,11 @@ try {
     const params = new URL(location.href).searchParams;
     const fresh = params.has("fresh") || params.has("downloading");
     globalThis.commands = []; globalThis.installs = [];
+    globalThis.translationProbes = [];
     globalThis.listeners = []; globalThis.delaySnapshot = false;
     globalThis.packs = fresh ? [] : ["ja-JP", "en-US", "ko-KR"];
     globalThis.translationReady = !fresh;
-    globalThis.saved = { state: "idle", source: "ja", message: "初期", captions: [] };
+    globalThis.saved = { state: "idle", source: params.has("auto") ? "auto" : "ja", message: "初期", captions: [] };
     if (params.has("downloading")) saved = { ...saved, state: "preparing", tabId: 10, message: "백그라운드 다운로드 중…" };
     class Speech {
       processLocally = false;
@@ -36,7 +37,9 @@ try {
     }
     Object.defineProperty(window, "SpeechRecognition", { configurable: true, value: Speech });
     if (params.has("whisper")) Speech.install = undefined;
-    Object.defineProperty(window, "Translator", { configurable: true, value: { availability: async () => translationReady ? "available" : "downloadable" } });
+    Object.defineProperty(window, "Translator", { configurable: true, value: { availability: async options => {
+      translationProbes.push(options); return translationReady ? "available" : "downloadable";
+    } } });
     Object.defineProperty(window, "chrome", { configurable: true, value: {
       tabs: { query: async () => [{ id: 10, url: "http://fixture.test" }] },
       runtime: { id: "fixture", onMessage: { addListener(listener) { listeners.push(listener); }, removeListener() {} }, async sendMessage({ command }) {
@@ -60,6 +63,11 @@ try {
   await page.goto(url);
   await page.waitForFunction(() => !document.querySelector("#start").disabled, undefined, { timeout: 3000 });
   assert.deepEqual(await page.evaluate(() => installs), [], "Cached models must not reinstall");
+  assert.equal(await page.locator("#auto-detect").isChecked(), false);
+  assert.equal(await page.locator("#language").inputValue(), "ja");
+  await page.locator("#model-details summary").click();
+  assert.match(await page.locator("#model-list").innerText(), /Chrome SODA/);
+  await page.locator("#model-details summary").click();
   assert.equal(await page.locator("#prepare").isVisible(), false);
   assert.equal(await page.evaluate(() => commands.some(command => command.type === "start")), false, "Readiness must not capture audio");
   await page.getByRole("button", { name: "번역 시작", exact: true }).click();
@@ -110,19 +118,79 @@ try {
   await page.getByRole("button", { name: "모델 다운로드", exact: true }).click();
   await page.waitForFunction(() => !document.querySelector("#start").disabled);
   assert.deepEqual(await page.evaluate(() => installs), [], "Whisper setup must not call unsupported native speech installation");
+  await page.goto(`${url}?fresh&auto`);
+  await page.waitForFunction(() => !document.querySelector("#prepare").disabled);
+  assert.equal(await page.locator("#auto-detect").isChecked(), true);
+  assert.match(await page.locator("#model-description").textContent(), /발화별로 자동 감지/);
+  await page.locator("#model-details summary").click();
+  const modelTable = await page.locator("#model-list").innerText();
+  for (const name of ["Whisper large-v3-turbo", "Silero VAD", "Chrome TranslateKit", "WeSpeaker"]) assert.ok(modelTable.includes(name));
+  await page.screenshot({path:".ralph/popup-model-table.png"});
+  assert.deepEqual(await page.evaluate(() => translationProbes), [
+    { sourceLanguage: "en", targetLanguage: "ko" }, { sourceLanguage: "ja", targetLanguage: "ko" },
+  ]);
+  await page.getByRole("button", { name: "모델 다운로드", exact: true }).click();
+  await page.waitForFunction(() => !document.querySelector("#start").disabled);
+  assert.deepEqual(await page.evaluate(() => installs), [], "Automatic mode must use Whisper even when native SODA exists");
+  assert.equal(await page.evaluate(() => commands.find(command => command.type === "prepare").source), "auto");
+  await page.locator("#language").selectOption("ko");
+  await page.waitForFunction(() => !document.querySelector("#prepare").disabled);
+  assert.equal(await page.locator("#auto-detect").isChecked(), false, "Selecting a language disables detection");
+  assert.match(await page.locator("#model-description").textContent(), /한국어 원문/);
+  assert.doesNotMatch(await page.locator("#model-list").innerText(), /TranslateKit|SODA/);
+  const probes = await page.evaluate(() => translationProbes.length);
+  await page.getByRole("button", { name: "모델 다운로드", exact: true }).click();
+  await page.waitForFunction(() => saved.source === "ko" && !document.querySelector("#start").disabled);
+  assert.equal(await page.evaluate(() => translationProbes.length), probes, "Korean skips translation probing");
+  assert.deepEqual(await page.evaluate(() => installs), [], "Korean uses fixed-language Whisper");
+  await page.locator("#auto-detect").check();
+  await page.waitForFunction(() => !document.querySelector("#prepare").disabled);
+  await page.getByRole("button", { name: "모델 다운로드", exact: true }).click();
+  await page.waitForFunction(() => saved.source === "auto" && !document.querySelector("#start").disabled);
+  await page.locator("#language").selectOption("en");
+  await page.waitForFunction(() => !document.querySelector("#prepare").disabled);
+  assert.equal(await page.locator("#auto-detect").isChecked(), false);
+  await page.getByRole("button", { name: "모델 다운로드", exact: true }).click();
+  await page.waitForFunction(() => saved.source === "en" && !document.querySelector("#start").disabled);
+  assert.equal(await page.locator("#diagnostic").count(), 0);
   await page.goto(`${url}?downloading`);
   await page.getByText("백그라운드 다운로드 중…", { exact: true }).waitFor();
   assert.equal(await page.locator("#start").isVisible(), false);
   assert.equal(await page.locator("#prepare").isVisible(), true);
   assert.equal(await page.locator("#prepare").isDisabled(), true);
+  assert.equal(await page.locator("#download-progress").isVisible(), true);
+  assert.equal(await page.locator("#model-progress").getAttribute("value"), null, "Unknown preparation progress stays indeterminate");
+  await page.evaluate(() => {
+    saved = { ...saved, downloadProgress: 0.42, message: "음성 인식 모델 다운로드 · 42%" };
+    for (const listener of listeners) listener({ channel: "interpreter-event-v1" }, { id: "fixture" });
+  });
+  await page.waitForFunction(() => document.querySelector("#model-progress").value === 0.42);
+  assert.equal(await page.locator("#download-percent").textContent(), "42%");
+  await page.screenshot({ path: ".ralph/model-download-progress.png" });
+  await page.evaluate(() => {
+    saved = { ...saved, downloadProgress: undefined, message: "음성 인식 모델을 불러오는 중…" };
+    for (const listener of listeners) listener({ channel: "interpreter-event-v1" }, { id: "fixture" });
+  });
+  await page.waitForFunction(() => !document.querySelector("#model-progress").hasAttribute("value"));
+  assert.equal(await page.locator("#download-percent").textContent(), "준비 중…");
   assert.equal(await page.evaluate(() => commands.some(command => command.type === "prepare")), false, "Reopening must observe, not restart, the background download");
   await page.evaluate(() => {
-    saved = { ...saved, state: "ready", message: "준비 완료" };
+    saved = { ...saved, state: "ready", message: "준비 완료", models: [
+      {task:"받아쓰기",name:"Whisper large-v3-turbo · FP16 / WebGPU"},
+      {task:"발화 감지",name:"Silero VAD"},
+      {task:"한국어 번역",name:"Chrome TranslateKit"},
+      {task:"화자 구분",name:"WeSpeaker VoxCeleb ResNet34-LM · q8"},
+    ] };
     for (const listener of listeners) listener({ channel: "interpreter-event-v1" }, { id: "fixture" });
   });
   await page.waitForFunction(() => !document.querySelector("#start").disabled);
   assert.equal(await page.locator("#model-setup").isVisible(), false);
   assert.equal(await page.locator("#start").isVisible(), true);
+  assert.equal(await page.locator("#download-progress").isVisible(), false);
+  await page.locator("#model-details summary").click();
+  const preparedModels = await page.locator("#model-list").innerText();
+  assert.match(preparedModels,/Whisper large-v3-turbo/);
+  assert.ok(!preparedModels.includes("Chrome SODA"),"The prepared engine's actual model list overrides popup API predictions");
   console.log(JSON.stringify({ passed: true, scope: "Popup DOM and browser API mocks; cached models auto-ready on open/Stop, missing packs require a download gesture, readiness never starts capture" }));
 } finally {
   await browser?.close(); await new Promise(done => server.close(done));

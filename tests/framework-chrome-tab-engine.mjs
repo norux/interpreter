@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { build } from "vite";
 
+const autoLanguage = process.argv.includes("--auto-language");
 const conversation = process.argv.includes("--conversation");
 const captureLoss = process.argv.includes("--capture-loss");
 const lifecycle = process.argv.includes("--lifecycle");
@@ -19,7 +20,7 @@ const download = process.argv.includes("--download");
 const installedChrome = process.argv.includes("--installed-chrome");
 const userSpeechComponents = process.argv.includes("--user-speech-components");
 const koreanCaptionLanguage = process.argv.includes("--korean-caption-language");
-const localSpeech = !process.argv.includes("--whisper");
+const localSpeech = !autoLanguage && !process.argv.includes("--whisper");
 const modelDirectory = localSpeech ? undefined : process.env.INTERPRETER_TEST_MODEL_DIRECTORY;
 const modelFiles = [
   ["encoder_model_fp16.onnx", "interpreter-turbo-encoder-verified.onnx", 1274342603, "fdadc70836e6b028fd5e580417c312208dad073d2d01e509e2d127c1373399d8"],
@@ -33,6 +34,12 @@ if (modelDirectory) for (const [, filename, bytes, sha256] of modelFiles) {
 const output = resolve(`.ralph/media-framework/chrome-tab-engine-build${installedChrome ? "-installed" : download ? "-download" : latency ? "-latency" : !localSpeech ? "-whisper" : captureLoss ? "-loss" : ""}`);
 const fixtures = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8")).clips;
 const media = new Map();
+const meeting = autoLanguage ? JSON.parse(await readFile("tests/fixtures/multilingual/manifest.json", "utf8")) : undefined;
+if (autoLanguage) {
+  const bytes = await readFile("tests/fixtures/multilingual/meeting.wav");
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), meeting.sha256);
+  media.set("/meeting.wav", bytes);
+}
 if (conversation) media.set("/conversation.wav", await readFile("tests/fixtures/conversation/conversation.wav"));
 let latencyDirectory;
 const latencyTexts = {
@@ -86,7 +93,7 @@ function serve(request, response) {
     response.end(`<!doctype html><title>Cross-origin tab speech</title><iframe src="http://localhost:${server.address().port}/?mode=video&language=${language}"></iframe>`); return;
   }
   response.end(`<!doctype html><meta charset="utf-8"><title>Tab speech fixture</title>
-    ${mode === "web-audio" ? "" : `<${mode === "audio" ? "audio" : "video"} id="media" src="/${conversation ? "conversation.wav" : `${language}.webm`}" controls preload="auto" ${conversation ? "" : "loop"}></${mode === "audio" ? "audio" : "video"}>`}
+    ${mode === "web-audio" ? "" : `<${mode === "audio" ? "audio" : "video"} id="media" src="/${autoLanguage ? "meeting.wav" : conversation ? "conversation.wav" : `${language}.webm`}" controls preload="auto" ${conversation || autoLanguage ? "" : "loop"}></${mode === "audio" ? "audio" : "video"}>`}
     <button id="play">Play speech</button><script>
     play.onclick=async()=>{
       ${mode === "web-audio" ? `
@@ -248,7 +255,7 @@ try {
     throw Error('No action popup');
   }
 
-  const scenarios = conversation ? [{language:"en",mode:"audio"}] : latency ? [{language:'ja',mode:'web-audio'},{language:'en',mode:'web-audio'}] : captureLoss || lifecycle || download ? [{language:'ja',mode:'web-audio'}] : [
+  const scenarios = autoLanguage ? [{language:"auto",mode:"audio"}] : conversation ? [{language:"en",mode:"audio"}] : latency ? [{language:'ja',mode:'web-audio'},{language:'en',mode:'web-audio'}] : captureLoss || lifecycle || download ? [{language:'ja',mode:'web-audio'}] : [
     {language:'ja',mode:'video'}, {language:'en',mode:'iframe'}, {language:'en',mode:'audio'}, {language:'ja',mode:'web-audio'},
   ];
   let runtime;
@@ -256,6 +263,11 @@ try {
     await page.goto(`${origin}/?language=${scenario.language}&mode=${scenario.mode}`);
     const source=scenario.mode==='iframe'?page.frameLocator('iframe'):page;
     let popup=await openPopup();
+    if (autoLanguage) {
+      while (await popup.evaluate("document.querySelector('#auto-detect').disabled")) await new Promise(done=>setTimeout(done,100));
+      await popup.click("#auto-detect");
+    }
+    if (!autoLanguage) await popup.evaluate(`document.querySelector('#language').value=${JSON.stringify(scenario.language)};document.querySelector('#language').dispatchEvent(new Event('change'))`);
     if (!runtime) {
       const targets=(await cdp.send('Target.getTargets')).targetInfos;
       const target=targets.find(value=>value.url===`chrome-extension://${extensionId}/offscreen.html`);assert.ok(target);
@@ -314,10 +326,6 @@ try {
       // Recreate after attaching observation hooks to the persistent runtime.
       await popup.click('#stop');await waitState(value=>value?.state==='ready');
     }
-    if (scenario.language==='en') {
-      await waitState(value=>['idle','ready'].includes(value?.state));
-      await popup.evaluate("document.querySelector('#language').value='en';document.querySelector('#language').dispatchEvent(new Event('change'))");
-    }
     if(!localSpeech) await popup.evaluate('(globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition).install=undefined');
     if(download){
       const before=await popup.evaluate(`(globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition).available({langs:[${JSON.stringify(scenario.language==='ja'?'ja-JP':'en-US')}],processLocally:true})`);
@@ -357,17 +365,92 @@ try {
 
     popup=await openPopup();await popup.click('#start');
     await waitState(value=>value?.state==='running');await popup.close();
-    if (conversation) await page.evaluate(() => {
+    if (conversation || autoLanguage) await page.evaluate(() => {
       globalThis.captionFrames = [];
-      let previous = '';
+      const previous = new Map();
       globalThis.captionMonitor = setInterval(() => {
-        const cue = document.querySelector('[data-interpreter-overlay]')?.shadowRoot.querySelector('.interpreter-live');
-        const text = cue?.querySelector('span')?.textContent ?? '';
-        if (text !== previous) { captionFrames.push({atMs:performance.now(),text,utteranceId:cue?.dataset.utteranceId,speakerId:cue?.dataset.speakerId,opacity:cue ? getComputedStyle(cue).opacity : null}); previous = text; }
+        const cues = document.querySelector('[data-interpreter-overlay]')?.shadowRoot.querySelectorAll('.interpreter-live') ?? [];
+        const present = new Set();
+        for (const cue of cues) {
+          const style = getComputedStyle(cue);
+          const id = cue.dataset.utteranceId;
+          present.add(id);
+          if (style.visibility !== 'visible') {
+            if (previous.has(id) && previous.get(id) !== 'hidden') captionFrames.push({atMs:performance.now(),text:'',utteranceId:id,hidden:true});
+            previous.set(id,'hidden'); continue;
+          }
+          const text = cue.querySelector('span')?.textContent ?? '';
+          const signature = `${text}|${style.opacity}`;
+          if (previous.get(id) !== signature) captionFrames.push({atMs:performance.now(),text,utteranceId:id,speakerId:cue.dataset.speakerId,opacity:style.opacity});
+          previous.set(id,signature);
+        }
+        for (const id of previous.keys()) if (!present.has(id)) {
+          captionFrames.push({atMs:performance.now(),text:'',utteranceId:id,removed:true}); previous.delete(id);
+        }
       }, 25);
     });
     const playRequestedAt=performance.now();
     await source.getByRole('button',{name:'Play speech',exact:true}).click();
+    if (autoLanguage) {
+      const anchors = [ [/hello/i, /tomorrow/i, /station/i], [/こんにちは/, /明日/, /駅/],
+        [/안녕하세요/, /내일/, /만나겠습니다/], [/please/i, /reservation/i, /thank you/i, /meeting/i],
+        [/予約/, /取り消さない/, /会議/, /ありがとうございます/], [/예약/, /취소하지/, /회의/, /감사합니다/] ];
+      const turnCaptions = (captions, turn) => captions.filter(caption => caption.source.language === turn.language
+        && caption.source.audioRange.startMs >= turn.startSeconds * 1000 - 600 && caption.source.audioRange.startMs < turn.endSeconds * 1000);
+      const deadline = performance.now() + 90000;
+      while (performance.now() < deadline) {
+        const current = await state();
+        assert.equal(current.state, "running", current.message);
+        if (await page.evaluate(() => media.ended) && meeting.turns.every((turn,index) => {
+          const captions = turnCaptions(current.captions, turn);
+          const text = captions.map(caption => caption.source.text).join(" ");
+          return anchors[index].every(anchor => anchor.test(text)) && captions.every(caption => caption.translation.state === "paired");
+        })) break;
+        await new Promise(done => setTimeout(done,250));
+      }
+      const completed = await state();
+      const displayDeadline = performance.now() + 60000;
+      while (performance.now() < displayDeadline && !await page.evaluate(ids =>
+        ids.every(id => captionFrames.some(frame => frame.utteranceId === id && frame.text && frame.opacity !== "0")),
+        completed.captions.map(caption => caption.source.utteranceId))) await new Promise(done => setTimeout(done,250));
+      const frames = await page.evaluate(() => { clearInterval(captionMonitor); return captionFrames; });
+      const result = { state: completed.state, captions: completed.captions, frames,
+        workers: await runtime.evaluate("runtimeObservations"), translations: await runtime.evaluate("translationCalls") };
+      await mkdir(".ralph/auto-language", {recursive:true});
+      await writeFile(".ralph/auto-language/live.json", JSON.stringify(result,null,2));
+      const starts = [/hello/i, /こんにちは/, /안녕하세요/, /please/i, /予約/, /예약/];
+      for (const [index, turn] of meeting.turns.entries()) {
+        const captions = turnCaptions(completed.captions, turn);
+        assert.ok(captions.length, `Missing language turn ${index}: ${turn.language}`);
+        const text = captions.map(caption => caption.source.text).join(" ");
+        assert.match(text, starts[index], `Lost onset at turn ${index}`);
+        for (const anchor of anchors[index]) assert.match(text, anchor, `Missing sentence content at turn ${index}`);
+        for (const caption of captions) {
+          assert.equal(caption.translation.state,"paired");
+          assert.equal(caption.translation.revision.languages.source,caption.source.language);
+          assert.equal(caption.translation.revision.sourceRevision,caption.source.sourceRevision);
+          assert.match(caption.translation.revision.text,/[가-힣]/);
+          if (turn.language === "ko") assert.equal(caption.translation.revision.text,caption.source.text);
+        }
+      }
+      assert.ok(frames.some(frame => frame.text && /[가-힣]/.test(frame.text)), "Actual overlay must render Korean");
+      for (const caption of completed.captions) assert.ok(frames.some(frame => frame.utteranceId === caption.source.utteranceId && frame.text && frame.opacity !== "0"),
+        `Caption never displayed: ${caption.source.text}`);
+      for (const caption of completed.captions.filter(caption => caption.source.language === "ko")) {
+        assert.equal(result.translations.some(call => call.source === caption.source.text),false,"Korean must bypass native translation");
+      }
+      assert.ok(result.workers.some(event => event.type === "asr-job" && event.language === "auto"));
+      observations.runs.push({...scenario,...result});
+      console.log(JSON.stringify({phase:"auto-language",captions:completed.captions.length,report:".ralph/auto-language/live.json"}));
+      popup=await openPopup();await popup.click('#stop');await waitState(value=>value?.state==='ready');await popup.close();
+      await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
+      const retained = await state();
+      await new Promise(done => setTimeout(done,1000));
+      assert.deepEqual((await state()).captions,retained.captions);
+      await page.reload();await waitState(value=>value?.state==='idle',10000,true);
+      observations.checks.push("Six alternating en/ja/ko turns retain their first words, use per-turn native Korean translation, render the overlay, survive popup closure, and stop on navigation");
+      continue;
+    }
     if(latency){
       const measurements=[];
       const koreanChecks=[scenario.language==='ja'?['회의','않|안|없']:['오늘','만나|모임|만남','않|안|없'],['내일','오후','3|세|삼','역','만나|뵙|만납'],['예약','취소','않|마|말|안','마|말|주세요|주십시오|않도록']];
@@ -416,12 +499,10 @@ try {
       const speakers=turns.map(c=>c.source.speakerId);
       assert.ok(speakers[0] && speakers[1] && speakers[0] !== speakers[1]);
       for(let i=0;i<speakers.length;i++)assert.equal(speakers[i],speakers[i%2],`Speaker changed identity at turn ${i}`);
-      const retiredSeen = new Set(); let previousShown;
-      for(const frame of frames.filter(f=>f.text&&f.utteranceId)) {
-        if(frame.utteranceId !== previousShown) {
-          assert.ok(!retiredSeen.has(frame.utteranceId),`An already read caption restarted: ${frame.utteranceId}`);
-          retiredSeen.add(frame.utteranceId); previousShown=frame.utteranceId;
-        }
+      const retiredSeen = new Set();
+      for (const frame of frames) {
+        if (frame.removed) retiredSeen.add(frame.utteranceId);
+        else if (frame.text && frame.utteranceId) assert.ok(!retiredSeen.has(frame.utteranceId),`An already read caption restarted: ${frame.utteranceId}`);
       }
       const shown = new Set(frames.filter(f=>f.text && f.opacity !== '0').map(f=>f.utteranceId));
       for (const caption of captions) assert.ok(shown.has(caption.source.utteranceId), `Caption never displayed: ${caption.source.text}`);
@@ -508,6 +589,7 @@ try {
     assert.deepEqual((await state()).captions,retained.captions,'Stopped session accepts no late caption');
   }
   // Preparation is owned by the original tab even when the popup disappears.
+  if (!autoLanguage) {
   let popup=await openPopup();if (!localSpeech) await popup.click('#prepare');await popup.close();
   await page.reload();await waitState(value=>value?.state==='idle',10000,true);
   popup=await openPopup();if (!localSpeech) await popup.click('#prepare');await popup.close();
@@ -515,6 +597,7 @@ try {
   observations.checks.push(latency
     ? 'Popup closure/tab switching completes preparation hidden; all six sentence meaning checks reach the actual page DOM within one second of estimated speech end; Stop clears the overlay; source navigation/closure stops preparation'
     : 'Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation');
+  }
   assert.deepEqual(observations.pageErrors,[]);
   console.log(JSON.stringify({passed:true,...observations}));
 } catch(error) {console.error(JSON.stringify({passed:false,...observations,error:error.stack}));process.exitCode=1}

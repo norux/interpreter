@@ -99,8 +99,10 @@ export function createSessionController(ports: {
         const source = event.type === "transcript" ? event.revision : event.type === "paired-caption" ? event.caption.source : undefined;
         const translation = event.type === "translation" ? event.revision
           : event.type === "paired-caption" && event.caption.translation.state === "paired" ? event.caption.translation.revision : undefined;
-        if (source && source.language !== run.languages.source) continue;
-        if (translation && (translation.languages.source !== run.languages.source || translation.languages.target !== run.languages.target)) continue;
+        const sourceAllowed = (language: string) => run.languages.source === "auto"
+          ? ["en", "ja", "ko"].includes(language) : language === run.languages.source;
+        if (source && !sourceAllowed(source.language)) continue;
+        if (translation && (!sourceAllowed(translation.languages.source) || translation.languages.target !== run.languages.target)) continue;
         const caption = run.store?.accept(event, source ? run.timeline.map(source.audioRange) : undefined);
         if (caption) ports.onCaption(caption);
       }
