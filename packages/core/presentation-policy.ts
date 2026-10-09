@@ -13,10 +13,6 @@ function finalPair(caption: CaptionRevision): boolean {
   return caption.source.final && caption.translation.state === "paired" && caption.translation.revision.final;
 }
 
-function translationText(caption: CaptionRevision): string {
-  return caption.translation.state === "paired" ? caption.translation.revision.text : "";
-}
-
 export function createPresentationPolicy(initial: SessionIdentity, clock: PresentationClock, present: (event: PresentationEvent) => void, draftUpdateMs = 1000) {
   type Entry = {
     caption: CaptionRevision;
@@ -25,6 +21,7 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
     partIndex: number;
     progress?: DisplayProgress;
     until?: number;
+    readingStartedAt?: number;
     fading: boolean;
     retired: boolean;
   };
@@ -35,7 +32,9 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
   let disposed = false;
 
   function visibleFront(): Entry | undefined {
-    return [...entries.values()].find((entry) => !entry.retired && entry.progress?.visible);
+    return [...entries.values()].find((entry) => !entry.retired && entry.progress?.visible
+      && entry.progress.sourceRevision === entry.caption.source.sourceRevision
+      && entry.progress.translationRevision === (entry.caption.translation.state === "paired" ? entry.caption.translation.revision.translationRevision : undefined));
   }
 
   function canExpire(entry: Entry): boolean {
@@ -62,16 +61,16 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
   }
 
   function paint(entry: Entry, caption: CaptionRevision, first: boolean): void {
+    const finalized = finalPair(caption) && !finalPair(entry.caption);
     const changedState = entry.caption.translation.state !== caption.translation.state;
-    const replay = finalPair(caption) && (!finalPair(entry.caption)
-      || translationText(entry.caption) !== translationText(caption));
-    const changed = translationText(entry.caption) !== translationText(caption) || replay;
     entry.caption = caption;
     entry.pending = undefined;
     entry.updatedAt = clock.now();
-    if (changed) { entry.progress = undefined; entry.until = undefined; }
-    if (replay || changedState) entry.partIndex = 0;
-    present(replay ? { type: "replay", caption, partIndex: 0 } : { type: first ? "insert" : "update", caption });
+    // Finalizing or extending an utterance must not replay its already read prefix.
+    if (changedState || entry.progress?.displayedText === undefined) { entry.progress = undefined; entry.until = undefined; }
+    if (changedState) entry.partIndex = 0;
+    if (finalized && entry.until !== undefined) entry.until = Math.max(entry.until, clock.now() + 4000);
+    present({ type: first ? "insert" : "update", caption });
   }
 
   function tick(): void {
@@ -118,12 +117,19 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
       const id = caption.source.utteranceId;
       let entry = entries.get(id);
       if (entry?.retired || entry?.fading) return caption;
+      if (entry && caption.translation.state === "pending" && entry.caption.translation.state === "paired") {
+        // History records the new source immediately; keep the last displayed
+        // pair and its reading clock until a matching translation arrives.
+        entry.pending = undefined;
+        schedule();
+        return caption;
+      }
       if (!entry) {
         entry = { caption, updatedAt: clock.now(), partIndex: 0, fading: false, retired: false };
         entries.set(id, entry);
         paint(entry, caption, true);
       } else {
-        const immediate = finalPair(caption)
+        const immediate = event.type === "speaker" || caption.source.speakerId !== entry.caption.source.speakerId || finalPair(caption)
           || (caption.source.final && caption.source.sourceRevision !== entry.caption.source.sourceRevision)
           || (entry.caption.translation.state === "pending" && caption.translation.state === "paired");
         if (!immediate && clock.now() - entry.updatedAt < draftUpdateMs) entry.pending = caption;
@@ -143,9 +149,15 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
         || progress.partIndex !== entry.partIndex || !Number.isSafeInteger(progress.characterCount) || progress.characterCount < 0) return;
       const old = entry.progress;
       entry.progress = { ...progress, identity: { ...progress.identity } };
-      if (!progress.visible) entry.until = undefined;
-      else if (entry.until === undefined || !old?.visible || progress.characterCount > old.characterCount) {
-        entry.until = Math.max(entry.until ?? 0, clock.now() + Math.min(6000, Math.max(2500, progress.characterCount * 90)));
+      const readingMs = Math.min(6000, Math.max(finalPair(entry.caption) ? 4000 : 2500, progress.characterCount * 90));
+      if (!progress.visible) { entry.until = undefined; entry.readingStartedAt = undefined; }
+      else if (entry.until === undefined || !old?.visible) {
+        entry.readingStartedAt = clock.now(); entry.until = clock.now() + readingMs;
+      } else if (progress.characterCount > old.characterCount
+        || progress.displayedText !== undefined && old.displayedText !== undefined && progress.displayedText !== old.displayedText) {
+        // Drafts are read while they grow. Rewriting a draft must not restart
+        // its whole reading clock on every token; completed corrections do.
+        entry.until = Math.max(entry.until, (finalPair(entry.caption) ? clock.now() : entry.readingStartedAt ?? clock.now()) + readingMs);
       }
       schedule();
     },

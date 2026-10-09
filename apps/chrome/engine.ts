@@ -3,8 +3,9 @@ import { sameIdentity } from "../../packages/core/identity";
 import { createAsrHost } from "../../packages/engines-browser/asr-host";
 import { createDocumentTranslator } from "../../packages/engines-browser/document-translator";
 import { createLocalSpeechHost } from "../../packages/engines-browser/local-speech";
-import { asrCandidates, registeredCandidate, vadCandidate } from "../../packages/engines-browser/model";
+import { asrCandidates, registeredCandidate, speakerCandidate, vadCandidate } from "../../packages/engines-browser/model";
 import { createBrowserPipeline } from "../../packages/engines-browser/pipeline";
+import { createSpeakerHost } from "../../packages/engines-browser/speaker-host";
 import { createStreamingSpeechRecognizer } from "../../packages/engines-browser/streaming-speech";
 import { createVadHost } from "../../packages/engines-browser/vad-host";
 
@@ -14,6 +15,9 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
   const report = (status: ModelStatus) => receive(`${status.model.id} @ ${status.model.version}: ${status.state}; ${status.downloadedBytes ?? 0}/${status.requiredBytes} bytes${status.reason ? ` (${status.reason})` : ""}`,
     status.state === "downloading" ? `음성 인식 모델 다운로드 · ${Math.floor((status.downloadedBytes ?? 0) / status.requiredBytes * 100)}%`
       : status.state === "loading" ? "음성 인식 모델을 불러오는 중…" : undefined);
+  const speaker = createSpeakerHost(document, status => receive(`Speaker ${status.state}: ${status.downloadedBytes ?? 0}/${status.requiredBytes}`,
+    status.state === "downloading" ? "화자 구분 모델 다운로드 중…" : status.state === "loading" ? "화자 구분 모델을 불러오는 중…" : undefined));
+  let speakerReady = false;
   const asr = createAsrHost(document, "turboFp16", "webgpu", report, execution);
   const vad = createVadHost(document, report, execution);
   const local = execution === "offscreen" && audioTrack ? createLocalSpeechHost(document, source, audioTrack, receive) : undefined;
@@ -27,7 +31,7 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
   let identity: SessionIdentity | undefined;
   let pipeline: ReturnType<typeof createBrowserPipeline> | undefined;
 
-  function stopResources() { ready = false; local?.stop(); asr.stop(); vad.stop(); translator.stop(); }
+  function stopResources() { ready = false; local?.stop(); asr.stop(); vad.stop(); translator.stop(); speaker.stop(); speakerReady = false; }
   const port: InterpretationEngine = {
     async probe(pair) {
       const native = await translator.probe();
@@ -37,14 +41,17 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
         : ready && !disposed ? { state: "available" }
         : { state: "permission-required", reason: "permission-required", message: "Press Prepare in the visible interpreter document" },
       pipeline: "separate-asr-translation", asrOnlyUpdates: true, languages,
-      models: usingLocal ? [local.model] : [model.model, vadCandidate.model], limits: { maxChunkBytes: 8192, maxAudioQueueMs: 1000,
-        maxPendingUtterances: 4, maxTranslationJobs: 1, maxStoredCaptions: 300 } };
+      models: [...usingLocal ? [local.model] : [model.model, vadCandidate.model], speakerCandidate.model], limits: { maxChunkBytes: 8192, maxAudioQueueMs: 1000,
+        maxPendingUtterances: 16, maxTranslationJobs: 1, maxStoredCaptions: 300 } };
     },
     async prepare(selected, pair) {
       if (!ready || disposed || pipeline || pair.source !== source || pair.target !== "ko") throw new Error("Press Prepare for a fresh session");
       identity = { ...selected };
       pipeline = createBrowserPipeline(identity, languages, report => usingLocal ? local.createRecognizer(selected, report)
-        : createStreamingSpeechRecognizer(selected, source, asr, report, vad), translator);
+        : createStreamingSpeechRecognizer(selected, source, asr, report, vad), translator, speakerReady ? {
+          embed: pcm => speaker.embed(pcm),
+          fail: error => receive(`화자 구분을 사용할 수 없습니다: ${String(error)}`),
+        } : undefined);
     },
     run(audio) {
       if (!pipeline || !ready || disposed) throw new Error("Browser engine is not prepared");
@@ -57,7 +64,7 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
     async close() {
       if (disposed) return;
       disposed = true; generation++; stopResources();
-      await pipeline?.close(); local?.dispose(); asr.dispose(); vad.dispose(); await translator.close();
+      await pipeline?.close(); local?.dispose(); speaker.dispose(); asr.dispose(); vad.dispose(); await translator.close();
       document.removeEventListener("visibilitychange", suspend);
       document.defaultView?.removeEventListener("pagehide", interrupt);
     },
@@ -74,7 +81,9 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
       const current = ++generation; preparing = true;
       try {
         // Local speech observes Chrome's popup-initiated language-pack download.
-        await Promise.all([usingLocal ? local.prepare() : asr.prepare(), usingLocal ? undefined : vad.prepare(), translator.prepare()]);
+        await Promise.all([usingLocal ? local.prepare() : asr.prepare(), usingLocal ? undefined : vad.prepare(), translator.prepare(), speaker.prepare().then(() => { speakerReady = true; }).catch(error => {
+          if (current === generation) receive(`화자 구분 모델 준비 실패: ${String(error)}`);
+        })]);
         if (disposed || current !== generation) throw new DOMException("Preparation stopped", "AbortError");
         ready = true;
       } catch (error) { if (current === generation) stopResources(); throw error; }

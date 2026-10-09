@@ -99,13 +99,24 @@ export const vadCandidate = {
     sha256: "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808" }],
 } as const;
 
+// WeSpeaker VoxCeleb ResNet34-LM ONNX conversion, CC-BY-4.0.
+export const speakerCandidate = {
+  dtype: "q8",
+  model: { id: "onnx-community/wespeaker-voxceleb-resnet34-LM", version: "6a61a1833ff2583aabeba044f5c8221f00b67ceb" },
+  files: [
+    { path: "preprocessor_config.json", bytes: 371 },
+    { path: "onnx/model_quantized.onnx", bytes: 6685134,
+      sha256: "f73f647730ae440ae411c2241290f42ff5b2106dd3176c897fe6fbb1950d5393" },
+  ],
+} as const;
+
 export function registeredCandidate(model: ModelIdentity, dtype: "q8" | "fp16" | "fp32" = "q8") {
-  const candidate = [...Object.values(asrCandidates), vadCandidate].find(value => value.model.id === model.id && value.model.version === model.version && value.dtype === dtype);
+  const candidate = [...Object.values(asrCandidates), vadCandidate, speakerCandidate].find(value => value.model.id === model.id && value.model.version === model.version && value.dtype === dtype);
   if (!candidate) throw new Error("Unregistered model/version");
   return {
     ...candidate,
     requiredBytes: candidate.files.reduce((sum, file) => sum + file.bytes, 0),
-    cacheName: `interpreter-${candidate === vadCandidate ? "vad" : "asr"}-${candidate.model.version}-${candidate.dtype}`,
+    cacheName: `interpreter-${candidate === vadCandidate ? "vad" : candidate === speakerCandidate ? "speaker" : "asr"}-${candidate.model.version}-${candidate.dtype}`,
     url: (path: string) => `https://huggingface.co/${candidate.model.id}/resolve/${candidate.model.version}/${path}`,
   };
 }

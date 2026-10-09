@@ -37,8 +37,8 @@ test("overlay channel bounds outstanding messages and wire size with explicit fa
     const output = createRemoteVideoOutput(wire as unknown as chrome.runtime.Port, message => failures.push(message));
     output.activate(target, identity);
     if (oversized) output.compare({ ...caption, source: { ...caption.source, text: "a".repeat(32768) } });
-    else for (let i = 0; i < 4; i++) output.compare(caption);
-    assert.equal(wire.sent.length, oversized ? 1 : 4); assert.equal(wire.disconnected, 1);
+    else for (let i = 0; i < 32; i++) output.compare(caption);
+    assert.equal(wire.sent.length, oversized ? 1 : 32); assert.equal(wire.disconnected, 1);
     assert.match(failures[0], /overloaded/); output.compare(caption); assert.equal(failures.length, 1);
   }
 });
@@ -85,4 +85,16 @@ test("tab page output validates mixed-input identity and forbids fabricated vide
     serveVideoOutput(wire as unknown as chrome.runtime.Port, undefined, {} as Document);
     wire.receive(value); assert.equal(wire.disconnected, 1); assert.equal(wire.sent.length, 0);
   }
+});
+
+test("a native burst of sixteen sources and their translations cannot disconnect and restart the overlay", () => {
+  const wire=port(); const failures: string[]=[];
+  const output=createRemoteVideoOutput(wire as unknown as chrome.runtime.Port,message=>failures.push(message));
+  output.activate(target,identity);wire.receive({version:1,type:'ack',sequence:0});
+  for(let index=0;index<16;index++)output.compare({...caption,source:{...caption.source,utteranceId:`burst-${index}`}});
+  for(let index=0;index<16;index++)output.compare({...caption,source:{...caption.source,utteranceId:`burst-${index}`},
+    translation:{state:'paired',revision:{identity,utteranceId:`burst-${index}`,sourceRevision:1,translationRevision:1,languages:{source:'ja',target:'ko'},text:'번역',final:true}}});
+  assert.equal(wire.disconnected,0,'A normal final-result burst must not clear and recreate presentation history');
+  assert.deepEqual(failures,[]); assert.equal(wire.sent.length,33);
+  output.dispose();
 });

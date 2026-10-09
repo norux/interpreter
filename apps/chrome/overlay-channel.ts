@@ -5,7 +5,8 @@ import { createVideoOverlay, type SelectedVideoOutput } from "./overlay";
 export const overlayChannelName = "interpreter-selected-overlay-v1";
 export const tabOverlayChannelName = "interpreter-tab-overlay-v1";
 const maxWireChars = 32768;
-const maxPending = 4;
+// A native callback can emit sixteen sources and their sixteen translations.
+const maxPending = 32;
 type RecordValue = Record<string, unknown>;
 function record(value: unknown): value is RecordValue { return !!value && typeof value === "object" && !Array.isArray(value); }
 function text(value: unknown, max = 256): value is string { return typeof value === "string" && value.length > 0 && value.length <= max; }
@@ -24,6 +25,7 @@ function caption(value: unknown): value is CaptionRevision {
   const source = value.source;
   if (!identity(source.identity) || !text(source.utteranceId) || !integer(source.sourceRevision) || source.sourceRevision === 0
     || !text(source.text, 12000) || typeof source.final !== "boolean" || !["ja", "en"].includes(String(source.language))
+    || source.speakerId !== undefined && (!integer(source.speakerId) || source.speakerId < 1 || source.speakerId > 8)
     || !range(source.audioRange) || (value.videoRange !== undefined && !range(value.videoRange))) return false;
   if (value.translation.state === "pending") return true;
   const translation = value.translation.revision;
@@ -45,7 +47,7 @@ export function createRemoteVideoOutput(port: chrome.runtime.Port, unavailable: 
     port.onMessage.removeListener(receive); port.onDisconnect.removeListener(disconnected); port.disconnect();
   }
   function fail(message: string) { if (!disposed) { dispose(); unavailable(message); } }
-  function disconnected() { fail("context-destroyed: Page overlay disconnected. Reopen Interpreter."); }
+  function disconnected() { fail("context-destroyed: Page overlay disconnected. Reopen Jamak."); }
   function receive(value: unknown) {
     if (!envelope(value) || value.type !== "ack" || !pending.has(value.sequence)) { fail("engine-failed: Invalid overlay acknowledgement"); return; }
     clearTimeout(pending.get(value.sequence)); pending.delete(value.sequence);

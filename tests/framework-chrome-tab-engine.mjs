@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { build } from "vite";
 
+const conversation = process.argv.includes("--conversation");
 const captureLoss = process.argv.includes("--capture-loss");
 const lifecycle = process.argv.includes("--lifecycle");
 const latency = process.argv.includes("--latency");
@@ -32,6 +33,7 @@ if (modelDirectory) for (const [, filename, bytes, sha256] of modelFiles) {
 const output = resolve(`.ralph/media-framework/chrome-tab-engine-build${installedChrome ? "-installed" : download ? "-download" : latency ? "-latency" : !localSpeech ? "-whisper" : captureLoss ? "-loss" : ""}`);
 const fixtures = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8")).clips;
 const media = new Map();
+if (conversation) media.set("/conversation.wav", await readFile("tests/fixtures/conversation/conversation.wav"));
 let latencyDirectory;
 const latencyTexts = {
   ja: ["今日は会議をしません。", "明日の午後三時に駅で会いましょう。", "予約は取り消さないでください。"],
@@ -84,7 +86,7 @@ function serve(request, response) {
     response.end(`<!doctype html><title>Cross-origin tab speech</title><iframe src="http://localhost:${server.address().port}/?mode=video&language=${language}"></iframe>`); return;
   }
   response.end(`<!doctype html><meta charset="utf-8"><title>Tab speech fixture</title>
-    ${mode === "web-audio" ? "" : `<${mode === "audio" ? "audio" : "video"} id="media" src="/${language}.webm" controls preload="auto" loop></${mode === "audio" ? "audio" : "video"}>`}
+    ${mode === "web-audio" ? "" : `<${mode === "audio" ? "audio" : "video"} id="media" src="/${conversation ? "conversation.wav" : `${language}.webm`}" controls preload="auto" ${conversation ? "" : "loop"}></${mode === "audio" ? "audio" : "video"}>`}
     <button id="play">Play speech</button><script>
     play.onclick=async()=>{
       ${mode === "web-audio" ? `
@@ -150,7 +152,7 @@ try {
     state.accessibility.captions={soda_registered_language_packs:captions.soda_registered_language_packs};
     for(const key of ['soda_binary_path','soda_ja_jp_config_path','soda_en_us_config_path','soda_ko_kr_config_path']) {
       if(!captions[key] && key==='soda_ko_kr_config_path')continue;
-      assert.ok(captions[key].startsWith(userRoot+'/'));
+      assert.ok(captions[key].startsWith(`${userRoot}/`));
       state.accessibility.captions[key]=resolve(profile,captions[key].slice(userRoot.length+1));
     }
     await writeFile(resolve(profile,'Local State'),JSON.stringify(state));
@@ -246,7 +248,7 @@ try {
     throw Error('No action popup');
   }
 
-  const scenarios = latency ? [{language:'ja',mode:'web-audio'},{language:'en',mode:'web-audio'}] : captureLoss || lifecycle || download ? [{language:'ja',mode:'web-audio'}] : [
+  const scenarios = conversation ? [{language:"en",mode:"audio"}] : latency ? [{language:'ja',mode:'web-audio'},{language:'en',mode:'web-audio'}] : captureLoss || lifecycle || download ? [{language:'ja',mode:'web-audio'}] : [
     {language:'ja',mode:'video'}, {language:'en',mode:'iframe'}, {language:'en',mode:'audio'}, {language:'ja',mode:'web-audio'},
   ];
   let runtime;
@@ -351,9 +353,19 @@ try {
     }
     assert.equal((await worker.evaluate(()=>chrome.runtime.getContexts({contextTypes:[chrome.runtime.ContextType.OFFSCREEN_DOCUMENT]}))).length,1);
     await switched.close();
-    console.log(JSON.stringify({phase:'hidden-ready',...scenario,message:ready.message}));
+    console.log(JSON.stringify({phase:'hidden-ready',...scenario,message:ready.message,diagnostic:ready.diagnostic}));
+
     popup=await openPopup();await popup.click('#start');
     await waitState(value=>value?.state==='running');await popup.close();
+    if (conversation) await page.evaluate(() => {
+      globalThis.captionFrames = [];
+      let previous = '';
+      globalThis.captionMonitor = setInterval(() => {
+        const cue = document.querySelector('[data-interpreter-overlay]')?.shadowRoot.querySelector('.interpreter-live');
+        const text = cue?.querySelector('span')?.textContent ?? '';
+        if (text !== previous) { captionFrames.push({atMs:performance.now(),text,utteranceId:cue?.dataset.utteranceId,speakerId:cue?.dataset.speakerId,opacity:cue ? getComputedStyle(cue).opacity : null}); previous = text; }
+      }, 25);
+    });
     const playRequestedAt=performance.now();
     await source.getByRole('button',{name:'Play speech',exact:true}).click();
     if(latency){
@@ -377,6 +389,48 @@ try {
       observations.runs.push({...scenario,measurements,captions:(await state()).captions});
       popup=await openPopup();await popup.click('#stop');await waitState(value=>value?.state==='ready');await popup.close();
       await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});continue;
+    }
+    if (conversation) {
+      const playbackDeadline=performance.now()+75000;
+      while(!await page.evaluate(()=>media.ended)) {
+        const current=await state();
+        if(current.state !== 'running') throw Error(`Caption session stopped during playback: ${current.state}: ${current.message}`);
+        if(current.diagnostic?.includes('화자 구분을 사용할 수 없습니다')) throw Error(current.diagnostic);
+        if(performance.now()>playbackDeadline) throw Error('Conversation playback did not end');
+        await new Promise(done=>setTimeout(done,500));
+      }
+      await new Promise(done => setTimeout(done,45000));
+      const completed = await state();
+      assert.equal(completed.state,'running',`Caption session stopped at the end: ${completed.message}`);
+      const captions = completed.captions;
+      const frames = await page.evaluate(() => { clearInterval(captionMonitor); return captionFrames; });
+      const native = await runtime.evaluate('localSpeechEvents');
+      const result = {state:completed.state,captions,frames,native,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
+      await mkdir('.ralph/caption-conversation', {recursive:true});
+      await writeFile('.ralph/caption-conversation/live.json', JSON.stringify(result,null,2));
+      assert.ok(captions.length >= 8, 'Conversation must be split into readable phrases');
+      assert.ok(new Set(captions.map(c=>c.source.speakerId).filter(Boolean)).size >= 2, 'Both actual voices must receive labels');
+      assert.ok(captions.every(c=>c.translation.state==='paired'), 'Every final source revision must retain its matching translation');
+      const turns = captions.filter(c=>c.source.text.split(/\s+/).length >= 10);
+      assert.equal(turns.length,8,'All eight substantial turns must survive translation and display');
+      const speakers=turns.map(c=>c.source.speakerId);
+      assert.ok(speakers[0] && speakers[1] && speakers[0] !== speakers[1]);
+      for(let i=0;i<speakers.length;i++)assert.equal(speakers[i],speakers[i%2],`Speaker changed identity at turn ${i}`);
+      const retiredSeen = new Set(); let previousShown;
+      for(const frame of frames.filter(f=>f.text&&f.utteranceId)) {
+        if(frame.utteranceId !== previousShown) {
+          assert.ok(!retiredSeen.has(frame.utteranceId),`An already read caption restarted: ${frame.utteranceId}`);
+          retiredSeen.add(frame.utteranceId); previousShown=frame.utteranceId;
+        }
+      }
+      const shown = new Set(frames.filter(f=>f.text && f.opacity !== '0').map(f=>f.utteranceId));
+      for (const caption of captions) assert.ok(shown.has(caption.source.utteranceId), `Caption never displayed: ${caption.source.text}`);
+      assert.equal(frames.filter(f=>f.text).at(-1)?.utteranceId,captions.at(-1)?.source.utteranceId,
+        'The last caption must finish too; Stop cannot mask a growing display backlog');
+      assert.equal(frames.at(-1)?.text,'','The last completed caption must fade while the session remains running');
+      console.log(JSON.stringify({phase:'conversation',captions:captions.length,finals:captions.filter(c=>c.source.final).length,frames:frames.length,report:'.ralph/caption-conversation/live.json'}));
+      popup=await openPopup();await popup.click('#stop');await waitState(value=>value?.state==='ready');await popup.close();
+      continue;
     }
     const first=await waitState(value=>value?.captions.some(c=>c.translation.state==='paired'),60000);
     const firstCaptionMs=performance.now()-playRequestedAt;

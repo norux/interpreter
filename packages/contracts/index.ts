@@ -1,4 +1,4 @@
-// Internal framework protocol. The companion's PCM1/Caption protocol is unchanged.
+// Internal media and caption protocol.
 export const FRAMEWORK_VERSION = 1;
 
 declare const mediaTargetId: unique symbol;
@@ -61,6 +61,7 @@ export interface TranscriptRevision {
   readonly final: boolean;
   readonly audioRange: AudioRange;
   readonly language: string;
+  readonly speakerId?: number;
   readonly confidence?: { readonly measure: string; readonly value: number };
 }
 
@@ -129,7 +130,6 @@ export interface RuntimeLimits {
 export interface EngineCapabilities {
   readonly availability: Capability;
   readonly pipeline: "combined-interpretation" | "separate-asr-translation";
-  // The existing companion cannot emit a source before translation.
   readonly asrOnlyUpdates: boolean;
   readonly languages: LanguagePair;
   readonly models: readonly ModelIdentity[];
@@ -146,6 +146,7 @@ export interface SessionStatus {
 }
 
 export type InterpretationEvent =
+  | { readonly type: "speaker"; readonly identity: SessionIdentity; readonly utteranceId: string; readonly speakerId: number }
   | { readonly type: "transcript"; readonly revision: TranscriptRevision }
   | { readonly type: "translation"; readonly revision: TranslationRevision }
   // Companion pairs are accepted atomically, never fabricated ASR-only updates.
@@ -170,6 +171,7 @@ export interface DisplayProgress {
   // Measured by the renderer; core never estimates line fitting.
   readonly visible: boolean;
   readonly characterCount: number;
+  readonly displayedText?: string;
 }
 
 export type FrameworkMessage =

@@ -68,7 +68,7 @@ test("first/each utterance is immediate, bursts coalesce at 1000ms and final can
   h.accept(caption(14));
   h.runFor(200);
   h.accept(caption(15, true));
-  assert.equal(h.events.at(-1)?.event.type, "replay");
+  assert.equal(h.events.at(-1)?.event.type, "update");
   assert.equal(h.events.at(-1)?.at, 1200);
   h.runFor(1000);
   assert.equal(h.events.length, 3);
@@ -99,15 +99,15 @@ test("pending source paints immediately and source final alone cannot initiate t
   h.policy.accept({ type: "translation", revision: { ...final.translation.revision, final: false } });
   assert.equal(h.events.at(-1)?.event.type, "update");
   h.policy.accept({ type: "translation", revision: { ...final.translation.revision, translationRevision: 3 } });
-  assert.equal(h.events.at(-1)?.event.type, "replay");
+  assert.equal(h.events.at(-1)?.event.type, "update");
   const latest = h.policy.snapshot()[0];
   h.policy.accept({ type: "transcript", revision: { ...final.source, sourceRevision: 3 } });
   assert.equal(h.policy.snapshot()[0].translation.state, "pending", "Never pair an old translation with new source");
-  assert.equal(h.events.at(-1)?.event.type, "update", "Final source corrections clear the stale pair immediately");
+  assert.equal(h.events.at(-1)?.event.type, "update", "Final source corrections retain displayed translation while history awaits the matching pair");
   assert.equal(latest.translation.state, "paired");
 });
 
-test("long final replay advances only acknowledged parts then fades for exactly 250ms; expired updates stay in history", () => {
+test("long final updates preserve the read part and advance only acknowledged parts then fades for exactly 250ms; expired updates stay in history", () => {
   const h = harness();
   const partial = caption();
   h.accept(partial);
@@ -117,25 +117,25 @@ test("long final replay advances only acknowledged parts then fades for exactly 
   h.progress(partial, 1, false);
   const final = caption(2, true);
   h.accept(final);
-  assert.deepEqual(h.events.at(-1)?.event, { type: "replay", caption: final, partIndex: 0 });
+  assert.deepEqual(h.events.at(-1)?.event, { type: "update", caption: final });
   h.progress(partial, 1, true, 100);
   h.runFor(10000);
   assert.equal(h.events.length, 3, "Stale renderer completion cannot expire a new final");
-  h.progress(final, 0, false, 40);
-  h.runFor(3599);
+  h.progress(final, 1, false, 40);
+  h.runFor(3999);
   assert.equal(h.events.length, 3);
   h.runFor(1);
-  assert.deepEqual(h.events.at(-1)?.event, { type: "replay", caption: final, partIndex: 1 });
+  assert.deepEqual(h.events.at(-1)?.event, { type: "replay", caption: final, partIndex: 2 });
   h.progress(final, 0, true);
   h.runFor(5000);
   assert.equal(h.events.length, 4, "Old part acknowledgement cannot skip an unread part");
-  h.progress(final, 1, false, 100);
+  h.progress(final, 2, false, 100);
   h.runFor(5999);
   assert.equal(h.events.length, 4);
   h.runFor(1);
   assert.equal(h.events.at(-1)?.event.type, "replay");
-  h.progress(final, 2, true, 1);
-  h.runFor(2500);
+  h.progress(final, 3, true, 1);
+  h.runFor(4000);
   assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "u1", durationMs: 250 });
   h.accept(caption(3, true));
   h.runFor(249);
@@ -166,7 +166,7 @@ test("reading holds latest provisional, expires in order and hidden layout does 
   h.runFor(10000);
   assert.equal(h.events.length, 4, "Hidden text does not expire");
   h.progress(next);
-  h.runFor(2499);
+  h.runFor(3999);
   assert.equal(h.events.length, 4);
   h.runFor(1);
   assert.equal(h.events.at(-1)?.event.type, "fade");
@@ -182,7 +182,7 @@ test("layout acknowledgements preserve deadlines, grant time for extension, and 
   const invalid: DisplayProgress = { identity, utteranceId: "u1", sourceRevision: 1, translationRevision: 1,
     partIndex: 0, complete: true, visible: true, characterCount: NaN };
   h.policy.progress(invalid);
-  h.runFor(1499);
+  h.runFor(2999);
   assert.equal(h.events.length, 1);
   h.runFor(1);
   assert.equal(h.events.at(-1)?.event.type, "fade");
@@ -280,23 +280,65 @@ test("pending and paired reading acknowledgements cannot spend each other's read
 });
 
 
-test("switching between source-only and translated text resets measured reading parts", () => {
-  for (const originalFirst of [true, false]) {
-    const h = harness(); const first = caption();
-    if (originalFirst) h.policy.accept({ type: "transcript", revision: first.source });
-    else h.accept(first);
-    h.policy.progress({ identity, utteranceId: "u1", sourceRevision: 1,
-      translationRevision: originalFirst ? undefined : 1,
-      partIndex: 0, complete: false, characterCount: 100, visible: true });
-    h.runFor(6000);
-    assert.equal(h.events.at(-1)?.event.type, "replay");
-    if (originalFirst) h.accept(first);
-    else h.policy.accept({ type: "transcript", revision: { ...first.source, sourceRevision: 2 } });
-    assert.equal(h.events.at(-1)?.event.type, "update", "A non-final language switch is not a final replay");
-    h.policy.progress({ identity, utteranceId: "u1", sourceRevision: originalFirst ? 1 : 2,
-      translationRevision: originalFirst ? 1 : undefined,
-      partIndex: 0, complete: true, characterCount: 10, visible: true });
-    h.accept(caption(1, true, "u2")); h.runFor(2500);
-    assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "u1", durationMs: 250 });
+test("first translation resets source reading parts; pending corrections retain the translated part", () => {
+  const h = harness(); const first = caption();
+  h.policy.accept({type:"transcript",revision:first.source});
+  h.policy.progress({identity,utteranceId:"u1",sourceRevision:1,partIndex:0,complete:false,characterCount:100,visible:true});
+  h.runFor(6000);
+  assert.equal(h.events.at(-1)?.event.type,"replay");
+  h.accept(first);
+  h.progress(first,0,false);
+  h.runFor(2500);
+  const count = h.events.length;
+  h.policy.accept({type:"transcript",revision:{...first.source,sourceRevision:2}});
+  assert.equal(h.events.length,count,"Pending correction must not replace the visible translated part with original speech");
+});
+
+
+test("offscreen suffix corrections do not restart reading the unchanged first part", () => {
+  const h = harness(180);
+  const first = caption();
+  h.accept(first);
+  h.policy.progress({ identity, utteranceId: 'u1', sourceRevision: 1, translationRevision: 1,
+    partIndex: 0, complete: false, visible: true, characterCount: 10, displayedText: 'unchanged' });
+  for (let revision = 2; revision <= 10; revision++) {
+    h.runFor(200);
+    h.accept(caption(revision));
+    h.policy.progress({ identity, utteranceId: 'u1', sourceRevision: revision, translationRevision: revision,
+      partIndex: 0, complete: false, visible: true, characterCount: 10, displayedText: 'unchanged' });
   }
+  h.runFor(700);
+  assert.deepEqual(h.events.at(-1)?.event, {type:'replay',caption:caption(10),partIndex:1},
+    'Reading must advance at its original deadline even while the unseen suffix changes');
+  h.progress(caption(10), 1, false);
+  h.accept(caption(11, true));
+  assert.equal(h.events.at(-1)?.event.type, 'update', 'Finalization must not replay the already read first part');
+});
+
+test("an unchanged final translation grants four seconds after completion before the existing fade", () => {
+  const h = harness(180); const first = caption();
+  h.accept(first);
+  const progress = {identity,utteranceId:'u1',sourceRevision:1,translationRevision:1,
+    partIndex:0,complete:true,visible:true,characterCount:5,displayedText:'short'};
+  h.policy.progress(progress); h.runFor(2400);
+  const final = caption(2,true);
+  h.accept(final);
+  h.policy.progress({...progress,sourceRevision:2,translationRevision:2});
+  h.runFor(3999); assert.equal(h.events.at(-1)?.event.type,'update');
+  h.runFor(1); assert.deepEqual(h.events.at(-1)?.event,{type:'fade',identity,utteranceId:'u1',durationMs:250});
+  h.runFor(249); assert.equal(h.events.at(-1)?.event.type,'fade');
+  h.runFor(1); assert.equal(h.events.at(-1)?.event.type,'remove');
+});
+
+test("growing provisional text spends one reading interval instead of restarting it on each correction", () => {
+  const h=harness(180); h.accept(caption());
+  const progress={identity,utteranceId:'u1',sourceRevision:1,translationRevision:1,partIndex:0,
+    complete:false,visible:true,characterCount:10,displayedText:'draft'};
+  h.policy.progress(progress);
+  for(let revision=2;revision<=10;revision++) {
+    h.runFor(200); h.accept(caption(revision));
+    h.policy.progress({...progress,sourceRevision:revision,translationRevision:revision,characterCount:revision+10,displayedText:`draft ${revision}`});
+  }
+  h.runFor(700);
+  assert.deepEqual(h.events.at(-1)?.event,{type:'replay',caption:caption(10),partIndex:1});
 });

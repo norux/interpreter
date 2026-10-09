@@ -33,11 +33,11 @@ function fixture(language: "en" | "ja" = "en", confirmStart = true) {
       : new Promise<IteratorResult<AudioChunk>>(resolve => { waiting = resolve; }); },
     async return() { returned++; waiting?.({ done: true, value: undefined }); waiting = undefined; return { done: true as const, value: undefined }; },
   }; } };
-  async function feed(clockId = "clock") {
+  async function feed(clockId = "clock", amplitude = 0) {
     const startMs = sequence * 32;
     const value: AudioChunk = { identity, sequence: sequence++, scope: "tab-mix", audioRange: { startMs, endMs: startMs + 32 },
       capture: { clockId, startMs, endMs: startMs + 32 }, sampleRate: 16000, channels: 1,
-      sampleFormat: "pcm-f32le", pcm: new Float32Array(512).buffer };
+      sampleFormat: "pcm-f32le", pcm: new Float32Array(512).fill(amplitude).buffer };
     if (waiting) { const resolve = waiting; waiting = undefined; resolve({ done: false, value }); } else queued.push(value);
     await new Promise<void>(resolve => setImmediate(resolve));
   }
@@ -189,4 +189,45 @@ test("native streaming still rejects PCM clock gaps and browser recognition fail
     await rejected; assert.equal(f.returned, 1); f.host.dispose();
     if (reason === "engine-failed") assert.ok(f.diagnostics.some(message => message.includes("audio-capture")));
   }
+});
+
+test("unpunctuated cumulative native results split at audio pauses without losing words", async () => {
+  const f = fixture(); await f.host.prepare();
+  const recognizer = f.host.createRecognizer(identity, () => {});
+  const stream = recognizer.run(f.input)[Symbol.asyncIterator]();
+  const first = stream.next();
+  await f.feed('clock', 0.05);
+  const native = f.instances.at(-1); assert.ok(native);
+  native.emit('we could have lunch on Sunday');
+  const before = (await first).value; assert.ok(before);
+  for (let i = 0; i < 12; i++) await f.feed();
+  await f.feed('clock', 0.05);
+  native.emit('we could have lunch on Sunday I will bring your book', true);
+  const closed = (await stream.next()).value;
+  const next = (await stream.next()).value;
+  assert.ok(closed && next);
+  assert.equal(closed.utteranceId, before.utteranceId);
+  assert.notEqual(next.utteranceId, before.utteranceId);
+  assert.equal(`${closed.text} ${next.text}`, 'we could have lunch on Sunday I will bring your book');
+  assert.ok(next.audioRange.startMs >= closed.audioRange.endMs);
+  await recognizer.close(); await stream.return?.(); f.host.dispose();
+});
+
+test("numeric corrections keep pause boundaries and never duplicate a later let's-meet phrase", async () => {
+  const f=fixture(); await f.host.prepare();
+  const recognizer=f.host.createRecognizer(identity,()=>{});
+  const stream=recognizer.run(f.input)[Symbol.asyncIterator](); const first=stream.next();
+  await f.feed('clock',0.05); const native=f.instances.at(-1); assert.ok(native);
+  native.emit('Sunday works for me is 1:30 okay'); await first;
+  for(let i=0;i<12;i++)await f.feed(); await f.feed('clock',0.05);
+  native.emit("Sunday works for me is 1:30 okay sure let's meet at the station");
+  const meeting=(await stream.next()).value;
+  assert.equal(meeting?.text,"sure let's meet at the station");
+  native.emit("Sunday works for me is 1 30 okay let's meet at the station",true);
+  const finalizedFirst=(await stream.next()).value;
+  const finalizedMeeting=(await stream.next()).value;
+  assert.equal(finalizedFirst?.text,'Sunday works for me is 1 30 okay');
+  assert.equal(finalizedMeeting?.utteranceId,meeting?.utteranceId);
+  assert.equal(finalizedMeeting?.text,"let's meet at the station");
+  await recognizer.close(); await stream.return?.(); f.host.dispose();
 });

@@ -1,0 +1,54 @@
+{
+  "provenance": "Local macOS say, Samantha and Daniel; synthetic speech, no user recording",
+  "durationSeconds": 57.678416666666664,
+  "turns": [
+    {
+      "speaker": "A",
+      "text": "Hey, did you get a chance to look at the little cafe near the station? I was thinking we could go there on Saturday.",
+      "startSeconds": 0.0,
+      "endSeconds": 6.202958333333333
+    },
+    {
+      "speaker": "B",
+      "text": "I walked past it yesterday. It looks nice, but Saturday morning is a bit difficult. I promised to help my sister move.",
+      "startSeconds": 6.552958333333334,
+      "endSeconds": 14.034833333333333
+    },
+    {
+      "speaker": "A",
+      "text": "Oh, right. How about Sunday instead? We could have lunch first, then take a walk by the river if the weather is good.",
+      "startSeconds": 14.384833333333333,
+      "endSeconds": 21.018958333333334
+    },
+    {
+      "speaker": "B",
+      "text": "Sunday works for me. Actually, I would rather meet a little later. Is one thirty okay? I don't want to rush in the morning.",
+      "startSeconds": 21.36895833333333,
+      "endSeconds": 29.185416666666665
+    },
+    {
+      "speaker": "A",
+      "text": "Sure. Let's meet outside the station at one thirty. Do you know if the cafe has vegetarian food?",
+      "startSeconds": 29.535416666666666,
+      "endSeconds": 35.363791666666664
+    },
+    {
+      "speaker": "B",
+      "text": "Their menu had a mushroom sandwich and a tomato soup. I'll check whether we need a reservation, and send you the address tonight.",
+      "startSeconds": 35.713791666666665,
+      "endSeconds": 42.654333333333334
+    },
+    {
+      "speaker": "A",
+      "text": "Perfect, thanks. And if it rains, we can skip the walk and visit that bookstore next door. I've been meaning to go there for ages.",
+      "startSeconds": 43.004333333333335,
+      "endSeconds": 50.53725
+    },
+    {
+      "speaker": "B",
+      "text": "That sounds like a good backup plan. I'll bring the book I borrowed from you, too. See you on Sunday!",
+      "startSeconds": 50.88725,
+      "endSeconds": 57.32841666666667
+    }
+  ]
+}

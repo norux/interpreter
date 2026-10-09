@@ -19,8 +19,8 @@
               "id": "long-0",
               "height": 43,
               "line": 43.008,
-              "at": 12333.200000047684,
-              "hiddenAtMs": 16363.800000011921,
+              "at": 15328.299999952316,
+              "hiddenAtMs": 19578,
               "length": 42
             }
           ]
@@ -34,8 +34,8 @@
               "id": "long-1",
               "height": 43,
               "line": 43.008,
-              "at": 12334.900000035763,
-              "hiddenAtMs": 16624.700000047684,
+              "at": 15331.399999976158,
+              "hiddenAtMs": 19833.5,
               "length": 38
             }
           ]
@@ -60,16 +60,16 @@
               "id": "long-0",
               "height": 50,
               "line": 25.2,
-              "at": 16654.200000047684,
-              "hiddenAtMs": 19351.700000047684,
+              "at": 19863.199999928474,
+              "hiddenAtMs": 23864.699999928474,
               "length": 30
             },
             {
               "id": "long-0",
               "height": 25,
               "line": 25.2,
-              "at": 19351.700000047684,
-              "hiddenAtMs": 22103.200000047684,
+              "at": 23864.699999928474,
+              "hiddenAtMs": 28117.5,
               "length": 12
             }
           ]
@@ -83,16 +83,16 @@
               "id": "long-1",
               "height": 50,
               "line": 25.2,
-              "at": 16656.200000047684,
-              "hiddenAtMs": 22103.200000047684,
+              "at": 19865.199999928474,
+              "hiddenAtMs": 28117.5,
               "length": 30
             },
             {
               "id": "long-1",
               "height": 25,
               "line": 25.2,
-              "at": 22103.200000047684,
-              "hiddenAtMs": 24857.700000047684,
+              "at": 28117.5,
+              "hiddenAtMs": 32382,
               "length": 8
             }
           ]
@@ -114,8 +114,9 @@
   "resizeReadingPosition": true,
   "correctedReadingPosition": true,
   "rewrittenCurrentPart": true,
-  "finalReplay": true,
-  "finalReplayTraceVisibility": true,
+  "finalReplay": false,
+  "finalContinuation": true,
+  "finalContinuationTraceVisibility": true,
   "fadeOut": true,
   "fadeDurationMs": 250,
   "fullscreen": true,

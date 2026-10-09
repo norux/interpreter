@@ -7,7 +7,7 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
   const window = document.defaultView;
   if (!window) throw new Error("Comparison view requires a live document");
   const host = document.createElement("section");
-  host.setAttribute("aria-label", "Interpreter captions");
+  host.setAttribute("aria-label", "Jamak captions");
   const style = document.createElement("style");
   style.textContent = `
     .interpreter-live { position:relative; padding:8px; min-height:3.2em; font:18px/1.5 system-ui;
@@ -30,7 +30,7 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
   host.append(style, status, cue, table); container.append(host);
   const rows = new Map<string, HTMLTableRowElement>();
   const listeners = new Set<(progress: DisplayProgress) => void>();
-  const entries: { caption: CaptionRevision; offset: number; end: number; partIndex: number; fading: boolean }[] = [];
+  const entries: { caption: CaptionRevision; offset: number; end: number; partIndex: number; fading: boolean; displayedText: string; holdingTranslation: boolean }[] = [];
   let identity: SessionIdentity | undefined;
   let disposed = false;
 
@@ -42,9 +42,8 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
     if (disposed) return;
     const front = entries[0];
     if (!front) { text.textContent = ""; cue.style.opacity = "1"; return; }
-    cue.style.opacity = front.fading ? "0" : "1";
-    const caption = front.caption;
-    const characters = Array.from((caption.translation.state === "paired" ? caption.translation.revision.text : caption.source.text).trim());
+    cue.style.opacity = front.fading && entries.length === 1 ? "0" : "1";
+    const characters = Array.from(front.displayedText.trim());
     let low = Math.min(front.offset + 1, characters.length); let high = characters.length;
     const lineHeight = Number.parseFloat(window?.getComputedStyle(cue).lineHeight ?? "27");
     while (low < high) {
@@ -53,14 +52,20 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
       if (measure.getBoundingClientRect().height <= lineHeight * 2 + 1) low = middle;
       else high = middle - 1;
     }
-    front.end = low; text.textContent = characters.slice(front.offset, low).join(""); measure.textContent = "";
+    cue.dataset.speakerId = String(front.caption.source.speakerId ?? "");
+    cue.dataset.utteranceId = front.caption.source.utteranceId;
+    front.end = low;
+    const displayedText = characters.slice(front.offset, low).join("");
+    if (text.textContent !== displayedText) text.textContent = displayedText;
+    measure.textContent = "";
     for (const entry of entries) {
       const translation = entry.caption.translation;
-      const displayed = translation.state === "paired" ? translation.revision.text : entry.caption.source.text;
+      const displayed = entry.displayedText;
       const progress: DisplayProgress = { identity: entry.caption.source.identity, utteranceId: entry.caption.source.utteranceId,
         sourceRevision: entry.caption.source.sourceRevision, translationRevision: translation.state === "paired" ? translation.revision.translationRevision : undefined,
         partIndex: entry.partIndex, complete: entry.end >= Array.from(displayed.trim()).length,
-        visible: entry === front && cue.getBoundingClientRect().width > 0, characterCount: entry === front ? Array.from(text.textContent).length : 0 };
+        displayedText: entry === front ? text.textContent ?? "" : "",
+        visible: entry === front && !entry.holdingTranslation && cue.getBoundingClientRect().width > 0, characterCount: entry === front ? Array.from(text.textContent).length : 0 };
       for (const listener of listeners) listener(progress);
     }
   }
@@ -79,11 +84,30 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
       }
       let entry = entries.find(entry => entry.caption.source.utteranceId === event.caption.source.utteranceId);
       if (!entry) {
-        entry = { caption: event.caption, offset: 0, end: 0, partIndex: 0, fading: false }; entries.push(entry);
+        entry = { caption: event.caption, offset: 0, end: 0, partIndex: 0, fading: false, displayedText: event.caption.source.text, holdingTranslation: false }; entries.push(entry);
       }
+      const holdingTranslation = event.caption.translation.state === "pending"
+        && (entry.caption.translation.state === "paired" || entry.holdingTranslation);
+      // Keep the last translation on screen while the corrected pair is pending.
+      if (!holdingTranslation) entry.displayedText = event.caption.translation.state === "paired"
+        ? event.caption.translation.revision.text : event.caption.source.text;
+      entry.holdingTranslation = holdingTranslation;
       // Source and translated text have independent layout offsets.
-      if (entry.caption.translation.state !== event.caption.translation.state) {
+      if (!holdingTranslation && entry.caption.translation.state !== event.caption.translation.state) {
         entry.offset = 0; entry.end = 0; entry.partIndex = 0;
+      }
+      if (event.type === "update" && entry.offset && !holdingTranslation && entry.displayedText !==
+        (entry.caption.translation.state === "paired" ? entry.caption.translation.revision.text : entry.caption.source.text)) {
+        const previous = Array.from((entry.caption.translation.state === "paired" ? entry.caption.translation.revision.text : entry.caption.source.text).trim());
+        const next = Array.from(entry.displayedText.trim());
+        let prefix = 0;
+        while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) prefix++;
+        let suffix = 0;
+        while (suffix < previous.length - prefix && suffix < next.length - prefix
+          && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]) suffix++;
+        if (entry.offset >= previous.length - suffix) entry.offset += next.length - previous.length;
+        else if (entry.offset > prefix) entry.offset = prefix;
+        entry.offset = Math.max(0, Math.min(entry.offset, next.length));
       }
       if (event.type === "replay") { entry.offset = event.partIndex === 0 ? 0 : entry.end; entry.partIndex = event.partIndex; }
       entry.caption = event.caption;
@@ -108,6 +132,7 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
       row.dataset.utteranceId = caption.source.utteranceId; row.dataset.epoch = `${caption.source.identity.epoch}`;
       row.dataset.sourceRevision = `${caption.source.sourceRevision}`; row.dataset.sourceFinal = `${caption.source.final}`;
       row.dataset.translationState = caption.translation.state;
+      row.dataset.speakerId = String(caption.source.speakerId ?? "");
       row.cells[0].textContent = caption.source.text;
       // Tab sample time and a selected video's anchored time are separate bases.
       const range = timeBasis === "capture" ? caption.source.audioRange : caption.videoRange;

@@ -1,0 +1,10 @@
+[
+  {"speaker":"A","text":"Hey, did you get a chance to look at the little cafe near the station? I was thinking we could go there on Saturday."},
+  {"speaker":"B","text":"I walked past it yesterday. It looks nice, but Saturday morning is a bit difficult. I promised to help my sister move."},
+  {"speaker":"A","text":"Oh, right. How about Sunday instead? We could have lunch first, then take a walk by the river if the weather is good."},
+  {"speaker":"B","text":"Sunday works for me. Actually, I would rather meet a little later. Is one thirty okay? I don't want to rush in the morning."},
+  {"speaker":"A","text":"Sure. Let's meet outside the station at one thirty. Do you know if the cafe has vegetarian food?"},
+  {"speaker":"B","text":"Their menu had a mushroom sandwich and a tomato soup. I'll check whether we need a reservation, and send you the address tonight."},
+  {"speaker":"A","text":"Perfect, thanks. And if it rains, we can skip the walk and visit that bookstore next door. I've been meaning to go there for ages."},
+  {"speaker":"B","text":"That sounds like a good backup plan. I'll bring the book I borrowed from you, too. See you on Sunday!"}
+]

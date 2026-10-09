@@ -1,12 +1,13 @@
 import type { InterpretationEngine, InterpretationEvent, LanguagePair, ReasonCode, SessionIdentity, SessionStatus, SpeechRecognizer, TextTranslator } from "../contracts";
 import { sameIdentity } from "../core/identity";
 import { normalizeSelectedAudio } from "./normalize-audio";
+import { createSpeakerTracker } from "./speaker-tracker";
 import { createTranslationQueue } from "./translation-queue";
 
 // Prepared document resources stay in the Chrome host; this stream owns one epoch.
 export function createBrowserPipeline(identity: SessionIdentity, languages: LanguagePair,
   createRecognizer: (receive: (status: SessionStatus) => void) => SpeechRecognizer,
-  translator: TextTranslator): Pick<InterpretationEngine, "run" | "cancel" | "close"> {
+  translator: TextTranslator, speaker?: { embed(pcm: Float32Array): Promise<Float32Array>; fail(error: unknown): void }): Pick<InterpretationEngine, "run" | "cancel" | "close"> {
   const selected = { ...identity };
   const events: InterpretationEvent[] = [];
   let status: InterpretationEvent | undefined;
@@ -27,7 +28,8 @@ export function createBrowserPipeline(identity: SessionIdentity, languages: Lang
     failure = new Error(reason);
     void cancel();
   }
-  const translations = createTranslationQueue(selected, languages, translator, 4, 300, caption => {
+  // Native speech can finalize all 16 retained results in one callback.
+  const translations = createTranslationQueue(selected, languages, translator, 16, 300, caption => {
     if (stopped) return;
     // Caption events are never replaced by high-frequency queue telemetry.
     if (events.length >= 16) { fail("overloaded"); return; }
@@ -35,10 +37,18 @@ export function createBrowserPipeline(identity: SessionIdentity, languages: Lang
       : { type: "translation", revision: caption.translation.revision }); wake?.();
   }, fail);
 
+  const voices = speaker ? createSpeakerTracker(speaker.embed, (utteranceId, speakerId) => {
+    if (stopped) return;
+    events.push({ type: "speaker", identity: selected, utteranceId, speakerId }); wake?.();
+  }, speaker.fail) : undefined;
+  async function* trackedAudio(audio: Parameters<SpeechRecognizer["run"]>[0]) {
+    for await (const chunk of normalizeSelectedAudio(selected, audio)) { voices?.push(chunk); yield chunk; }
+  }
+
   let cleanup: Promise<void> | undefined;
   function cancel(): Promise<void> {
     if (cleanup) return cleanup;
-    stopped = true; events.length = 0; status = undefined; wake?.();
+    stopped = true; voices?.stop(); events.length = 0; status = undefined; wake?.();
     cleanup = Promise.all([translations.cancel(), recognizer.cancel(selected)]).then(() => {});
     // A failed stream reports its error through run, including during cleanup.
     void cleanup.catch(() => {});
@@ -51,12 +61,13 @@ export function createBrowserPipeline(identity: SessionIdentity, languages: Lang
       started = true;
       const consume = async () => {
         try {
-          for await (const source of recognizer.run(normalizeSelectedAudio(selected, audio))) {
+          for await (const source of recognizer.run(trackedAudio(audio))) {
             if (stopped) return;
             if (!sameIdentity(selected, source.identity) || source.language !== languages.source) { fail("engine-failed"); return; }
-            translations.accept(source);
+            if (translations.accept(source)) voices?.observe(source);
           }
           await translations.whenIdle();
+          await voices?.settle();
           ended = true; wake?.();
         } catch (error) { fail(error instanceof Error ? error.message : "engine-failed"); }
       };

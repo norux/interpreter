@@ -20,19 +20,25 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
     .interpreter-live { width:min(84%,760px); box-sizing:border-box; margin:0 auto; padding:6px 18px;
       color:white; text-align:center; min-height:0; font:600 clamp(16px,2vw,26px)/1.65 system-ui,sans-serif;
       word-break:keep-all; text-shadow:0 1px 3px rgba(0,0,0,.8); }
-    .interpreter-live > span:first-child { padding:4px 10px; border-radius:8px; background:rgba(18,20,26,.78);
+    .interpreter-live > span:not(.interpreter-measure) { padding:4px 10px; border-radius:8px; background:var(--interpreter-background,rgba(18,20,26,.78));
       -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+    .interpreter-live[data-speaker-id="1"] { --interpreter-background:rgba(24,48,80,.9) }
+    .interpreter-live[data-speaker-id="2"] { --interpreter-background:rgba(80,38,64,.9) }
+    .interpreter-live[data-speaker-id="3"] { --interpreter-background:rgba(40,68,46,.9) }
+    .interpreter-live[data-speaker-id="4"] { --interpreter-background:rgba(86,58,22,.9) }
+    .interpreter-live[data-speaker-id="5"] { --interpreter-background:rgba(60,40,88,.9) }
+    .interpreter-live[data-speaker-id="6"] { --interpreter-background:rgba(22,68,68,.9) }
+    .interpreter-live[data-speaker-id="7"] { --interpreter-background:rgba(86,40,28,.9) }
+    .interpreter-live[data-speaker-id="8"] { --interpreter-background:rgba(56,62,82,.9) }
     .interpreter-measure { left:28px; right:28px; }
-    .interpreter-live:has(span:first-child:empty) { visibility:hidden }`;
-  // Override only this shadow's appearance; companion settings are not read or written.
+    .interpreter-live:has(span:not(.interpreter-measure):empty) { visibility:hidden }`;
+  // Keep caption styling inside the page overlay shadow.
   container.append(style); shadow.append(container);
   const policy = createPresentationPolicy(identity, { now: () => window.performance.now(), schedule(callback, delay) {
     const id = window.setTimeout(callback, delay); return () => window.clearTimeout(id);
   } }, view.present, 180);
   const unsubscribe = view.onDisplayProgress(policy.progress);
   let disposed = false;
-  let latestStartMs = -1;
-  let latestUtteranceId: string | undefined;
   function position() {
     if (disposed) return;
     const fullscreen = document.fullscreenElement;
@@ -60,17 +66,10 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
     compare(caption: CaptionRevision) {
       if (disposed || !sameIdentity(identity, caption.source.identity)) return;
       position();
-      const accepted = policy.accept(caption.translation.state === "pending" ? { type: "transcript", revision: caption.source }
+      policy.accept(caption.translation.state === "pending" ? { type: "transcript", revision: caption.source }
         : { type: "paired-caption", caption }, caption.videoRange);
-      if (!accepted) return;
-      if (!video && caption.translation.state === "paired" && caption.source.audioRange.startMs >= latestStartMs) {
-        latestStartMs = caption.source.audioRange.startMs; latestUtteranceId = caption.source.utteranceId;
-        for (const previous of policy.snapshot()) {
-          if (previous.source.utteranceId !== latestUtteranceId && previous.source.audioRange.startMs <= latestStartMs) policy.retire(previous.source.utteranceId);
-        }
-      } else if (!video && latestUtteranceId !== caption.source.utteranceId && caption.source.audioRange.startMs < latestStartMs) policy.retire(caption.source.utteranceId);
     },
-    clear() { latestStartMs = -1; latestUtteranceId = undefined; policy.clear(); },
+    clear() { policy.clear(); },
     dispose() {
       if (disposed) return; disposed = true;
       resize.disconnect(); unsubscribe(); policy.dispose(); view.dispose(); host.remove();

@@ -2,7 +2,8 @@ import type { AudioRange, CaptionRevision, InterpretationEvent, SessionIdentity,
 import { sameIdentity } from "./identity";
 
 function validSource(source: TranscriptRevision): boolean {
-  return source.utteranceId.length > 0 && Number.isSafeInteger(source.sourceRevision) && source.sourceRevision > 0
+  return (source.speakerId === undefined || Number.isSafeInteger(source.speakerId) && source.speakerId >= 1 && source.speakerId <= 8)
+    && source.utteranceId.length > 0 && Number.isSafeInteger(source.sourceRevision) && source.sourceRevision > 0
     && Number.isFinite(source.audioRange.startMs) && source.audioRange.startMs >= 0
     && Number.isFinite(source.audioRange.endMs) && source.audioRange.endMs >= source.audioRange.startMs;
 }
@@ -71,6 +72,12 @@ export function createRevisionStore(initial: SessionIdentity, maxStoredCaptions:
     snapshot(): readonly CaptionRevision[] { return [...records.values()].map((record) => record.caption); },
     accept(event: InterpretationEvent, videoRange?: AudioRange): CaptionRevision | undefined {
       if (event.type === "status") return undefined;
+      if (event.type === "speaker") {
+        if (!sameIdentity(identity, event.identity) || !Number.isSafeInteger(event.speakerId) || event.speakerId < 1 || event.speakerId > 8) return undefined;
+        const previous = records.get(key(event))?.caption;
+        if (!previous || previous.source.speakerId === event.speakerId) return undefined;
+        return save({ ...previous, source: { ...previous.source, speakerId: event.speakerId } });
+      }
       if (event.type === "translation") {
         const translation = event.revision;
         if (!sameIdentity(identity, translation.identity)) return undefined;
@@ -87,12 +94,19 @@ export function createRevisionStore(initial: SessionIdentity, maxStoredCaptions:
           && source.text === previous.source.text && source.final === previous.source.final
           && source.language === previous.source.language && source.audioRange.startMs === previous.source.audioRange.startMs
           && source.audioRange.endMs === previous.source.audioRange.endMs;
+        if (sameSource && sameIdentity(identity, source.identity) && source.speakerId !== undefined && source.speakerId !== previous.source.speakerId
+          && Number.isSafeInteger(source.speakerId) && source.speakerId > 0 && source.speakerId <= 8
+          && previous.translation.state === "paired" && translation.translationRevision === previous.translation.revision.translationRevision
+          && translation.text === previous.translation.revision.text && translation.final === previous.translation.revision.final
+          && validTranslation(source, translation) && translation.languages.target === previous.translation.revision.languages.target) {
+          return save({ ...previous, source: { ...previous.source, speakerId: source.speakerId } });
+        }
         if (!sameIdentity(identity, source.identity) || (!sameSource && !sourceAllowed(source, previous))
           || !translationAllowed(source, translation)) return undefined;
         return save({ source, translation: { state: "paired", revision: translation }, videoRange: videoRange ?? previous?.videoRange });
       }
       if (!sourceAllowed(source, previous)) return undefined;
-      return save({ source, translation: { state: "pending" }, videoRange });
+      return save({ source: { ...source, speakerId: source.speakerId ?? previous?.source.speakerId }, translation: { state: "pending" }, videoRange });
     },
   };
 }

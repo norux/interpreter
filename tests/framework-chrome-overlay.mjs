@@ -132,16 +132,17 @@ try {
     live.compare(caption('old',0,'이전 문장'));await new Promise(done=>setTimeout(done,30));
     if(read()!=='이전 문장')throw Error('Initial whole-tab caption is missing');
     const started=performance.now();live.compare(caption('latest',1000,'최신 문장'));
-    const deadline=started+500;while(read()!=='최신 문장'&&performance.now()<deadline)await new Promise(done=>setTimeout(done,10));
+    if(read()!=='이전 문장')throw Error('New translation discarded an unread sentence');
+    const deadline=started+5000;while(read()!=='최신 문장'&&performance.now()<deadline)await new Promise(done=>setTimeout(done,10));
     const delayMs=performance.now()-started;
-    if(read()!=='최신 문장')throw Error('Latest translation waits behind the previous reading interval');
+    if(read()!=='최신 문장')throw Error('Queued translation never became visible');
     live.compare(caption('old',0,'이전 문장의 늦은 수정',2));await new Promise(done=>setTimeout(done,220));
     if(read()!=='최신 문장')throw Error('An older correction displaced the live caption');
     live.clear();if(read()!=='')throw Error('Stop must clear the current whole-tab caption');
     live.dispose();return {delayMs};
   });
   observations.liveTiming=liveTiming;
-  observations.checks.push('Whole-tab latest translation bypasses previous reading interval; older corrections do not displace it; Stop clears it');
+  observations.checks.push('Whole-tab captions preserve previous reading time, advance to the next sentence, and clear on Stop');
   assert.deepEqual(observations.pageErrors,[]);
   console.log(JSON.stringify({passed:true,...observations}));
 } catch(error) { console.error(JSON.stringify({passed:false,...observations,error:error.stack}));process.exitCode=1; }

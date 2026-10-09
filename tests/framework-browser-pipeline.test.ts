@@ -89,7 +89,7 @@ test("pipeline rejects stale source identities and exposes final-queue overload"
   const stale = fixture(1, true);
   await assert.rejects(async () => { for await (const _ of stale.pipeline.run(audio())) {} }, /engine-failed/);
   assert.equal(stale.calls.length, 0); await stale.pipeline.close();
-  const overloaded = fixture(5);
+  const overloaded = fixture(17);
   await assert.rejects(async () => { for await (const _ of overloaded.pipeline.run(audio())) {} }, /overloaded/);
   assert.equal(overloaded.calls.length, 1);
   overloaded.calls[0].result.resolve("late"); await overloaded.pipeline.close();
@@ -104,4 +104,17 @@ test("pipeline exposes GPU loss through the engine status contract before ending
   assert.equal(failures.length, 1);
   assert.deepEqual(failures[0], { type: "status", status: { identity, state: "failed", reason: "gpu-lost", message: "gpu-lost" } });
   await pipeline.close();
+});
+
+test("one conversation's ten simultaneous finals all drain instead of clearing the running subtitles", async () => {
+  const f = fixture(10); const store = createRevisionStore(identity,300);
+  const finished = (async () => { for await (const event of f.pipeline.run(audio())) store.accept(event); })()
+    .then(() => undefined, error => error);
+  for (let index=0;index<10;index++) {
+    await tick(); f.calls[index]?.result.resolve(`번역 ${index}`);
+  }
+  assert.equal(await finished,undefined,"A final-result burst must not abort the caption session");
+  assert.equal(store.snapshot().length,10);
+  assert.ok(store.snapshot().every(caption=>caption.translation.state==='paired'));
+  await f.pipeline.close();
 });

@@ -85,6 +85,14 @@ export function createLocalSpeechHost(document: Document, language: "ja" | "en",
       let audioFormat = "";
       let failure: Error | undefined; let endMs = 0; let nativeStartMs = 0;
       let wake: (() => void) | undefined; let timer: ReturnType<typeof setTimeout> | undefined;
+      const pauses = new Map<number, { units: number; endMs: number }[]>();
+      const latest = new Map<number, { index: number; text: string; final: boolean; startMs: number }>();
+      let quietMs = 0; let hadSpeech = false;
+      function units(text: string) {
+        // SODA alternates "1:30" and "1 30"; count both as two units so an
+        // earlier number correction cannot shift every later turn boundary.
+        return language === "ja" ? Array.from(text.trim()) : text.trim().match(/\d+(?=:\d)|\S+/gu) ?? [];
+      }
       let drafts: { index: number; text: string; final: boolean; startMs: number }[] = [];
 
       function stop(reason?: string) {
@@ -105,24 +113,32 @@ export function createLocalSpeechHost(document: Document, language: "ja" | "en",
       function publish() {
         timer = undefined; if (stopped) return;
         for (const draft of drafts) {
-          const parts = (language === "ja" ? draft.text.trim().split(/(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u)
-            : [...sentences.segment(draft.text.trim())].flatMap(sentence => sentence.segment.split(/\s+(?=(?:let['’]s|please do|we will)\b)/iu)))
-            .map(text => text.trim()).filter(Boolean);
-          for (const [index, text] of parts.entries()) {
-            const id = `local-${draft.index}-${index}`;
-            const previous = records.get(id);
-            if (!text || !draft.final && (language === "ja" ? text.length < 4 : text.split(/\s+/u).length < 3)) continue;
-            const final = draft.final || previous?.final === true || index < parts.length - 1 && previous?.text === text;
-            if (previous?.text === text && previous.final === final) continue;
-            const record = { text, revision: (previous?.revision ?? 0) + 1, final,
-              startMs: previous?.startMs ?? Math.max(draft.startMs, index ? records.get(`local-${draft.index}-${index - 1}`)?.endMs ?? draft.startMs : draft.startMs), endMs };
-            records.set(id, record);
-            // Native Web Speech has no word timestamps: these are capture
-            // delivery ranges, not invented acoustic sentence boundaries.
-            pending.set(id, { identity: selected, utteranceId: id, sourceRevision: record.revision,
-              language, text, final, audioRange: { startMs: record.startMs, endMs: Math.max(record.startMs, endMs) } });
-            if (pending.size > 16) { stop("overloaded"); return; }
-            if (records.size > 300) records.delete(records.keys().next().value as string);
+          const tokens = units(draft.text);
+          const boundaries = pauses.get(draft.index) ?? [];
+          const spans = [...boundaries, { units: tokens.length, endMs }].map((boundary, index) => ({
+            text: tokens.slice(index ? boundaries[index - 1].units : 0, boundary.units).join(language === "ja" ? "" : " ").replace(/(?<=\d)\s+:(?=\d)/gu, ":"),
+            startMs: index ? boundaries[index - 1].endMs : draft.startMs, endMs: boundary.endMs,
+          }));
+          for (const [spanIndex, span] of spans.entries()) {
+            const parts = boundaries.length ? [span.text.trim()].filter(Boolean) : (language === "ja" ? span.text.trim().split(/(?<=[。！？])\s*|(?<=ませんでした|ません|ました|ます|でした|です|ましょう|ください)\s*(?=[\p{Script=Han}\p{Script=Katakana}])/u)
+              : [...sentences.segment(span.text.trim())].flatMap(sentence => sentence.segment.split(/\s+(?=(?:let['’]s|please do|we will)\b)/iu)))
+              .map(text => text.trim()).filter(Boolean);
+            for (const [index, text] of parts.entries()) {
+              const id = `local-${draft.index}-${spanIndex}-${index}`;
+              const previous = records.get(id);
+              if (!text.trim()) continue;
+              const final = draft.final || previous?.final === true || index < parts.length - 1 && previous?.text === text;
+              if (previous?.text === text && previous.final === final) continue;
+              const record = { text, revision: (previous?.revision ?? 0) + 1, final,
+                startMs: previous?.startMs ?? Math.max(span.startMs, index ? records.get(`local-${draft.index}-${spanIndex}-${index - 1}`)?.endMs ?? span.startMs : span.startMs), endMs: span.endMs };
+              records.set(id, record);
+              // Native Web Speech has no word timestamps: these are capture
+              // delivery ranges, not invented acoustic sentence boundaries.
+              pending.set(id, { identity: selected, utteranceId: id, sourceRevision: record.revision,
+                language, text, final, audioRange: { startMs: record.startMs, endMs: Math.max(record.startMs, record.endMs) } });
+              if (pending.size > 16) { stop("overloaded"); return; }
+              if (records.size > 300) records.delete(records.keys().next().value as string);
+            }
           }
         }
         drafts = []; wake?.();
@@ -137,7 +153,9 @@ export function createLocalSpeechHost(document: Document, language: "ja" | "en",
           // result. Keep those from changing sentence IDs or negation endings.
           const text = typeof raw === "string" && language === "ja" ? raw.replace(/(?<=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])\s+|\s+(?=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/gu, "") : raw;
           if (typeof text !== "string" || text.length > 16384 || typeof result.isFinal !== "boolean") { stop("engine-failed"); return; }
-          drafts.push({ index, text, final: result.isFinal, startMs: nativeStartMs });
+          const draft = { index, text, final: result.isFinal, startMs: latest.get(index)?.startMs ?? nativeStartMs };
+          latest.set(index, draft); drafts.push(draft);
+          if (latest.size > 16) { const oldest = latest.keys().next().value as number; latest.delete(oldest); pauses.delete(oldest); }
           if (result.isFinal) nativeStartMs = endMs;
         }
         // Coalesce drafts so translations keep up; final results bypass the gate.
@@ -168,6 +186,23 @@ export function createLocalSpeechHost(document: Document, language: "ja" | "en",
               || !["tab-mix", "selected-video"].includes(chunk.scope) || !(chunk.pcm instanceof ArrayBuffer) || chunk.pcm.byteLength > 12800
               || !new Float32Array(chunk.pcm).every(sample => Number.isFinite(sample) && Math.abs(sample) <= 1)) { stop("engine-failed"); return; }
             previous = chunk; endMs = chunk.audioRange.endMs;
+            const pcm = new Float32Array(chunk.pcm);
+            const rms = Math.sqrt(pcm.reduce((sum, sample) => sum + sample * sample, 0) / pcm.length);
+            if (rms < 0.006) quietMs += chunk.audioRange.endMs - chunk.audioRange.startMs;
+            else {
+              // SODA can keep a whole conversation in one unpunctuated result.
+              // Split at measured pauses so translation edits stay within a turn.
+              if (hadSpeech && quietMs >= 320) for (const draft of latest.values()) {
+                if (draft.final) continue;
+                const boundaries = pauses.get(draft.index) ?? [];
+                const count = units(draft.text).length;
+                if (count > (boundaries.at(-1)?.units ?? 0)) {
+                  boundaries.push({ units: count, endMs: chunk.audioRange.startMs - quietMs });
+                  pauses.set(draft.index, boundaries);
+                }
+              }
+              hadSpeech = true; quietMs = 0;
+            }
           }
           if (!stopped) { ended = true; clearTimeout(timer); publish(); wake?.(); }
         } catch (error) { if (!stopped) stop(error instanceof Error && error.message === "audio-gap" ? "audio-gap" : "engine-failed"); }
