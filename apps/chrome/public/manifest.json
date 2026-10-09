@@ -1,14 +1,47 @@
 {
   "manifest_version": 3,
-  "name": "Interpreter — tab audio",
+  "name": "Jamak \u2014 Live Subtitles",
   "version": "0.1.0",
-  "description": "Local whole-tab audio interpretation development build.",
+  "description": "On-device live Korean subtitles for English and Japanese tab audio, with translation and speaker colors.",
   "minimum_chrome_version": "138",
-  "permissions": ["activeTab", "scripting", "tabCapture", "offscreen"],
-  "background": { "service_worker": "service-worker.js", "type": "module" },
-  "action": { "default_title": "Interpret tab audio", "default_popup": "popup.html" },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabCapture",
+    "offscreen"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Jamak \u00b7 \uc2e4\uc2dc\uac04 \uc790\ub9c9",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co"
   },
-  "web_accessible_resources": [{ "resources": ["pcm-worklet.js"], "matches": ["http://*/*", "https://*/*"] }]
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "pcm-worklet.js"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
 }

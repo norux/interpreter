@@ -10,7 +10,7 @@ const confirm = document.querySelector("#confirm") as HTMLButtonElement;
 const container = document.querySelector("#app") as HTMLElement;
 const tabId = Number(new URLSearchParams(location.search).get("tab"));
 if (!Number.isSafeInteger(tabId) || tabId <= 0) {
-  status.textContent = "Open this window using Interpreter on the video page."; confirm.disabled = true;
+  status.textContent = "Open this window using Jamak on the video page."; confirm.disabled = true;
   (status.parentElement as HTMLDetailsElement).open = true;
 } else {
   const remote = createRemoteVideoInput(chrome.tabs.connect(tabId, { name: channelName, frameId: 0 }));
@@ -39,7 +39,7 @@ if (!Number.isSafeInteger(tabId) || tabId <= 0) {
       select.value = next.some(item => item.target.id === previous) ? previous : "";
       confirm.disabled = select.disabled || !select.value;
     } catch (error) {
-      status.textContent = `Page connection unavailable: ${String(error)}. Stop and reopen Interpreter on the video page.`;
+      status.textContent = `Page connection unavailable: ${String(error)}. Stop and reopen Jamak on the video page.`;
       (status.parentElement as HTMLDetailsElement).open = true;
       await app.select(null, "ja");
     }

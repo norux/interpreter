@@ -257,7 +257,7 @@ try {
   if (lifecycle) {
     // Observe the real Stop click before production handlers invalidate resources.
     await stop.evaluate(button => button.addEventListener('click', () => {
-      const status=document.querySelector('[aria-label="Interpreter captions"] [role="status"]');
+      const status=document.querySelector('[aria-label="Jamak captions"] [role="status"]');
       globalThis.stopSnapshot = { at:performance.now(), rows:document.querySelector('#app tbody').innerText,
         queue:{pendingAudioMs:Number(status.dataset.pendingAudioMs),droppedAudioMs:Number(status.dataset.droppedAudioMs)},
         pending:engineObservations.filter(job => job.type==='asr-job' && !engineObservations.some(result =>
@@ -309,7 +309,7 @@ try {
       globalThis.rowObserver=new MutationObserver(read);rowObserver.observe(document.querySelector('#app tbody'),{subtree:true,childList:true,characterData:true,attributes:true});
       globalThis.engineObservations=[]; globalThis.pcmObservations=[]; globalThis.asrInputs=[];
       globalThis.queueObservations=[];
-      const status=document.querySelector('[aria-label="Interpreter captions"] [role="status"]');
+      const status=document.querySelector('[aria-label="Jamak captions"] [role="status"]');
       globalThis.queueObserver=new MutationObserver(()=>queueObservations.push({at:performance.now(),state:status.dataset.state,
         pendingAudioMs:status.dataset.pendingAudioMs===''?null:Number(status.dataset.pendingAudioMs),
         droppedAudioMs:status.dataset.droppedAudioMs===''?null:Number(status.dataset.droppedAudioMs)}));
@@ -422,7 +422,7 @@ try {
         const sample=await host.evaluate(()=>({at:performance.now(),pcmEndMs:pcmObservations.filter(packet=>packet.event?.audioRange).at(-1).event.audioRange.endMs,
           jobs:engineObservations.filter(event=>event.type==='asr-job').length,results:engineObservations.filter(event=>event.type==='asr-result').length,
           paired:rowObservations.at(-1)?.rows.filter(row=>row.state==='paired').length??0,queues:queueObservations.splice(0),
-          state:document.querySelector('[aria-label="Interpreter captions"] [role="status"]').dataset.state}));
+          state:document.querySelector('[aria-label="Jamak captions"] [role="status"]').dataset.state}));
         sample.minute=minute; sample.rssKiB=await sampleRss();
         const queues=sample.queues.filter(value=>value.pendingAudioMs!==null);
         assert.ok(queues.length,'Every actual minute must contain queue telemetry');
@@ -512,7 +512,7 @@ try {
     if (mode === 'sustained') {
       run.stopSnapshot=await host.evaluate(()=>stopSnapshot);
       const after=await host.evaluate(()=>({engine:engineObservations,
-        queue:{...document.querySelector('[aria-label="Interpreter captions"] [role="status"]').dataset}}));
+        queue:{...document.querySelector('[aria-label="Jamak captions"] [role="status"]').dataset}}));
       run.afterStopQueue=after.queue;
       assert.equal(Number(after.queue.pendingAudioMs),0);
       for(const job of run.stopSnapshot.pending) {

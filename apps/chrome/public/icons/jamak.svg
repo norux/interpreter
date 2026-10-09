@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Jamak subtitle bubble">
+  <rect x="8" y="8" width="240" height="240" rx="64" fill="#4b56c6"/>
+  <path d="M60 59h136a22 22 0 0 1 22 22v84a22 22 0 0 1-22 22h-71l-34 25v-25H60a22 22 0 0 1-22-22V81a22 22 0 0 1 22-22Z" fill="#fff"/>
+  <circle cx="101" cy="100" r="8" fill="#4b56c6"/>
+  <circle cx="155" cy="100" r="8" fill="#4b56c6"/>
+  <rect x="68" y="126" width="120" height="12" rx="6" fill="#4b56c6"/>
+  <rect x="68" y="151" width="86" height="12" rx="6" fill="#4b56c6"/>
+</svg>
