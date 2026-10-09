@@ -1,0 +1,1652 @@
+{
+  "date": "2026-10-09 KST",
+  "scope": "Browser-only toolbar tab engine: local streaming drafts, corrected native Korean, actual page DOM latency on six isolated synthetic sentences, background download/capture/reference lifetime. No general natural-speech latency or accuracy guarantee.",
+  "userDecision": "Display fast draft translations and allow corrections when recognition changes.",
+  "implementation": {
+    "preferredAsr": "Chrome on-device SpeechRecognition; processLocally=true; start(the same authorized live tabCapture audio track)",
+    "fallbackAsr": "Pinned Whisper large-v3-turbo FP16/WebGPU incremental snapshots when the local API is absent; selected-video host remains on this path.",
+    "translation": "Actual Chrome native Japanese/English to Korean; no cloud/microphone ASR and no companion/Ollama process.",
+    "downloadOwnership": "Prepare popup starts install with trusted activation; offscreen joins an ongoing install and observes native pack readiness. Chrome stores speech/translation packs in the browser profile; fallback ONNX/VAD files remain extension Cache Storage.",
+    "draftCadenceMs": 180,
+    "finalCadence": "Immediate",
+    "overlay": "Newest translated tab sentence replaces older visible cues; older corrected captions remain in bounded reference history.",
+    "nativeCaptionRanges": "Capture delivery estimates, not native acoustic word timestamps.",
+    "unsupportedNativeLanguage": "An exposed local API without the selected language reports preparation failure; it does not use remote speech."
+  },
+  "sentenceLatency": {
+    "passed": true,
+    "sampleCount": 6,
+    "thresholdMs": 1000,
+    "maximumNonnegativeDelayMs": 710.9333333571758,
+    "method": "Installed macOS Kyoko/Samantha voices at rate 180; generated 48 kHz WAVE. Production tab capture -> actual local speech -> native Korean -> actual page shadow DOM. Playback is scheduled 80 ms ahead; end is last input sample with absolute amplitude >=0.00001. DOM checked every 10 ms. Delay is an estimated playback-sample end to DOM text time; physical speaker/DAC and paint timing are not measured. Negative raw values mean anchors were visible before estimated speech end.",
+    "texts": {
+      "ja": [
+        "今日は会議をしません。",
+        "明日の午後三時に駅で会いましょう。",
+        "予約は取り消さないでください。"
+      ],
+      "en": [
+        "We will not meet today.",
+        "Let's meet at the station tomorrow at three in the afternoon.",
+        "Please do not cancel the reservation."
+      ]
+    },
+    "koreanAcceptance": "Negative meeting; tomorrow/afternoon/three/station with meeting intent; reservation cancellation with both negation and an instruction marker. Early partial words and a negative cancellation statement do not satisfy acceptance.",
+    "measurements": [
+      {
+        "language": "ja",
+        "index": 0,
+        "korean": "나는 오늘 회의를 하지 않을 것이다",
+        "rawDelayMs": 310.96249997615814,
+        "speechEndMs": 1941.9375,
+        "delayMs": 310.96249997615814
+      },
+      {
+        "language": "ja",
+        "index": 1,
+        "korean": "내일 오후 3시에 역에서 뵙겠습니다",
+        "rawDelayMs": 41.79166666666606,
+        "speechEndMs": 2471.7083333333335,
+        "delayMs": 41.79166666666606
+      },
+      {
+        "language": "ja",
+        "index": 2,
+        "korean": "예약을 취소하지 마십시오",
+        "rawDelayMs": 710.9333333571758,
+        "speechEndMs": 2152.1666666666665,
+        "delayMs": 710.9333333571758
+      },
+      {
+        "language": "en",
+        "index": 0,
+        "korean": "우리는 오늘 만나지 않을 것입니다",
+        "rawDelayMs": 261.97083338101675,
+        "speechEndMs": 1219.7291666666667,
+        "delayMs": 261.97083338101675
+      },
+      {
+        "language": "en",
+        "index": 1,
+        "korean": "내일 오후 3시에 역에서 만나자",
+        "rawDelayMs": -110.15416673819163,
+        "speechEndMs": 2902.8541666666665,
+        "delayMs": 0
+      },
+      {
+        "language": "en",
+        "index": 2,
+        "korean": "예약을 취소하지 마십시오",
+        "rawDelayMs": 309.066666642826,
+        "speechEndMs": 2118.333333333333,
+        "delayMs": 309.066666642826
+      }
+    ]
+  },
+  "verification": {
+    "nativeFourSources": {
+      "passed": true,
+      "scope": "Production popup/offscreen ownership, real local streaming or turbo WebGPU/native Korean/page/reference lifetime and source retirement; no strict sentence-end latency/public-video/ten-minute acceptance",
+      "pageErrors": [],
+      "checks": [
+        "Popup closed with ja voice pack available; preparation continues after tab switch",
+        "Popup closed with en voice pack available; preparation continues after tab switch",
+        "Popup closed with en voice pack available; preparation continues after tab switch",
+        "Popup closed with ja voice pack available; preparation continues after tab switch",
+        "Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation"
+      ],
+      "runs": [
+        {
+          "language": "ja",
+          "mode": "video",
+          "firstCaptionMs": 2287.416,
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "dcae6445-acc5-4d35-9bd0-932acd89c7ce",
+                  "targetId": "tab-2075830126-25c6478f-f401-4e95-9295-1bfac571aea5",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-0",
+                "sourceRevision": 3,
+                "language": "ja",
+                "text": "今日は会議をしません",
+                "final": true,
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 3071.375
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "dcae6445-acc5-4d35-9bd0-932acd89c7ce",
+                    "targetId": "tab-2075830126-25c6478f-f401-4e95-9295-1bfac571aea5",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-0",
+                  "sourceRevision": 3,
+                  "translationRevision": 3,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "나는 오늘 회의를 하지 않을 것이다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "dcae6445-acc5-4d35-9bd0-932acd89c7ce",
+                  "targetId": "tab-2075830126-25c6478f-f401-4e95-9295-1bfac571aea5",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-1",
+                "sourceRevision": 7,
+                "language": "ja",
+                "text": "明日の午後3時に駅で会いましょう",
+                "final": true,
+                "audioRange": {
+                  "startMs": 3071.375,
+                  "endMs": 8234
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "dcae6445-acc5-4d35-9bd0-932acd89c7ce",
+                    "targetId": "tab-2075830126-25c6478f-f401-4e95-9295-1bfac571aea5",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-1",
+                  "sourceRevision": 7,
+                  "translationRevision": 10,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 뵙겠습니다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "dcae6445-acc5-4d35-9bd0-932acd89c7ce",
+                  "targetId": "tab-2075830126-25c6478f-f401-4e95-9295-1bfac571aea5",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-2",
+                "sourceRevision": 1,
+                "language": "ja",
+                "text": "予約は取り消さないでください",
+                "final": false,
+                "audioRange": {
+                  "startMs": 8234,
+                  "endMs": 8234
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "dcae6445-acc5-4d35-9bd0-932acd89c7ce",
+                    "targetId": "tab-2075830126-25c6478f-f401-4e95-9295-1bfac571aea5",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-2",
+                  "sourceRevision": 1,
+                  "translationRevision": 11,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": false
+                }
+              }
+            }
+          ],
+          "hiddenPreparation": true,
+          "referenceClosure": true,
+          "referenceRestoration": true
+        },
+        {
+          "language": "en",
+          "mode": "iframe",
+          "firstCaptionMs": 1119.3862090000002,
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6e1f2632-fc7e-45ff-a17c-ac2f4b767312",
+                  "targetId": "tab-2075830126-270c0498-93bf-451a-8702-1aa86a535aea",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-0",
+                "sourceRevision": 4,
+                "language": "en",
+                "text": "We will not meet today",
+                "final": true,
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 2303.375
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6e1f2632-fc7e-45ff-a17c-ac2f4b767312",
+                    "targetId": "tab-2075830126-270c0498-93bf-451a-8702-1aa86a535aea",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-0",
+                  "sourceRevision": 4,
+                  "translationRevision": 4,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "우리는 오늘 만나지 않을 것입니다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6e1f2632-fc7e-45ff-a17c-ac2f4b767312",
+                  "targetId": "tab-2075830126-270c0498-93bf-451a-8702-1aa86a535aea",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-1",
+                "sourceRevision": 8,
+                "language": "en",
+                "text": "let's meet at the station tomorrow at 3 in the afternoon",
+                "final": true,
+                "audioRange": {
+                  "startMs": 2303.375,
+                  "endMs": 5418
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6e1f2632-fc7e-45ff-a17c-ac2f4b767312",
+                    "targetId": "tab-2075830126-270c0498-93bf-451a-8702-1aa86a535aea",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-1",
+                  "sourceRevision": 8,
+                  "translationRevision": 12,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 만나자",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6e1f2632-fc7e-45ff-a17c-ac2f4b767312",
+                  "targetId": "tab-2075830126-270c0498-93bf-451a-8702-1aa86a535aea",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-2",
+                "sourceRevision": 5,
+                "language": "en",
+                "text": "please do not cancel the reservation",
+                "final": false,
+                "audioRange": {
+                  "startMs": 5418,
+                  "endMs": 7082
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6e1f2632-fc7e-45ff-a17c-ac2f4b767312",
+                    "targetId": "tab-2075830126-270c0498-93bf-451a-8702-1aa86a535aea",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-2",
+                  "sourceRevision": 5,
+                  "translationRevision": 17,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": false
+                }
+              }
+            }
+          ],
+          "hiddenPreparation": true,
+          "referenceClosure": true,
+          "referenceRestoration": true
+        },
+        {
+          "language": "en",
+          "mode": "audio",
+          "firstCaptionMs": 1059.4033339999987,
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6d4a58f8-26a6-402b-a2af-ce987749a843",
+                  "targetId": "tab-2075830126-6d61268b-af80-4ee0-9764-c568dd886fc0",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-0",
+                "sourceRevision": 4,
+                "language": "en",
+                "text": "We will not meet today",
+                "final": true,
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 2218
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6d4a58f8-26a6-402b-a2af-ce987749a843",
+                    "targetId": "tab-2075830126-6d61268b-af80-4ee0-9764-c568dd886fc0",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-0",
+                  "sourceRevision": 4,
+                  "translationRevision": 4,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "우리는 오늘 만나지 않을 것입니다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6d4a58f8-26a6-402b-a2af-ce987749a843",
+                  "targetId": "tab-2075830126-6d61268b-af80-4ee0-9764-c568dd886fc0",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-1",
+                "sourceRevision": 8,
+                "language": "en",
+                "text": "let's meet at the station tomorrow at 3 in the afternoon",
+                "final": true,
+                "audioRange": {
+                  "startMs": 2218,
+                  "endMs": 5332.6875
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6d4a58f8-26a6-402b-a2af-ce987749a843",
+                    "targetId": "tab-2075830126-6d61268b-af80-4ee0-9764-c568dd886fc0",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-1",
+                  "sourceRevision": 8,
+                  "translationRevision": 12,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 만나자",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6d4a58f8-26a6-402b-a2af-ce987749a843",
+                  "targetId": "tab-2075830126-6d61268b-af80-4ee0-9764-c568dd886fc0",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-2",
+                "sourceRevision": 5,
+                "language": "en",
+                "text": "please do not cancel the reservation",
+                "final": false,
+                "audioRange": {
+                  "startMs": 5332.6875,
+                  "endMs": 6996.6875
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6d4a58f8-26a6-402b-a2af-ce987749a843",
+                    "targetId": "tab-2075830126-6d61268b-af80-4ee0-9764-c568dd886fc0",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-2",
+                  "sourceRevision": 5,
+                  "translationRevision": 17,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": false
+                }
+              }
+            }
+          ],
+          "hiddenPreparation": true,
+          "referenceClosure": true,
+          "referenceRestoration": true
+        },
+        {
+          "language": "ja",
+          "mode": "web-audio",
+          "firstCaptionMs": 1783.729290999996,
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                  "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-0",
+                "sourceRevision": 4,
+                "language": "ja",
+                "text": "今日は会議をしません",
+                "final": true,
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 2900.6875
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                    "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-0",
+                  "sourceRevision": 4,
+                  "translationRevision": 4,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "나는 오늘 회의를 하지 않을 것이다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                  "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-1",
+                "sourceRevision": 7,
+                "language": "ja",
+                "text": "明日の午後3時に駅で会いましょう",
+                "final": true,
+                "audioRange": {
+                  "startMs": 2900.6875,
+                  "endMs": 12074
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                    "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-1",
+                  "sourceRevision": 7,
+                  "translationRevision": 11,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 뵙겠습니다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                  "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-2",
+                "sourceRevision": 1,
+                "language": "ja",
+                "text": "予約は取り消さないでください",
+                "final": false,
+                "audioRange": {
+                  "startMs": 12074,
+                  "endMs": 12074
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                    "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-2",
+                  "sourceRevision": 1,
+                  "translationRevision": 12,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": false
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                  "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-3",
+                "sourceRevision": 1,
+                "language": "ja",
+                "text": "今日は会議をしません",
+                "final": false,
+                "audioRange": {
+                  "startMs": 12074,
+                  "endMs": 12074
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                    "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-3",
+                  "sourceRevision": 1,
+                  "translationRevision": 13,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "나는 오늘 회의를 하지 않을 것이다",
+                  "final": false
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                  "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-4",
+                "sourceRevision": 1,
+                "language": "ja",
+                "text": "明日の午後3時に駅で会いましょう",
+                "final": false,
+                "audioRange": {
+                  "startMs": 12074,
+                  "endMs": 12074
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "ce97e0f8-d15f-4d5c-a30a-166a6225721e",
+                    "targetId": "tab-2075830126-a2cf9390-a215-4b96-a7e3-78a219d56e3f",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-4",
+                  "sourceRevision": 1,
+                  "translationRevision": 14,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 뵙겠습니다",
+                  "final": false
+                }
+              }
+            }
+          ],
+          "hiddenPreparation": true,
+          "referenceClosure": true,
+          "referenceRestoration": true
+        }
+      ],
+      "companionEndpoints": [
+        {
+          "port": 8765,
+          "result": "ECONNREFUSED"
+        },
+        {
+          "port": 11434,
+          "result": "ECONNREFUSED"
+        }
+      ],
+      "speechMode": "Chrome on-device streaming",
+      "modelProvisioning": "Browser-managed SODA library and Japanese/English language components",
+      "translatorProvisioning": "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations",
+      "requiredComponents": [
+        "Chrome TranslateKit",
+        "Chrome TranslateKit en-ja",
+        "Chrome TranslateKit en-ko",
+        "SODA Library",
+        "SODA ja-JP Models",
+        "SODA en-US Models"
+      ],
+      "browser": "153.0.8010.12",
+      "platform": "darwin/arm64"
+    },
+    "nativeFreshDownload": {
+      "passed": true,
+      "scope": "Production popup/offscreen ownership, real local streaming or turbo WebGPU/native Korean/page/reference lifetime and source retirement; no strict sentence-end latency/public-video/ten-minute acceptance",
+      "pageErrors": [],
+      "checks": [
+        "Fresh ja voice pack before Prepare: downloadable",
+        "Popup closed with ja voice pack downloading; preparation continues after tab switch",
+        "Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation"
+      ],
+      "runs": [
+        {
+          "language": "ja",
+          "mode": "web-audio",
+          "firstCaptionMs": 2053.031332999999,
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "9208403b-729f-420b-b4cc-af8b7828d478",
+                  "targetId": "tab-1837955250-e6bf71c0-2390-4290-a441-560347959836",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-0",
+                "sourceRevision": 4,
+                "language": "ja",
+                "text": "今日は会議をしません",
+                "final": true,
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 3028.6875
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "9208403b-729f-420b-b4cc-af8b7828d478",
+                    "targetId": "tab-1837955250-e6bf71c0-2390-4290-a441-560347959836",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-0",
+                  "sourceRevision": 4,
+                  "translationRevision": 4,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "나는 오늘 회의를 하지 않을 것이다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "9208403b-729f-420b-b4cc-af8b7828d478",
+                  "targetId": "tab-1837955250-e6bf71c0-2390-4290-a441-560347959836",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-1",
+                "sourceRevision": 6,
+                "language": "ja",
+                "text": "明日の午後3時に駅で会いましょう",
+                "final": true,
+                "audioRange": {
+                  "startMs": 3028.6875,
+                  "endMs": 5674
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "9208403b-729f-420b-b4cc-af8b7828d478",
+                    "targetId": "tab-1837955250-e6bf71c0-2390-4290-a441-560347959836",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-1",
+                  "sourceRevision": 6,
+                  "translationRevision": 10,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 뵙겠습니다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "9208403b-729f-420b-b4cc-af8b7828d478",
+                  "targetId": "tab-1837955250-e6bf71c0-2390-4290-a441-560347959836",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-2",
+                "sourceRevision": 3,
+                "language": "ja",
+                "text": "予約は取り消さないで",
+                "final": false,
+                "audioRange": {
+                  "startMs": 5674,
+                  "endMs": 6868.6875
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "9208403b-729f-420b-b4cc-af8b7828d478",
+                    "targetId": "tab-1837955250-e6bf71c0-2390-4290-a441-560347959836",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-2",
+                  "sourceRevision": 3,
+                  "translationRevision": 13,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": false
+                }
+              }
+            }
+          ],
+          "hiddenPreparation": true,
+          "referenceClosure": true,
+          "referenceRestoration": true
+        }
+      ],
+      "companionEndpoints": [
+        {
+          "port": 8765,
+          "result": "ECONNREFUSED"
+        },
+        {
+          "port": 11434,
+          "result": "ECONNREFUSED"
+        }
+      ],
+      "speechMode": "Chrome on-device streaming",
+      "modelProvisioning": "Browser-managed SODA library and Japanese/English language components",
+      "translatorProvisioning": "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations",
+      "requiredComponents": [
+        "Chrome TranslateKit",
+        "Chrome TranslateKit en-ja",
+        "Chrome TranslateKit en-ko",
+        "SODA*"
+      ],
+      "browser": "153.0.8010.12",
+      "platform": "darwin/arm64"
+    },
+    "nativeCaptureLoss": {
+      "passed": true,
+      "scope": "Production popup/offscreen ownership, real local streaming or turbo WebGPU/native Korean/page/reference lifetime and source retirement; no strict sentence-end latency/public-video/ten-minute acceptance",
+      "pageErrors": [],
+      "checks": [
+        "Popup closed with ja voice pack available; preparation continues after tab switch",
+        "Owned Chrome native audio-service loss retires unfinished real ASR and capture",
+        "Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation"
+      ],
+      "runs": [
+        {
+          "language": "ja",
+          "mode": "web-audio",
+          "firstCaptionMs": 1804.8782079999992,
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6023da28-969b-4769-aef7-2de14b94a09a",
+                  "targetId": "tab-1408748725-0487fc28-492c-46d8-998f-5aaedb934093",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-0",
+                "sourceRevision": 4,
+                "language": "ja",
+                "text": "今日は会議をしません",
+                "final": true,
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 2900.6875
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6023da28-969b-4769-aef7-2de14b94a09a",
+                    "targetId": "tab-1408748725-0487fc28-492c-46d8-998f-5aaedb934093",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-0",
+                  "sourceRevision": 4,
+                  "translationRevision": 4,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "나는 오늘 회의를 하지 않을 것이다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6023da28-969b-4769-aef7-2de14b94a09a",
+                  "targetId": "tab-1408748725-0487fc28-492c-46d8-998f-5aaedb934093",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-1",
+                "sourceRevision": 7,
+                "language": "ja",
+                "text": "明日の午後3時に駅で会いましょう",
+                "final": true,
+                "audioRange": {
+                  "startMs": 2900.6875,
+                  "endMs": 12074
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6023da28-969b-4769-aef7-2de14b94a09a",
+                    "targetId": "tab-1408748725-0487fc28-492c-46d8-998f-5aaedb934093",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-1",
+                  "sourceRevision": 7,
+                  "translationRevision": 11,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 뵙겠습니다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6023da28-969b-4769-aef7-2de14b94a09a",
+                  "targetId": "tab-1408748725-0487fc28-492c-46d8-998f-5aaedb934093",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-2",
+                "sourceRevision": 1,
+                "language": "ja",
+                "text": "予約は取り消さないでください",
+                "final": false,
+                "audioRange": {
+                  "startMs": 12074,
+                  "endMs": 12074
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "6023da28-969b-4769-aef7-2de14b94a09a",
+                    "targetId": "tab-1408748725-0487fc28-492c-46d8-998f-5aaedb934093",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-2",
+                  "sourceRevision": 1,
+                  "translationRevision": 12,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": false
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6023da28-969b-4769-aef7-2de14b94a09a",
+                  "targetId": "tab-1408748725-0487fc28-492c-46d8-998f-5aaedb934093",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-3",
+                "sourceRevision": 1,
+                "language": "ja",
+                "text": "今日は会議をしません",
+                "final": false,
+                "audioRange": {
+                  "startMs": 12074,
+                  "endMs": 12074
+                }
+              },
+              "translation": {
+                "state": "pending"
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "6023da28-969b-4769-aef7-2de14b94a09a",
+                  "targetId": "tab-1408748725-0487fc28-492c-46d8-998f-5aaedb934093",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-4",
+                "sourceRevision": 1,
+                "language": "ja",
+                "text": "明日の午後3時に駅で会いましょう",
+                "final": false,
+                "audioRange": {
+                  "startMs": 12074,
+                  "endMs": 12074
+                }
+              },
+              "translation": {
+                "state": "pending"
+              }
+            }
+          ],
+          "hiddenPreparation": true,
+          "referenceClosure": true,
+          "referenceRestoration": true
+        }
+      ],
+      "companionEndpoints": [
+        {
+          "port": 8765,
+          "result": "ECONNREFUSED"
+        },
+        {
+          "port": 11434,
+          "result": "ECONNREFUSED"
+        }
+      ],
+      "speechMode": "Chrome on-device streaming",
+      "modelProvisioning": "Browser-managed SODA library and Japanese/English language components",
+      "translatorProvisioning": "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations",
+      "requiredComponents": [
+        "Chrome TranslateKit",
+        "Chrome TranslateKit en-ja",
+        "Chrome TranslateKit en-ko",
+        "SODA Library",
+        "SODA ja-JP Models",
+        "SODA en-US Models"
+      ],
+      "browser": "153.0.8010.12",
+      "platform": "darwin/arm64"
+    },
+    "nativeSentenceLatency": {
+      "passed": true,
+      "scope": "Six isolated synthetic sentences: estimated last audible PCM sample to complete Korean meaning in actual page DOM, <=1000 ms; no public-video/ten-minute acceptance",
+      "pageErrors": [],
+      "checks": [
+        "Popup closed with ja voice pack available; preparation continues after tab switch",
+        "Popup closed with en voice pack available; preparation continues after tab switch",
+        "Popup closure/tab switching completes preparation hidden; all six sentence meaning checks reach the actual page DOM within one second of estimated speech end; Stop clears the overlay; source navigation/closure stops preparation"
+      ],
+      "runs": [
+        {
+          "language": "ja",
+          "mode": "web-audio",
+          "measurements": [
+            {
+              "korean": "나는 오늘 회의를 하지 않을 것이다",
+              "rawDelayMs": 310.96249997615814,
+              "speechEndMs": 1941.9375,
+              "delayMs": 310.96249997615814
+            },
+            {
+              "korean": "내일 오후 3시에 역에서 뵙겠습니다",
+              "rawDelayMs": 41.79166666666606,
+              "speechEndMs": 2471.7083333333335,
+              "delayMs": 41.79166666666606
+            },
+            {
+              "korean": "예약을 취소하지 마십시오",
+              "rawDelayMs": 710.9333333571758,
+              "speechEndMs": 2152.1666666666665,
+              "delayMs": 710.9333333571758
+            }
+          ],
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "88d2d7c1-5ead-406d-a900-63de371f925e",
+                  "targetId": "tab-1743665457-1be2b0b3-7a1c-42fb-8e70-1abf520c44c9",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-0",
+                "sourceRevision": 4,
+                "language": "ja",
+                "text": "今日は会議をしません",
+                "final": true,
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 3839.375
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "88d2d7c1-5ead-406d-a900-63de371f925e",
+                    "targetId": "tab-1743665457-1be2b0b3-7a1c-42fb-8e70-1abf520c44c9",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-0",
+                  "sourceRevision": 4,
+                  "translationRevision": 4,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "나는 오늘 회의를 하지 않을 것이다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "88d2d7c1-5ead-406d-a900-63de371f925e",
+                  "targetId": "tab-1743665457-1be2b0b3-7a1c-42fb-8e70-1abf520c44c9",
+                  "epoch": 0
+                },
+                "utteranceId": "local-1-0",
+                "sourceRevision": 7,
+                "language": "ja",
+                "text": "明日の午後3時に駅で会いましょう",
+                "final": true,
+                "audioRange": {
+                  "startMs": 3839.375,
+                  "endMs": 7679.375
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "88d2d7c1-5ead-406d-a900-63de371f925e",
+                    "targetId": "tab-1743665457-1be2b0b3-7a1c-42fb-8e70-1abf520c44c9",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-1-0",
+                  "sourceRevision": 7,
+                  "translationRevision": 11,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 뵙겠습니다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "88d2d7c1-5ead-406d-a900-63de371f925e",
+                  "targetId": "tab-1743665457-1be2b0b3-7a1c-42fb-8e70-1abf520c44c9",
+                  "epoch": 0
+                },
+                "utteranceId": "local-2-0",
+                "sourceRevision": 2,
+                "language": "ja",
+                "text": "予約は取り消さないでください",
+                "final": true,
+                "audioRange": {
+                  "startMs": 7679.375,
+                  "endMs": 11178
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "88d2d7c1-5ead-406d-a900-63de371f925e",
+                    "targetId": "tab-1743665457-1be2b0b3-7a1c-42fb-8e70-1abf520c44c9",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-2-0",
+                  "sourceRevision": 2,
+                  "translationRevision": 13,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "mode": "web-audio",
+          "measurements": [
+            {
+              "korean": "우리는 오늘 만나지 않을 것입니다",
+              "rawDelayMs": 261.97083338101675,
+              "speechEndMs": 1219.7291666666667,
+              "delayMs": 261.97083338101675
+            },
+            {
+              "korean": "내일 오후 3시에 역에서 만나자",
+              "rawDelayMs": -110.15416673819163,
+              "speechEndMs": 2902.8541666666665,
+              "delayMs": 0
+            },
+            {
+              "korean": "예약을 취소하지 마십시오",
+              "rawDelayMs": 309.066666642826,
+              "speechEndMs": 2118.333333333333,
+              "delayMs": 309.066666642826
+            }
+          ],
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "841e2cb4-2a21-42f9-bd8b-0cf0d850d5ce",
+                  "targetId": "tab-1743665457-d33ae294-026e-4ee5-b6b5-2de41b547f89",
+                  "epoch": 0
+                },
+                "utteranceId": "local-0-0",
+                "sourceRevision": 4,
+                "language": "en",
+                "text": "We will not meet today",
+                "final": true,
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 2175.375
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "841e2cb4-2a21-42f9-bd8b-0cf0d850d5ce",
+                    "targetId": "tab-1743665457-d33ae294-026e-4ee5-b6b5-2de41b547f89",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-0-0",
+                  "sourceRevision": 4,
+                  "translationRevision": 4,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "우리는 오늘 만나지 않을 것입니다",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "841e2cb4-2a21-42f9-bd8b-0cf0d850d5ce",
+                  "targetId": "tab-1743665457-d33ae294-026e-4ee5-b6b5-2de41b547f89",
+                  "epoch": 0
+                },
+                "utteranceId": "local-1-0",
+                "sourceRevision": 7,
+                "language": "en",
+                "text": "Let's meet at the station tomorrow at 3:00 in the afternoon",
+                "final": true,
+                "audioRange": {
+                  "startMs": 2175.375,
+                  "endMs": 6911.375
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "841e2cb4-2a21-42f9-bd8b-0cf0d850d5ce",
+                    "targetId": "tab-1743665457-d33ae294-026e-4ee5-b6b5-2de41b547f89",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-1-0",
+                  "sourceRevision": 7,
+                  "translationRevision": 11,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 만나요",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "841e2cb4-2a21-42f9-bd8b-0cf0d850d5ce",
+                  "targetId": "tab-1743665457-d33ae294-026e-4ee5-b6b5-2de41b547f89",
+                  "epoch": 0
+                },
+                "utteranceId": "local-2-0",
+                "sourceRevision": 6,
+                "language": "en",
+                "text": "Please do not cancel the reservation",
+                "final": true,
+                "audioRange": {
+                  "startMs": 6911.375,
+                  "endMs": 10538
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "841e2cb4-2a21-42f9-bd8b-0cf0d850d5ce",
+                    "targetId": "tab-1743665457-d33ae294-026e-4ee5-b6b5-2de41b547f89",
+                    "epoch": 0
+                  },
+                  "utteranceId": "local-2-0",
+                  "sourceRevision": 6,
+                  "translationRevision": 17,
+                  "languages": {
+                    "source": "en",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": true
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "companionEndpoints": [
+        {
+          "port": 8765,
+          "result": "ECONNREFUSED"
+        },
+        {
+          "port": 11434,
+          "result": "ECONNREFUSED"
+        }
+      ],
+      "speechMode": "Chrome on-device streaming",
+      "modelProvisioning": "Browser-managed SODA library and Japanese/English language components",
+      "translatorProvisioning": "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations",
+      "requiredComponents": [
+        "Chrome TranslateKit",
+        "Chrome TranslateKit en-ja",
+        "Chrome TranslateKit en-ko",
+        "SODA Library",
+        "SODA ja-JP Models",
+        "SODA en-US Models"
+      ],
+      "browser": "153.0.8010.12",
+      "platform": "darwin/arm64",
+      "summaryCorrection": "The raw run footer reused the normal lifecycle summary. This summary is restricted to steps actually executed by --latency; reference closure/restoration and late-result rejection were verified separately by the normal, download and capture-loss runs."
+    },
+    "whisperFallback": {
+      "passed": true,
+      "scope": "Production popup/offscreen ownership, real local streaming or turbo WebGPU/native Korean/page/reference lifetime and source retirement; no strict sentence-end latency/public-video/ten-minute acceptance",
+      "pageErrors": [],
+      "checks": [
+        "Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation"
+      ],
+      "runs": [
+        {
+          "language": "ja",
+          "mode": "web-audio",
+          "firstCaptionMs": 5472.233208999998,
+          "captions": [
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "74e66967-64a1-4a50-877f-766ba9bb17aa",
+                  "targetId": "tab-1754444890-8f39a7a8-ed9a-4e15-80ea-ae42abc9a59e",
+                  "epoch": 0
+                },
+                "utteranceId": "speech-4",
+                "language": "ja",
+                "sourceRevision": 1,
+                "final": true,
+                "text": "今日は会議をしません。",
+                "audioRange": {
+                  "startMs": 0,
+                  "endMs": 4000
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "74e66967-64a1-4a50-877f-766ba9bb17aa",
+                    "targetId": "tab-1754444890-8f39a7a8-ed9a-4e15-80ea-ae42abc9a59e",
+                    "epoch": 0
+                  },
+                  "utteranceId": "speech-4",
+                  "sourceRevision": 1,
+                  "translationRevision": 1,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "나는 오늘 회의를 하지 않을 것이다.",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "74e66967-64a1-4a50-877f-766ba9bb17aa",
+                  "targetId": "tab-1754444890-8f39a7a8-ed9a-4e15-80ea-ae42abc9a59e",
+                  "epoch": 0
+                },
+                "utteranceId": "speech-7",
+                "language": "ja",
+                "sourceRevision": 1,
+                "final": true,
+                "text": "明日の午後3時に駅で会いましょう。",
+                "audioRange": {
+                  "startMs": 2400,
+                  "endMs": 4760
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "74e66967-64a1-4a50-877f-766ba9bb17aa",
+                    "targetId": "tab-1754444890-8f39a7a8-ed9a-4e15-80ea-ae42abc9a59e",
+                    "epoch": 0
+                  },
+                  "utteranceId": "speech-7",
+                  "sourceRevision": 1,
+                  "translationRevision": 2,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "내일 오후 3시에 역에서 만나요.",
+                  "final": true
+                }
+              }
+            },
+            {
+              "source": {
+                "identity": {
+                  "sessionId": "74e66967-64a1-4a50-877f-766ba9bb17aa",
+                  "targetId": "tab-1754444890-8f39a7a8-ed9a-4e15-80ea-ae42abc9a59e",
+                  "epoch": 0
+                },
+                "utteranceId": "speech-10",
+                "language": "ja",
+                "sourceRevision": 1,
+                "final": true,
+                "text": "予約は取り消さないでください",
+                "audioRange": {
+                  "startMs": 4760,
+                  "endMs": 7080
+                }
+              },
+              "translation": {
+                "state": "paired",
+                "revision": {
+                  "identity": {
+                    "sessionId": "74e66967-64a1-4a50-877f-766ba9bb17aa",
+                    "targetId": "tab-1754444890-8f39a7a8-ed9a-4e15-80ea-ae42abc9a59e",
+                    "epoch": 0
+                  },
+                  "utteranceId": "speech-10",
+                  "sourceRevision": 1,
+                  "translationRevision": 3,
+                  "languages": {
+                    "source": "ja",
+                    "target": "ko"
+                  },
+                  "text": "예약을 취소하지 마십시오",
+                  "final": true
+                }
+              }
+            }
+          ],
+          "hiddenPreparation": true,
+          "referenceClosure": true,
+          "referenceRestoration": true
+        }
+      ],
+      "companionEndpoints": [
+        {
+          "port": 8765,
+          "result": "ECONNREFUSED"
+        },
+        {
+          "port": 11434,
+          "result": "ECONNREFUSED"
+        }
+      ],
+      "speechMode": "Whisper snapshots",
+      "modelProvisioning": "Two SHA-256 verified official ONNX files seeded into extension cache; actual remaining model downloads and real inference",
+      "translatorProvisioning": "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations",
+      "requiredComponents": [
+        "Chrome TranslateKit",
+        "Chrome TranslateKit en-ja",
+        "Chrome TranslateKit en-ko"
+      ],
+      "browser": "153.0.8010.12",
+      "platform": "darwin/arm64"
+    },
+    "overlayDom": {
+      "passed": true,
+      "scope": "B4 synthetic accepted-caption revisions over real extension ports and video overlay DOM; no ASR/translation/PCM acceptance",
+      "pageErrors": [],
+      "checks": [
+        "Owned overlay follows selected-video resize and page scroll without changing the video element",
+        "Selected-video geometry, safe original-first text, exact paired revisions, measured two-line sequential final replay",
+        "Container fullscreen moves owned overlay inside its surface; video-only fullscreen explicitly hides it; Stop removes overlay and blocks late results",
+        "Restart and selected element invalidation remove resources, fail visibly, and never switch to the other video",
+        "Whole-tab latest translation bypasses previous reading interval; older corrections do not displace it; Stop clears it"
+      ],
+      "toolbarActiveTabGrant": "unverified",
+      "browser": "153.0.8010.12",
+      "platform": "darwin/arm64",
+      "geometry": {
+        "video": {
+          "left": 8,
+          "top": 8,
+          "width": 320,
+          "height": 180
+        },
+        "overlay": {
+          "left": 8,
+          "top": 8,
+          "width": 320,
+          "height": 180
+        }
+      },
+      "parts": {
+        "first": 26,
+        "second": 24
+      },
+      "liveTiming": {
+        "delayMs": 1.2999999523162842
+      }
+    },
+    "selectedVideoComposition": {
+      "passed": true,
+      "scope": "B4 built composition with mocked workers/native translator/PCM input; actual browser DOM, layout and clicks. No real transcription, translation, audio acquisition or extension installation",
+      "checks": [
+        "Trusted preparation gesture, turboFp16/WebGPU default, one Start, original-first/pending DOM and exact paired revisions/video mapping/text safety",
+        "Stop releases input/workers and retains comparison history; English reprepare, seek epoch cancellation and late native output suppression",
+        "Stop during all-host preparation cannot restore readiness or start input",
+        "Tab switching during preparation and after hidden completion retains both model workers and native translator; returning starts real composition without preparing again (mocked inference)",
+        "Measured two-line replay, final restart at beginning, 250ms fade, 300-row retention, safe text and stale-epoch rejection",
+        "Source-only reading progress prevents an untranslated provisional from blocking later final captions; pending history stays truthful",
+        "First translation and corrected pending source start at their own beginning after measured long-text paging",
+        "No-video tab composition uses capture elapsed, pairs synthetic revisions, requires recapture after Stop and rejects late translation after tab retirement"
+      ],
+      "pageErrors": [],
+      "browser": "153.0.8010.12",
+      "platform": "darwin/arm64",
+      "layout": {
+        "firstCharacters": 33,
+        "secondCharacters": 33,
+        "fullCharacters": 480,
+        "historyRows": 300
+      }
+    }
+  },
+  "unitAndBuild": {
+    "javascript": {
+      "passed": 188,
+      "failed": 0
+    },
+    "typecheck": "passed",
+    "chromeBuild": "passed; apps/chrome/dist rebuilt",
+    "focusedBiome": {
+      "files": 15,
+      "result": "passed"
+    },
+    "diffWhitespace": "passed"
+  },
+  "regressionsEstablishedBeforeFix": [
+    "180 ms presentation cadence initially failed against the previous 1000 ms gate; passes after the cadence parameter.",
+    "English final leading whitespace changed local-0-0 to local-0-1 and duplicated the caption; passes after trimming/filtering empty parts before assigning IDs.",
+    "Persistent native host did not join install() for a downloading pack; unit check failed, then passed after joining the ongoing install."
+  ],
+  "intermediateFailures": [
+    {
+      "scope": "Fresh SODA download with TranslateKit-only CfT component allowlist",
+      "result": "Two 240-second hidden preparation timeouts; CfT suppresses updates not selected by requiredComponents. The first timeout was initially misattributed to popup lifetime. Adding SODA* permits dynamically registered speech updates while keeping the initial speech pack absent. Final clean download test proves downloadable before Prepare, downloading at popup closure, hidden readiness and actual Korean afterward."
+    },
+    {
+      "scope": "Japanese long native final token spacing",
+      "result": "One earlier lifecycle run failed when final whitespace changed sentence splitting. Normalize Japanese token spacing before assigning sentence IDs; subsequent native lifecycle and production flows pass."
+    },
+    {
+      "scope": "Initial latency predicates",
+      "result": "An earlier station/time-only check accepted an incomplete meeting phrase; an earlier cancellation check accepted a negative statement before the request ending. Final predicates require meeting intent and a negative instruction."
+    }
+  ],
+  "otherActualModelProbes": {
+    "whisperTurboQ4f16": {
+      "shipped": false,
+      "inferenceMsRange": [
+        888.0999999046326,
+        1404.2999999523163
+      ],
+      "finding": "Quantization still took roughly one second per snapshot and still gave a premature Japanese affirmative at 1.5 seconds; it did not solve sentence latency. Official SHA-verified Q4 files, real WebGPU, no substituted recognition."
+    },
+    "moonshineWasm": {
+      "shipped": false,
+      "finding": "Actual Japanese SmallStreaming and English MediumStreaming WASM were tested. Japanese output changed tomorrow to あっち and the reservation particle は to が; English sometimes changed let’s meet to must meet. This two-fixture probe is not CER/WER or a general model ranking.",
+      "finalExamples": [
+        {
+          "language": "ja",
+          "texts": [
+            "今日は、会議をしません。あっちの午後3時に駅で会いましょう。予約が取り消さないでください。今日は、会議をしません。あっちの午後3時。",
+            "午後3時に駅で会いましょう。予約が取り消さないでください。今日は、会議をしません。あっちの午後3時に駅で会いましょう。予約が取り消さないでください。",
+            "取り消さないでください今日は会議をしません明日"
+          ]
+        },
+        {
+          "language": "en",
+          "texts": [
+            "We will not meet today, must meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation. We will not meet today, must meet at the station tomorrow at 3 in the afternoon.",
+            "or 3 in the afternoon. Please do not cancel the reservation. We will not meet today. Let's meet at the station tomorrow at 3 in the afternoon. Please do not cancel the reservation.",
+            "Reservations we will not meet today must meet at the station tomorrow at 3:00 at 3:00"
+          ]
+        }
+      ]
+    }
+  },
+  "commands": [
+    "npm run test:js",
+    "npm run typecheck",
+    "npm run build:chrome",
+    "npx biome lint (15 changed TS files)",
+    "git diff --check",
+    "node tests/framework-chrome-tab-engine.mjs",
+    "node tests/framework-chrome-tab-engine.mjs --latency",
+    "node tests/framework-chrome-tab-engine.mjs --download",
+    "node tests/framework-chrome-tab-engine.mjs --capture-loss",
+    "INTERPRETER_TEST_MODEL_DIRECTORY=/tmp node tests/framework-chrome-tab-engine.mjs --whisper --lifecycle",
+    "node tests/framework-chrome-overlay.mjs",
+    "node tests/framework-chrome-composition.mjs"
+  ],
+  "limitations": [
+    "Chrome for Testing 153.0.8010.12/macOS arm64; other Chrome/platform/language availability combinations unverified.",
+    "Six generated isolated sentences and four generated source-route cases; public videos, noisy natural speech, formal CER/WER and ten-minute behavior unverified for native mode.",
+    "First native translation-pack download was not part of the fresh speech-download check: official cached TranslateKit components were staged.",
+    "Popup disappearance before installation has actually begun is not qualified by the download test.",
+    "Drafts can temporarily change meaning, including negation; user explicitly permitted corrections.",
+    "Native continuous-final resegmentation and long-running/error-restart behavior are not exhaustively qualified.",
+    "The Web Speech API does not expose pack versions or word-level timestamps; Chrome version is recorded separately.",
+    "Forced Whisper fallback has no sub-second guarantee. Older historical noise latency failure remains."
+  ],
+  "primaryReferences": [
+    "https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/start",
+    "https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/processLocally",
+    "https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/install_static",
+    "https://raw.githubusercontent.com/chromium/chromium/main/third_party/blink/renderer/modules/speech/speech_recognition.cc",
+    "https://chromium.googlesource.com/chromium/src/+/main/docs/chrome_for_testing/chrome_for_testing_configuration.md",
+    "https://moonshine-voice.readthedocs.io/en/latest/models/available-models/",
+    "https://github.com/moonshine-ai/moonshine"
+  ]
+}

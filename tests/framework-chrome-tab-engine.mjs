@@ -1,10 +1,10 @@
 import {createReadStream} from "node:fs";
-// Production popup → offscreen capture/real turbo WebGPU/native Korean → page and reference.
-// Synthetic speech fixtures; no public-video, ten-minute or strict latency acceptance.
+// Production popup → offscreen capture/real local speech/native Korean → page and reference.
+// Synthetic fixtures; --latency checks six isolated sentences, not public videos or ten minutes.
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createConnection } from "node:net";
 import { resolve } from "node:path";
@@ -13,7 +13,13 @@ import { build } from "vite";
 
 const captureLoss = process.argv.includes("--capture-loss");
 const lifecycle = process.argv.includes("--lifecycle");
-const modelDirectory = process.env.INTERPRETER_TEST_MODEL_DIRECTORY;
+const latency = process.argv.includes("--latency");
+const download = process.argv.includes("--download");
+const installedChrome = process.argv.includes("--installed-chrome");
+const userSpeechComponents = process.argv.includes("--user-speech-components");
+const koreanCaptionLanguage = process.argv.includes("--korean-caption-language");
+const localSpeech = !process.argv.includes("--whisper");
+const modelDirectory = localSpeech ? undefined : process.env.INTERPRETER_TEST_MODEL_DIRECTORY;
 const modelFiles = [
   ["encoder_model_fp16.onnx", "interpreter-turbo-encoder-verified.onnx", 1274342603, "fdadc70836e6b028fd5e580417c312208dad073d2d01e509e2d127c1373399d8"],
   ["decoder_model_merged_fp16.onnx", "interpreter-turbo-decoder.onnx", 344227339, "fdf10afca73a0c7bf87286cfb96cf7028a9edbc9bb02512509a526f95b126c9d"],
@@ -23,9 +29,23 @@ if (modelDirectory) for (const [, filename, bytes, sha256] of modelFiles) {
   for await (const chunk of createReadStream(resolve(modelDirectory, filename))) { hash.update(chunk); size += chunk.length; }
   assert.equal(size, bytes); assert.equal(hash.digest("hex"), sha256);
 }
-const output = resolve(".ralph/media-framework/chrome-tab-engine-build");
+const output = resolve(`.ralph/media-framework/chrome-tab-engine-build${installedChrome ? "-installed" : download ? "-download" : latency ? "-latency" : !localSpeech ? "-whisper" : captureLoss ? "-loss" : ""}`);
 const fixtures = JSON.parse(await readFile("tests/fixtures/video-speech/manifest.json", "utf8")).clips;
 const media = new Map();
+let latencyDirectory;
+const latencyTexts = {
+  ja: ["今日は会議をしません。", "明日の午後三時に駅で会いましょう。", "予約は取り消さないでください。"],
+  en: ["We will not meet today.", "Let's meet at the station tomorrow at three in the afternoon.", "Please do not cancel the reservation."],
+};
+if (latency) {
+  assert.equal(process.platform,"darwin","Latency fixture generation uses already installed macOS voices");
+  latencyDirectory=await mkdtemp(resolve('.ralph/media-framework/local-speech-latency-'));
+  for(const language of ['ja','en'])for(const[index,text]of latencyTexts[language].entries()) {
+    const file=resolve(latencyDirectory,`${language}-${index}.wav`);
+    execFileSync('/usr/bin/say',['-v',language==='ja'?'Kyoko':'Samantha','-r','180','--file-format=WAVE','--data-format=LEI16@48000','-o',file,text]);
+    media.set(`/latency-${language}-${index}.wav`,await readFile(file));
+  }
+}
 for (const fixture of fixtures) {
   const bytes = await readFile(`tests/fixtures/video-speech/${fixture.language}.webm`);
   assert.equal(bytes.length, fixture.bytes);
@@ -37,8 +57,9 @@ const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
 assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen"]);
 assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.action.default_popup, "popup.html");
-const observations = { scope: "Production popup/offscreen ownership, real turbo WebGPU/native Korean/page/reference lifetime and source retirement; no strict latency/public-video/ten-minute acceptance",
-  pageErrors: [], checks: [], runs: [], companionEndpoints: [], modelProvisioning: modelDirectory ? "Two SHA-256 verified official ONNX files seeded into extension cache; actual remaining model downloads and real inference" : "Official pinned model downloads", translatorProvisioning: "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations" };
+const observations = { scope: latency ? "Six isolated synthetic sentences: estimated last audible PCM sample to complete Korean meaning in actual page DOM, <=1000 ms; no public-video/ten-minute acceptance"
+  : "Production popup/offscreen ownership, real local streaming or turbo WebGPU/native Korean/page/reference lifetime and source retirement; no strict sentence-end latency/public-video/ten-minute acceptance",
+  pageErrors: [], checks: [], runs: [], companionEndpoints: [], speechMode: localSpeech ? "Chrome on-device streaming" : "Whisper snapshots", modelProvisioning: localSpeech ? "Browser-managed SODA library and Japanese/English language components" : modelDirectory ? "Two SHA-256 verified official ONNX files seeded into extension cache; actual remaining model downloads and real inference" : "Official pinned model downloads", translatorProvisioning: "Chrome-managed TranslateKit and ja/en/ko language components; no substituted translations" };
 function serve(request, response) {
   const url = new URL(request.url, "http://localhost");
   const model = modelDirectory && modelFiles.find(([, filename]) => url.pathname === `/${filename}`);
@@ -48,7 +69,7 @@ function serve(request, response) {
   }
   const bytes = media.get(url.pathname);
   if (bytes) {
-    response.setHeader("Content-Type", "video/webm"); response.setHeader("Accept-Ranges", "bytes");
+    response.setHeader("Content-Type", url.pathname.endsWith(".wav") ? "audio/wav" : "video/webm"); response.setHeader("Accept-Ranges", "bytes");
     const range = request.headers.range?.match(/^bytes=(\d+)-(\d*)$/);
     const start = range ? Number(range[1]) : 0;
     const end = range?.[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1;
@@ -67,8 +88,12 @@ function serve(request, response) {
     <button id="play">Play speech</button><script>
     play.onclick=async()=>{
       ${mode === "web-audio" ? `
-      if(!globalThis.audio){globalThis.audio=new AudioContext();globalThis.buffer=await audio.decodeAudioData(await (await fetch('/${language}.webm')).arrayBuffer());}
-      if(globalThis.speech)speech.stop();globalThis.speech=audio.createBufferSource();speech.buffer=buffer;speech.loop=true;speech.connect(audio.destination);speech.start();await audio.resume();`
+      if(!globalThis.audio){globalThis.audio=new AudioContext();}await audio.resume();
+      globalThis.buffer=await audio.decodeAudioData(await (await fetch(${latency} ? '/latency-${language}-'+(globalThis.latencyClip??0)+'.wav' : '/${language}.webm')).arrayBuffer());
+      if(globalThis.speech)try{speech.stop()}catch{}globalThis.speech=audio.createBufferSource();speech.buffer=buffer;speech.loop=${!latency};speech.connect(audio.destination);
+      if(${latency}){const samples=buffer.getChannelData(0);let last=samples.length-1;while(last>0&&Math.abs(samples[last])<0.00001)last--;const when=audio.currentTime+0.08;
+        globalThis.spokenEndMs=performance.now()+80+(last+1)/buffer.sampleRate*1000;globalThis.speechSamplesEndMs=(last+1)/buffer.sampleRate*1000;speech.start(when);
+      }else speech.start();`
       : "media.currentTime=0;await media.play();"}
     };
     </script>`);
@@ -93,16 +118,51 @@ try {
   profile = await mkdtemp(resolve(".ralph/media-framework/chrome-tab-engine-profile-"));
   // Existing explicitly prepared CfT native components, in this disposable test
   // profile only. Chrome downloads/verifies them; no Translator results are injected.
-  const components = ["Chrome TranslateKit", "Chrome TranslateKit en-ja", "Chrome TranslateKit en-ko"];
-  await writeFile(resolve(profile, "Local State"), JSON.stringify({ on_device_translation: {
+  const components = ["Chrome TranslateKit", "Chrome TranslateKit en-ja", "Chrome TranslateKit en-ko", ...(localSpeech ? download ? ["SODA*"] : ["SODA Library", "SODA ja-JP Models", "SODA en-US Models", "SODA ko-KR Models"] : [])];
+  await writeFile(resolve(profile, "Local State"), JSON.stringify({ ...(localSpeech && !download ? {accessibility:{captions:{soda_registered_language_packs:["ja-JP","en-US","ko-KR"]}}} : {}), on_device_translation: {
     translate_kit_registered: true, translate_kit_packages: { en_ja_registered: true, en_ko_registered: true },
   } }));
   const configuration = resolve(profile, "cft-config.json");
+  let componentsDirectory=resolve(".ralph/media-framework/chrome-translation-components");
+  if(download){
+    const translationDirectory=resolve(componentsDirectory,"TranslateKit");
+    componentsDirectory=resolve(profile,"components");
+    await cp(translationDirectory,resolve(componentsDirectory,"TranslateKit"),{recursive:true});
+  }
   await writeFile(configuration, JSON.stringify({ requiredComponents: components,
-    requiredComponentsDir: resolve(".ralph/media-framework/chrome-translation-components"), requiredComponentsUpdateTimeout: "120s" }));
-  observations.requiredComponents = components;
-  browserProcess = spawn(chromium.executablePath(), ["--no-first-run", "--no-default-browser-check", `--user-data-dir=${profile}`,
-    `--chrome-for-testing-config=${configuration}`, "--enable-unsafe-extension-debugging", "--remote-debugging-port=0",
+    requiredComponentsDir: componentsDirectory, requiredComponentsUpdateTimeout: "120s" }));
+  observations.requiredComponents = installedChrome ? [] : components;
+  if(installedChrome){
+    assert.equal(process.platform,'darwin');assert.equal(download,false);
+    for(const name of ['TranslateKit','SODA','SODALanguagePacks']) await cp(resolve(componentsDirectory,name),resolve(profile,name),{recursive:true});
+    observations.seededComponents=['TranslateKit','SODA','SODALanguagePacks'];
+    observations.modelProvisioning='Official browser-native components staged in a fresh standard Chrome profile; actual recognition and translation';
+  }
+  if(userSpeechComponents) {
+    assert.equal(installedChrome,true);
+    const userRoot=resolve(process.env.HOME,'Library/Application Support/Google/Chrome');
+    for(const name of ['SODA','SODALanguagePacks']) {
+      await rm(resolve(profile,name),{recursive:true,force:true});
+      await cp(resolve(userRoot,name),resolve(profile,name),{recursive:true});
+    }
+    const state=JSON.parse(await readFile(resolve(profile,'Local State'),'utf8'));
+    const captions=JSON.parse(await readFile(resolve(userRoot,'Local State'),'utf8')).accessibility.captions;
+    state.accessibility.captions={soda_registered_language_packs:captions.soda_registered_language_packs};
+    for(const key of ['soda_binary_path','soda_ja_jp_config_path','soda_en_us_config_path','soda_ko_kr_config_path']) {
+      if(!captions[key] && key==='soda_ko_kr_config_path')continue;
+      assert.ok(captions[key].startsWith(userRoot+'/'));
+      state.accessibility.captions[key]=resolve(profile,captions[key].slice(userRoot.length+1));
+    }
+    await writeFile(resolve(profile,'Local State'),JSON.stringify(state));
+    observations.modelProvisioning='Existing official user speech components and remapped model-path preferences in a disposable profile; no personal profile data or settings changes';
+  }
+  if(koreanCaptionLanguage) {
+    await mkdir(resolve(profile,'Default'),{recursive:true});
+    await writeFile(resolve(profile,'Default','Preferences'),JSON.stringify({accessibility:{captions:{live_caption_language:'ko-KR'}},intl:{accept_languages:'ko-KR,ko,en-US,en'}}));
+    observations.captionLanguage='ko-KR';
+  }
+  browserProcess = spawn(installedChrome ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : chromium.executablePath(), ["--no-first-run", "--no-default-browser-check", `--user-data-dir=${profile}`,
+    ...installedChrome ? [] : [`--chrome-for-testing-config=${configuration}`], "--enable-unsafe-extension-debugging", "--remote-debugging-port=0",
     "--window-position=0,30", "--window-size=700,700",
     ...(captureLoss ? ['--auto-select-tab-capture-source-by-title=Output under test', '--enable-usermedia-screen-capturing'] : []), "about:blank"], { stdio: "ignore" });
   browserExit = new Promise(done => {
@@ -186,7 +246,7 @@ try {
     throw Error('No action popup');
   }
 
-  const scenarios = captureLoss || lifecycle ? [{language:'ja',mode:'web-audio'}] : [
+  const scenarios = latency ? [{language:'ja',mode:'web-audio'},{language:'en',mode:'web-audio'}] : captureLoss || lifecycle || download ? [{language:'ja',mode:'web-audio'}] : [
     {language:'ja',mode:'video'}, {language:'en',mode:'iframe'}, {language:'en',mode:'audio'}, {language:'ja',mode:'web-audio'},
   ];
   let runtime;
@@ -205,7 +265,15 @@ try {
       assert.equal((await worker.evaluate(()=>chrome.runtime.getContexts({contextTypes:[chrome.runtime.ContextType.OFFSCREEN_DOCUMENT]}))).length,1);
       assert.equal(await runtime.evaluate("typeof Translator"),'function');
       await runtime.evaluate(`(()=>{
-        globalThis.runtimeObservations=[];globalThis.translationCalls=[];
+        globalThis.runtimeObservations=[];globalThis.translationCalls=[];globalThis.localSpeechEvents=[];
+        const Speech=globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition;
+        if(${localSpeech}&&Speech){
+          const install=Speech.install;Speech.install=function(options){localSpeechEvents.push({type:'install',local:options.processLocally});return install.call(this,options)};
+          const start=Speech.prototype.start;const abort=Speech.prototype.abort;
+          Speech.prototype.start=function(track){localSpeechEvents.push({type:'start',local:this.processLocally,trackKind:track?.kind,trackState:track?.readyState});
+            this.addEventListener('result',event=>{localSpeechEvents.push({type:'result',at:performance.now(),texts:Array.from(event.results,r=>r[0].transcript)});if(localSpeechEvents.length>300)localSpeechEvents.splice(1,1)});
+            return start.call(this,track)};Speech.prototype.abort=function(){localSpeechEvents.push({type:'abort'});return abort.call(this)};
+        }else if(Speech){Object.defineProperty(Speech,'install',{value:undefined,configurable:true});}
         const NativeWorker=Worker;let next=0;
         globalThis.Worker=class extends NativeWorker{
           constructor(...args){super(...args);this.observedId=++next;let state;
@@ -237,28 +305,100 @@ try {
         function assertResponse(response) {if(!response.ok||!response.body)throw Error('Verified test model unavailable');}
       },{origin,files:modelFiles});
     }
-    if (scenario.language==='en') await popup.evaluate("document.querySelector('#language').value='en'");
-    await popup.click('#prepare');
-    assert.equal((await state()).state,'preparing');
+    if (localSpeech && !download && scenario === scenarios[0]) {
+      console.log(JSON.stringify({phase:'initial-model-availability',state:await state(),availability:await popup.evaluate("Promise.all([Translator.availability({sourceLanguage:'ja',targetLanguage:'ko'}),(globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition).available({langs:['ja-JP','en-US','ko-KR'],processLocally:true})])")}));
+      if ((await state()).state === 'idle') await popup.click('#prepare');
+      await waitState(value=>value?.state==='ready');
+      // Recreate after attaching observation hooks to the persistent runtime.
+      await popup.click('#stop');await waitState(value=>value?.state==='ready');
+    }
+    if (scenario.language==='en') {
+      await waitState(value=>['idle','ready'].includes(value?.state));
+      await popup.evaluate("document.querySelector('#language').value='en';document.querySelector('#language').dispatchEvent(new Event('change'))");
+    }
+    if(!localSpeech) await popup.evaluate('(globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition).install=undefined');
+    if(download){
+      const before=await popup.evaluate(`(globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition).available({langs:[${JSON.stringify(scenario.language==='ja'?'ja-JP':'en-US')}],processLocally:true})`);
+      assert.equal(before,'downloadable','Fresh profile must not already have the local speech language pack');
+      observations.checks.push(`Fresh ${scenario.language} voice pack before Prepare: ${before}`);
+    }
+    if (download || !localSpeech) {
+      await popup.click('#prepare');
+      assert.equal((await state()).state,'preparing');
+    } else {
+      await waitState(value=>value?.state==='ready' && value.source===scenario.language);
+      assert.equal(await popup.evaluate("document.querySelector('#prepare').hidden"),true);
+      observations.checks.push(`Cached ${scenario.language} speech and translator automatically ready without Prepare`);
+    }
+    if(localSpeech){
+      const deadline=performance.now()+10000;let availability;
+      while(performance.now()<deadline){
+        availability=await popup.evaluate(`(globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition).available({langs:[${JSON.stringify(scenario.language==='ja'?'ja-JP':'en-US')}],processLocally:true})`);
+        if(availability==='available'||availability==='downloading')break;
+        await new Promise(done=>setTimeout(done,20));
+      }
+      assert.ok(['available','downloading'].includes(availability),'Native speech installation must begin before closing the popup');
+      if(download)assert.equal(availability,'downloading','Download lifecycle check requires an unfinished real language-pack download');
+      observations.checks.push(`Popup closed with ${scenario.language} voice pack ${availability}; preparation continues after tab switch`);
+      if(download)console.log(JSON.stringify({phase:'speech-download-handoff',availability}));
+    }
     await popup.close();
     const switched=await context.newPage();await switched.goto('about:blank');await switched.bringToFront();
     const ready=await waitState(value=>value?.state==='ready',240000);
+    if(installedChrome) {
+      const captions=JSON.parse(await readFile(resolve(profile,'Local State'),'utf8')).accessibility.captions;
+      console.log(JSON.stringify({phase:'prepared-speech-components',paths:Object.fromEntries(['soda_binary_path','soda_ja_jp_config_path','soda_en_us_config_path','soda_ko_kr_config_path'].map(key=>[key,captions[key]?.replace(profile,'<test-profile>')]))}));
+    }
     assert.equal((await worker.evaluate(()=>chrome.runtime.getContexts({contextTypes:[chrome.runtime.ContextType.OFFSCREEN_DOCUMENT]}))).length,1);
     await switched.close();
     console.log(JSON.stringify({phase:'hidden-ready',...scenario,message:ready.message}));
     popup=await openPopup();await popup.click('#start');
     await waitState(value=>value?.state==='running');await popup.close();
+    const playRequestedAt=performance.now();
     await source.getByRole('button',{name:'Play speech',exact:true}).click();
+    if(latency){
+      const measurements=[];
+      const koreanChecks=[scenario.language==='ja'?['회의','않|안|없']:['오늘','만나|모임|만남','않|안|없'],['내일','오후','3|세|삼','역','만나|뵙|만납'],['예약','취소','않|마|말|안','마|말|주세요|주십시오|않도록']];
+      for(let index=0;index<3;index++){
+        if(index){await source.evaluate(index=>{globalThis.latencyClip=index},index);await source.getByRole('button',{name:'Play speech',exact:true}).click()}
+        const measurement=await page.evaluate(async checks=>{
+          const patterns=checks.map(pattern=>new RegExp(pattern));const deadline=performance.now()+10000;
+          while(performance.now()<deadline){
+            const text=document.querySelector('[data-interpreter-overlay]')?.shadowRoot.querySelector('.interpreter-live span')?.textContent??'';
+            if(patterns.every(pattern=>pattern.test(text)))return {korean:text,rawDelayMs:performance.now()-globalThis.spokenEndMs,speechEndMs:globalThis.speechSamplesEndMs};
+            await new Promise(done=>setTimeout(done,10));
+          }throw Error('No complete Korean meaning in the actual page overlay');
+        },koreanChecks[index]);
+        measurement.delayMs=Math.max(0,measurement.rawDelayMs);measurements.push(measurement);
+        console.log(JSON.stringify({phase:'sentence-end-to-overlay',language:scenario.language,index,...measurement}));
+        assert.ok(measurement.delayMs<=1000,`Sentence end to Korean overlay exceeds 1 s: ${measurement.delayMs}`);
+        await new Promise(done=>setTimeout(done,1500));
+      }
+      observations.runs.push({...scenario,measurements,captions:(await state()).captions});
+      popup=await openPopup();await popup.click('#stop');await waitState(value=>value?.state==='ready');await popup.close();
+      await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});continue;
+    }
     const first=await waitState(value=>value?.captions.some(c=>c.translation.state==='paired'),60000);
+    const firstCaptionMs=performance.now()-playRequestedAt;
     const paired=first.captions.find(c=>c.translation.state==='paired');
+    console.log(JSON.stringify({phase:'first-sentence',...scenario,firstCaptionMs,source:paired.source.text,korean:paired.translation.revision.text}));
     assert.match(paired.translation.revision.text,/[가-힣]/);
     assert.equal(paired.source.language,scenario.language);
     const jobs=await runtime.evaluate('runtimeObservations');
-    const job=jobs.find(e=>e.type==='asr-job'&&e.utteranceId===paired.source.utteranceId&&e.identity.sessionId===paired.source.identity.sessionId);
-    const result=jobs.find(e=>e.type==='result'&&e.worker===job?.worker&&e.requestId===job?.requestId);
-    assert.ok(job&&result);assert.equal(paired.source.text,result.text);
-    if(observations.runs.length===0) assert.ok(jobs.some(e=>e.type==='status'&&e.status.state==='downloading'),'Real model file downloads complete after popup closure and tab switch');
-    assert.equal(job.samples,(job.audioRange.endMs-job.audioRange.startMs)*16);
+    if(localSpeech){
+      const events=await runtime.evaluate('localSpeechEvents');
+      assert.ok(events.some(e=>e.type==='start'&&e.local===true&&e.trackKind==='audio'&&e.trackState==='live'));
+      assert.ok(events.some(e=>e.type==='result'&&e.texts.some(text=>text.includes(paired.source.text))));
+      assert.equal(jobs.some(e=>e.type==='asr-job'),false,'Local streaming does not repeat Whisper inference');
+    }else{
+      const result=jobs.find(e=>e.type==='result'&&e.text?.includes(paired.source.text)&&jobs.some(job=>job.type==='asr-job'
+        &&job.worker===e.worker&&job.requestId===e.requestId&&job.identity.sessionId===paired.source.identity.sessionId&&job.audioRange.startMs<=paired.source.audioRange.startMs+0.001
+        &&job.audioRange.endMs+0.001>=paired.source.audioRange.endMs));
+      const job=jobs.find(e=>e.type==='asr-job'&&e.worker===result?.worker&&e.requestId===result?.requestId&&e.identity.sessionId===paired.source.identity.sessionId);
+      assert.ok(job&&result,JSON.stringify({caption:paired,jobs}));assert.ok(result.segments?.some(segment=>segment.text.includes(paired.source.text)));
+      if(observations.runs.length===0)assert.ok(jobs.some(e=>e.type==='status'&&e.status.state==='downloading'));
+      assert.equal(job.samples,(job.audioRange.endMs-job.audioRange.startMs)*16);
+    }
     await page.waitForFunction(()=>document.querySelector('[data-interpreter-overlay]')?.shadowRoot.querySelector('.interpreter-live span')?.textContent.match(/[가-힣]/),undefined,{timeout:10000});
     popup=await openPopup();
     const opened=context.waitForEvent('page');await popup.click('#reference');
@@ -274,18 +414,26 @@ try {
     const reopened=context.waitForEvent('page');await popup.click('#reference');
     const restored=await reopened;await popup.close();
     await restored.waitForFunction(()=>document.querySelectorAll('#app tbody tr[data-translation-state="paired"]').length>=2);
-    assert.ok((await restored.locator('#app tbody').innerText()).includes(rows.split('\n')[0]));
+    if(!localSpeech)assert.ok((await restored.locator('#app tbody').innerText()).includes(rows.split('\n')[0]));
+    else for(const caption of first.captions)assert.ok(await restored.locator(`tr[data-utterance-id="${caption.source.utteranceId}"]`).count());
     await restored.close();
-    observations.runs.push({...scenario,captions:second.captions,hiddenPreparation:true,referenceClosure:true,referenceRestoration:true});
+    const anchors=scenario.language==='ja'?[/会議/,/しません/,/明日/,/午後/,/3|三/,/駅/,/予約/,/取り消さない/]:[/not meet/i,/today/i,/station/i,/tomorrow/i,/three|3/i,/afternoon/i,/not cancel/i,/reservation/i];
+    const quality=await waitState(value=>{const text=value?.captions.filter(c=>c.translation.state==='paired').slice(0,3).map(c=>c.source.text).join(' ');return text&&anchors.every(anchor=>anchor.test(text))},60000);
+    const transcript=quality.captions.slice(0,3).map(c=>c.source.text).join(' ');
+    console.log(JSON.stringify({phase:'sentence-meaning',...scenario,transcript}));
+    for(const anchor of scenario.language==='ja' ? [/会議/,/しません/,/明日/,/午後/,/3|三/,/駅/,/予約/,/取り消さない/]
+      : [/not meet/i,/today/i,/station/i,/tomorrow/i,/three|3/i,/afternoon/i,/not cancel/i,/reservation/i]) assert.match(transcript,anchor);
+    observations.runs.push({...scenario,firstCaptionMs,captions:quality.captions,hiddenPreparation:true,referenceClosure:true,referenceRestoration:true});
     console.log(JSON.stringify({phase:'reference-independent',...scenario,paired:second.captions.filter(c=>c.translation.state==='paired').length}));
     if(captureLoss) {
       const deadline=performance.now()+60000;let pending;
-      while(performance.now()<deadline) {
+      while(!localSpeech&&performance.now()<deadline) {
         const events=await runtime.evaluate('runtimeObservations');
         pending=events.find(e=>e.type==='asr-job'&&!events.some(r=>r.type==='result'&&r.worker===e.worker&&r.requestId===e.requestId));
         if(pending)break;await new Promise(done=>setTimeout(done,10));
       }
-      assert.ok(pending,'Require unfinished actual ASR before native capture loss');
+      if(!localSpeech)assert.ok(pending,'Require unfinished actual ASR before native capture loss');
+      else assert.ok(quality.captions.some(c=>!c.source.final),'Require active streaming drafts before capture loss');
       const {processInfo}=await cdp.send('SystemInfo.getProcessInfo');
       assert.equal(processInfo.find(p=>p.type==='browser').id,browserProcess.pid);
       const audio=processInfo.filter(p=>p.type==='audio.mojom.AudioService');assert.equal(audio.length,1);
@@ -293,12 +441,12 @@ try {
       process.kill(audio[0].id,'SIGTERM');
       await waitState(value=>value?.state==='idle');
       const events=await runtime.evaluate('runtimeObservations');
-      assert.ok(events.some(e=>e.type==='terminated'&&e.worker===pending.worker));
-      assert.equal(events.some(e=>e.type==='result'&&e.worker===pending.worker&&e.requestId===pending.requestId),false);
+      if(!localSpeech){assert.ok(events.some(e=>e.type==='terminated'&&e.worker===pending.worker));assert.equal(events.some(e=>e.type==='result'&&e.worker===pending.worker&&e.requestId===pending.requestId),false);}
+      else assert.ok((await runtime.evaluate('localSpeechEvents')).some(e=>e.type==='abort'));
       observations.checks.push('Owned Chrome native audio-service loss retires unfinished real ASR and capture');
     } else {
       popup=await openPopup();await popup.click('#stop');
-      await waitState(value=>value?.state==='idle');await popup.close();
+      await waitState(value=>value?.state==='ready');await popup.close();
     }
     await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
     assert.equal(await worker.evaluate(async()=>(await chrome.tabCapture.getCapturedTabs()).some(t=>['active','pending'].includes(t.status))),false);
@@ -306,12 +454,14 @@ try {
     assert.deepEqual((await state()).captions,retained.captions,'Stopped session accepts no late caption');
   }
   // Preparation is owned by the original tab even when the popup disappears.
-  let popup=await openPopup();await popup.click('#prepare');await popup.close();
+  let popup=await openPopup();if (!localSpeech) await popup.click('#prepare');await popup.close();
   await page.reload();await waitState(value=>value?.state==='idle',10000,true);
-  popup=await openPopup();await popup.click('#prepare');await popup.close();
+  popup=await openPopup();if (!localSpeech) await popup.click('#prepare');await popup.close();
   await page.close();await waitState(value=>value?.state==='idle',10000,true);
-  observations.checks.push('Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation');
+  observations.checks.push(latency
+    ? 'Popup closure/tab switching completes preparation hidden; all six sentence meaning checks reach the actual page DOM within one second of estimated speech end; Stop clears the overlay; source navigation/closure stops preparation'
+    : 'Popup closure/tab switching completes preparation hidden; reference closure preserves next real translated caption and page overlay; reopening restores bounded history; Stop clears overlay/capture and rejects late captions; source navigation/closure stops preparation');
   assert.deepEqual(observations.pageErrors,[]);
   console.log(JSON.stringify({passed:true,...observations}));
-} catch(error) {console.error(JSON.stringify({passed:false,error:error.stack}));process.exitCode=1}
-finally {await browser?.close();browserProcess?.kill();await browserExit;await new Promise(done=>server.close(done));if(profile) await rm(profile,{recursive:true,force:true})}
+} catch(error) {console.error(JSON.stringify({passed:false,...observations,error:error.stack}));process.exitCode=1}
+finally {await browser?.close();browserProcess?.kill();await browserExit;await new Promise(done=>server.close(done));if(profile) await rm(profile,{recursive:true,force:true});if(latencyDirectory)await rm(latencyDirectory,{recursive:true,force:true})}

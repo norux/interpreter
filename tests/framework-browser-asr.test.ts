@@ -109,9 +109,24 @@ test("ASR host bounds jobs, rejects late results and keeps GPU loss explicit", a
       assert.equal(current?.terminated, false, "Offscreen inference survives hidden document events");
       current?.reply({ type: "result", text: "background result", inferenceMs: 1 });
       assert.equal((await recognition).revision.text, "background result");
+      const timed = background.recognize({ ...job(), timestamps: true });
+      current?.reply({ type: "result", text: "Timed sentence.", inferenceMs: 1,
+        segments: [{ text: "Timed sentence.", startMs: 0, endMs: 900 }] });
+      assert.deepEqual((await timed).segments,
+        [{ text: "Timed sentence.", startMs: 0, endMs: 900 }]);
+
+      for (const segments of [undefined, [{ text: "Bad", startMs: -1, endMs: 900 }],
+        [{ text: "Bad", startMs: 0, endMs: 1001 }], [{ text: "Bad", startMs: NaN, endMs: 900 }],
+        [{ text: "Bad", startMs: 0, endMs: 600 }, { text: "Bad", startMs: 500, endMs: 900 }],
+        [{ text: "Different", startMs: 0, endMs: 900 }]]) {
+        const malformed = background.recognize({ ...job(), timestamps: true });
+        workers.at(-1)?.reply({ type: "result", text: "Bad", inferenceMs: 1, segments });
+        await assert.rejects(malformed, /Invalid ASR timestamp/);
+        const restarted = background.prepare(); workers.at(-1)?.reply({ type: "ready" }); await restarted;
+      }
       const cancelled = background.recognize(job()); background.stop();
       await assert.rejects(cancelled, /ASR stopped/);
-      assert.equal(current?.terminated, true);
+      assert.equal(workers.at(-1)?.terminated, true);
     } finally { background.dispose(); }
 
   } finally {

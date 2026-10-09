@@ -17,7 +17,7 @@ function translationText(caption: CaptionRevision): string {
   return caption.translation.state === "paired" ? caption.translation.revision.text : "";
 }
 
-export function createPresentationPolicy(initial: SessionIdentity, clock: PresentationClock, present: (event: PresentationEvent) => void) {
+export function createPresentationPolicy(initial: SessionIdentity, clock: PresentationClock, present: (event: PresentationEvent) => void, draftUpdateMs = 1000) {
   type Entry = {
     caption: CaptionRevision;
     pending?: CaptionRevision;
@@ -48,7 +48,7 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
     cancelTimer = undefined;
     if (disposed) return;
     const deadlines = [...entries.values()].filter((entry) => entry.pending && !entry.retired && !entry.fading)
-      .map((entry) => entry.updatedAt + 1000);
+      .map((entry) => entry.updatedAt + draftUpdateMs);
     const front = visibleFront();
     if (front?.until !== undefined && canExpire(front)) deadlines.push(front.until);
     if (deadlines.length) cancelTimer = clock.schedule(tick, Math.max(1, Math.min(...deadlines) - clock.now()));
@@ -79,7 +79,7 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
     if (disposed) return;
     const now = clock.now();
     for (const entry of entries.values()) {
-      if (entry.pending && !entry.retired && !entry.fading && entry.updatedAt + 1000 <= now) paint(entry, entry.pending, false);
+      if (entry.pending && !entry.retired && !entry.fading && entry.updatedAt + draftUpdateMs <= now) paint(entry, entry.pending, false);
     }
     // Reading advances in insertion order, including coexisting sentences.
     let front = visibleFront();
@@ -126,7 +126,7 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
         const immediate = finalPair(caption)
           || (caption.source.final && caption.source.sourceRevision !== entry.caption.source.sourceRevision)
           || (entry.caption.translation.state === "pending" && caption.translation.state === "paired");
-        if (!immediate && clock.now() - entry.updatedAt < 1000) entry.pending = caption;
+        if (!immediate && clock.now() - entry.updatedAt < draftUpdateMs) entry.pending = caption;
         else paint(entry, caption, false);
       }
       schedule();

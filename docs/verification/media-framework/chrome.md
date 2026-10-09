@@ -12830,3 +12830,211 @@ final four-scenario, focused lifecycle and native-loss runs pass. Raw accepted
 captions, setup, intermediate failure and verification scope are retained in
 [browser-background-20261009.json](browser-background-20261009.json).
 See [the actual toolbar popup](../settings/browser-popup.png).
+
+
+## 2026-10-09 KST — incremental sentence transcription
+
+Checkpoint `01206d1` commits the preceding quality/UI/background work. The new
+browser engine adapts the same pinned turbo FP16 model to growing-audio snapshots
+approximately every second. It uses local agreement across two hypotheses and
+text-based sentence boundaries before exposing a final source to the existing
+translation queue. The original VAD-only recognizer remains a comparison path.
+
+Punctuation, Japanese sentence endings and English independent-clause transitions
+release complete stable text. New words after a sentence are sufficient even if
+Whisper puts both sentences in one timestamp segment. A 240 ms pause requests an
+update, 1.6 s of silence releases stable unpunctuated speech, and EOF/12 s maximum
+snapshot drains remaining text. One ASR call runs at a time with 10 s of headroom;
+Stop, epoch/clock/scope gaps and native capture loss reject stale results. Coarse
+model segments supply caption ranges, including shared ranges for sentences inside
+one segment; word-level timing is not fabricated. Native translation/filler filters,
+offscreen ownership and comparison lifecycle remain in use.
+
+The real short-input probe produced Japanese affirmative `今日は会議をします。`
+at 1.5 s and corrected it to negative `今日は会議をしません` at 2.5 s. This supports
+keeping drafts private and confirming text/endings before translation. The approach
+uses the [Whisper-Streaming local-agreement policy](https://arxiv.org/abs/2307.14743),
+with browser-specific coarse timestamps and boundary rules rather than that
+project's native runtime/word-alignment implementation.
+
+Actual four-input production verification passes. The first three captions retain
+all checked negation/time/place/reservation source anchors. First observed Korean
+caption from playback request: Japanese video **4478.1 ms**, English iframe
+**4633.9 ms**, English audio **3471.9 ms**, Japanese Web Audio **4478.0 ms**.
+These include startup/click/polling overhead; they are not sentence-end acoustic
+latency or a sub-second guarantee. Continued translation after reference closure,
+history restoration, Stop/source retirement and owned native capture-loss cleanup
+pass. Focused ASR/streaming/pipeline tests **19 pass**; full JS **180 pass**;
+composition DOM/lifecycle harness, typecheck, Chrome build and focused Biome pass.
+
+Commands: `npm run test:js`, `npm run typecheck`, `npm run build:chrome`,
+`node tests/framework-chrome-composition.mjs`, and
+`INTERPRETER_TEST_MODEL_DIRECTORY=/tmp node tests/framework-chrome-tab-engine.mjs`
+(default four inputs and `--capture-loss`). Two official ONNX files were independently
+SHA-256 verified and cache-seeded; metadata/VAD downloads, GPU inference and native
+Korean were real. Native language packs were already available. Initial transport,
+English clause/coarse-segment/deadline checks and a prior-session harness matching
+error were corrected; the final checks pass. Public videos, ten minutes and the
+strict noise latency/full CER/WER suite remain unverified for this adapter.
+See [the raw streaming check](../asr/chrome-streaming-20261009.json).
+
+## 2026-10-09 KST — local streaming drafts and corrected Korean
+
+The user authorized displaying fast draft translations and revising them when
+recognition changes. The toolbar's offscreen tab engine now prefers Chrome's
+on-device Web Speech recognizer, explicitly `processLocally: true` and
+`start(authorizedTabAudioTrack)`. It never starts microphone capture or remote
+recognition. The existing PCM transport still validates session identity, bounds,
+clock continuity and input lifetime. Native word timestamps are unavailable;
+caption ranges are capture delivery estimates. Selected-video hosts and browsers
+without the local API retain the incremental turbo FP16 fallback above.
+
+The popup's Prepare click initiates installation; the persistent document joins
+an ongoing install and observes readiness. Real fresh-profile verification starts
+with Japanese speech availability `downloadable`, closes the popup while it is
+`downloading`, switches tabs, reaches hidden readiness, then produces actual
+Japanese recognition and native Korean. Only cached official TranslateKit files
+were staged for that case; SODA downloads/installation were real. CfT must include
+`SODA*` in its component allowlist without pre-registering the language: an earlier
+TranslateKit-only configuration blocked those updates and timed out twice. That
+was a test configuration failure, not evidence that popup closure cancels SODA.
+
+Draft recognition and page corrections coalesce at 180 ms; final results bypass
+the gate. Japanese final token spacing and English final leading whitespace are
+normalized before assigning sentence IDs, so finals revise existing captions.
+The tab overlay removes older visible cues when a newer paired sentence arrives,
+without deleting reference history. Older late corrections cannot replace the
+current sentence. Standalone fillers still pass through the existing suppression
+policy before translation.
+
+The six isolated Kyoko/Samantha generated sentences pass the <=1000 ms check from
+estimated last audible PCM sample to Korean meaning anchors in the actual page
+DOM. Checked anchors include negative meeting, tomorrow/afternoon/three/station
+and meeting intent, and an instruction not to cancel the reservation. Raw delays:
+Japanese **311.0, 41.8, 710.9 ms**; English **262.0, -110.2, 309.1 ms**. Negative
+delay means the complete checked meaning was already visible during speech.
+Speech end is derived from the scheduled Web Audio playback time and last sample
+above amplitude 0.00001; this is an estimate with rendering/output-clock uncertainty,
+not a physical speaker/DAC measurement. The DOM is polled every 10 ms. The first
+looser probe was tightened to require meeting intent and a negative instruction;
+its earlier partial-statement timings are not used for acceptance.
+
+Full JS **188 pass**, typecheck, Chrome build and focused Biome **15 files** pass.
+Native four-source production cases, fresh speech download, owned capture-service
+loss, reference closure/restoration and Stop/source retirement are covered by the
+production tab harness. Actual overlay DOM/latest-sentence and mocked selected-video
+composition regressions pass. The explicitly forced Whisper fallback lifecycle
+passes with SHA-256 verified official ONNX cache prefill, real GPU recognition and
+native Korean. Its first-caption startup was 5472.2 ms in this run; it has no
+sub-second guarantee.
+
+Commands: `npm run test:js`, `npm run typecheck`, `npm run build:chrome`, focused
+`npx biome lint`, `node tests/framework-chrome-overlay.mjs`,
+`node tests/framework-chrome-composition.mjs`,
+`node tests/framework-chrome-tab-engine.mjs` (default, `--latency`, `--download`,
+`--capture-loss`), and `INTERPRETER_TEST_MODEL_DIRECTORY=/tmp node
+tests/framework-chrome-tab-engine.mjs --whisper --lifecycle`.
+
+This is six-sample latency qualification on Chrome 153/macOS arm64. Public-video,
+noisy natural speech, formal CER/WER, ten-minute behavior, first native translation
+pack download and other Chrome/platform combinations remain unverified. Drafts
+can temporarily change meaning, as explicitly accepted by the user. Native model
+pack versions are browser-managed and are not exposed by the Web Speech API.
+See [the realtime check](../asr/chrome-realtime-20261009.json).
+
+## 2026-10-09 KST — immediate native startup failure
+
+The user's ordinary Chrome 153.0.8010.53 reports `engine-failed` immediately after
+Start. Reproduction through the installed toolbar preserved the underlying native
+code: `Chrome local speech ja-JP: aborted`. Its installed SODA library matched the
+tested official arm64 library, but only the Japanese language-pack directory was
+present initially. Chrome's speech-service launch checks the default Live Caption
+language (normally en-US) before binding the requested Japanese recognizer.
+
+Japanese preparation now installs and checks both ja-JP and en-US before declaring
+readiness. The missing-bootstrap-pack regression fails with `cancelled` before the
+fix and passes after it. Native error codes are retained in popup model diagnostics.
+Focused speech tests **8 pass**, full JS **189 pass**, typecheck, Chrome build,
+focused Biome **3 files**, and fresh download/background/lifecycle verification pass.
+
+The English pack was downloaded by the user's Chrome through the updated Prepare
+button. This dependency fix alone did **not** resolve the observed profile's abort:
+Japanese and English startup still fail on a generated-audio localhost tab as well
+as the original video tab. At that reproduction Chrome was 153.0.8010.53, with the installed
+154.0.8037.99 update awaiting browser restart. The same extension produces actual
+Japanese recognition and native Korean with installed standard Chrome 154.0.8037.99
+in a separate disposable profile. This test uses cached official browser-native
+components and no CfT configuration or substituted inference.
+
+The user approved restart; the existing profile now records Chrome 154.0.8037.99.
+Computer use on the installed toolbar, after reloading the latest build, confirms
+that opening the popup automatically reaches ready and hides Prepare. Start still
+fails immediately with `Chrome local speech ja-JP: aborted (48000 Hz, 2 channels)`.
+The issue is not marked resolved. The exact existing official SODA 1.2.12,
+Japanese 1.5072.0 and English 1.5075.0 components, with three remapped model-path
+preferences in a disposable profile, complete real recognition, Korean translation
+and lifecycle checks. No personal profile data is copied.
+
+Popup verification uses real DOM with API mocks: cached models auto-ready on open,
+Stop and language selection; delayed status messages cannot lose Stop recovery;
+missing models still require a gesture, and checks never start capture. Prepare is
+hidden throughout preparation/ready/starting/running/stopping/failure and appears
+only when setup is needed. Full JS **189 pass**, focused speech **8 pass**, popup,
+typecheck, build and focused Biome pass. A separate intermediate browser run closed
+before later checks; the subsequent exact-component lifecycle run completed.
+
+Chrome's native media-controls Live Caption switch is off. Consent to temporarily
+toggle it for service-initialization diagnosis and then restore off is pending;
+no Chrome caption preference has been changed. See
+[the startup check](../asr/chrome-startup-20261009.json).
+
+
+## 2026-10-09 KST — synced Korean bootstrap resolved; download-first popup
+
+The earlier startup failure is now reproduced and resolved. The effective Chrome
+Live Caption language comes from `account_values.accessibility.captions` in the
+existing profile's Preferences: `ko-KR`, despite no language field in the local
+caption preference layer. The Korean SODA component was missing. Chrome
+154.0.8037.99 `LaunchIfNotRunning` uses that effective default language before
+binding the requested Japanese recognizer. Reading only local preferences and
+checking Japanese/English model availability missed this dependency.
+
+A disposable standard Chrome profile with the same official SODA/JA/EN components
+and an effective Korean caption language reproduces the identical immediate
+`aborted (48000 Hz, 2 channels)` before the fix. The popup and persistent host now
+share Japanese/English recognition plus English/Korean startup language-pack
+requirements. Adding Korean is required for this Korean-target extension's
+observed synced caption language. The same native lifecycle regression then
+passes: real Japanese transcription, native Korean translation, actual page
+output, popup/background ownership, reference closure/reopening, Stop and target
+retirement. No personal account data or profile is copied to the test profile.
+
+Running status waits for the native recognition `onstart` event. Two regressions
+prove that installed/available models alone and an immediate native abort cannot
+produce a false running state. All focused speech checks **11 pass** and full
+JavaScript checks **192 pass**. Popup DOM/API-mock checks also pass: missing Korean
+pack cannot bypass download setup; missing models show model names and Download
+before Start/records; reopening observes the existing download; completing it
+reveals translation controls. Typecheck and Chrome build pass.
+
+Native computer use on the existing profile verifies the actual missing-model
+screen, model names, download click, popup closure and tab switching, then cached
+ready and `Chrome local speech ja-JP: started (48000 Hz, 2 channels)`. A local
+synthetic Japanese fixture produces actual Korean overlay text and paired records
+in the existing profile. The original video was left paused. Chrome's Live Caption
+switch and other browser preferences were not changed; the earlier proposed
+toggle is no longer needed. Only the missing official Korean component was added
+through the extension's download action. These checks are startup/lifecycle
+verification, not a general public-video latency or ten-minute quality claim.
+
+Commands and machine-readable evidence are in
+[the startup check](../asr/chrome-startup-20261009.json).
+
+The Korean-default-language standard Chrome latency run also passes Japanese and
+English: **6/6** isolated synthetic sentence meanings in actual Korean page DOM,
+maximum **536.533 ms** after the estimated last audible sample. One English draft
+already contains the complete meaning before speech ends; its raw negative delay
+is retained and displayed delay is clamped to zero. This is a controlled fixture
+result, not a guarantee for continuous natural speech or all videos. The user
+subsequently resumed the original video independently; an actual Korean overlay
+was observed there without changing its playback state ourselves.

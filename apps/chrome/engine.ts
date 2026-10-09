@@ -2,12 +2,13 @@ import type { InterpretationEngine, ModelStatus, SessionIdentity } from "../../p
 import { sameIdentity } from "../../packages/core/identity";
 import { createAsrHost } from "../../packages/engines-browser/asr-host";
 import { createDocumentTranslator } from "../../packages/engines-browser/document-translator";
+import { createLocalSpeechHost } from "../../packages/engines-browser/local-speech";
 import { asrCandidates, registeredCandidate, vadCandidate } from "../../packages/engines-browser/model";
 import { createBrowserPipeline } from "../../packages/engines-browser/pipeline";
-import { createSpeechRecognizer } from "../../packages/engines-browser/speech-recognizer";
+import { createStreamingSpeechRecognizer } from "../../packages/engines-browser/streaming-speech";
 import { createVadHost } from "../../packages/engines-browser/vad-host";
 
-export function createChromeEngine(document: Document, source: "ja" | "en", receive: (message: string, progress?: string) => void, execution: "foreground" | "offscreen" = "foreground") {
+export function createChromeEngine(document: Document, source: "ja" | "en", receive: (message: string, progress?: string) => void, execution: "foreground" | "offscreen" = "foreground", audioTrack?: () => MediaStreamTrack | undefined) {
   const languages = { source, target: "ko" };
   const model = registeredCandidate(asrCandidates.turboFp16.model, "fp16");
   const report = (status: ModelStatus) => receive(`${status.model.id} @ ${status.model.version}: ${status.state}; ${status.downloadedBytes ?? 0}/${status.requiredBytes} bytes${status.reason ? ` (${status.reason})` : ""}`,
@@ -15,6 +16,8 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
       : status.state === "loading" ? "음성 인식 모델을 불러오는 중…" : undefined);
   const asr = createAsrHost(document, "turboFp16", "webgpu", report, execution);
   const vad = createVadHost(document, report, execution);
+  const local = execution === "offscreen" && audioTrack ? createLocalSpeechHost(document, source, audioTrack, receive) : undefined;
+  const usingLocal = local?.supported === true;
   const translator = createDocumentTranslator(document, languages, status => receive(`Translator ${source} → ko: ${status.state}${status.progress === undefined ? "" : ` ${Math.round(status.progress * 100)}%`}${status.reason ? ` (${status.reason})` : ""}`,
     status.state === "preparing" ? `번역 모델 준비${status.progress === undefined ? " 중…" : ` · ${Math.round(status.progress * 100)}%`}` : undefined), execution);
   let ready = false;
@@ -24,7 +27,7 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
   let identity: SessionIdentity | undefined;
   let pipeline: ReturnType<typeof createBrowserPipeline> | undefined;
 
-  function stopResources() { ready = false; asr.stop(); vad.stop(); translator.stop(); }
+  function stopResources() { ready = false; local?.stop(); asr.stop(); vad.stop(); translator.stop(); }
   const port: InterpretationEngine = {
     async probe(pair) {
       const native = await translator.probe();
@@ -34,13 +37,14 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
         : ready && !disposed ? { state: "available" }
         : { state: "permission-required", reason: "permission-required", message: "Press Prepare in the visible interpreter document" },
       pipeline: "separate-asr-translation", asrOnlyUpdates: true, languages,
-      models: [model.model, vadCandidate.model], limits: { maxChunkBytes: 8192, maxAudioQueueMs: 1000,
+      models: usingLocal ? [local.model] : [model.model, vadCandidate.model], limits: { maxChunkBytes: 8192, maxAudioQueueMs: 1000,
         maxPendingUtterances: 4, maxTranslationJobs: 1, maxStoredCaptions: 300 } };
     },
     async prepare(selected, pair) {
       if (!ready || disposed || pipeline || pair.source !== source || pair.target !== "ko") throw new Error("Press Prepare for a fresh session");
       identity = { ...selected };
-      pipeline = createBrowserPipeline(identity, languages, report => createSpeechRecognizer(selected, source, asr, report, vad), translator);
+      pipeline = createBrowserPipeline(identity, languages, report => usingLocal ? local.createRecognizer(selected, report)
+        : createStreamingSpeechRecognizer(selected, source, asr, report, vad), translator);
     },
     run(audio) {
       if (!pipeline || !ready || disposed) throw new Error("Browser engine is not prepared");
@@ -53,7 +57,7 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
     async close() {
       if (disposed) return;
       disposed = true; generation++; stopResources();
-      await pipeline?.close(); asr.dispose(); vad.dispose(); await translator.close();
+      await pipeline?.close(); local?.dispose(); asr.dispose(); vad.dispose(); await translator.close();
       document.removeEventListener("visibilitychange", suspend);
       document.defaultView?.removeEventListener("pagehide", interrupt);
     },
@@ -69,13 +73,14 @@ export function createChromeEngine(document: Document, source: "ja" | "en", rece
       if (disposed || preparing || ready || pipeline) throw new Error("Stop before preparing another session");
       const current = ++generation; preparing = true;
       try {
-        // All hosts begin in this trusted document's gesture, before any await.
-        await Promise.all([asr.prepare(), vad.prepare(), translator.prepare()]);
+        // Local speech observes Chrome's popup-initiated language-pack download.
+        await Promise.all([usingLocal ? local.prepare() : asr.prepare(), usingLocal ? undefined : vad.prepare(), translator.prepare()]);
         if (disposed || current !== generation) throw new DOMException("Preparation stopped", "AbortError");
         ready = true;
       } catch (error) { if (current === generation) stopResources(); throw error; }
       finally { if (current === generation) preparing = false; }
     },
     get ready() { return ready; },
+    get running() { return !usingLocal || local.running; },
   };
 }

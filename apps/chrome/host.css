@@ -30,6 +30,11 @@ button:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px
 .interpretation-controls > button:nth-child(2) { background: var(--accent); border-color: var(--accent); color: white; }
 .interpretation-controls:has(> button:nth-child(2):disabled) > button:first-child:enabled { background: var(--accent); border-color: var(--accent); color: white; }
 .preparation-status { margin: 8px 0 0; color: var(--muted); }
+.popup #model-description { margin: 0 0 16px; white-space: pre-line; font-size: 13px; line-height: 1.7; }
+.popup #prepare, .popup #start { background: var(--accent); border-color: var(--accent); color: white; }
+.popup #prepare { width: 100%; }
+.popup #translation-controls button { margin: 0 6px 8px 0; }
+.popup #reference { width: 100%; margin-top: 4px; }
 .preparation-status:empty, #app .interpreter-live:has(span:first-child:empty), #app [role="status"]:empty { display: none; }
 details { color: var(--muted); font-size: 12px; }
 summary { width: fit-content; padding: 10px 0; cursor: pointer; font-weight: 600; }

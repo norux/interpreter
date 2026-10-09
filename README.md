@@ -16,16 +16,46 @@ selected and billed by their API provider separately from chat subscriptions.
 
 ### Browser Chrome extension — quality update
 
-The browser-only build (`apps/chrome/dist`) uses pinned Whisper large-v3-turbo
-FP16 on WebGPU. Model preparation downloads about 1.6 GB the first time; subsequent
-sessions reuse the browser cache. Build with `npm run build:chrome`, reload this
-folder in Chrome, and use **모델 준비 → 번역 시작**. The companion build is separate.
+The browser-only build (`apps/chrome/dist`) now prefers Chrome's on-device streaming
+speech recognition for Japanese/English tab audio. It uses the authorized tab's
+audio track with `processLocally: true`, then Chrome's native Korean translator.
+Build with `npm run build:chrome`, reload this folder in Chrome, and use
+**모델 다운로드 → 번역 시작** for the first download. Missing models show their
+names and the download button before translation controls. Downloads continue in
+the background after closing the popup or switching tabs. Later popup openings
+and Stop automatically verify stored models and reconnect the engine. Native
+speech checks the selected language plus English/Korean startup packs because
+Chrome's Live Caption language can be account-synced. Start still requires a click
+to capture tab audio and reports running only after Chrome confirms startup.
+The companion build is separate.
 
-Short hesitations now stay in the same sentence: the ordinary detected pause is
-800 ms, and the first utterance waits for the same 1.5-second silence endpoint as
-later utterances. Existing long-speech boundaries and audio/queue limits remain.
-Standalone filler utterances are skipped before translation; meaningful short
-answers and sentences that begin with an interjection are preserved.
+Preparation starts the browser-managed speech language-pack download from the
+popup click. The offscreen document joins the ongoing installation and observes
+readiness after the popup closes or tabs change.
+Preparation also includes English/Korean packs for Chrome's default or
+account-synced Korean speech-service startup language. Recognition
+returns draft text while speech continues. Draft translations are coalesced at
+180 ms, and corrections update the same caption; native final results bypass that
+gate. Text-based Japanese endings, punctuation and English clause transitions
+split growing hypotheses. Standalone fillers are skipped before translation;
+meaningful short answers and sentences beginning with interjections are preserved.
+The page prioritizes the latest translated sentence, while the reference window
+retains older captions and corrections. Capture delivery ranges are approximate;
+the native recognizer does not expose word timestamps.
+
+On Chrome for Testing 153/macOS arm64, six isolated generated Japanese/English
+sentences retained the checked negation/time/place/meeting/reservation meaning in
+the actual Korean overlay by the estimated last audible sample or **42–711 ms**
+after it. The reservation check requires a negative instruction, rather than an
+early negative statement. This measures the checked meaning anchors, not the first partial word or playback
+startup. Public videos, noisy natural speech and ten-minute sessions are not
+qualified by these six samples. See [the realtime check](docs/verification/asr/chrome-realtime-20261009.json).
+
+When the local streaming API is absent, or for the optional selected-video host,
+the engine uses pinned Whisper large-v3-turbo FP16 on WebGPU (about 1.6 GB initially).
+That fallback decodes growing snapshots and confirms sentences across hypotheses;
+its earlier first-caption timing was 3.5–4.6 seconds after playback request. It has
+no sub-second guarantee. See [the fallback check](docs/verification/asr/chrome-streaming-20261009.json).
 
 The toolbar popup has language, model preparation, Start and Stop controls. Audio
 capture, model downloads and interpretation run in an offscreen extension document:
@@ -33,9 +63,10 @@ closing the popup, switching tabs or closing the optional **원문 · 번역 기
 window does not stop them. Reopening the reference window restores the latest
 300 captions. **중지**, original-tab navigation/closure, or extension reload ends
 the session. Captions have backgrounds behind the text and sit above playback
-controls. Whisper/VAD files stay in this Chrome profile's extension Cache Storage
-after Stop; Chrome manages native translation language packs separately. No
-companion or Downloads-folder file is used.
+controls. Chrome manages streaming speech and translation packs inside the browser
+profile. Fallback Whisper/VAD files stay in the extension's Cache Storage after
+Stop. No companion or Downloads-folder file is used. A Chrome build exposing the
+API but lacking the selected local speech language reports a preparation failure.
 
 Measured synthetic-speech quality and remaining limitations are recorded in
 [the quality check](docs/verification/asr/chrome-quality-20261009.json).

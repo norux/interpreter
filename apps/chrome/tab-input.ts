@@ -102,6 +102,7 @@ export function createChromeTabInput(tabId: number, workletUrl: string,
     },
   };
   return { target, input, stop,
+    get audioTrack() { return current?.stream?.getAudioTracks()[0]; },
     async capture(streamId?: string) {
       if (disposed) throw new Error("context-destroyed: Tab input disposed");
       if (current) throw new Error("Tab capture already active or starting");

@@ -1,12 +1,19 @@
 import type { AudioRange, SessionIdentity } from "../contracts";
 
-// One complete utterance per job. Streaming segmentation/VAD is composed later.
+// Bounded audio snapshots support both utterance and incremental decoding.
 export interface AsrJob {
   readonly identity: SessionIdentity;
   readonly utteranceId: string;
   readonly audioRange: AudioRange;
   readonly language: "ja" | "en";
   readonly pcm: Float32Array;
+  readonly timestamps?: true;
+}
+
+export interface AsrSegment {
+  readonly text: string;
+  readonly startMs: number;
+  readonly endMs: number;
 }
 
 export function validAsrJob(value: unknown): value is AsrJob {
@@ -18,6 +25,7 @@ export function validAsrJob(value: unknown): value is AsrJob {
     || typeof identity.targetId !== "string" || !identity.targetId.length || identity.targetId.length > 256
     || !Number.isSafeInteger(identity.epoch) || identity.epoch < 0
     || typeof job.utteranceId !== "string" || !job.utteranceId.length || job.utteranceId.length > 256
+    || (job.timestamps !== undefined && job.timestamps !== true)
     || !["ja", "en"].includes(job.language ?? "") || !range
     || !Number.isFinite(range.startMs) || range.startMs < 0 || !Number.isFinite(range.endMs)
     || !(job.pcm instanceof Float32Array) || !(job.pcm.buffer instanceof ArrayBuffer)

@@ -49,19 +49,19 @@ async function command(value: BackgroundCommand) {
     if (!Number.isSafeInteger(value.tabId) || value.tabId <= 0 || !["ja", "en"].includes(value.source)) throw new Error("번역할 탭과 언어를 선택하세요.");
     const current = ++generation;
     snapshot = { state: "preparing", source: value.source, tabId: value.tabId,
-      message: "모델 준비 중… 처음에는 약 1.6GB를 다운로드합니다.", captions: [] };
+      message: "음성 인식과 번역 모델 준비 중…", captions: [] };
     engine = createChromeEngine(document, value.source, (diagnostic, progress) => {
       if (current !== generation) return;
       snapshot.diagnostic = diagnostic;
       if (progress && progress === snapshot.message) return;
       if (progress) snapshot.message = progress;
       publish();
-    }, "offscreen");
+    }, "offscreen", () => capture?.audioTrack);
     const owned = engine;
     // Preparation starts while Chrome forwards the popup click's user gesture.
     const prepared = owned.prepareFromGesture(); publish();
     void prepared.then(() => {
-      if (current === generation) update("ready", "준비 완료 · 번역을 시작할 수 있습니다.");
+      if (current === generation) update("ready", "모델 준비 완료 · 번역 시작을 눌러 연결하세요.");
     }).catch(error => {
       if (current === generation) update("failed", `모델 준비 실패: ${error.message}`);
     });
@@ -86,7 +86,7 @@ async function command(value: BackgroundCommand) {
           if (current !== generation) return;
           snapshot.identity = session.identity;
           if (status.state === "probing" && session.identity) emit({ type: "activate", identity: session.identity, target: input.target });
-          if (status.state === "running") update("running", "번역 중 · 창을 닫아도 자막이 계속 표시됩니다.");
+          if (status.state === "running" && owned.running) update("running", "번역 중 · 창을 닫아도 자막이 계속 표시됩니다.");
           else if (["failed", "unavailable", "paused"].includes(status.state)) {
             void stop().then(() => update("failed", `번역이 중단되었습니다: ${status.reason ?? status.state}`));
           } else if (status.state === "idle") void stop();

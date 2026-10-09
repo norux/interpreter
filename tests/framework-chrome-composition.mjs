@@ -33,7 +33,11 @@ const server = createServer(async (request, response) => {
           if (message.type === 'prepare') {
             const ready = () => reply({type: 'ready'});
             if (deferPreparation) loads.push(ready); else setTimeout(ready, 0);
-          } else if (message.type === 'recognize') setTimeout(() => reply({type: 'result', text: '<img src=x onerror=alert(1)> synthetic original', inferenceMs: 2}), 0);
+          } else if (message.type === 'recognize') {
+            const text = '<img src=x onerror=alert(1)> synthetic original';
+            setTimeout(() => reply({type: 'result', text, inferenceMs: 2,
+              segments: message.job.timestamps ? [{text, startMs:0, endMs:Math.min(960,message.job.pcm.length/16)}] : undefined}), 0);
+          }
           else {
             const probability = message.pcm.some(sample => Math.abs(sample) > 0.01) ? 1 : 0;
             setTimeout(() => reply({type: 'result', probability, inferenceMs: 1, samples: message.pcm.length, paddingSamples: 512-message.pcm.length}), 0);

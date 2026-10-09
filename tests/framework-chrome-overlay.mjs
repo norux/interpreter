@@ -10,7 +10,7 @@ import { build } from "vite";
 const output = resolve(".ralph/media-framework/chrome-overlay-build");
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: { outDir: output } });
 await build({ configFile: false, logLevel: "warn", build: { outDir: output, emptyOutDir: false,
-  rollupOptions: { input: { "overlay-channel": resolve("apps/chrome/overlay-channel.ts"), channel: resolve("apps/chrome/channel.ts") }, preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } } } });
+  rollupOptions: { input: { "overlay-channel": resolve("apps/chrome/overlay-channel.ts"), channel: resolve("apps/chrome/channel.ts"), overlay: resolve("apps/chrome/overlay.ts") }, preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } } } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
 assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen"]); assert.equal(manifest.host_permissions, undefined);
 const server = createServer(async (request, response) => {
@@ -122,6 +122,26 @@ try {
   await host.waitForFunction(() => failures.length===1); assert.match(await host.evaluate(() => failures[0]),/context-destroyed/);
   assert.equal(await page.locator('[data-interpreter-overlay]').count(),0); assert.equal(await page.locator('#en').count(),1);
   observations.checks.push('Restart and selected element invalidation remove resources, fail visibly, and never switch to the other video');
+  // The reference document is an actual browser DOM; these captions are synthetic.
+  const liveTiming = await host.evaluate(async () => {
+    const {createVideoOverlay}=await import('./overlay.js');
+    const live=createVideoOverlay(document,null,identity);
+    const caption=(id,start,text,revision=1)=>({source:{...source,utteranceId:id,sourceRevision:revision,final:true,audioRange:{startMs:start,endMs:start+1000}},
+      translation:{state:'paired',revision:{identity,utteranceId:id,sourceRevision:revision,translationRevision:revision,languages:{source:'ja',target:'ko'},text,final:true}}});
+    const read=()=>document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live span').textContent;
+    live.compare(caption('old',0,'이전 문장'));await new Promise(done=>setTimeout(done,30));
+    if(read()!=='이전 문장')throw Error('Initial whole-tab caption is missing');
+    const started=performance.now();live.compare(caption('latest',1000,'최신 문장'));
+    const deadline=started+500;while(read()!=='최신 문장'&&performance.now()<deadline)await new Promise(done=>setTimeout(done,10));
+    const delayMs=performance.now()-started;
+    if(read()!=='최신 문장')throw Error('Latest translation waits behind the previous reading interval');
+    live.compare(caption('old',0,'이전 문장의 늦은 수정',2));await new Promise(done=>setTimeout(done,220));
+    if(read()!=='최신 문장')throw Error('An older correction displaced the live caption');
+    live.clear();if(read()!=='')throw Error('Stop must clear the current whole-tab caption');
+    live.dispose();return {delayMs};
+  });
+  observations.liveTiming=liveTiming;
+  observations.checks.push('Whole-tab latest translation bypasses previous reading interval; older corrections do not displace it; Stop clears it');
   assert.deepEqual(observations.pageErrors,[]);
   console.log(JSON.stringify({passed:true,...observations}));
 } catch(error) { console.error(JSON.stringify({passed:false,...observations,error:error.stack}));process.exitCode=1; }

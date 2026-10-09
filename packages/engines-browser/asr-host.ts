@@ -1,5 +1,5 @@
 import type { ModelStatus, TranscriptRevision } from "../contracts";
-import { type AsrJob, validAsrJob } from "./asr-protocol";
+import { type AsrJob, type AsrSegment, validAsrJob } from "./asr-protocol";
 import { asrCandidates, registeredCandidate } from "./model";
 
 // This bounded utterance executor is not yet the streaming/VAD engine adapter.
@@ -10,7 +10,7 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
   let ready = false;
   let disposed = false;
   let failure: string | undefined;
-  let pending: { type: "prepare" | "recognize"; resolve(value: { text: string; inferenceMs: number } | undefined): void; reject(error: Error): void } | undefined;
+  let pending: { type: "prepare" | "recognize"; timestamps: boolean; durationMs: number; resolve(value: { text: string; inferenceMs: number; segments?: AsrSegment[] } | undefined): void; reject(error: Error): void } | undefined;
   function stop() {
     requestId++; ready = false;
     worker?.terminate(); worker = undefined;
@@ -45,7 +45,20 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
         if (data.type === "ready") { ready = true; pending = undefined; operation.resolve(undefined); return; }
         if (data.type === "result" && "text" in data && typeof data.text === "string" && data.text.length <= 16384
           && "inferenceMs" in data && typeof data.inferenceMs === "number" && Number.isFinite(data.inferenceMs) && data.inferenceMs >= 0) {
-          pending = undefined; operation.resolve({ text: data.text, inferenceMs: data.inferenceMs }); return;
+          let segments: AsrSegment[] | undefined;
+          if (operation.timestamps) {
+            if (!("segments" in data) || !Array.isArray(data.segments) || data.segments.length > 256) { fail("Invalid ASR timestamps"); return; }
+            segments = [];
+            for (const segment of data.segments) {
+              if (!segment || typeof segment.text !== "string" || segment.text.length > 16384
+                || !Number.isFinite(segment.startMs) || !Number.isFinite(segment.endMs)
+                || segment.startMs < (segments.at(-1)?.endMs ?? 0) || segment.endMs < segment.startMs
+                || segment.endMs > operation.durationMs) { fail("Invalid ASR timestamps"); return; }
+              segments.push({ text: segment.text, startMs: segment.startMs, endMs: segment.endMs });
+            }
+            if (segments.map(segment => segment.text).join("").trim() !== data.text.trim()) { fail("Invalid ASR timestamp text"); return; }
+          }
+          pending = undefined; operation.resolve({ text: data.text, inferenceMs: data.inferenceMs, segments }); return;
         }
         fail("Invalid ASR worker response");
       };
@@ -53,7 +66,7 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
       worker.onmessageerror = () => fail("ASR worker transport failed");
     }
     requestId++; failure = undefined;
-    const result = new Promise<{ text: string; inferenceMs: number } | undefined>((resolve, reject) => { pending = { type, resolve, reject }; });
+    const result = new Promise<{ text: string; inferenceMs: number; segments?: AsrSegment[] } | undefined>((resolve, reject) => { pending = { type, timestamps: job?.timestamps === true, durationMs: (job?.pcm.length ?? 0) / 16, resolve, reject }; });
     worker.postMessage({ version: 1, requestId, type, candidate, device, job }, job ? [job.pcm.buffer as ArrayBuffer] : []);
     return result;
   }
@@ -70,13 +83,13 @@ export function createAsrHost(document: Document, candidate: keyof typeof asrCan
   document.defaultView?.addEventListener("pagehide", stop);
   return {
     prepare: () => request("prepare"),
-    async recognize(job: AsrJob): Promise<{ revision: TranscriptRevision; inferenceMs: number }> {
+    async recognize(job: AsrJob): Promise<{ revision: TranscriptRevision; inferenceMs: number; segments?: AsrSegment[] }> {
       // Snapshot host-owned metadata before transferring the PCM buffer.
       const identity = { ...job.identity }; const audioRange = { ...job.audioRange };
       const utteranceId = job.utteranceId; const language = job.language;
       const output = await request("recognize", job);
       if (!output) throw new Error("Missing ASR output");
-      return { revision: { identity, audioRange, utteranceId, language, sourceRevision: 1, final: true, text: output.text }, inferenceMs: output.inferenceMs };
+      return { revision: { identity, audioRange, utteranceId, language, sourceRevision: 1, final: true, text: output.text }, inferenceMs: output.inferenceMs, segments: output.segments };
     },
     stop,
     dispose() {

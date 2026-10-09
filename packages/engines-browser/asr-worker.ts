@@ -66,7 +66,8 @@ globalThis.onmessage = async (event: MessageEvent<unknown>) => {
     } else if (value.type === "recognize" && "job" in value && validAsrJob(value.job) && resident) {
       const started = performance.now();
       let processors: LogitsProcessorList | undefined;
-      if (timestamped) {
+      const withTimestamps = timestamped || value.job.timestamps === true;
+      if (withTimestamps) {
         const config = resident.model.generation_config as { no_timestamps_token_id?: number } | null;
         if (!Number.isSafeInteger(config?.no_timestamps_token_id)) throw new Error("Missing Whisper timestamp token");
         processors = new LogitsProcessorList();
@@ -75,13 +76,18 @@ globalThis.onmessage = async (event: MessageEvent<unknown>) => {
       }
       const output = await resident(value.job.pcm, {
         language: value.job.language === "ja" ? "japanese" : "english",
-        // Caption timing uses the bounded job range. The default does not need
-        // generated segment timestamps; the timestamped comparison retains its rules.
-        task: "transcribe", max_new_tokens: 256, return_timestamps: timestamped,
+        // Incremental callers need segment times to retire confirmed audio;
+        // utterance-only callers retain their original job-range timing.
+        task: "transcribe", max_new_tokens: 256, return_timestamps: withTimestamps,
         logits_processor: processors,
       });
       if (Array.isArray(output)) throw new Error("Unexpected batched ASR result");
-      if (!lost) send({ type: "result", text: output.text, inferenceMs: performance.now() - started });
+      const durationMs = value.job.pcm.length / 16;
+      const segments = value.job.timestamps ? output.chunks?.map(chunk => ({ text: chunk.text,
+        startMs: Math.min(durationMs, chunk.timestamp[0] * 1000),
+        endMs: Math.min(durationMs, chunk.timestamp[1] == null ? durationMs : chunk.timestamp[1] * 1000),
+      })) : undefined;
+      if (!lost) send({ type: "result", text: output.text, segments, inferenceMs: performance.now() - started });
     } else send({ type: "error", reason: "engine-failed" });
   } catch (error) {
     console.error("Browser ASR failed", error);

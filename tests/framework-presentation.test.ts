@@ -14,7 +14,7 @@ function caption(revision = 1, final = false, utteranceId = "u1", session = iden
   };
 }
 
-function harness() {
+function harness(draftUpdateMs?: number) {
   let now = 0;
   const timers = new Map<number, { at: number; callback: () => void }>();
   let timerId = 0;
@@ -26,7 +26,7 @@ function harness() {
       timers.set(id, { at: now + delayMs, callback });
       return () => { timers.delete(id); };
     },
-  }, (event) => { events.push({ at: now, event }); });
+  }, (event) => { events.push({ at: now, event }); }, draftUpdateMs);
   return {
     policy, events,
     accept: (value: CaptionRevision) => policy.accept({ type: "paired-caption", caption: value }),
@@ -75,6 +75,14 @@ test("first/each utterance is immediate, bursts coalesce at 1000ms and final can
   assert.equal(h.accept(caption(16)), undefined);
   h.accept(caption(1, false, "u2"));
   assert.equal(h.events.at(-1)?.event.type, "insert");
+});
+
+test("streaming overlay corrections coalesce within 180ms instead of waiting one second", () => {
+  const h = harness(180); h.accept(caption()); h.runFor(50); h.accept(caption(2)); h.runFor(50); h.accept(caption(3));
+  h.runFor(79); assert.equal(h.events.length, 1); h.runFor(1);
+  assert.equal(h.events.at(-1)?.at, 180);
+  const event = h.events.at(-1)?.event; assert.equal(event?.type, "update");
+  if (event?.type === "update") assert.equal(event.caption.source.sourceRevision, 3);
 });
 
 test("pending source paints immediately and source final alone cannot initiate translation replay", () => {

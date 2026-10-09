@@ -28,9 +28,11 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
   container.append(style); shadow.append(container);
   const policy = createPresentationPolicy(identity, { now: () => window.performance.now(), schedule(callback, delay) {
     const id = window.setTimeout(callback, delay); return () => window.clearTimeout(id);
-  } }, view.present);
+  } }, view.present, 180);
   const unsubscribe = view.onDisplayProgress(policy.progress);
   let disposed = false;
+  let latestStartMs = -1;
+  let latestUtteranceId: string | undefined;
   function position() {
     if (disposed) return;
     const fullscreen = document.fullscreenElement;
@@ -58,10 +60,17 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
     compare(caption: CaptionRevision) {
       if (disposed || !sameIdentity(identity, caption.source.identity)) return;
       position();
-      policy.accept(caption.translation.state === "pending" ? { type: "transcript", revision: caption.source }
+      const accepted = policy.accept(caption.translation.state === "pending" ? { type: "transcript", revision: caption.source }
         : { type: "paired-caption", caption }, caption.videoRange);
+      if (!accepted) return;
+      if (!video && caption.translation.state === "paired" && caption.source.audioRange.startMs >= latestStartMs) {
+        latestStartMs = caption.source.audioRange.startMs; latestUtteranceId = caption.source.utteranceId;
+        for (const previous of policy.snapshot()) {
+          if (previous.source.utteranceId !== latestUtteranceId && previous.source.audioRange.startMs <= latestStartMs) policy.retire(previous.source.utteranceId);
+        }
+      } else if (!video && latestUtteranceId !== caption.source.utteranceId && caption.source.audioRange.startMs < latestStartMs) policy.retire(caption.source.utteranceId);
     },
-    clear() { policy.clear(); },
+    clear() { latestStartMs = -1; latestUtteranceId = undefined; policy.clear(); },
     dispose() {
       if (disposed) return; disposed = true;
       resize.disconnect(); unsubscribe(); policy.dispose(); view.dispose(); host.remove();

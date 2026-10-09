@@ -39,6 +39,7 @@ async function connectOutput(snapshot: BackgroundSnapshot) {
 }
 async function control(command: { type: string; tabId?: number; source?: "ja" | "en" }) {
   if (command.type === "prepare" && command.tabId && command.source) {
+    await ensureRuntime();
     const previous = selectedTabId; const current = generation;
     selectedTabId = command.tabId;
     try { return await send({ type: "prepare", tabId: command.tabId, source: command.source }); }
