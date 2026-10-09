@@ -17,7 +17,8 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
   const view = createComparisonView(container, video ? "video" : "capture"); view.activate(identity);
   const style = document.createElement("style");
   style.textContent = `table, p { display:none }
-    .interpreter-live { width:min(84%,760px); box-sizing:border-box; margin:0 auto; padding:6px 18px;
+    .interpreter-stack { width:min(84%,760px); margin:0 auto; }
+    .interpreter-live { width:100%; box-sizing:border-box; margin:0 auto; padding:6px 18px;
       color:white; text-align:center; min-height:0; font:600 clamp(16px,2vw,26px)/1.65 system-ui,sans-serif;
       word-break:keep-all; text-shadow:0 1px 3px rgba(0,0,0,.8); }
     .interpreter-live > span:not(.interpreter-measure) { padding:4px 10px; border-radius:8px; background:var(--interpreter-background,rgba(18,20,26,.78));
@@ -47,7 +48,9 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
       if (host.parentElement !== parent) parent.append(host);
       host.style.display = fullscreen instanceof window.HTMLMediaElement ? "none" : "flex";
       host.style.left = "0"; host.style.top = "0"; host.style.width = "100%"; host.style.height = "100%";
-      host.style.paddingBottom = `${Math.max(64, window.innerHeight * 0.14)}px`;
+      const bottom = Math.max(64, window.innerHeight * 0.14);
+      host.style.paddingBottom = `${bottom}px`;
+      container.style.setProperty("--interpreter-stack-height", `${Math.max(0, window.innerHeight - bottom - 16)}px`);
       return;
     }
     const parent = fullscreen && fullscreen !== video && fullscreen.contains(video) ? fullscreen : document.documentElement;
@@ -57,7 +60,9 @@ export function createVideoOverlay(document: Document, video: HTMLVideoElement |
     // comparison host available instead of claiming this overlay is visible.
     host.style.display = !video.isConnected || rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth || (fullscreen !== null && (fullscreen === video || !fullscreen.contains(video))) ? "none" : "flex";
     host.style.left = `${rect.left}px`; host.style.top = `${rect.top}px`; host.style.width = `${rect.width}px`; host.style.height = `${rect.height}px`;
-    host.style.paddingBottom = `${Math.min(96, Math.max(64, rect.height * 0.18))}px`;
+    const bottom = Math.min(96, Math.max(64, rect.height * 0.18));
+    host.style.paddingBottom = `${bottom}px`;
+    container.style.setProperty("--interpreter-stack-height", `${Math.max(0, rect.height - bottom - 16)}px`);
   }
   const resize = new window.ResizeObserver(position); if (video) resize.observe(video);
   window.addEventListener("scroll", position, true); window.addEventListener("resize", position);

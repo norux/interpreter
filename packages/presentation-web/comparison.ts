@@ -10,6 +10,7 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
   host.setAttribute("aria-label", "Jamak captions");
   const style = document.createElement("style");
   style.textContent = `
+    .interpreter-stack { max-height:min(45vh,var(--interpreter-stack-height,320px)); overflow:hidden; }
     .interpreter-live { position:relative; padding:8px; min-height:3.2em; font:18px/1.5 system-ui;
       white-space:pre-wrap; overflow-wrap:anywhere; transition:opacity 250ms ease-out; }
     .interpreter-measure { position:absolute; visibility:hidden; left:8px; right:8px; }
@@ -19,18 +20,15 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
     .interpreter-comparison th:nth-child(2) { width:6em; }
   `;
   const status = document.createElement("p"); status.setAttribute("role", "status");
-  const cue = document.createElement("div"); cue.className = "interpreter-live"; cue.setAttribute("aria-live", "polite");
-  const text = document.createElement("span");
-  const measure = document.createElement("span"); measure.className = "interpreter-measure"; measure.setAttribute("aria-hidden", "true");
-  cue.append(text, measure);
+  const stack = document.createElement("div"); stack.className = "interpreter-stack"; stack.setAttribute("aria-live", "polite");
   const table = document.createElement("table"); table.className = "interpreter-comparison";
   const head = document.createElement("thead"); const headings = document.createElement("tr");
   for (const label of ["Original", timeBasis === "capture" ? "Capture elapsed" : "Video time", "Korean"]) { const cell = document.createElement("th"); cell.scope = "col"; cell.textContent = label; headings.append(cell); }
   head.append(headings); const body = document.createElement("tbody"); table.append(head, body);
-  host.append(style, status, cue, table); container.append(host);
+  host.append(style, status, stack, table); container.append(host);
   const rows = new Map<string, HTMLTableRowElement>();
   const listeners = new Set<(progress: DisplayProgress) => void>();
-  const entries: { caption: CaptionRevision; offset: number; end: number; partIndex: number; fading: boolean; displayedText: string; holdingTranslation: boolean }[] = [];
+  const entries: { caption: CaptionRevision; offset: number; end: number; partIndex: number; fading: boolean; displayedText: string; holdingTranslation: boolean; cue: HTMLDivElement; text: HTMLSpanElement; measure: HTMLSpanElement }[] = [];
   let identity: SessionIdentity | undefined;
   let disposed = false;
 
@@ -40,51 +38,61 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
   }
   function layout() {
     if (disposed) return;
-    const front = entries[0];
-    if (!front) { text.textContent = ""; cue.style.opacity = "1"; return; }
-    cue.style.opacity = front.fading && entries.length === 1 ? "0" : "1";
-    const characters = Array.from(front.displayedText.trim());
-    let low = Math.min(front.offset + 1, characters.length); let high = characters.length;
-    const lineHeight = Number.parseFloat(window?.getComputedStyle(cue).lineHeight ?? "27");
-    while (low < high) {
-      const middle = Math.ceil((low + high) / 2);
-      measure.textContent = characters.slice(front.offset, middle).join("");
-      if (measure.getBoundingClientRect().height <= lineHeight * 2 + 1) low = middle;
-      else high = middle - 1;
-    }
-    cue.dataset.speakerId = String(front.caption.source.speakerId ?? "");
-    cue.dataset.utteranceId = front.caption.source.utteranceId;
-    front.end = low;
-    const displayedText = characters.slice(front.offset, low).join("");
-    if (text.textContent !== displayedText) text.textContent = displayedText;
-    measure.textContent = "";
     for (const entry of entries) {
+      const { cue, text, measure } = entry;
+      cue.style.opacity = entry.fading ? "0" : "1";
+      const characters = Array.from(entry.displayedText.trim());
+      let low = Math.min(entry.offset + 1, characters.length); let high = characters.length;
+      const lineHeight = Number.parseFloat(window?.getComputedStyle(cue).lineHeight ?? "27");
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        measure.textContent = characters.slice(entry.offset, middle).join("");
+        if (measure.getBoundingClientRect().height <= lineHeight * 2 + 1) low = middle;
+        else high = middle - 1;
+      }
+      cue.dataset.speakerId = String(entry.caption.source.speakerId ?? "");
+      cue.dataset.utteranceId = entry.caption.source.utteranceId;
+      entry.end = low;
+      const displayedText = characters.slice(entry.offset, low).join("");
+      if (text.textContent !== displayedText) text.textContent = displayedText;
+      measure.textContent = "";
+    }
+    const bounds = stack.getBoundingClientRect();
+    for (const entry of entries) {
+      const rect = entry.cue.getBoundingClientRect();
+      const fits = rect.width > 0 && rect.top >= bounds.top - 1 && rect.bottom <= bounds.bottom + 1;
+      entry.cue.style.visibility = fits ? "" : "hidden";
       const translation = entry.caption.translation;
-      const displayed = entry.displayedText;
+      const displayedText = entry.text.textContent ?? "";
       const progress: DisplayProgress = { identity: entry.caption.source.identity, utteranceId: entry.caption.source.utteranceId,
         sourceRevision: entry.caption.source.sourceRevision, translationRevision: translation.state === "paired" ? translation.revision.translationRevision : undefined,
-        partIndex: entry.partIndex, complete: entry.end >= Array.from(displayed.trim()).length,
-        displayedText: entry === front ? text.textContent ?? "" : "",
-        visible: entry === front && !entry.holdingTranslation && cue.getBoundingClientRect().width > 0, characterCount: entry === front ? Array.from(text.textContent).length : 0 };
+        partIndex: entry.partIndex, complete: entry.end >= Array.from(entry.displayedText.trim()).length,
+        displayedText: fits ? displayedText : "",
+        visible: fits && !entry.holdingTranslation, characterCount: fits ? Array.from(displayedText).length : 0 };
       for (const listener of listeners) listener(progress);
     }
   }
-  const observer = new window.ResizeObserver(layout); observer.observe(cue);
+  const observer = new window.ResizeObserver(layout); observer.observe(stack);
   const sink: OutputSink = {
     present(event: PresentationEvent) {
       const current = "caption" in event ? event.caption.source.identity : event.identity;
       if (disposed || !identity || !sameIdentity(identity, current)) return;
-      if (event.type === "clear") { entries.length = 0; layout(); return; }
+      if (event.type === "clear") { entries.length = 0; stack.replaceChildren(); layout(); return; }
       if (event.type === "fade" || event.type === "remove") {
         const index = entries.findIndex(entry => entry.caption.source.utteranceId === event.utteranceId);
         if (index < 0) return;
-        if (event.type === "fade") { entries[index].fading = true; cue.style.transitionDuration = `${event.durationMs}ms`; }
-        else entries.splice(index, 1);
+        if (event.type === "fade") { entries[index].fading = true; entries[index].cue.style.transitionDuration = `${event.durationMs}ms`; }
+        else { entries[index].cue.remove(); entries.splice(index, 1); }
         layout(); return;
       }
       let entry = entries.find(entry => entry.caption.source.utteranceId === event.caption.source.utteranceId);
       if (!entry) {
-        entry = { caption: event.caption, offset: 0, end: 0, partIndex: 0, fading: false, displayedText: event.caption.source.text, holdingTranslation: false }; entries.push(entry);
+        const cue = document.createElement("div"); cue.className = "interpreter-live";
+        const text = document.createElement("span");
+        const measure = document.createElement("span"); measure.className = "interpreter-measure"; measure.setAttribute("aria-hidden", "true");
+        cue.append(text, measure); stack.append(cue);
+        entry = { caption: event.caption, offset: 0, end: 0, partIndex: 0, fading: false,
+          displayedText: event.caption.source.text, holdingTranslation: false, cue, text, measure }; entries.push(entry);
       }
       const holdingTranslation = event.caption.translation.state === "pending"
         && (entry.caption.translation.state === "paired" || entry.holdingTranslation);
@@ -121,7 +129,7 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
   };
   return {
     ...sink,
-    activate(selected: SessionIdentity) { entries.length = 0; identity = { ...selected }; layout(); },
+    activate(selected: SessionIdentity) { entries.length = 0; stack.replaceChildren(); identity = { ...selected }; layout(); },
     compare(caption: CaptionRevision) {
       if (disposed || !identity || !sameIdentity(identity, caption.source.identity)) return;
       const id = key(caption); let row = rows.get(id);

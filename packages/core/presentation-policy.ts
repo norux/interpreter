@@ -31,11 +31,13 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
   let cancelTimer: (() => void) | undefined;
   let disposed = false;
 
-  function visibleFront(): Entry | undefined {
-    return [...entries.values()].find((entry) => !entry.retired && entry.progress?.visible
+  function visibleEntries(): Entry[] {
+    return [...entries.values()].filter((entry) => !entry.retired && entry.progress?.visible
       && entry.progress.sourceRevision === entry.caption.source.sourceRevision
       && entry.progress.translationRevision === (entry.caption.translation.state === "paired" ? entry.caption.translation.revision.translationRevision : undefined));
   }
+
+  function visibleFront(): Entry | undefined { return visibleEntries()[0]; }
 
   function canExpire(entry: Entry): boolean {
     return entry.fading || !entry.progress?.complete || finalPair(entry.caption)
@@ -50,6 +52,10 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
       .map((entry) => entry.updatedAt + draftUpdateMs);
     const front = visibleFront();
     if (front?.until !== undefined && canExpire(front)) deadlines.push(front.until);
+    for (const entry of visibleEntries()) {
+      if (entry !== front && !entry.retired && !entry.fading && entry.progress?.visible && !entry.progress.complete
+        && entry.until !== undefined) deadlines.push(entry.until);
+    }
     if (deadlines.length) cancelTimer = clock.schedule(tick, Math.max(1, Math.min(...deadlines) - clock.now()));
   }
 
@@ -80,7 +86,14 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
     for (const entry of entries.values()) {
       if (entry.pending && !entry.retired && !entry.fading && entry.updatedAt + draftUpdateMs <= now) paint(entry, entry.pending, false);
     }
-    // Reading advances in insertion order, including coexisting sentences.
+    // Visible rows read concurrently; long rows advance their own parts.
+    for (const entry of visibleEntries()) {
+      if (!entry.retired && !entry.fading && entry.progress?.visible && !entry.progress.complete && entry.until !== undefined && entry.until <= now) {
+        entry.partIndex++; entry.progress = undefined; entry.until = undefined;
+        present({ type: "replay", caption: entry.caption, partIndex: entry.partIndex });
+      }
+    }
+    // Completed rows leave in insertion order without restarting the next clock.
     let front = visibleFront();
     while (front?.until !== undefined && front.until <= now && canExpire(front)) {
       if (front.fading) {

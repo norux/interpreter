@@ -342,3 +342,35 @@ test("growing provisional text spends one reading interval instead of restarting
   h.runFor(700);
   assert.deepEqual(h.events.at(-1)?.event,{type:'replay',caption:caption(10),partIndex:1});
 });
+
+test("stacked captions read concurrently and the next row keeps its original expiry", () => {
+  const h = harness(); const first = caption(1, true, "first"); const next = caption(1, true, "next");
+  h.accept(first); h.progress(first); h.runFor(1000);
+  h.accept(next); h.progress(next); h.runFor(3250);
+  assert.deepEqual(h.events.at(-1)?.event, { type: "remove", identity, utteranceId: "first" });
+  h.runFor(749); assert.equal(h.events.at(-1)?.event.type, "remove");
+  h.runFor(1);
+  assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "next", durationMs: 250 });
+  h.runFor(250); assert.deepEqual(h.events.at(-1)?.event, { type: "remove", identity, utteranceId: "next" });
+});
+
+test("a younger completed row waits for the older row to leave without restarting its reading time", () => {
+  const h = harness(); const first = caption(1, true, "first"); const next = caption(1, true, "next");
+  h.accept(first); h.progress(first, 0, true, 100); h.runFor(1000);
+  h.accept(next); h.progress(next); h.runFor(5000);
+  assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "first", durationMs: 250 });
+  h.runFor(250);
+  const removals = h.events.filter(item => item.event.type === "remove");
+  assert.equal(removals[0].event.type === "remove" && removals[0].event.utteranceId, "first");
+  assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "next", durationMs: 250 });
+  h.runFor(250); assert.deepEqual(h.events.at(-1)?.event, { type: "remove", identity, utteranceId: "next" });
+});
+
+test("a younger long caption advances its own part while the older row is still being read", () => {
+  const h = harness(); const first = caption(1, true, "first"); const next = caption(1, true, "next");
+  h.accept(first); h.progress(first, 0, true, 100);
+  h.accept(next); h.progress(next, 0, false, 10);
+  h.runFor(4000);
+  assert.deepEqual(h.events.at(-1)?.event, { type: "replay", caption: next, partIndex: 1 });
+  assert.ok(!h.events.some(item => item.event.type === "fade"), "An older six-second hold must not block a younger row's next part");
+});

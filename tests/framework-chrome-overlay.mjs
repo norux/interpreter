@@ -128,11 +128,13 @@ try {
     const live=createVideoOverlay(document,null,identity);
     const caption=(id,start,text,revision=1)=>({source:{...source,utteranceId:id,sourceRevision:revision,final:true,audioRange:{startMs:start,endMs:start+1000}},
       translation:{state:'paired',revision:{identity,utteranceId:id,sourceRevision:revision,translationRevision:revision,languages:{source:'ja',target:'ko'},text,final:true}}});
-    const read=()=>document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live span').textContent;
+    const read=()=>document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live span')?.textContent??'';
     live.compare(caption('old',0,'이전 문장'));await new Promise(done=>setTimeout(done,30));
     if(read()!=='이전 문장')throw Error('Initial whole-tab caption is missing');
     const started=performance.now();live.compare(caption('latest',1000,'최신 문장'));
     if(read()!=='이전 문장')throw Error('New translation discarded an unread sentence');
+    const stacked=Array.from(document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelectorAll('.interpreter-live span:not(.interpreter-measure)')).map(span=>span.textContent);
+    if(stacked.join('|')!=='이전 문장|최신 문장')throw Error('Ready translation must immediately stack below the previous caption');
     const deadline=started+5000;while(read()!=='최신 문장'&&performance.now()<deadline)await new Promise(done=>setTimeout(done,10));
     const delayMs=performance.now()-started;
     if(read()!=='최신 문장')throw Error('Queued translation never became visible');
@@ -142,7 +144,7 @@ try {
     live.dispose();return {delayMs};
   });
   observations.liveTiming=liveTiming;
-  observations.checks.push('Whole-tab captions preserve previous reading time, advance to the next sentence, and clear on Stop');
+  observations.checks.push('Whole-tab captions stack ready translations immediately, preserve each reading time, retire in order, and clear on Stop');
   assert.deepEqual(observations.pageErrors,[]);
   console.log(JSON.stringify({passed:true,...observations}));
 } catch(error) { console.error(JSON.stringify({passed:false,...observations,error:error.stack}));process.exitCode=1; }
