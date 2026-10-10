@@ -2,7 +2,7 @@
 
 2026-10-09, macOS arm64, Chrome for Testing 153.0.8010.12. 실제 production 확장의 popup → offscreen 탭 캡처 → 로컬 ASR → TranslateKit → 페이지 자막 경로로 검사했다. 서버 인식이나 대체 번역을 주입하지 않았다.
 
-현재 수동 일본어는 사용자의 실시간 받아쓰기 요청에 따라 영어와 같은 Chrome SODA 중간 결과 경로를 우선한다. 아래 Whisper 선택·리베이스 측정은 이 선택 변경 전의 기록이며, 최신 선택과 결과는 마지막 절에 기록한다. 자동 감지와 Chrome 로컬 인식을 지원하지 않는 환경의 fallback은 Whisper를 유지한다.
+현재 수동 일본어는 사용자의 실시간 받아쓰기 요청에 따라 영어와 같은 Chrome SODA 중간 결과 경로를 우선한다. 아래 Whisper 선택·리베이스 측정은 이 선택 변경 전의 기록이다. 자동 감지와 Chrome 로컬 인식을 지원하지 않는 환경의 fallback은 Whisper를 유지하며, 2026-10-10부터 Whisper도 임시 원문을 표시하고 같은 자막을 교정한다. 날짜별 선택과 결과는 아래에 기록한다.
 
 ## 오디오와 재현
 
@@ -74,3 +74,21 @@ WebGPU가 있는 팝업의 일본어 캐시 검사에서 이전 구현은 Start 
 17개 최종 자막의 CER는 **9/357 (2.52%)**였다. 원문 내용 anchor는 8개 발화 모두 남았지만 `カフェの向かいに本屋`를 `カフェの向かい日本屋`로 인식해 한국어가 “카페 맞은편에 일본 가게”가 됐다. “서점” anchor 실패로 전체 내용 정확도 검사는 **실패**했다. 질문 문장부호·제안의 극성 오류도 남는다. 정확도 gate를 완화하거나 특정 테스트 문장으로 원문을 교정하지 않았다.
 
 이 실패 전에 검사된 native 시작·interim·Whisper 호출 없음과 보고서의 first-display 측정은 유효하다. 저장된 실제 프레임을 별도로 검사해 17개 최종 revision의 번역 pairing, 모든 ID 표시, 읽은 ID 재등장 없음, 마지막 자막의 페이드 완료를 확인했다. 전체 live 명령은 내용 검사 실패에서 중단되어 뒤의 Stop·이동 검사를 통과했다고 주장하지 않는다. 로컬 상세 보고서는 `.ralph/caption-conversation/native-streaming-ja.json`이다.
+
+## Whisper 임시 받아쓰기와 교정
+
+2026-10-10. 기존 Whisper의 누적 PCM 재분석 주기와 문장 확인 정책을 유지하면서, 미확정 텍스트를 `final: false`로 먼저 보낸다. 다음 snapshot은 같은 utterance ID의 source revision을 증가시켜 교정하며, 연속 결과에서 일치한 완성 문장은 같은 ID로 확정한다. 남은 문장은 다음 임시 자막으로 이어진다. PCM을 잘라도 남은 자막 ID를 보존하고, 바뀌지 않은 임시 결과는 재전송하지 않는다. 확정된 접두사 중복 방지와 미완성 음성 보관, 자동 언어 교정, 기존 번역 pairing·한국어 번역 생략을 유지한다. 새로운 모델이나 재학습, 추론 간격 단축은 없다.
+
+변경 전에는 문장 끝·쉼·EOF 이전에 임시 받아쓰기가 나와야 하는 회귀 검사에서 출력이 0개여서 실패했다. 변경 후 `node --import tsx --test tests/framework-browser-streaming.test.ts tests/framework-browser-translation.test.ts` 43개가 통과했다. 같은 ID의 교정·확정, 대기 중 임시 결과 병합, 오래된 번역 응답 거부, 12초 창을 넘긴 임시 자막 ID 유지와 확정 접두사 재출력 방지를 검사했다. 이 검사의 모델 출력은 mock이며 실제 정확도·지연 측정이 아니다. `npm run verify`도 lint, 두 타입 검사, Chrome 빌드, 단위·fixture 189개와 제어된 시계의 자막 스택 검사를 통과했다.
+
+실제 `INTERPRETER_TEST_MODEL_DIRECTORY=/tmp node tests/framework-chrome-tab-engine.mjs --japanese-conversation --whisper`로 동일한 두 목소리 WAV, pinned Turbo FP16/WebGPU와 native TranslateKit을 사용했다. 첫 실행에서는 첫 원문 2,877.6 ms와 첫 한국어 2,921.5 ms, 확정 전 실제 화면 표시를 확인했지만 재생 종료 뒤 `seeking`·`playing`이 다시 발생했다. 추가 재생 중 미확정 자막이 남아 전체 명령이 실패했다. 모델이 조용한 입력에서 앞 내용을 생성했다는 증거로 해석하지 않는다. 실패 보고서는 `.ralph/caption-conversation/whisper-streaming-replay-failed-ja.json`에 보관했다. 검사에는 단일 재생·비반복·재생 종료 상태를 명시적으로 확인하는 조건을 추가했다.
+
+두 번째 실행은 단일 재생으로 21개 원문·번역 최종 pairing, 8개 발화의 주요 일본어·한국어 내용, 모든 ID의 표시·재등장 방지와 마지막 자막 페이드를 통과했다. 16개 자막은 같은 ID의 최초 final보다 먼저 화면에 나타났다. 첫 원문은 2,240.3 ms, 첫 한국어는 2,423.7 ms였고 CER는 12/357 (3.36%)였다. 이는 초기 임시 표시의 측정이며 문장 전체 확정 지연이나 일반 장치 성능을 보장하지 않는다. `妹`의 “여동생/동생” 번역 오류는 상세 검사에 남았다. 다만 Stop 후 상태가 정상적인 `idle`인데 검사에서 `ready`만 기다려 120초 timeout이 났다. 이 실행의 전체 명령을 통과로 기록하지 않는다. Stop 검사를 `idle` 또는 캐시 자동 준비 후의 `ready`를 수용하도록 수정하고 overlay·캡처 해제 및 늦은 revision 거부도 확인하도록 했다. 이 보고서는 `.ralph/caption-conversation/whisper-streaming-content-passed-stop-timeout-ja.json`이다.
+
+검사 수정 후 세 번째 Whisper 실행은 전체 명령을 통과했다. 단일 75.979625초 재생에서 18개 자막이 모두 확정·번역 paired 상태였고, 17개는 확정 전에 표시됐다. 첫 원문 2,431.4 ms, 첫 한국어 2,458.6 ms, CER 8/357 (2.24%), 실제 ASR 59회였다. 주요 원문·한국어 내용, 두 화자의 구분, 모든 ID 표시, 읽은 ID 재등장 없음, 마지막 자막 페이드, Stop 후 overlay·캡처 해제·늦은 revision 거부, 페이지 이동과 탭 종료에 따른 준비 정리를 통과했다. `妹`의 여동생 관계 번역 오류는 남았다. `.ralph/caption-conversation/whisper-streaming-ja.json`에 보관했다. 앞 실행들과 snapshot 결과·자막 수가 다르므로 매 실행의 같은 정확도를 보장하지 않는다.
+
+필수 비교 명령 `npm run test:conversation:ja:live`도 실행했다. SODA의 17개 확정 자막, CER 11/357 (3.08%), 첫 원문 1,079.4 ms와 한국어 1,128.2 ms를 기록했고 Whisper 호출은 0회였다. 기존 측정과 같은 카페 맞은편 “서점”의 한국어 의미 누락으로 전체 명령은 실패했다. 이 실패는 수정하지 않은 native 경로의 품질 제한으로 남기며, 실패 뒤 Stop·이동 검사를 통과했다고 주장하지 않는다. 보고서는 `.ralph/caption-conversation/whisper-streaming-native-ja.json`이다.
+
+`INTERPRETER_TEST_MODEL_DIRECTORY=/tmp npm run test:auto-language:live`도 통과했다. 검사에서 임시 자막만으로 내용 조건을 만족하고 끝내지 않도록 원문과 번역의 final을 모두 기다린다. 6개 영어/일본어/한국어 교대 발화에서 12개 최종 paired 자막, 첫 단어·주요 내용 보존, 한국어 native 번역 생략, 실제 overlay 표시, Stop·페이지 이동 정리를 확인했다. 실제 ASR 25회와 native 번역 19회였다. 한국어 “역에서”를 “여기서”로 인식하는 기존 오류는 남았다. `.ralph/auto-language/live.json`과 `whisper-streaming-live.log`에 보관했다. 최종 `npm run verify`도 189개와 자막 스택 검사를 다시 통과했다.
+
+README·AGENTS·아키텍처·검사 지침을 동기화했다. 코딩 규약은 기존 revision·큐·취소 원칙이 적용되어 수정하지 않았다. PRIVACY는 같은 로컬 음성·문장 처리와 메모리 기록 정책을 유지해 수정하지 않았다. 날짜가 명시된 화자·자동 언어 검증 기록도 기존 측정과 모델을 설명하므로 그대로 보존했다.

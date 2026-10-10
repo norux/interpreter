@@ -283,7 +283,12 @@ try {
       assert.equal((await worker.evaluate(()=>chrome.runtime.getContexts({contextTypes:[chrome.runtime.ContextType.OFFSCREEN_DOCUMENT]}))).length,1);
       assert.equal(await runtime.evaluate("typeof Translator"),'function');
       await runtime.evaluate(`(()=>{
-        globalThis.runtimeObservations=[];globalThis.translationCalls=[];globalThis.localSpeechEvents=[];
+        globalThis.runtimeObservations=[];globalThis.translationCalls=[];globalThis.localSpeechEvents=[];globalThis.captionRevisions=[];
+        const sendMessage=chrome.runtime.sendMessage.bind(chrome.runtime);
+        chrome.runtime.sendMessage=function(message,...args){
+          if(message.channel==='interpreter-event-v1'&&message.type==='caption')captionRevisions.push({atMs:performance.timeOrigin+performance.now(),source:message.caption.source});
+          return sendMessage(message,...args);
+        };
         const Speech=globalThis.SpeechRecognition??globalThis.webkitSpeechRecognition;
         if(${localSpeech}&&Speech){
           const install=Speech.install;Speech.install=function(options){localSpeechEvents.push({type:'install',local:options.processLocally});return install.call(this,options)};
@@ -416,7 +421,8 @@ try {
         if (await page.evaluate(() => media.ended) && meeting.turns.every((turn,index) => {
           const captions = turnCaptions(current.captions, turn);
           const text = captions.map(caption => caption.source.text).join(" ");
-          return anchors[index].every(anchor => anchor.test(text)) && captions.every(caption => caption.translation.state === "paired");
+          return anchors[index].every(anchor => anchor.test(text)) && captions.every(caption => caption.source.final
+            && caption.translation.state === "paired" && caption.translation.revision.final);
         })) break;
         await new Promise(done => setTimeout(done,250));
       }
@@ -438,7 +444,9 @@ try {
         assert.match(text, starts[index], `Lost onset at turn ${index}`);
         for (const anchor of anchors[index]) assert.match(text, anchor, `Missing sentence content at turn ${index}`);
         for (const caption of captions) {
+          assert.equal(caption.source.final,true,"Automatic turn drafts must reach final before Stop");
           assert.equal(caption.translation.state,"paired");
+          assert.equal(caption.translation.revision.final,true);
           assert.equal(caption.translation.revision.languages.source,caption.source.language);
           assert.equal(caption.translation.revision.sourceRevision,caption.source.sourceRevision);
           assert.match(caption.translation.revision.text,/[가-힣]/);
@@ -525,19 +533,39 @@ try {
       const firstSource = frames.find(frame=>frame.text && frame.opacity!=='0');
       const firstKorean = frames.find(frame=>/[가-힣]/.test(frame.text) && frame.opacity!=='0');
       const latency = {firstSourceVisibleMs:firstSource?.atMs-playAtMs,firstKoreanVisibleMs:firstKorean?.atMs-playAtMs};
-      const result = {state:completed.state,fixtureSha256:createHash('sha256').update(media.get('/conversation.wav')).digest('hex'),mediaState,latency,captions,frames,native,meaning,accuracy,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
+      const revisions = await runtime.evaluate('captionRevisions');
+      const pageTimeOrigin = await page.evaluate(()=>performance.timeOrigin);
+      const seenDrafts = new Set();
+      const drafts = revisions.filter(revision=>{
+        const key=JSON.stringify([revision.source.utteranceId,revision.source.sourceRevision]);
+        if(revision.source.final||seenDrafts.has(key))return false;
+        seenDrafts.add(key);return true;
+      });
+      const confirmedDrafts = captions.filter(caption=>caption.source.final&&drafts.some(draft=>draft.source.utteranceId===caption.source.utteranceId));
+      const visibleDrafts = confirmedDrafts.filter(caption=>{
+        const final=revisions.find(revision=>revision.source.utteranceId===caption.source.utteranceId&&revision.source.final);
+        return frames.some(frame=>frame.utteranceId===caption.source.utteranceId&&frame.text&&frame.opacity!=='0'&&frame.atMs+pageTimeOrigin<final.atMs);
+      });
+      const streaming = {drafts:drafts.length,confirmedDrafts:confirmedDrafts.length,visibleBeforeFinal:visibleDrafts.length};
+      const result = {state:completed.state,fixtureSha256:createHash('sha256').update(media.get('/conversation.wav')).digest('hex'),mediaState,latency,streaming,revisions,captions,frames,native,meaning,accuracy,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
       await mkdir('.ralph/caption-conversation', {recursive:true});
       await writeFile(report, JSON.stringify(result,null,2));
+      assert.equal(mediaState.loop,false,'Conversation audio must not loop');
+      assert.equal(mediaState.events.filter(event=>event.type==='playing').length,1,'Require a single uninterrupted conversation playback');
+      assert.equal(mediaState.ended,true,'Conversation audio must remain ended during caption drain');
       if (nativeSpeech) {
         assert.ok(native.some(event=>event.type==='start' && event.local && event.trackKind==='audio'));
         assert.ok(native.some(event=>event.type==='result' && event.finals.includes(false)), 'Native interim speech must arrive before final');
         assert.equal(result.workers.some(event=>event.type==='asr-job'),false,'Native conversation must not perform Whisper snapshot inference');
+      } else {
+        assert.ok(streaming.drafts>0,'Whisper must publish provisional recognition');
+        assert.ok(streaming.visibleBeforeFinal>0,'A Whisper draft must be visible before confirmation of the same caption');
       }
       assert.ok(captions.length >= 8, 'Conversation must be split into readable phrases');
       assert.ok(new Set(captions.map(c=>c.source.speakerId).filter(Boolean)).size >= 2, 'Both actual voices must receive labels');
       assert.ok(captions.every(c=>c.translation.state==='paired'), 'Every final source revision must retain its matching translation');
       if (japaneseConversation) {
-        assert.ok(captions.every(c=>c.source.final), 'Every Japanese phrase must reach native final');
+        assert.ok(captions.every(c=>c.source.final), 'Every Japanese phrase must reach final');
         assert.ok(accuracy.rate <= 0.12, `Japanese conversation CER: ${accuracy.rate}`);
         for (const turn of meaning) {
           assert.deepEqual(turn.missingSource, [], `Lost Japanese meaning: ${turn.reference}`);
@@ -562,7 +590,11 @@ try {
         'The last caption must finish too; Stop cannot mask a growing display backlog');
       assert.equal(frames.at(-1)?.text,'','The last completed caption must fade while the session remains running');
       console.log(JSON.stringify({phase:'conversation',language:scenario.language,captions:captions.length,finals:captions.filter(c=>c.source.final).length,frames:frames.length,latency,accuracy,translationDetails:meaning?.filter(turn=>turn.missingKoreanDetails.length),report}));
-      popup=await openPopup();await popup.click('#stop');await waitState(value=>value?.state==='ready');await popup.close();
+      popup=await openPopup();await popup.click('#stop');await waitState(value=>['idle','ready'].includes(value?.state));await popup.close();
+      await page.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
+      assert.equal(await worker.evaluate(async()=>(await chrome.tabCapture.getCapturedTabs()).some(t=>['active','pending'].includes(t.status))),false);
+      const retained=await state();await new Promise(done=>setTimeout(done,1200));
+      assert.deepEqual((await state()).captions,retained.captions,'Stop must reject late conversation revisions');
       continue;
     }
     const first=await waitState(value=>value?.captions.some(c=>c.translation.state==='paired'),60000);

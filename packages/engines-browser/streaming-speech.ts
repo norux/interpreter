@@ -4,8 +4,8 @@ import { sameIdentity } from "../core/identity";
 import type { createAsrHost } from "./asr-host";
 import type { AsrSegment } from "./asr-protocol";
 
-// Whisper decodes growing audio snapshots. Only text agreed by two successive
-// snapshots is committed; a decoder's provisional full stop is not sufficient.
+// Whisper decodes growing audio snapshots and revises the pending caption.
+// Only sentences agreed by successive snapshots are committed during speech.
 export function createStreamingSpeechRecognizer(identity: SessionIdentity, language: "ja" | "en" | "ko" | "auto",
   executor: Pick<ReturnType<typeof createAsrHost>, "recognize" | "stop">,
   receive: (status: SessionStatus) => void,
@@ -21,6 +21,7 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
   let input: AsyncIterator<AudioChunk> | undefined;
   let wake: (() => void) | undefined;
   const results: TranscriptRevision[] = [];
+  let draft: TranscriptRevision | undefined;
   let buffer = new Float32Array(16000 * 22); // 12 s snapshot + 10 s inference headroom.
   let length = 0; let startMs = 0; let endMs = 0;
   let speechEndMs = -1; let quietSamples = 0;
@@ -54,7 +55,7 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
     if (stopped) return;
     stopped = true; if (reason) failure = new Error(reason);
     if (speechEndMs > startMs) droppedMs += length / 16;
-    length = 0; results.length = 0;
+    length = 0; results.length = 0; draft = undefined;
     executor.stop(); detector.stop();
     void input?.return?.().catch(() => {}); input = undefined;
     report(reason && reason !== "cancelled" ? "failed" : "stopping", reason); wake?.();
@@ -64,11 +65,19 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
     previous = ""; previousEndings.clear(); committed = 0;
     while (boundaries.length && boundaries[0] <= startMs) boundaries.shift();
   }
-  function publish(text: string, range: { startMs: number; endMs: number }) {
-    if (!text.trim()) return;
-    if (results.length >= 16) { stop("overloaded"); return; }
-    results.push({ identity: selected, utteranceId: `speech-${++utterance}`, language: detectedLanguage,
-      sourceRevision: 1, final: true, text: text.trim(), audioRange: range }); wake?.();
+  function publish(text: string, range: { startMs: number; endMs: number }, final = true) {
+    text = text.trim();
+    if (!text || stopped || !final && draft?.text === text && draft.language === detectedLanguage) return;
+    const revision: TranscriptRevision = { identity: selected, utteranceId: draft?.utteranceId ?? `speech-${++utterance}`, language: detectedLanguage,
+      sourceRevision: (draft?.sourceRevision ?? 0) + 1, final, text,
+      audioRange: { startMs: draft?.audioRange.startMs ?? range.startMs, endMs: range.endMs } };
+    const queued = results.findIndex(source => source.utteranceId === revision.utteranceId);
+    if (queued >= 0) results[queued] = revision;
+    else {
+      if (results.length >= 16) { stop("overloaded"); return; }
+      results.push(revision);
+    }
+    draft = final ? undefined : revision; wake?.();
   }
   function accept(segments: readonly AsrSegment[], decodedStartMs: number, analyzedEndMs: number, final: boolean, finishUtterance: boolean) {
     const text = segments.map(segment => segment.text).join("");
@@ -117,6 +126,7 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
       publish(pending, { startMs: pendingStartMs ?? decodedStartMs, endMs: analyzedEndMs });
       committed = current.length; pending = "";
     }
+    if (pending) publish(pending, { startMs: pendingStartMs ?? decodedStartMs, endMs: analyzedEndMs }, false);
     if ((final || settledPause) && !pending) trimEndMs = analyzedEndMs;
     // Once the entire decoded speech is confirmed during silence, discard its
     // decoded quiet tail too; it cannot start another noise-only ASR job.

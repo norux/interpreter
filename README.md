@@ -11,7 +11,7 @@
 - Optionally detects English, Japanese and Korean per speech turn. English/Japanese → Korean subtitles; Korean speech keeps its original text.
 - Select English, Japanese or Korean manually to disable automatic detection. Manual Japanese is the default.
 - Captures the selected tab's audio, including videos, iframes and Web Audio. Playback remains audible.
-- Updates captions as speech arrives and corrects them as recognition completes.
+- Updates captions as speech arrives and corrects them as recognition completes. Whisper also shows provisional text while speaking, then confirms stable sentences.
 - Distinguishes speakers with background colors, without speaker labels.
 - Shows ready captions immediately below earlier captions in a bounded toast-style stack. Visible captions read concurrently and leave oldest first; each completed part remains for 4–6 seconds, then fades out.
 - Keeps captions visible over fullscreen videos and players, including fullscreen videos inside embedded frames. Playback controls remain clickable.
@@ -71,7 +71,9 @@ For Orca workspaces, keep credentials in the main checkout and configure `.env.c
 
 Chrome SODA and TranslateKit provide local recognition and translation when available. With Chrome defaults, automatic mode and the fallback use Whisper large-v3-turbo with Silero VAD. Advanced offers Whisper Tiny/Base/Small q8 on CPU, Small FP16 and Large v3 Turbo FP16 on WebGPU, plus independent Chrome TranslateKit/NLLB-200 Distilled 600M q8/M2M100 418M q8 translation. Download sizes range from ~44 MB for Tiny to ~1.6 GB for Turbo; NLLB is ~912 MB and M2M100 ~640 MB. These alternatives can be slower or less accurate; changing models is for comparison, not a latency guarantee. Automatic mode reuses one acoustic encoder pass for language detection and transcription, keeps the translation pairs ready, and uses recent language only to break uncertain ties. Speaker history does not determine language. WeSpeaker provides session-local speaker embeddings. The Japanese Whisper fallback retains unfinished phrases across recognition windows. Chrome Japanese translation handles conversational endings and question marks. Interim captions may change as speech continues; recognition and translation can still misinterpret individual words or relationships. Short responses may have no speaker assignment; overlapping speech, noise and similar voices can reduce accuracy.
 
-Automatic language switching currently follows speech pauses; simultaneous voices or language changes without a pause can share one recognition window. It is not instantaneous: inference and caption confirmation add delay, and short ambiguous speech can be misidentified.
+Whisper repeatedly analyzes growing audio snapshots, normally after about one second of new audio, and updates the same provisional caption. Matching completed sentences are confirmed across consecutive results; unfinished audio stays available for correction. This adds repeated inference cost, and the actual display interval depends on model speed and translation. It does not guarantee SODA-like latency.
+
+Automatic language switching currently follows speech pauses; simultaneous voices or language changes without a pause can share one recognition window. It is not instantaneous: audio accumulation and inference delay initial text, confirmation adds delay to final text, and short ambiguous speech can be misidentified.
 
 Model weights have their own licenses. [NLLB](https://huggingface.co/facebook/nllb-200-distilled-600M) is CC-BY-NC-4.0 and intended for research/noncommercial use; [M2M100](https://huggingface.co/facebook/m2m100_418M) is MIT. See [model attribution and speaker verification](docs/verification/captions/conversation-speakers.md) and the [architecture model inventory](docs/architecture/media-framework.md#models).
 
