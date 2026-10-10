@@ -72,6 +72,21 @@ test("page output validates envelopes, selected document and exact source/transl
   }
 });
 
+test("overlay transport accepts only final empty unpaired withdrawals", () => {
+  const removed = { ...caption, source: { ...caption.source, text: "", retracted: true as const } };
+  for (const [input, accepted] of [[removed, true],
+    [{ ...removed, source: { ...removed.source, final: false } }, false],
+    [{ ...removed, source: { ...removed.source, text: "a stale hypothesis" } }, false],
+    [{ ...removed, source: { ...removed.source, retracted: false } }, false]] as const) {
+    const wire = port();
+    const served = serveVideoOutput(wire as unknown as chrome.runtime.Port, undefined, {} as Document);
+    wire.receive({ version: 1, sequence: 0, type: "caption", caption: input });
+    assert.equal(wire.disconnected, accepted ? 0 : 1);
+    assert.equal(wire.sent.length, accepted ? 1 : 0);
+    served.dispose();
+  }
+});
+
 test("tab page output validates mixed-input identity and forbids fabricated video ranges before DOM", () => {
   const tab = { ...target, frameId: "tab", scope: "tab-mix", tabId: 12 };
   for (const value of [

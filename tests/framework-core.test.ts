@@ -10,6 +10,25 @@ const target: MediaTarget = { id: "video" as MediaTargetId, documentId: "doc", f
 const identity: SessionIdentity = { sessionId: "s1", targetId: target.id, epoch: 0 };
 const limits = { maxChunkBytes: 400, maxAudioQueueMs: 200, maxPendingUtterances: 3, maxTranslationJobs: 2, maxStoredCaptions: 3 };
 const languages = { source: "ja", target: "ko" };
+
+test("withdrawn hypotheses leave history and fence stale source, translation and speaker updates", () => {
+  const store = createRevisionStore(identity, 300);
+  const first = source(); store.accept({ type: "transcript", revision: first });
+  store.accept({ type: "translation", revision: translation() });
+  const removed = { ...source(2, true), text: "", retracted: true as const };
+  for (const revision of [{ ...removed, final: false }, { ...removed, text: "still present" }, { ...removed, identity: { ...identity, epoch: 1 } }]) {
+    assert.equal(store.accept({ type: "transcript", revision }), undefined);
+  }
+  assert.equal(store.snapshot().length, 1);
+  assert.ok(store.accept({ type: "transcript", revision: removed }));
+  assert.deepEqual(store.snapshot(), []);
+  assert.equal(store.accept({ type: "transcript", revision: source(3, true) }), undefined);
+  assert.equal(store.accept({ type: "translation", revision: translation(2, 2, true) }), undefined);
+  assert.equal(store.accept({ type: "speaker", identity, utteranceId: first.utteranceId, speakerId: 1 }), undefined);
+  assert.ok(store.accept({ type: "transcript", revision: source(1, true, identity, "confirmed") }));
+  assert.equal(store.accept({ type: "transcript", revision: { ...removed, utteranceId: "confirmed" } }), undefined,
+    "A provisional withdrawal cannot erase a confirmed sentence");
+});
 const capabilities: EngineCapabilities = {
   availability: { state: "available" }, pipeline: "separate-asr-translation", asrOnlyUpdates: true,
   languages, models: [], limits,

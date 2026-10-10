@@ -8,6 +8,70 @@ import { createStreamingSpeechRecognizer } from "../packages/engines-browser/str
 
 const identity = { sessionId: "streaming", targetId: "tab" as MediaTargetId, epoch: 0 };
 const tick = () => new Promise<void>(resolve => setImmediate(resolve));
+
+test("Whisper withdraws a draft removed by correction instead of carrying it into the next turn", async () => {
+  const f = fixture("ja", ["いいね。それから本", "いいね。それから本", "いいね。", "次の話です。"].map(text => ({
+    text, segments: [{ text, startMs: 0, endMs: 1000 }],
+  })));
+  const revisions: TranscriptRevision[] = [];
+  const consume = (async () => { for await (const revision of f.recognizer.run(f.input)) revisions.push(revision); })()
+    .catch(error => { if (error.message !== "cancelled") throw error; });
+  try {
+    await f.feed(64);
+    const tail = revisions.at(-1); assert.equal(tail?.text, "それから本");
+    await f.feed(32);
+    const removed = revisions.at(-1); assert.ok(removed);
+    assert.equal(removed.retracted, true, "The removed hypothesis must release its held overlay row");
+    assert.equal(removed.utteranceId, tail?.utteranceId); assert.equal(removed.sourceRevision, 2);
+    await f.feed(32);
+    assert.equal(revisions.at(-1)?.text, "次の話です。");
+    assert.notEqual(revisions.at(-1)?.utteranceId, tail?.utteranceId);
+  } finally { await f.recognizer.cancel(identity); await consume; }
+});
+
+test("a completed automatic speech boundary with empty recognition withdraws its earlier draft", async () => {
+  const f = fixture("auto", [
+    { language: "ja" as const, confidence: 0.99, text: "仮の言葉", segments: [{ text: "仮の言葉", startMs: 0, endMs: 1000 }] },
+    { language: "ja" as const, confidence: 0.99, text: "", segments: [] },
+  ]);
+  const revisions: TranscriptRevision[] = [];
+  const consume = (async () => { for await (const revision of f.recognizer.run(f.input)) revisions.push(revision); })()
+    .catch(error => { if (error.message !== "cancelled") throw error; });
+  try {
+    await f.feed(32); await f.feed(8, false);
+    assert.equal(revisions.at(-1)?.retracted, true);
+    assert.equal(revisions.at(-1)?.utteranceId, revisions[0].utteranceId);
+    assert.equal(f.jobs.length, 2);
+  } finally { await f.recognizer.cancel(identity); await consume; }
+});
+
+test("Whisper withdrawal traverses the pipeline while a stale translation is in flight", async () => {
+  const f = fixture("ja", [
+    { text: "仮の言葉", segments: [{ text: "仮の言葉", startMs: 0, endMs: 1000 }] },
+    { text: "", segments: [] },
+  ]);
+  const store = createRevisionStore(identity, 300); const received: TranscriptRevision[] = [];
+  let release!: () => void; const pending = new Promise<void>(resolve => { release = resolve; });
+  const pipeline = createBrowserPipeline(identity, { source: "ja", target: "ko" }, () => f.recognizer, {
+    async *translate(source, languages) {
+      await pending;
+      yield { identity, utteranceId: source.utteranceId, sourceRevision: source.sourceRevision,
+        translationRevision: 1, languages, text: "遅い翻訳", final: source.final };
+    }, async cancel() { release(); }, async close() {},
+  });
+  const consume = (async () => {
+    for await (const event of pipeline.run(f.input)) {
+      if (event.type === "transcript") received.push(event.revision);
+      store.accept(event);
+    }
+  })();
+  try {
+    await f.feed(32); assert.equal(store.snapshot().length, 1);
+    await f.feed(32); assert.equal(received.at(-1)?.retracted, true);
+    assert.deepEqual(store.snapshot(), []);
+    release(); await tick(); assert.deepEqual(store.snapshot(), []);
+  } finally { await pipeline.cancel(identity); await consume; await pipeline.close(); }
+});
 async function* finalRevisions(revisions: AsyncIterable<TranscriptRevision>) {
   for await (const revision of revisions) if (revision.final) yield revision;
 }

@@ -65,7 +65,7 @@ export function createBrowserPipeline(identity: SessionIdentity, languages: Lang
             if (stopped) return;
             if (!sameIdentity(selected, source.identity) || (languages.source === "auto"
               ? !["en", "ja", "ko"].includes(source.language) : source.language !== languages.source)) { fail("engine-failed"); return; }
-            if (translations.accept(source)) voices?.observe(source);
+            if (translations.accept(source) && !source.retracted) voices?.observe(source);
           }
           await translations.whenIdle();
           await voices?.settle();

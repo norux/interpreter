@@ -59,6 +59,8 @@ export interface TranscriptRevision {
   readonly sourceRevision: number;
   readonly text: string;
   readonly final: boolean;
+  // A final, empty revision withdraws a hypothesis removed by recognition.
+  readonly retracted?: true;
   readonly audioRange: AudioRange;
   readonly language: string;
   readonly speakerId?: number;

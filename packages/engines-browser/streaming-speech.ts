@@ -65,11 +65,12 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
     previous = ""; previousEndings.clear(); committed = 0;
     while (boundaries.length && boundaries[0] <= startMs) boundaries.shift();
   }
-  function publish(text: string, range: { startMs: number; endMs: number }, final = true) {
+  function publish(text: string, range: { startMs: number; endMs: number }, final = true, retracted = false) {
     text = text.trim();
-    if (!text || stopped || !final && draft?.text === text && draft.language === detectedLanguage) return;
+    if (!text && !retracted || stopped || !final && draft?.text === text && draft.language === detectedLanguage) return;
     const revision: TranscriptRevision = { identity: selected, utteranceId: draft?.utteranceId ?? `speech-${++utterance}`, language: detectedLanguage,
       sourceRevision: (draft?.sourceRevision ?? 0) + 1, final, text,
+      ...(retracted ? { retracted: true } : {}),
       audioRange: { startMs: draft?.audioRange.startMs ?? range.startMs, endMs: range.endMs } };
     const queued = results.findIndex(source => source.utteranceId === revision.utteranceId);
     if (queued >= 0) results[queued] = revision;
@@ -127,6 +128,9 @@ export function createStreamingSpeechRecognizer(identity: SessionIdentity, langu
       committed = current.length; pending = "";
     }
     if (pending) publish(pending, { startMs: pendingStartMs ?? decodedStartMs, endMs: analyzedEndMs }, false);
+    // A later snapshot may remove the provisional tail entirely. Keeping its
+    // ID alive would block retirement and attach the next turn to stale text.
+    else if (draft) publish("", { startMs: draft.audioRange.startMs, endMs: analyzedEndMs }, true, true);
     if ((final || settledPause) && !pending) trimEndMs = analyzedEndMs;
     // Once the entire decoded speech is confirmed during silence, discard its
     // decoded quiet tail too; it cannot start another noise-only ASR job.

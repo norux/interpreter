@@ -92,3 +92,17 @@ WebGPU가 있는 팝업의 일본어 캐시 검사에서 이전 구현은 Start 
 `INTERPRETER_TEST_MODEL_DIRECTORY=/tmp npm run test:auto-language:live`도 통과했다. 검사에서 임시 자막만으로 내용 조건을 만족하고 끝내지 않도록 원문과 번역의 final을 모두 기다린다. 6개 영어/일본어/한국어 교대 발화에서 12개 최종 paired 자막, 첫 단어·주요 내용 보존, 한국어 native 번역 생략, 실제 overlay 표시, Stop·페이지 이동 정리를 확인했다. 실제 ASR 25회와 native 번역 19회였다. 한국어 “역에서”를 “여기서”로 인식하는 기존 오류는 남았다. `.ralph/auto-language/live.json`과 `whisper-streaming-live.log`에 보관했다. 최종 `npm run verify`도 189개와 자막 스택 검사를 다시 통과했다.
 
 README·AGENTS·아키텍처·검사 지침을 동기화했다. 코딩 규약은 기존 revision·큐·취소 원칙이 적용되어 수정하지 않았다. PRIVACY는 같은 로컬 음성·문장 처리와 메모리 기록 정책을 유지해 수정하지 않았다. 날짜가 명시된 화자·자동 언어 검증 기록도 기존 측정과 모델을 설명하므로 그대로 보존했다.
+
+## 교정에서 없어진 임시 자막의 철회
+
+2026-10-10. Whisper Turbo FP16 + Chrome 번역에서 영상 자막이 남는 보고를 조사했다. 인식 snapshot이 미완성 꼬리를 제거하거나 완료된 발화의 결과가 빈 텍스트가 되면 기존 draft에 확정·삭제 revision이 오지 않았다. 최종 결과가 필러만 남아 번역 큐에서 걸러지는 경우에도 이전 임시 행이 남았다. 이 행은 최신 원문·번역의 final을 영원히 기다리며 뒤의 완료된 행까지 순차 퇴장을 막는다. 세 가지 mock 회귀 검사가 수정 전 실패했다. 첨부된 실제 영상의 입력이나 내부 revision 기록은 확보하지 않았으므로 이 세 가지가 그 영상의 정확한 원인이었다고 단정하지 않는다.
+
+없어진 임시 인식은 같은 ID, 증가한 source revision, 빈 텍스트와 final `retracted` 상태로 명시적으로 철회한다. 번역 없이 영상 자막과 기록 행에서 제거하고 대기 번역을 취소한다. bounded revision store는 철회 기록을 보관해 늦은 원문·번역·화자 응답을 거부하며, 정상 확정 문장은 철회하지 않는다. 다음 발화는 철회한 draft의 ID를 이어받지 않는다. 교정 중인 다른 자막의 유지와 최종 4초 읽기 시간은 그대로다.
+
+`node --import tsx --test tests/framework-browser-streaming.test.ts tests/framework-browser-translation.test.ts` 47개가 통과했다. 실제 pipeline 안에서 번역 중인 draft의 철회도 검사했다. `npm run verify`는 lint, 두 타입 검사, Chrome 빌드, 단위·fixture 198개와 제어된 브라우저 시계의 자막 스택 검사를 통과했다. `npm run test:framework:chrome:overlay`는 실제 확장 포트를 통한 fullscreen 행 제거와 production 기록 창에서의 철회/확정 기록 보존을 통과했다. 마지막 검사에는 caption 입력과 기록 창의 background 응답 mock이 사용되며 실제 모델 정확도 검사는 아니다. 첫 기록 창 검사 실행은 테스트가 잘못된 event channel을 사용해 30초 timeout으로 실패했고, 실제 `interpreter-event-v1`로 고친 뒤 통과했다. 첫 broad verify도 새 테스트의 unsafe optional chaining lint로 실패했으며 이를 수정한 후 통과했다.
+
+수정 전 동일한 75.979625초 두 목소리 fixture의 실제 Whisper 실행은 19개 확정 자막, CER 11/357 (3.08%)로 통과했다. 잔류 현상이 매번 재현되는 fixture는 아니다. 수정 후 `INTERPRETER_TEST_MODEL_DIRECTORY=/tmp node tests/framework-chrome-tab-engine.mjs --japanese-conversation --whisper`는 전체 명령을 통과했다. 18개 자막의 최신 원문과 정확히 대응하는 번역이 모두 확정됐고, 15개는 확정 전에 화면에 나타났다. 첫 원문 2,661.8 ms, 첫 한국어 2,706.3 ms, CER 8/357 (2.24%), 실제 ASR 62회였으며 재생 후 남은 overlay 행은 0개였다. 주요 원문·한국어 의미, 비반복, 읽은 ID 재등장 없음, 모든 행의 완료, Stop·캡처 해제·늦은 revision 거부, 이동·탭 종료 정리를 확인했다. 실제 철회가 발생한 draft는 0개라 철회 경로의 증거는 위 mock 회귀와 브라우저 DOM/포트 검사에 있다. `妹`를 “여동생/동생”으로 옮기지 못하는 오류는 남았다. 보고서는 `.ralph/caption-conversation/withdrawal-before-ja.json`과 `withdrawal-whisper-ja.json`에 보관했다.
+
+필수 비교 명령 `npm run test:conversation:ja:live`도 실행했다. SODA 경로의 18개 최신 원문·번역 확정과 모든 overlay 행의 퇴장은 통과했으며 Whisper 호출은 0회였다. CER 11/357 (3.08%)였으나, 기존 인식 오류인 `行ってない` 의미 누락 검사에서 전체 명령은 실패했다. 보고서에는 “서점”의 한국어 의미 누락도 남았다. 그 뒤의 Stop·이동 검사를 통과했다고 주장하지 않는다. 상세 오류는 `.ralph/caption-conversation/withdrawal-native-ja.json`에 보관했다.
+
+README·AGENTS·아키텍처·코딩 규약·검사 지침을 동기화했다. 문서 색인은 기존 일본어·자막 검증 링크가 유효해 변경하지 않았다. PRIVACY는 로컬 처리와 최대 300개 메모리 기록, Stop 후 기록이 남을 수 있다는 설명이 여전히 맞아 변경하지 않았다. 날짜가 명시된 화자·자동 언어 측정 기록은 당시 결과로 그대로 보존했다.

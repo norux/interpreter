@@ -12,6 +12,26 @@ const source = (utteranceId = "one", sourceRevision = 1, final = false): Transcr
 });
 const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 
+test("a final filler correction withdraws the displayed draft and rejects its in-flight translation", async () => {
+  const captions: CaptionRevision[] = []; const calls: TranscriptRevision[] = [];
+  const pending = deferred<void>();
+  const queue = createTranslationQueue(identity, pair, {
+    async *translate(input, languages) {
+      calls.push(input); await pending.promise;
+      yield { identity, utteranceId: input.utteranceId, sourceRevision: input.sourceRevision,
+        translationRevision: 1, languages, text: "늦은 번역", final: input.final };
+    }, async cancel() { pending.resolve(); }, async close() {},
+  }, 16, 300, caption => captions.push(caption), reason => assert.fail(reason));
+  try {
+    queue.accept({ ...source(), text: "それから本" });
+    assert.equal(queue.accept({ ...source("one", 2, true), text: "ええ" }), true);
+    assert.equal(captions.at(-1)?.source.retracted, true);
+    pending.resolve(); await queue.whenIdle();
+    assert.equal(calls.length, 1); assert.equal(captions.length, 2);
+    assert.deepEqual(queue.snapshot(), []);
+  } finally { await queue.cancel(); }
+});
+
 function deferred<T>() {
   let resolve!: (value: T) => void; let reject!: (error: Error) => void;
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });

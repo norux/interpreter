@@ -24,10 +24,12 @@ function caption(value: unknown): value is CaptionRevision {
   if (!record(value) || !record(value.source) || !record(value.translation)) return false;
   const source = value.source;
   if (!identity(source.identity) || !text(source.utteranceId) || !integer(source.sourceRevision) || source.sourceRevision === 0
-    || !text(source.text, 12000) || typeof source.final !== "boolean" || !["ja", "en", "ko"].includes(String(source.language))
+    || (source.retracted === undefined ? !text(source.text, 12000) : source.retracted !== true || source.text !== "" || source.final !== true)
+    || typeof source.final !== "boolean" || !["ja", "en", "ko"].includes(String(source.language))
     || source.speakerId !== undefined && (!integer(source.speakerId) || source.speakerId < 1 || source.speakerId > 8)
     || !range(source.audioRange) || (value.videoRange !== undefined && !range(value.videoRange))) return false;
   if (value.translation.state === "pending") return true;
+  if (source.retracted) return false;
   const translation = value.translation.revision;
   return value.translation.state === "paired" && record(translation) && identity(translation.identity)
     && sameIdentity(source.identity, translation.identity) && translation.utteranceId === source.utteranceId

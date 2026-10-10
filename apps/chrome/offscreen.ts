@@ -24,7 +24,8 @@ function emit(fields: object) {
 }
 function accept(caption: CaptionRevision) {
   const index = snapshot.captions.findIndex(value => value.source.utteranceId === caption.source.utteranceId);
-  if (index >= 0) snapshot.captions[index] = caption;
+  if (caption.source.retracted) { if (index >= 0) snapshot.captions.splice(index, 1); }
+  else if (index >= 0) snapshot.captions[index] = caption;
   else { snapshot.captions.push(caption); if (snapshot.captions.length > 300) snapshot.captions.shift(); }
   emit({ type: "caption", caption });
 }

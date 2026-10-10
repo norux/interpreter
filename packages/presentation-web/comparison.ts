@@ -133,6 +133,7 @@ export function createComparisonView(container: HTMLElement, timeBasis: "video" 
     compare(caption: CaptionRevision) {
       if (disposed || !identity || !sameIdentity(identity, caption.source.identity)) return;
       const id = key(caption); let row = rows.get(id);
+      if (caption.source.retracted) { row?.remove(); rows.delete(id); return; }
       if (!row) {
         row = document.createElement("tr"); for (let i = 0; i < 3; i++) row.append(document.createElement("td"));
         rows.set(id, row); body.append(row);

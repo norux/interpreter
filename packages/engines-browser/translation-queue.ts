@@ -50,11 +50,19 @@ export function createTranslationQueue(identity: SessionIdentity, languages: Lan
   return {
     accept(source: TranscriptRevision): boolean {
       if (stopped || !sameIdentity(selected, source.identity) || (pair.source === "auto"
-        ? !["en", "ja", "ko"].includes(source.language) : source.language !== pair.source) || !source.text || source.text.length > 16384
-        || fillerOnly(source.text, source.language)) return false;
+        ? !["en", "ja", "ko"].includes(source.language) : source.language !== pair.source) || source.text.length > 16384) return false;
+      if (!source.retracted && (!source.text || fillerOnly(source.text, source.language))) {
+        if (!source.final || !store.snapshot().some(caption => caption.source.utteranceId === source.utteranceId && !caption.source.final)) return false;
+        source = { ...source, text: "", retracted: true };
+      }
       const caption = store.accept({ type: "transcript", revision: source });
       if (!caption) return false;
       receive(caption); // ASR paints now, with pending translation for this revision.
+      if (source.retracted) {
+        pending.delete(source.utteranceId);
+        settled();
+        return true;
+      }
       if ((pair.source === "auto" || pair.source === "ko") && source.language === pair.target) {
         pending.delete(source.utteranceId);
         const paired = store.accept({ type: "translation", revision: { identity: source.identity, utteranceId: source.utteranceId,

@@ -64,6 +64,16 @@ try {
   assert.equal(await page.evaluate(() => read()), '늦게 교정된 첫 문장');
   await page.clock.runFor(251);
   assert.equal(await page.evaluate(() => read()), '두 번째 문장');
+  await page.evaluate(() => {
+    overlay.clear(); send('withdrawn', 1, '없어진 임시 인식'); send('later', 1, '확정된 다음 문장', false, undefined, true);
+  });
+  await page.clock.runFor(10000);
+  assert.equal(await page.evaluate(() => read()), '없어진 임시 인식');
+  await page.evaluate(() => overlay.compare({source:{identity:{sessionId:'stability',targetId:'tab',epoch:0},utteranceId:'withdrawn',
+    sourceRevision:2,language:'en',text:'',final:true,retracted:true,audioRange:{startMs:1000,endMs:2000}},translation:{state:'pending'}}));
+  assert.equal(await page.evaluate(() => read()), '확정된 다음 문장', 'Withdrawal removes the orphan that blocked the stack');
+  await page.clock.runFor(251);
+  assert.equal(await page.evaluate(() => read()), '', 'The following final keeps its elapsed reading time and leaves');
   await page.evaluate(() => { overlay.clear(); send('one', 1, '첫 화자', false, 1, true); });
   const background = () => page.evaluate(() => getComputedStyle(document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live span')).backgroundColor);
   const firstBackground = await background();
@@ -124,5 +134,5 @@ try {
   }
   assert.equal(observed.size,12,'Every queued caption must eventually become visible');
   assert.equal(retired.size,12,'Concurrent reading must clear this burst without a serial four-second wait per row');
-  console.log(JSON.stringify({passed:true,readyCaptionStacked:true,concurrentReading:true,narrowBurst:12,pendingTranslationHeld:true,provisionalHeldUntilFinal:true,lateCorrectionKeepsRow:true,pendingFinalCorrectionHeld:true,unreadSentencePreserved:true,speakerBackgrounds:true,finalHoldMs:4000,fadeMs:250}));
+  console.log(JSON.stringify({passed:true,readyCaptionStacked:true,concurrentReading:true,narrowBurst:12,pendingTranslationHeld:true,provisionalHeldUntilFinal:true,lateCorrectionKeepsRow:true,pendingFinalCorrectionHeld:true,withdrawalUnblocksStack:true,unreadSentencePreserved:true,speakerBackgrounds:true,finalHoldMs:4000,fadeMs:250}));
 } finally { await browser.close(); }

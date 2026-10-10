@@ -37,6 +37,8 @@ The checked-in fixture uses Samantha/Kyoko/Yuna synthetic voices; `python3 tests
 
 `node --import tsx --test tests/framework-browser-streaming.test.ts tests/framework-browser-translation.test.ts` checks Whisper text appearing before sentence completion, same-ID corrections/finalization, queued draft coalescing, automatic-language correction with onset PCM retained, obsolete draft translation rejection through the actual pipeline, and existing sentence/tail/prefix/Stop invariants. Recognition and translation outputs are mocked; these checks do not establish acoustic accuracy or display latency.
 
+These checks also cover withdrawal of a removed Whisper tail, an empty completed speech-boundary result, and a final filler-only correction while translation is in flight. `node --import tsx --test tests/framework-core.test.ts tests/framework-presentation.test.ts tests/framework-chrome-overlay.test.ts` verifies withdrawal validation, history removal, late-result rejection and release of later completed rows without restarting their reading clocks. `npm run test:captions-stability` checks the orphan's removal and subsequent stack drain in an actual browser DOM with synthetic captions and a controlled clock.
+
 | Command | Verifies |
 | --- | --- |
 | `npm run test:captions-stability` | Ready captions appear immediately below earlier captions; provisional rows stay and accept late corrections in the same DOM row until final; pending corrections hold even old final pairs; visible reading clocks overlap; a narrow-screen burst of 12 rows remains bounded and all rows display before retiring oldest first; speaker colors, 4-second final holds and 250 ms fades remain correct |

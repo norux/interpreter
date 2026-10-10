@@ -546,8 +546,10 @@ try {
         const final=revisions.find(revision=>revision.source.utteranceId===caption.source.utteranceId&&revision.source.final);
         return frames.some(frame=>frame.utteranceId===caption.source.utteranceId&&frame.text&&frame.opacity!=='0'&&frame.atMs+pageTimeOrigin<final.atMs);
       });
-      const streaming = {drafts:drafts.length,confirmedDrafts:confirmedDrafts.length,visibleBeforeFinal:visibleDrafts.length};
-      const result = {state:completed.state,fixtureSha256:createHash('sha256').update(media.get('/conversation.wav')).digest('hex'),mediaState,latency,streaming,revisions,captions,frames,native,meaning,accuracy,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
+      const streaming = {drafts:drafts.length,confirmedDrafts:confirmedDrafts.length,visibleBeforeFinal:visibleDrafts.length,
+        withdrawnDrafts:new Set(revisions.filter(revision=>revision.source.retracted).map(revision=>revision.source.utteranceId)).size};
+      const remainingOverlay = await page.evaluate(()=>Array.from(document.querySelector('[data-interpreter-overlay]')?.shadowRoot.querySelectorAll('.interpreter-live')??[]).map(row=>row.dataset.utteranceId));
+      const result = {state:completed.state,fixtureSha256:createHash('sha256').update(media.get('/conversation.wav')).digest('hex'),mediaState,latency,streaming,remainingOverlay,revisions,captions,frames,native,meaning,accuracy,diagnostic:(await state()).diagnostic,workers:await runtime.evaluate("runtimeObservations")};
       await mkdir('.ralph/caption-conversation', {recursive:true});
       await writeFile(report, JSON.stringify(result,null,2));
       assert.equal(mediaState.loop,false,'Conversation audio must not loop');
@@ -564,6 +566,8 @@ try {
       assert.ok(captions.length >= 8, 'Conversation must be split into readable phrases');
       assert.ok(new Set(captions.map(c=>c.source.speakerId).filter(Boolean)).size >= 2, 'Both actual voices must receive labels');
       assert.ok(captions.every(c=>c.translation.state==='paired'), 'Every final source revision must retain its matching translation');
+      assert.ok(captions.every(c=>c.source.final && c.translation.revision.final && c.source.sourceRevision===c.translation.revision.sourceRevision), 'Recognition and its exact matching translation must both finish');
+      assert.deepEqual(remainingOverlay, [], 'Every overlay row must drain after playback; a finished last row cannot mask stuck earlier rows');
       if (japaneseConversation) {
         assert.ok(captions.every(c=>c.source.final), 'Every Japanese phrase must reach final');
         assert.ok(accuracy.rate <= 0.12, `Japanese conversation CER: ${accuracy.rate}`);

@@ -170,6 +170,13 @@ try {
   await worker.evaluate(() => sendTab('two','임베드 영상 전체화면 자막',3));
   await tabPage.waitForFunction(() => document.querySelector('[data-interpreter-overlay]').shadowRoot.textContent.includes('임베드 영상 전체화면 자막'));
   await tabPage.screenshot({path:'.ralph/media-framework/tab-iframe-fullscreen.png'});
+  await worker.evaluate(() => tabPort.postMessage({version:1,sequence:tabSequence++,type:'caption',caption:{
+    source:{identity:tabIdentity,utteranceId:'one',sourceRevision:2,language:'en',text:'',final:true,retracted:true,audioRange:{startMs:0,endMs:1000}},translation:{state:'pending'}}}));
+  await tabPage.waitForFunction(() => {
+    const rows=document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelectorAll('.interpreter-live');
+    return rows.length===1 && rows[0].dataset.utteranceId==='two';
+  });
+  assert.deepEqual(await worker.evaluate(() => tabFailures),[], 'A withdrawal must cross the shipping port without disconnecting');
   await worker.evaluate(() => tabPort.postMessage({version:1,sequence:tabSequence++,type:'clear',identity:tabIdentity}));
   await tabPage.locator('[data-interpreter-overlay]').waitFor({state:'detached'});
   assert.equal(await tabPage.locator(':popover-open').count(),0,'Stop must remove the fullscreen top layer');
@@ -184,6 +191,25 @@ try {
   await tabPage.evaluate(() => document.exitFullscreen());await tabPage.waitForFunction(() => !document.fullscreenElement);
   await tabPage.close();
   observations.checks.push('Shipping whole-tab port preserves stacked captions and corrections over video and cross-origin iframe fullscreen, restores inline output, passes pointer input, and removes the top layer on Stop');
+  // Production history UI, with synthetic background snapshots/events only.
+  const historyPage=await context.newPage();historyPage.on('pageerror',error=>observations.pageErrors.push(error.message));
+  await historyPage.addInitScript(() => {
+    const identity={sessionId:'history-withdrawal',targetId:'tab',epoch:0};
+    const caption=id=>({source:{identity,utteranceId:id,sourceRevision:1,text:`original ${id}`,language:'ja',final:id==='final',audioRange:{startMs:0,endMs:1000}},translation:{state:'pending'}});
+    globalThis.historySnapshot={message:'Synthetic history',captions:[caption('draft'),caption('final')]};
+    chrome.runtime.sendMessage=async()=>({snapshot:historySnapshot});
+    chrome.runtime.onMessage.addListener=listener=>{globalThis.historyChanged=listener;};
+  });
+  await historyPage.goto(`chrome-extension://${extensionId}/tab-host.html`);
+  await historyPage.locator('tr[data-utterance-id="draft"]').waitFor();
+  await historyPage.evaluate(() => {
+    const draft=historySnapshot.captions.shift();
+    historyChanged({channel:'interpreter-event-v1',type:'caption',caption:{source:{...draft.source,sourceRevision:2,text:'',final:true,retracted:true},translation:{state:'pending'}}},{id:chrome.runtime.id});
+  });
+  await historyPage.locator('tr[data-utterance-id="draft"]').waitFor({state:'detached'});
+  assert.equal(await historyPage.locator('tr[data-utterance-id="final"]').count(),1, 'Withdrawals must preserve confirmed history');
+  await historyPage.close();
+  observations.checks.push('A withdrawal crosses the shipping fullscreen port and removes its row; the production history window removes withdrawn drafts while preserving confirmed entries');
   // The reference document is an actual browser DOM; these captions are synthetic.
   const liveTiming = await host.evaluate(async () => {
     const {createVideoOverlay}=await import('./overlay.js');

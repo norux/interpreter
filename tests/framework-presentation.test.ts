@@ -5,6 +5,22 @@ import { createPresentationPolicy } from "../packages/core/presentation-policy";
 
 const identity: SessionIdentity = { sessionId: "generated", targetId: "video" as MediaTargetId, epoch: 0 };
 
+test("withdrawing a pending correction releases the blocked stack without replaying later rows", () => {
+  const h = harness(180); const first = caption(); const next = caption(1, true, "next");
+  h.accept(first); h.progress(first);
+  h.policy.accept({ type: "transcript", revision: caption(2).source });
+  h.accept(next); h.progress(next); h.runFor(10000);
+  assert.equal(h.events.length, 2);
+  const removed = { ...caption(3, true).source, text: "", retracted: true as const };
+  h.policy.accept({ type: "transcript", revision: removed });
+  assert.deepEqual(h.events.at(-1)?.event, { type: "remove", identity, utteranceId: "u1" });
+  h.runFor(251);
+  assert.deepEqual(h.events.filter(item => item.event.type === "remove").map(item => item.event.type === "remove" && item.event.utteranceId), ["u1", "next"]);
+  assert.deepEqual(h.policy.snapshot(), [next]);
+  assert.ok(first.translation.state === "paired");
+  assert.equal(h.policy.accept({ type: "translation", revision: first.translation.revision }), undefined);
+});
+
 function caption(revision = 1, final = false, utteranceId = "u1", session = identity): CaptionRevision {
   return {
     source: { identity: session, utteranceId, sourceRevision: revision, text: `generated source ${revision}`,

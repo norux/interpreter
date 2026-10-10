@@ -124,6 +124,13 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
       if (disposed) return undefined;
       const caption = store.accept(event, videoRange);
       if (!caption) return undefined;
+      if (caption.source.retracted) {
+        const entry = entries.get(caption.source.utteranceId);
+        if (entry && !entry.retired) retire(entry);
+        entries.delete(caption.source.utteranceId);
+        schedule();
+        return caption;
+      }
       // The comparison history is independent of overlay retirement and cadence.
       const retained = new Set(store.snapshot().filter((item) => sameIdentity(item.source.identity, identity)).map((item) => item.source.utteranceId));
       for (const [id, entry] of entries) {

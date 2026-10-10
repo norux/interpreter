@@ -25,8 +25,10 @@ async function refresh() {
     view.compare(caption);
   }
 }
-function changed(message: { channel?: string }, sender: chrome.runtime.MessageSender) {
-  if (sender.id === chrome.runtime.id && message.channel === eventChannel) void refresh().catch(error => { status.textContent = error.message; });
+function changed(message: { channel?: string; type?: string; caption?: BackgroundSnapshot["captions"][number] }, sender: chrome.runtime.MessageSender) {
+  if (sender.id !== chrome.runtime.id || message.channel !== eventChannel) return;
+  if (message.type === "caption" && message.caption?.source.retracted) view.compare(message.caption);
+  void refresh().catch(error => { status.textContent = error.message; });
 }
 chrome.runtime.onMessage.addListener(changed);
 void refresh().catch(error => { status.textContent = error.message; });
