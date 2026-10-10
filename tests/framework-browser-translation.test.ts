@@ -393,6 +393,25 @@ test("Japanese conversational endings separate unpunctuated clauses without spli
   } finally { await f.host.close(); }
 });
 
+test("Japanese unpunctuated follow-up speech preserves both question and explanation in translation", async () => {
+  for (const phrases of [
+    ["こんなことがあったんですか", "まったく面倒なことになりましたよ"],
+    ["うーんお社長とりあえずそんなこと忘れて遊んでいってくださいよ", "ちょうどね人らんきのいい子が入ってくる"],
+  ]) {
+    const f = fixture();
+    try {
+      const prepared = f.host.prepare(); f.loads[0].resolve(f.native); await prepared;
+      const iterator = f.host.translate({ ...source(), text: phrases.join(""), final: true }, pair)[Symbol.asyncIterator]();
+      const result = iterator.next();
+      for (const [index, phrase] of phrases.entries()) {
+        assert.equal(f.calls[index]?.text, phrase, "Each complete clause must reach the native translator");
+        f.calls[index].result.resolve(`번역 ${index}`); await tick();
+      }
+      assert.equal((await result).value?.text, "번역 0 번역 1"); await iterator.return?.();
+    } finally { await f.host.close(); }
+  }
+});
+
 test("cancelling a Japanese phrase translation discards all parts and suppresses remaining native calls", async () => {
   const f = fixture();
   try {
@@ -425,14 +444,17 @@ test("phrase translation rejects an empty part and bounds the complete Korean re
 
 
 test("Japanese sentence boundaries retain word spacing and polite questions", async () => {
-  for (const text of ["明日の 午後 三時に 駅で 会いましょう", "行きませんか 今は 三時です"]) {
+  for (const phrases of [["明日の 午後 三時に 駅で 会いましょう"], ["行きませんか", "今は 三時です"], ["来ますかと聞かれた質問です"], ["来ますかを確認してください"]]) {
     const f = fixture();
     try {
       const prepared = f.host.prepare(); f.loads[0].resolve(f.native); await prepared;
-      const iterator = f.host.translate({ ...source(), text }, pair)[Symbol.asyncIterator]();
-      const pending = iterator.next(); assert.equal(f.calls[0].text, text);
-      f.calls[0].result.resolve("합성 결과"); await pending;
-      assert.equal(f.calls.length, 1); await iterator.return?.();
+      const iterator = f.host.translate({ ...source(), text: phrases.join(" ") }, pair)[Symbol.asyncIterator]();
+      const pending = iterator.next();
+      for (const [index, phrase] of phrases.entries()) {
+        assert.equal(f.calls[index]?.text, phrase);
+        f.calls[index].result.resolve("합성 결과"); await tick();
+      }
+      await pending; assert.equal(f.calls.length, phrases.length); await iterator.return?.();
     } finally { await f.host.close(); }
   }
 });

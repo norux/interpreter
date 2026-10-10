@@ -32,6 +32,10 @@ fixtures.push({ language: "en", name: "en/opposite-polarity",
 fixtures.push({ language: "ja", name: "ja/b5-clipped-repeated-prefix",
   text: "今日は会議をしません 明日の午後3時に駅で会いましょう予約は取り消さないでください 今日は会議をしません明日の午後3時に駅で会いましょう",
   counts: [2, 2, 2, 2, 1] });
+fixtures.push({language:"ja",name:"ja/question-followed-by-explanation",
+  text:"こんなことがあったんですかまったく面倒なことになりましたよ",counts:[0,0,0,0,0],koreanAnchors:["번거|귀찮|골치|복잡|성가"]});
+fixtures.push({language:"ja",name:"ja/request-followed-by-arrival",
+  text:"うーんお社長とりあえずそんなこと忘れて遊んでいってくださいよちょうどね人らんきのいい子が入ってくる",counts:[0,0,0,0,0],koreanAnchors:["들어|오고|올|옵|온다|찾아"]});
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: {
   outDir: output, rollupOptions: { input: { translator: resolve("packages/engines-browser/document-translator.ts"), queue: resolve("packages/engines-browser/translation-queue.ts") },
     preserveEntrySignatures: "strict", output: { entryFileNames: "[name].js" } },
@@ -149,6 +153,8 @@ try {
     for (const meaning of run.meanings) {
       if (meaning.actual !== meaning.expected) failures.push(`${fixture.name}: ${meaning.name} expected ${meaning.expected}, actual ${meaning.actual}`);
     }
+    run.missingKorean = (fixture.koreanAnchors??[]).filter(anchor=>!new RegExp(anchor).test(translated.text));
+    if(run.missingKorean.length) failures.push(`${fixture.name}: missing follow-up meaning ${run.missingKorean.join(', ')}`);
     await page.locator("#stop").click();
     assert.equal(await page.evaluate(text => submit(text, 3, true), fixture.text), false);
     const count = await page.evaluate(() => captions.length); await page.waitForTimeout(250);

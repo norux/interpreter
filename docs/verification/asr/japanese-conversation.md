@@ -106,3 +106,17 @@ README·AGENTS·아키텍처·검사 지침을 동기화했다. 코딩 규약은
 필수 비교 명령 `npm run test:conversation:ja:live`도 실행했다. SODA 경로의 18개 최신 원문·번역 확정과 모든 overlay 행의 퇴장은 통과했으며 Whisper 호출은 0회였다. CER 11/357 (3.08%)였으나, 기존 인식 오류인 `行ってない` 의미 누락 검사에서 전체 명령은 실패했다. 보고서에는 “서점”의 한국어 의미 누락도 남았다. 그 뒤의 Stop·이동 검사를 통과했다고 주장하지 않는다. 상세 오류는 `.ralph/caption-conversation/withdrawal-native-ja.json`에 보관했다.
 
 README·AGENTS·아키텍처·코딩 규약·검사 지침을 동기화했다. 문서 색인은 기존 일본어·자막 검증 링크가 유효해 변경하지 않았다. PRIVACY는 로컬 처리와 최대 300개 메모리 기록, Stop 후 기록이 남을 수 있다는 설명이 여전히 맞아 변경하지 않았다. 날짜가 명시된 화자·자동 언어 측정 기록은 당시 결과로 그대로 보존했다.
+
+## 문장부호 없는 질문·요청 뒤 번역 누락
+
+2026-10-10. 원문에는 여러 절이 있지만 한국어에는 첫 절만 나오는 사용자 사례를 실제 TranslateKit에 그대로 입력해 재현했다. `こんなことがあったんですかまったく面倒なことになりましたよ`는 “이런 일이 있었나요?”만 반환했고, `うーんお社長とりあえずそんなこと忘れて遊んでいってくださいよちょうどね人らんきのいい子が入ってくる`는 “대통령님, 잊어버리고 가지고 놀아주세요.”만 반환했다. 최신 source revision의 final translation pairing은 맞았지만 뒷내용이 없었다. 앱이 받은 번역 응답을 자른 것이 아니라 문장 분리 규칙이 `ですかまったく`와 `くださいよちょうど`를 놓쳐 native 번역에 여러 절을 한꺼번에 전달했다.
+
+polite 질문 끝과 polite よ/ね 끝을 새 단어나 `まったく`/`ちょうど` 같은 연결 표현 앞에서 나누고 각 번역을 하나의 정확한 source-revision pair로 합친다. 질문의 `か`를 앞 문장에 보존하며 `来ますかと聞かれた`/`来ますかを確認してください`처럼 인용된 질문, 기존 `よく`/`行った駅`, 공백 있는 시간 표현을 임의로 나누지 않는다. Whisper 원문 분할이나 모델 선택·추론 주기는 바꾸지 않았다.
+
+새 mock 회귀는 수정 전 각 절을 따로 native 번역에 전달해야 하는 조건에서 실패했다. 수정 후 `node --import tsx --test tests/framework-browser-translation.test.ts` 22개가 통과했다. `node tests/framework-chrome-translation.mjs`도 수정 전 두 입력의 뒷내용 누락으로 실패했고, 수정 후 기존 영어·일본어 의미 개수와 반대 극성 검사까지 12개 실제 native 사례가 모두 통과했다. 첫 입력은 “이런 일이 있었나요? 그것은 전혀 번거 로움이었습니다”, 두 번째는 “대통령님, 잊어버리고 가지고 놀아주세요. 그냥 착한 아이가 오고 있습니다”로 반환했다. 의미 누락은 개선했지만 `社長`의 “대통령님” 오역, 첫 문장의 어색한 한국어, 원문 자체의 `人らんき` 같은 인식 의심 표현은 남았다. 오디오 원본을 확보하지 않아 정확한 원래 발화를 단정하지 않는다. 상세 로그는 `.ralph/translation-omission/before.log`와 `after.log`에 있다.
+
+`npm run verify`는 lint, 두 타입 검사, Chrome 빌드, 단위·fixture 199개와 자막 스택 검사를 통과했다. 실제 `INTERPRETER_TEST_MODEL_DIRECTORY=/tmp node tests/framework-chrome-tab-engine.mjs --japanese-conversation --whisper`도 75.979625초의 기존 두 목소리 fixture에서 전체 명령을 통과했다. 21개 최종 paired 자막, 16개 확정 전 표시, 재생 후 overlay 0행, CER 11/357 (3.08%), ASR 63회를 기록했다. 첫 원문 2,128.3 ms와 한국어 2,354.0 ms였으며 주요 원문·한국어 의미, 모든 행 퇴장, Stop·늦은 revision 거부·이동 정리를 통과했다. `妹`의 여동생 관계 오류는 남았다. `.ralph/translation-omission/whisper-ja.json`에 보관했다. 이 오디오 검사는 사용자 영상의 정확한 음성 재현이 아니며, 이번 누락의 직접 재현은 동일 원문을 사용한 위 native 텍스트 검사다.
+
+필수 `npm run test:conversation:ja:live` 비교는 기존 SODA의 `行ってない` 인식 누락으로 전체 명령이 실패했다. 최신 원문·번역 final pairing과 overlay 0행 검사는 통과했지만, 실패 이후 Stop·이동 검사는 검증하지 않았다. 원문 인식 오류와 “서점”의 한국어 누락은 `.ralph/translation-omission/native-ja.json`에 남겼다.
+
+README·AGENTS·아키텍처·검사 지침을 갱신했다. 코딩 규약은 기존 정확한 revision pairing과 범위·검증 원칙이 유지되어 수정하지 않았다. 문서 색인은 기존 일본어 검증 링크가 유효하며, PRIVACY는 동일한 로컬 텍스트 처리·메모리 보관·외부 모델 다운로드 정책이 적용돼 유지했다.
