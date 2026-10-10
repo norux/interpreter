@@ -66,7 +66,10 @@ async function command(value: BackgroundCommand) {
     // Preparation starts while Chrome forwards the popup click's user gesture.
     const prepared = owned.prepareFromGesture(); publish();
     void prepared.then(() => {
-      if (current === generation) update("ready", "모델 준비 완료 · 번역 시작을 눌러 연결하세요.");
+      if (current === generation) {
+        update("ready", "모델 준비 완료 · 번역 시작을 눌러 연결하세요.");
+        if (value.type === "models") emit({ type: "models-ready" });
+      }
     }).catch(error => {
       if (current === generation) update("failed", `모델 준비 실패: ${error.message}`);
     });

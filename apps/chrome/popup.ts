@@ -56,7 +56,7 @@ function render(value: BackgroundSnapshot) {
   const candidate = options.recognition === "chrome" ? "turboFp16" : options.recognition;
   const asrName = candidate === "turboFp16" ? "Whisper large-v3-turbo · FP16 / WebGPU" : recognitionChoices.find(choice => choice.id === candidate)?.name ?? "";
   const translationName = options.translation === "chrome" ? "Chrome TranslateKit" : translationChoices.find(choice => choice.id === options.translation)?.name ?? "";
-  const matches = value.source === source && (!value.options || value.options.recognition === options.recognition && value.options.translation === options.translation);
+  const matches = value.source === source && (value.options ? value.options.recognition === options.recognition && value.options.translation === options.translation : options.recognition === "chrome" && options.translation === "chrome");
   const native = value.models && matches ? value.models.some(model => model.name === "Chrome SODA")
     : usingLocalSpeech();
   modelDescription.textContent = options.recognition === "chrome" && options.translation === "chrome" ? source === "auto"
@@ -103,7 +103,8 @@ async function ensureReady() {
   checking = true; render(snapshot);
   try {
     if (snapshot.state === "ready") {
-      if (snapshot.tabId === tabId && snapshot.source === source && (!snapshot.options || snapshot.options.recognition === readModelOptions().recognition && snapshot.options.translation === readModelOptions().translation)) return;
+      const options = readModelOptions();
+      if (snapshot.tabId === tabId && snapshot.source === source && (snapshot.options ? snapshot.options.recognition === options.recognition && snapshot.options.translation === options.translation : options.recognition === "chrome" && options.translation === "chrome")) return;
       const stopped = await request("stop");
       if (disposed) return;
       if (stopped) render(stopped);

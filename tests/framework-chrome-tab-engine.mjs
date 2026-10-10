@@ -66,7 +66,7 @@ for (const fixture of fixtures) {
 }
 await build({ configFile: "vite.chrome.config.ts", logLevel: "warn", build: { outDir: output } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
-assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen"]);
+assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen", "notifications"]);
 assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.action.default_popup, "popup.html");
 const observations = { scope: latency ? "Six isolated synthetic sentences: estimated last audible PCM sample to complete Korean meaning in actual page DOM, <=1000 ms; no public-video/ten-minute acceptance"

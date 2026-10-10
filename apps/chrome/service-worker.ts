@@ -98,6 +98,11 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     return true;
   }
   if (message?.channel !== eventChannel || sender.url !== offscreenUrl) return;
+  if (message.type === "models-ready") {
+    void chrome.notifications.create("jamak-models-ready", { type: "basic", iconUrl: chrome.runtime.getURL("icons/icon-128.png"),
+      title: "Jamak · 모델 준비 완료", message: "다운로드와 모델 준비가 완료되었습니다. 원래 탭에서 번역을 시작하세요." }).then(() => respond({ notified: true }), () => respond({ notified: false }));
+    return true;
+  }
   if (message.type === "clear") {
     generation++; output?.clear(message.identity); output?.dispose(); output = undefined; outputSession = undefined;
   }

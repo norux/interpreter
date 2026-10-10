@@ -26,7 +26,7 @@ try {
     const fresh = params.has("fresh") || params.has("downloading");
     globalThis.windows = []; globalThis.commands = []; globalThis.installs = [];
     globalThis.translationProbes = [];
-    globalThis.listeners = []; globalThis.delaySnapshot = false;
+    globalThis.listeners = []; globalThis.delaySnapshot = false; globalThis.rejectModels = false;
     globalThis.packs = fresh ? [] : ["ja-JP", "en-US", "ko-KR"];
     globalThis.translationReady = !fresh;
     globalThis.saved = { state: "idle", source: params.has("auto") ? "auto" : "ja", message: "初期", captions: [] };
@@ -46,6 +46,7 @@ try {
       tabs: { query: async () => [{ id: 10, url: "http://fixture.test" }] },
       runtime: { id: "fixture", getURL: path => new URL(path, location.href).href, onMessage: { addListener(listener) { listeners.push(listener); }, removeListener() {} }, async sendMessage({ command }) {
         commands.push(command);
+        if (command.type === "models" && rejectModels) throw new Error("테스트 모델 준비 실패");
         if (command.type === "models") saved = { state: "preparing", source: command.source, tabId: command.tabId, options: command.options, message: "선택한 모델 다운로드 중…", captions: [] };
         if (command.type === "prepare") saved = { state: "ready", source: command.source, tabId: command.tabId, message: "준비 완료", captions: [] };
         if (command.type === "start") saved = { ...saved, state: "starting", message: "탭 오디오에 연결 중…" };
@@ -218,8 +219,20 @@ try {
   await page.waitForFunction(() => document.querySelector("#recognition").options.length === 6);
   assert.equal(await page.locator("#recognition").inputValue(), "chrome");
   assert.equal(await page.locator("#translation").inputValue(), "chrome");
+  await page.getByText("다운로드 완료 · Chrome 언어 팩", { exact: true }).first().waitFor({ timeout: 3000 });
+  assert.equal(await page.locator("#recognition-download").textContent(), "다운로드 완료 · Chrome 언어 팩");
+  assert.equal(await page.locator("#translation-download").textContent(), "다운로드 완료 · Chrome 언어 팩");
+  assert.equal(await page.locator("#stop").isDisabled(), true, "Download Stop is enabled only during preparation");
   await page.locator("#recognition").selectOption("tiny");
   await page.getByText("선택한 모델 다운로드 중…", { exact:true }).waitFor();
+  await page.getByText("다운로드 필요", { exact: true }).waitFor();
+  assert.equal(await page.locator("#download-progress").isVisible(), true);
+  await page.evaluate(() => {
+    saved = { ...saved, downloadProgress: 0.42 };
+    for (const listener of listeners) listener({ channel: "interpreter-event-v1" }, { id: "fixture" });
+  });
+  await page.waitForFunction(() => document.querySelector("#model-progress").value === 0.42);
+  assert.equal(await page.locator("#download-percent").textContent(), "42%");
   assert.deepEqual(await page.evaluate(() => commands.find(c => c.type === "models")), {type:"models",tabId:10,source:"ja",options:{recognition:"tiny",translation:"chrome"}});
   assert.deepEqual(await page.evaluate(() => installs), [], "Explicit Whisper never installs SODA");
   await page.locator("#translation").selectOption("m2m100");
@@ -239,6 +252,27 @@ try {
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("jamak-model-options-v1"))), {recognition:"chrome",translation:"chrome"});
   assert.deepEqual(await page.evaluate(() => installs), [["ja-JP","en-US","ko-KR"]]);
   await page.screenshot({path:".ralph/advanced-model-options.png"});
+  await page.goto(url);
+  await page.waitForFunction(() => !document.querySelector("#start").disabled);
+  await page.locator("#model-details summary").click();
+  await page.evaluate(() => {
+    localStorage.setItem("jamak-model-options-v1", JSON.stringify({ recognition: "tiny", translation: "m2m100" }));
+    saved = { ...saved, options: undefined, models: [{ task: "받아쓰기", name: "Chrome SODA" }, { task: "한국어 번역", name: "Chrome TranslateKit" }] };
+    for (const listener of listeners) listener({ channel: "interpreter-event-v1" }, { id: "fixture" });
+  });
+  await page.waitForFunction(() => document.querySelector("#model-list").textContent.includes("Whisper Tiny"), undefined, { timeout: 3000 });
+  assert.match(await page.locator("#model-list").innerText(), /M2M100/);
+  assert.doesNotMatch(await page.locator("#model-list").innerText(), /Chrome SODA|Chrome TranslateKit/);
+  assert.equal(await page.locator("#start").isDisabled(), true, "Unidentified previous readiness cannot enable the newly selected model");
+  await page.goto(opened.url);
+  await page.evaluate(() => { rejectModels = true; });
+  await page.locator("#recognition").selectOption("base");
+  await page.getByText("모델 준비 실패: 테스트 모델 준비 실패", { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("jamak-model-options-v1")).recognition), "base", "A failed preparation still retains the selected model");
+  await page.goto(url);
+  await page.waitForFunction(() => document.querySelector("#model-list").textContent.includes("Whisper Base"));
+  await page.locator("#model-details summary").click();
+  assert.doesNotMatch(await page.locator("#model-list").innerText(), /Chrome SODA/);
   console.log(JSON.stringify({ passed: true, scope: "Popup DOM and browser API mocks; cached models auto-ready on open/Stop, missing packs require a download gesture, readiness never starts capture" }));
 } finally {
   await browser?.close(); await new Promise(done => server.close(done));

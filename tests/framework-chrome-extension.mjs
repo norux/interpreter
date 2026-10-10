@@ -39,7 +39,7 @@ const archive = sustained ? await mkdtemp(resolve(".ralph/media-framework/chrome
 await build({ configFile: false, logLevel: "warn", build: { outDir: output, emptyOutDir: false,
   rollupOptions: { input: { "service-worker": resolve("tests/fixtures/selected-action.ts") }, output: { entryFileNames: "[name].js" } } } });
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, "utf8"));
-assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen"]);
+assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "tabCapture", "offscreen", "notifications"]);
 assert.equal(manifest.host_permissions, undefined);
 assert.equal(manifest.action.default_popup, "popup.html");
 delete manifest.action.default_popup;

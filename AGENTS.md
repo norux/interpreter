@@ -45,6 +45,8 @@ Recognition and translation selections are independent, on-device only and persi
 
 Download progress must come from background preparation state, survive popup closure and reflect the current model stage. Keep stages without reported progress indeterminate; downloaded files do not imply that model loading is complete.
 
+Advanced download labels must inspect the selected model's complete cache inventory and sizes, or Chrome pack availability; never persist a completion flag or count a partial file as downloaded. Save a selection before preparation so failed preparation does not leave model information showing the old choice. Prepared model metadata without options identifies Chrome defaults only. Advanced readiness emits one completion notification from the service worker using the `notifications` permission; Stop, failed/stale preparation and automatic popup cache preparation must not notify. Notification failure must not fail model readiness.
+
 ## Verification and delivery
 
 Run `npm run verify` for broad changes. For a scoped change, run the checks listed in `docs/testing.md` that demonstrate its behavior. Distinguish mocked display tests from real audio/model/browser verification. Report commands, failures and environment limitations honestly.

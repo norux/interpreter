@@ -17,6 +17,7 @@
 - Keeps captions visible over fullscreen videos and players, including fullscreen videos inside embedded frames. Playback controls remain clickable.
 - Opens a separate original/translation history window.
 - Offers a separate **Advanced · 모델 선택** window with independent recognition/translation selectors. Selecting a model starts its download/preparation; saved choices and downloaded files are reused.
+- Shows each selected model's download status in Advanced, including partial cached files and completed Chrome packs, plus current preparation progress. Advanced preparation sends a desktop Chrome notification once models are ready, even after the window closes.
 - Runs speech recognition, translation and speaker analysis locally. No API key or companion app required.
 
 ## Install and use
@@ -33,7 +34,7 @@ npm run build
 1. Open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**.
 2. Select `apps/chrome/dist`.
 3. Open a page with audio, click Jamak, and choose English, Japanese or Korean manually (Japanese by default), or enable the **자동 감지** checkbox for multilingual speech. Selecting a source language turns automatic detection off. Manual Korean uses Whisper and displays the original without translation.
-4. Use Chrome defaults, or open **Advanced · 모델 선택** to choose recognition and translation separately. Selecting an option stops the current session and prepares the new models immediately; closing the window does not stop downloads. **양쪽 모두 Chrome 기본값** restores both defaults. Then return to the original tab.
+4. Use Chrome defaults, or open **Advanced · 모델 선택** to choose recognition and translation separately. Selecting an option stops the current session and prepares the new models immediately; closing the window does not stop downloads. Each selector shows whether its model still needs downloading or is stored locally; completed downloads can still be loading. A Chrome desktop notification announces readiness. Allow Chrome notifications in your OS settings to receive it. **양쪽 모두 Chrome 기본값** restores both defaults. Then return to the original tab.
 5. Prepare the models once; the popup shows a progress bar for the current download/preparation stage, including when reopened. **모델 정보** opens a compact table of the selected recognition, translation, voice-activity and speaker models. Then click **번역 시작**. Click **중지** to stop.
 
 With Chrome defaults, automatic mode requires WebGPU and prepares Whisper Turbo plus both English/Japanese → Korean translation pairs. Advanced can select a different multilingual Whisper and one multilingual local translation model instead. The first preparation downloads language packs and model files; internet access is required for downloads. With Chrome recognition selected, manual English and Japanese prefer Chrome local streaming recognition, showing interim text and correcting it as recognition completes. Whisper is the fallback when the local speech API is unsupported; it requires WebGPU and about 1.6 GB for the speech model. Prepared models run locally. Restricted Chrome pages cannot show the overlay. Microphone and system-wide audio capture are not supported.

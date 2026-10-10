@@ -33,9 +33,9 @@ button:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px
 .popup #model-description { margin: 0 0 16px; white-space: pre-line; font-size: 13px; line-height: 1.7; }
 .popup #prepare, .popup #start { background: var(--accent); border-color: var(--accent); color: white; }
 .popup #prepare { width: 100%; }
-.popup #download-progress { margin-top: 14px; }
-.popup .download-label { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
-.popup #model-progress { display: block; width: 100%; height: 8px; accent-color: var(--accent); }
+.popup #download-progress, .advanced #download-progress { margin-top: 14px; }
+.popup .download-label, .advanced .download-label { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+.popup #model-progress, .advanced #model-progress { display: block; width: 100%; height: 8px; accent-color: var(--accent); }
 .popup .model-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; }
 .popup .model-table th, .popup .model-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
 .popup .model-table th:first-child { width: 30%; }

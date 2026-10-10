@@ -39,6 +39,7 @@ Internet access is required to prepare models and download uncached files. The e
 - `scripting`: 선택한 탭에 자막 표시 코드를 삽입 / Inject the caption overlay into that tab.
 - `tabCapture`: 사용자가 시작한 탭 오디오를 캡처 / Capture tab audio after you start subtitles.
 - `offscreen`: 팝업을 닫아도 로컬 모델 준비·캡처·분석을 유지 / Keep local preparation, capture and inference running after the popup closes.
+- `notifications`: 고급 모델 준비 완료를 기기 알림으로 표시. 오디오나 자막 내용은 알림에 포함하지 않음 / Show a local notification when Advanced model preparation completes; notifications contain no audio or caption content.
 
 ## 공유·판매·광고 / Sharing, sale and advertising
 
