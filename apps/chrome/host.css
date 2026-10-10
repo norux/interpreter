@@ -74,3 +74,10 @@ body.popup { width: 360px; padding: 20px; }
 .popup .auto-detect { display: flex; align-items: center; gap: 8px; }
 .popup .auto-detect input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 .popup #reference { width: 100%; }
+.advanced { max-width: 640px; margin: 0 auto; }
+.model-choice { margin-bottom: 24px; }
+.advanced .model-choice label { display: block; margin-bottom: 8px; font-weight: 600; }
+.model-choice p { margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.advanced-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.advanced #retry { background: var(--accent); border-color: var(--accent); color: white; }
+.popup #advanced { width: 100%; margin-top: 12px; }

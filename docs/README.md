@@ -4,6 +4,7 @@
 - [Coding conventions](coding-conventions.md): implementation rules and documentation synchronization.
 - [Testing](testing.md): repeatable checks and real-browser prerequisites.
 - [Brand assets](branding/README.md): extension icons and README mark.
+- [Model selection verification](verification/model-options.md): Advanced settings, independent local model choices and real inference checks.
 - [Chrome transition verification](verification/jamak-chrome.md): build, tests and branding checks.
 - [Automatic language verification](verification/asr/automatic-language.md): per-turn English/Japanese/Korean routing, real synthetic meeting and latency limits.
 - [Speaker and caption verification](verification/captions/conversation-speakers.md): model choice, attribution and conversation regression evidence.

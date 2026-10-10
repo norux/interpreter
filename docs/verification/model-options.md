@@ -1,0 +1,25 @@
+# Advanced local model selection — 2026-10-10
+
+Advanced is a separate extension window with independent recognition and translation selectors. Both default to Chrome. Choices persist across reopening; changing either selection stops the old session, prepares/downloads the selected models immediately in offscreen, and retains completed cache files. Users return to the original tab and press Start after readiness. No selector initiates capture. Stop cancels preparation; reset restores both Chrome defaults.
+
+## Registered choices
+
+- Recognition: Chrome SODA (Turbo fallback for automatic/Korean/unsupported API), Whisper Tiny/Base/Small q8 on WASM, Small FP16 and Large v3 Turbo FP16 on WebGPU. These are official Whisper family names; Pro/Flash are not names in the [official Whisper model list](https://github.com/openai/whisper).
+- Translation: Chrome TranslateKit, [NLLB-200 Distilled 600M](https://huggingface.co/Xenova/nllb-200-distilled-600M) q8 and [M2M100 418M](https://huggingface.co/Xenova/m2m100_418M) q8, both WASM/CPU. NLLB's upstream CC-BY-NC-4.0 restriction is displayed in Advanced; M2M100 is MIT. All execution is local; there are no API/cloud model choices.
+
+Every model uses pinned repository revisions and exact artifact sizes; large artifacts have SHA-256 checks on download. Runtime loading reads prepared cache only. Explicit choices do not silently fall back to another model. Automatic mode routes each recognized language to the selected translator; Korean continues to bypass translation.
+
+## Checks and evidence
+
+- `npm run verify`: lint, TypeScript, Chrome build, 177 unit/fixture checks and controlled caption stability. Model option tests cover every recognition/translation combination with fake worker preparation, explicit backend selection, native preference, Korean bypass, settings validation and cancellation of stale worker results. A regression first reproduced model switching being cancelled by the old running session’s own clear event; selection preparation now uses its own revision, separate from caption/session retirement. These mocked checks do not establish real model accuracy.
+- `node tests/framework-chrome-popup.mjs`: mocked background/native APIs verify separate-window creation, original tab/source forwarding, immediate preparation on selection, independent settings, persistence, Stop, reset and NLLB license text. Screenshot: `.ralph/advanced-model-options.png`.
+- `node tests/framework-chrome-model-options.mjs`: actual action popup → Advanced selectors → pinned Tiny/M2M100 downloads → real captured English audio → Korean page DOM, settings reload, live switch from Tiny to Base retaining M2M100, fresh session and Stop. Report: `.ralph/media-framework/model-options-extension.json`; actual UI screenshot: `.ralph/media-framework/advanced-real.png`.
+- `node tests/framework-chrome-model-translation.mjs`: actual pinned downloads and WASM inference for both translation models in Chrome, English and Japanese to Korean, exact revision pairing, Stop and cache-only model reload. Report: `.ralph/media-framework/model-translation.json`.
+
+The real translation fixtures use explicit train-station context in English (`Let's meet at the train station tomorrow.`) and Japanese (`明日は駅で会いましょう。`). Both models produced Korean mentioning tomorrow and a station. M2M100 outputs included `내일 기차역에서 만나자.` and `내일은 역에서 만나게 될 거예요.`; NLLB included `내일 기차역에서 보자` and `내일 기차역에서 만나게 될 거야`.
+
+The first real check failed with NLLB translating ambiguous `See you at the station tomorrow.` as `내일 경찰서에서 보자`. The fixture was made explicit rather than treating that result as an application routing bug. This remains evidence that model choice changes meanings and cannot guarantee translation quality. Observed per-call timings ranged from ~0.9–1.3 s for M2M100 to ~9.8–12.6 s for NLLB during concurrent local work; these are fixture observations, not comparable model benchmarks or a speed promise.
+
+The first extension display check reached model readiness and paired translation but timed out while observing the page overlay. A rerun passed the complete flow. Two subsequent live Base restart checks reached running state but produced no caption before the 60-second deadline; media was playing in the second attempt. The final run added PCM/worker observations and passed the live Tiny → Base switch, a fresh Korean caption and Stop. Its diagnostics recorded 292 nonzero-energy frames and four Base recognition jobs. The intermittent restart timeout remains recorded; its cause was not established by these checks. This is a bounded synthetic fixture, not a sustained display/latency guarantee.
+
+The initial incognito browser check failed to store a large model file (`Cache.put: Unexpected internal error`); an owned regular profile successfully downloaded, loaded and reloaded both models. The shipping extension also uses its own regular extension-origin cache. These checks do not establish long Japanese conversation accuracy for every Whisper variant; the existing conversation/default-native evidence and known lexical errors remain applicable.

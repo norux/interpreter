@@ -3,6 +3,7 @@
 - Use TypeScript with the existing strict compiler settings. Follow surrounding double quotes, semicolons and imports; Biome checks the repository.
 - Prefer plain functions, narrow types and shallow control flow. Keep worker/feature helpers near their caller. Introduce shared abstractions only when independent callers need them.
 - In automatic sessions, route translation by each transcript revision’s detected language. Never emit `auto` as a transcript language, infer language solely from a speaker ID, or pass Korean originals through native translation.
+- Keep recognition/translation settings independent and frozen per preparation. Download-on-selection must dispose the previous session, preserve completed caches and never initiate tab capture. Explicit model/backend errors must not silently fall back.
 - Keep browser globals in platform adapters. `packages/core` and `packages/contracts` must remain platform independent.
 - Carry session identity, epoch and revision through asynchronous work. Reject stale results and release resources on cancellation, Stop and target loss.
 - Bound audio, translation and transport queues. A normal burst of final results must preserve unread captions; do not silently reset the overlay to solve backpressure.

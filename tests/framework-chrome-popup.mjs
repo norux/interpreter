@@ -24,7 +24,7 @@ try {
     const params = new URL(location.href).searchParams;
     if (!params.has("gpu")) Object.defineProperty(navigator, "gpu", { value: undefined, configurable: true });
     const fresh = params.has("fresh") || params.has("downloading");
-    globalThis.commands = []; globalThis.installs = [];
+    globalThis.windows = []; globalThis.commands = []; globalThis.installs = [];
     globalThis.translationProbes = [];
     globalThis.listeners = []; globalThis.delaySnapshot = false;
     globalThis.packs = fresh ? [] : ["ja-JP", "en-US", "ko-KR"];
@@ -42,9 +42,11 @@ try {
       translationProbes.push(options); return translationReady ? "available" : "downloadable";
     } } });
     Object.defineProperty(window, "chrome", { configurable: true, value: {
+      windows: { create: async options => { windows.push(options); } },
       tabs: { query: async () => [{ id: 10, url: "http://fixture.test" }] },
-      runtime: { id: "fixture", onMessage: { addListener(listener) { listeners.push(listener); }, removeListener() {} }, async sendMessage({ command }) {
+      runtime: { id: "fixture", getURL: path => new URL(path, location.href).href, onMessage: { addListener(listener) { listeners.push(listener); }, removeListener() {} }, async sendMessage({ command }) {
         commands.push(command);
+        if (command.type === "models") saved = { state: "preparing", source: command.source, tabId: command.tabId, options: command.options, message: "선택한 모델 다운로드 중…", captions: [] };
         if (command.type === "prepare") saved = { state: "ready", source: command.source, tabId: command.tabId, message: "준비 완료", captions: [] };
         if (command.type === "start") saved = { ...saved, state: "starting", message: "탭 오디오에 연결 중…" };
         if (command.type === "stop") {
@@ -207,6 +209,36 @@ try {
   const preparedModels = await page.locator("#model-list").innerText();
   assert.match(preparedModels,/Whisper large-v3-turbo/);
   assert.ok(!preparedModels.includes("Chrome SODA"),"The prepared engine's actual model list overrides popup API predictions");
+  await page.locator("#advanced").click();
+  const opened = await page.evaluate(() => windows.at(-1));
+  assert.equal(opened.type, "popup"); assert.match(opened.url, /advanced.html/);
+  assert.equal(new URL(opened.url).searchParams.get("tabId"), "10");
+  assert.equal(new URL(opened.url).searchParams.get("source"), "ja");
+  await page.goto(opened.url);
+  await page.waitForFunction(() => document.querySelector("#recognition").options.length === 6);
+  assert.equal(await page.locator("#recognition").inputValue(), "chrome");
+  assert.equal(await page.locator("#translation").inputValue(), "chrome");
+  await page.locator("#recognition").selectOption("tiny");
+  await page.getByText("선택한 모델 다운로드 중…", { exact:true }).waitFor();
+  assert.deepEqual(await page.evaluate(() => commands.find(c => c.type === "models")), {type:"models",tabId:10,source:"ja",options:{recognition:"tiny",translation:"chrome"}});
+  assert.deepEqual(await page.evaluate(() => installs), [], "Explicit Whisper never installs SODA");
+  await page.locator("#translation").selectOption("m2m100");
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("jamak-model-options-v1")).translation === "m2m100");
+  assert.equal(await page.evaluate(() => commands.filter(c => c.type === "models").length), 2, "Selection starts model preparation without another Save click");
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector("#recognition").value === "tiny");
+  assert.equal(await page.locator("#translation").inputValue(), "m2m100");
+  assert.equal(await page.evaluate(() => commands.some(c => c.type === "models")), false, "Reopening settings must not restart downloads");
+  await page.locator("#translation").selectOption("nllb");
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("jamak-model-options-v1")).translation === "nllb");
+  assert.match(await page.locator("#translation-detail").textContent(), /CC-BY-NC-4.0/);
+  await page.locator("#stop").click();
+  await page.getByText("중지됨", {exact:true}).waitFor();
+  await page.locator("#reset").click();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("jamak-model-options-v1")).recognition === "chrome");
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("jamak-model-options-v1"))), {recognition:"chrome",translation:"chrome"});
+  assert.deepEqual(await page.evaluate(() => installs), [["ja-JP","en-US","ko-KR"]]);
+  await page.screenshot({path:".ralph/advanced-model-options.png"});
   console.log(JSON.stringify({ passed: true, scope: "Popup DOM and browser API mocks; cached models auto-ready on open/Stop, missing packs require a download gesture, readiness never starts capture" }));
 } finally {
   await browser?.close(); await new Promise(done => server.close(done));

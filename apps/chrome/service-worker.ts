@@ -1,10 +1,13 @@
 import { backgroundChannel, controlChannel, eventChannel, type BackgroundCommand, type BackgroundSnapshot } from "./background-protocol";
 import { createRemoteVideoOutput, tabOverlayChannelName } from "./overlay-channel";
+import { validModelOptions, type ModelOptions } from "./model-options";
 
 let creating: Promise<void> | undefined;
 let output: ReturnType<typeof createRemoteVideoOutput> | undefined;
 let outputSession: string | undefined;
 let generation = 0;
+// The retiring session’s clear event must not cancel a new model selection.
+let preparationRevision = 0;
 let starting = false;
 let selectedTabId: number | undefined;
 const offscreenUrl = chrome.runtime.getURL("offscreen.html");
@@ -37,19 +40,29 @@ async function connectOutput(snapshot: BackgroundSnapshot) {
     if (last) output.compare(last);
   } catch { if (current === generation) outputSession = undefined; }
 }
-async function control(command: { type: string; tabId?: number; source?: "ja" | "en" | "ko" | "auto" }) {
+async function control(command: { type: string; tabId?: number; source?: "ja" | "en" | "ko" | "auto"; options?: ModelOptions }) {
+  if (command.type === "models" && command.source && validModelOptions(command.options)) {
+    const current = ++preparationRevision;
+    await ensureRuntime();
+    if (current !== preparationRevision) return send({ type: "snapshot" });
+    generation++; selectedTabId = command.tabId; output?.dispose(); output = undefined; outputSession = undefined;
+    await send({ type: "stop" });
+    if (current !== preparationRevision) return send({ type: "snapshot" });
+    return send({ type: "models", tabId: command.tabId, source: command.source, options: command.options });
+  }
   if (command.type === "prepare" && command.tabId && command.source) {
+    preparationRevision++;
     await ensureRuntime();
     const previous = selectedTabId; const current = generation;
     selectedTabId = command.tabId;
-    try { return await send({ type: "prepare", tabId: command.tabId, source: command.source }); }
+    try { return await send({ type: "prepare", tabId: command.tabId, source: command.source, options: command.options }); }
     catch (error) {
       if (current === generation && selectedTabId === command.tabId) selectedTabId = previous;
       throw error;
     }
   }
   if (command.type === "stop") {
-    generation++; selectedTabId = undefined; output?.dispose(); output = undefined; outputSession = undefined;
+    preparationRevision++; generation++; selectedTabId = undefined; output?.dispose(); output = undefined; outputSession = undefined;
     return send({ type: "stop" });
   }
   await ensureRuntime();
@@ -80,7 +93,7 @@ async function control(command: { type: string; tabId?: number; source?: "ja" | 
 }
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (sender.id !== chrome.runtime.id) return;
-  if (message?.channel === controlChannel && [chrome.runtime.getURL("popup.html"), chrome.runtime.getURL("tab-host.html")].includes(sender.url ?? "")) {
+  if (message?.channel === controlChannel && [chrome.runtime.getURL("popup.html"), chrome.runtime.getURL("tab-host.html"), chrome.runtime.getURL("advanced.html")].includes(sender.url?.split("?")[0] ?? "")) {
     void control(message.command).then(snapshot => respond({ snapshot }), error => respond({ error: error.message }));
     return true;
   }

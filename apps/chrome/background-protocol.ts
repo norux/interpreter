@@ -1,9 +1,11 @@
 import type { CaptionRevision, MediaTarget, SessionIdentity } from "../../packages/contracts";
+import type { ModelOptions } from "./model-options";
 
 export type BackgroundSnapshot = {
   state: "idle" | "preparing" | "ready" | "starting" | "running" | "stopping" | "failed";
   source: "ja" | "en" | "ko" | "auto";
   tabId?: number;
+  options?: ModelOptions;
   message: string;
   diagnostic?: string;
   downloadProgress?: number;
@@ -15,7 +17,8 @@ export type BackgroundSnapshot = {
 
 export type BackgroundCommand =
   | { type: "snapshot" | "stop" }
-  | { type: "prepare"; tabId: number; source: "ja" | "en" | "ko" | "auto" }
+  | { type: "prepare"; tabId: number; source: "ja" | "en" | "ko" | "auto"; options?: ModelOptions }
+  | { type: "models"; tabId?: number; source: "ja" | "en" | "ko" | "auto"; options: ModelOptions }
   | { type: "start"; tabId: number; streamId: string };
 
 export const backgroundChannel = "interpreter-background-v1";

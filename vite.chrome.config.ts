@@ -26,6 +26,7 @@ export default defineConfig({
     rollupOptions: {
       input: { preparation: fileURLToPath(new URL("./apps/chrome/preparation.html", import.meta.url)),
         popup: fileURLToPath(new URL("./apps/chrome/popup.html", import.meta.url)),
+        advanced: fileURLToPath(new URL("./apps/chrome/advanced.html", import.meta.url)),
         offscreen: fileURLToPath(new URL("./apps/chrome/offscreen.html", import.meta.url)),
         "tab-host": fileURLToPath(new URL("./apps/chrome/tab-host.html", import.meta.url)),
         host: fileURLToPath(new URL("./apps/chrome/host.html", import.meta.url)),

@@ -2,16 +2,19 @@ import type { InterpretationEngine, ModelStatus, SessionIdentity } from "../../p
 import { sameIdentity } from "../../packages/core/identity";
 import { createAsrHost } from "../../packages/engines-browser/asr-host";
 import { createDocumentTranslator } from "../../packages/engines-browser/document-translator";
+import { createModelTranslator } from "../../packages/engines-browser/model-translator";
 import { createLocalSpeechHost } from "../../packages/engines-browser/local-speech";
 import { asrCandidates, registeredCandidate, speakerCandidate, vadCandidate } from "../../packages/engines-browser/model";
 import { createBrowserPipeline } from "../../packages/engines-browser/pipeline";
 import { createSpeakerHost } from "../../packages/engines-browser/speaker-host";
 import { createStreamingSpeechRecognizer } from "../../packages/engines-browser/streaming-speech";
 import { createVadHost } from "../../packages/engines-browser/vad-host";
+import { defaultModelOptions, type ModelOptions, recognitionChoices, translationChoices } from "./model-options";
 
-export function createChromeEngine(document: Document, source: "ja" | "en" | "ko" | "auto", receive: (message: string, progress?: string, fraction?: number) => void, execution: "foreground" | "offscreen" = "foreground", audioTrack?: () => MediaStreamTrack | undefined) {
+export function createChromeEngine(document: Document, source: "ja" | "en" | "ko" | "auto", receive: (message: string, progress?: string, fraction?: number) => void, execution: "foreground" | "offscreen" = "foreground", audioTrack?: () => MediaStreamTrack | undefined, options: ModelOptions = defaultModelOptions) {
   const languages = { source, target: "ko" };
-  const model = registeredCandidate(asrCandidates.turboFp16.model, "fp16");
+  const candidate = options.recognition === "chrome" ? "turboFp16" : options.recognition;
+  const model = registeredCandidate(asrCandidates[candidate].model, asrCandidates[candidate].dtype);
   const report = (status: ModelStatus) => receive(`${status.model.id} @ ${status.model.version}: ${status.state}; ${status.downloadedBytes ?? 0}/${status.requiredBytes} bytes${status.reason ? ` (${status.reason})` : ""}`,
     status.state === "downloading" ? `음성 인식 모델 다운로드 · ${Math.floor((status.downloadedBytes ?? 0) / status.requiredBytes * 100)}%`
       : status.state === "loading" ? "음성 인식 모델을 불러오는 중…" : undefined,
@@ -20,11 +23,13 @@ export function createChromeEngine(document: Document, source: "ja" | "en" | "ko
     status.state === "downloading" ? "화자 구분 모델 다운로드 중…" : status.state === "loading" ? "화자 구분 모델을 불러오는 중…" : undefined,
     status.state === "downloading" ? (status.downloadedBytes ?? 0) / status.requiredBytes : undefined));
   let speakerReady = false;
-  const asr = createAsrHost(document, "turboFp16", "webgpu", report, execution);
+  const asr = createAsrHost(document, candidate, model.dtype === "fp16" ? "webgpu" : "wasm", report, execution);
   const vad = createVadHost(document, report, execution);
-  const local = (source === "ja" || source === "en") && execution === "offscreen" && audioTrack ? createLocalSpeechHost(document, source, audioTrack, receive) : undefined;
+  const local = options.recognition === "chrome" && (source === "ja" || source === "en") && execution === "offscreen" && audioTrack ? createLocalSpeechHost(document, source, audioTrack, receive) : undefined;
   const usingLocal = local?.supported === true;
-  const translator = createDocumentTranslator(document, languages, status => receive(`Translator ${source} → ko: ${status.state}${status.progress === undefined ? "" : ` ${Math.round(status.progress * 100)}%`}${status.reason ? ` (${status.reason})` : ""}`,
+  const translator = options.translation !== "chrome" ? createModelTranslator(document, languages, options.translation, status => receive(`${status.model.id}: ${status.state}`,
+    status.state === "downloading" ? `번역 모델 다운로드 · ${Math.floor((status.downloadedBytes ?? 0) / status.requiredBytes * 100)}%` : status.state === "loading" ? "번역 모델을 불러오는 중…" : undefined,
+    status.state === "downloading" ? (status.downloadedBytes ?? 0) / status.requiredBytes : undefined), execution) : createDocumentTranslator(document, languages, status => receive(`Translator ${source} → ko: ${status.state}${status.progress === undefined ? "" : ` ${Math.round(status.progress * 100)}%`}${status.reason ? ` (${status.reason})` : ""}`,
     status.state === "preparing" ? `번역 모델 준비${status.progress === undefined ? " 중…" : ` · ${Math.round(status.progress * 100)}%`}` : undefined,
     status.state === "preparing" ? status.progress : undefined), execution);
   let ready = false;
@@ -95,9 +100,9 @@ export function createChromeEngine(document: Document, source: "ja" | "en" | "ko
     get ready() { return ready; },
     get models() {
       return [
-        { task: source === "auto" ? "언어 감지 · 받아쓰기" : "받아쓰기", name: usingLocal ? "Chrome SODA" : "Whisper large-v3-turbo · FP16 / WebGPU" },
+        { task: source === "auto" ? "언어 감지 · 받아쓰기" : "받아쓰기", name: usingLocal ? "Chrome SODA" : candidate === "turboFp16" ? "Whisper large-v3-turbo · FP16 / WebGPU" : `${recognitionChoices.find(choice => choice.id === candidate)?.name} / ${model.dtype === "fp16" ? "WebGPU" : "WASM"}` },
         ...usingLocal ? [] : [{ task: "발화 감지", name: "Silero VAD" }],
-        ...source === "ko" ? [] : [{ task: "한국어 번역", name: "Chrome TranslateKit" }],
+        ...source === "ko" ? [] : [{ task: "한국어 번역", name: options.translation === "chrome" ? "Chrome TranslateKit" : translationChoices.find(choice => choice.id === options.translation)?.name ?? "" }],
         { task: "화자 구분", name: "WeSpeaker VoxCeleb ResNet34-LM · q8" },
       ];
     },

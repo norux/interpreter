@@ -10,7 +10,16 @@ npm run verify
 
 `verify` runs Biome, application and platform-independent type checks, the Chrome build, unit/fixture tests and the controlled-clock caption browser check. It does not establish real model accuracy or native Chrome feature availability. Build output is `apps/chrome/dist`.
 
-`node tests/framework-chrome-popup.mjs` verifies popup progress display with mocked background snapshots: reported percentages, indeterminate loading, reopening during preparation and hiding after readiness, plus automatic/manual model-information rows, manual defaults, Japanese native speech preference even on WebGPU, restoring automatic mode, selecting a language disabling detection, and Korean skipping translation probes and SODA installation. It does not verify download speed or native model accuracy.
+`node tests/framework-chrome-popup.mjs` verifies popup progress display with mocked background snapshots: reported percentages, indeterminate loading, reopening during preparation and hiding after readiness, plus automatic/manual model-information rows, manual defaults, Japanese native speech preference even on WebGPU, restoring automatic mode, selecting a language disabling detection, and Korean skipping translation probes and SODA installation. It also checks the separate Advanced window, original tab/source forwarding, both selectors, preparation immediately on selection, persistence on reopen, Stop and reset to both Chrome defaults. It does not verify download speed or native model accuracy.
+
+## Model selection checks
+
+`npm run verify` includes all recognition/translation option combinations with mocked worker preparation, native preference/explicit override, selected WASM/WebGPU backend, Korean bypass, disposal and stale-result cancellation. It validates settings and cache identities; these are routing checks, not real model quality.
+
+- `node tests/framework-chrome-model-translation.mjs`: downloads both pinned alternative translation models, executes real WASM English/Japanese → Korean translations on synthetic text, checks source revision pairing, Stop and cache-only reload. Uses an owned regular browser profile; incognito Cache Storage can fail on large files. First downloads total ~1.55 GB.
+- `node tests/framework-chrome-model-options.mjs`: actual unpacked extension action → separate Advanced → Tiny q8 / M2M100 q8 → real model downloads → tab capture of the checked-in synthetic English clip → Korean page overlay, persisted selectors, popup model information, switching to Base during a running session while retaining M2M100, a fresh caption session and Stop. Uses an owned Chrome profile and actual action authorization. It does not establish conversational accuracy for every Whisper variant or a latency bound.
+
+Both scripts write ignored evidence under `.ralph/media-framework/`. See [model selection evidence](verification/model-options.md). Existing real acoustic checks continue to verify Chrome defaults; use the explicit selections when comparing models, and report their names/backends with measurements.
 
 ## Automatic language checks
 

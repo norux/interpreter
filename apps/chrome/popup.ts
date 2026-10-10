@@ -1,5 +1,7 @@
 import { controlChannel, eventChannel, type BackgroundSnapshot } from "./background-protocol";
 import { asrCandidates, registeredCandidate, vadCandidate } from "../../packages/engines-browser/model";
+import { readModelOptions, modelOptionsKey, recognitionChoices, translationChoices } from "./model-options";
+import { translationCandidates } from "../../packages/engines-browser/translation-model";
 import { localSpeechLanguages } from "../../packages/engines-browser/local-speech";
 
 const automatic = document.querySelector("#auto-detect") as HTMLInputElement;
@@ -28,7 +30,7 @@ const speech = view.SpeechRecognition ?? view.webkitSpeechRecognition;
 const localSpeechSupported = !!speech?.available && !!speech.install && "processLocally" in new speech();
 function usingLocalSpeech() {
   const source = selectedSource();
-  return localSpeechSupported && (source === "en" || source === "ja");
+  return readModelOptions().recognition === "chrome" && localSpeechSupported && (source === "en" || source === "ja");
 }
 function render(value: BackgroundSnapshot) {
   snapshot = value;
@@ -50,25 +52,31 @@ function render(value: BackgroundSnapshot) {
     downloadPercent.textContent = `${Math.floor(value.downloadProgress * 100)}%`;
   }
   translationControls.hidden = setup;
-  const native = value.models && value.source === source ? value.models.some(model => model.name === "Chrome SODA")
+  const options = readModelOptions();
+  const candidate = options.recognition === "chrome" ? "turboFp16" : options.recognition;
+  const asrName = candidate === "turboFp16" ? "Whisper large-v3-turbo · FP16 / WebGPU" : recognitionChoices.find(choice => choice.id === candidate)?.name ?? "";
+  const translationName = options.translation === "chrome" ? "Chrome TranslateKit" : translationChoices.find(choice => choice.id === options.translation)?.name ?? "";
+  const matches = value.source === source && (!value.options || value.options.recognition === options.recognition && value.options.translation === options.translation);
+  const native = value.models && matches ? value.models.some(model => model.name === "Chrome SODA")
     : usingLocalSpeech();
-  modelDescription.textContent = source === "auto"
+  modelDescription.textContent = options.recognition === "chrome" && options.translation === "chrome" ? source === "auto"
     ? "영어 · 일본어 · 한국어를 발화별로 자동 감지합니다.\n한국어 발화는 원문을 표시하고, 영어·일본어는 한국어로 번역합니다.\n처음 모델 다운로드 후 기기에서 처리합니다."
     : source === "ko"
     ? "음성 인식: Whisper large-v3-turbo · FP16 + Silero VAD\n한국어 원문을 표시하며 번역은 생략합니다.\n창을 닫아도 준비가 계속 진행됩니다."
     : native
     ? `음성 인식: Chrome SODA · ${source === "ja" ? "일본어" : "영어"}\nChrome 시작용 영어·한국어 팩 포함\n번역: Chrome TranslateKit · 한국어\n창을 닫아도 다운로드가 계속 진행됩니다.`
-    : "음성 인식: Whisper large-v3-turbo · FP16 + Silero VAD\n번역: Chrome TranslateKit · 한국어\n음성 모델 약 1.6 GB · WebGPU 필요\n최초 한 번 다운로드하며, 창을 닫아도 계속 진행됩니다.";
+    : "음성 인식: Whisper large-v3-turbo · FP16 + Silero VAD\n번역: Chrome TranslateKit · 한국어\n음성 모델 약 1.6 GB · WebGPU 필요\n최초 한 번 다운로드하며, 창을 닫아도 계속 진행됩니다."
+    : `음성 인식: ${native ? "Chrome SODA" : asrName}${native ? "" : " + Silero VAD"}\n${source === "ko" ? "한국어 원문을 표시하며 번역은 생략합니다." : `번역: ${translationName}`}\n${source === "auto" ? "영어 · 일본어 · 한국어를 발화별로 자동 감지합니다.\n" : ""}창을 닫아도 모델 준비가 계속 진행됩니다.`;
   prepare.hidden = !setup;
   prepare.textContent = checking ? "모델 확인 중…" : value.state === "preparing" ? "다운로드 · 준비 중…" : "모델 다운로드";
   prepare.disabled = busy || checking || tabId === undefined;
-  start.disabled = value.state !== "ready" || value.tabId !== tabId || checking;
+  start.disabled = value.state !== "ready" || value.tabId !== tabId || !matches || checking;
   stop.disabled = value.state === "idle" || value.state === "stopping";
   status.textContent = value.message;
-  const models = value.models && value.source === source ? value.models : [
-    { task: source === "auto" ? "언어 감지 · 받아쓰기" : "받아쓰기", name: native ? "Chrome SODA" : "Whisper large-v3-turbo · FP16 / WebGPU" },
+  const models = value.models && matches ? value.models : [
+    { task: source === "auto" ? "언어 감지 · 받아쓰기" : "받아쓰기", name: native ? "Chrome SODA" : asrName },
     ...native ? [] : [{ task: "발화 감지", name: "Silero VAD" }],
-    ...source === "ko" ? [] : [{ task: "한국어 번역", name: "Chrome TranslateKit" }],
+    ...source === "ko" ? [] : [{ task: "한국어 번역", name: translationName }],
     { task: "화자 구분", name: "WeSpeaker VoxCeleb ResNet34-LM · q8" },
   ];
   modelList.replaceChildren(...models.map(model => {
@@ -80,7 +88,7 @@ function render(value: BackgroundSnapshot) {
 async function request(type: string) {
   const current = ++revision;
   const result = await chrome.runtime.sendMessage({ channel: controlChannel,
-    command: { type, tabId: type === "start" ? snapshot?.tabId : tabId, source: selectedSource() } });
+    command: { type, tabId: type === "start" ? snapshot?.tabId : tabId, source: selectedSource(), options: readModelOptions() } });
   if (disposed || current !== revision) return result?.snapshot as BackgroundSnapshot | undefined;
   if (result?.error) { status.textContent = result.error; return; }
   if (result?.snapshot) render(result.snapshot);
@@ -95,19 +103,25 @@ async function ensureReady() {
   checking = true; render(snapshot);
   try {
     if (snapshot.state === "ready") {
-      if (snapshot.tabId === tabId && snapshot.source === source) return;
+      if (snapshot.tabId === tabId && snapshot.source === source && (!snapshot.options || snapshot.options.recognition === readModelOptions().recognition && snapshot.options.translation === readModelOptions().translation)) return;
       const stopped = await request("stop");
       if (disposed) return;
       if (stopped) render(stopped);
     }
     status.textContent = "저장된 모델 확인 중…";
+    const options = readModelOptions();
+    const candidate = options.recognition === "chrome" ? "turboFp16" : options.recognition;
     const sources = source === "auto" ? ["en", "ja"] : source === "ko" ? [] : [source];
-    const translations = await Promise.all(sources.map(sourceLanguage => view.Translator?.availability({ sourceLanguage, targetLanguage: "ko" })));
+    const translations = options.translation === "chrome" ? await Promise.all(sources.map(sourceLanguage => view.Translator?.availability({ sourceLanguage, targetLanguage: "ko" }))) : [];
     let cached = translations.every(state => state === "available");
+    const selectedModels = options.translation !== "chrome" && source !== "ko" ? [registeredCandidate(translationCandidates[options.translation].model, "q8")] : [];
     if (cached && usingLocalSpeech()) {
       cached = await speech?.available?.({ langs: localSpeechLanguages(source as "ja" | "en"), processLocally: true }) === "available";
     } else if (cached) {
-      for (const selected of [registeredCandidate(asrCandidates.turboFp16.model, "fp16"), registeredCandidate(vadCandidate.model, "fp32")]) {
+      selectedModels.push(registeredCandidate(asrCandidates[candidate].model, asrCandidates[candidate].dtype), registeredCandidate(vadCandidate.model, "fp32"));
+    }
+    if (cached) {
+      for (const selected of selectedModels) {
         if (!await caches.has(selected.cacheName)) { cached = false; break; }
         const cache = await caches.open(selected.cacheName);
         for (const file of selected.files) {
@@ -157,6 +171,13 @@ async function changeSource() {
 }
 language.onchange = () => { automatic.checked = false; void changeSource(); };
 automatic.onchange = () => { void changeSource(); };
+(document.querySelector("#advanced") as HTMLButtonElement).onclick = () => {
+  const url = new URL(chrome.runtime.getURL("advanced.html"));
+  url.searchParams.set("source", selectedSource());
+  if (tabId !== undefined) url.searchParams.set("tabId", String(tabId));
+  void chrome.windows.create({ url: url.href, type: "popup", width: 640, height: 650 }).catch(error => { status.textContent = error.message; });
+};
+window.addEventListener("storage", event => { if (event.key === modelOptionsKey) action("snapshot"); });
 (document.querySelector("#reference") as HTMLButtonElement).onclick = () => action("reference");
 function changed(message: { channel?: string }, sender: chrome.runtime.MessageSender) {
   if (sender.id === chrome.runtime.id && message.channel === eventChannel) action("snapshot");

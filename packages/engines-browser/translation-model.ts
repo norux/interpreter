@@ -1,0 +1,33 @@
+export const translationCandidates = {
+  nllb: {
+    dtype: "q8",
+    model: { id: "Xenova/nllb-200-distilled-600M", version: "261c31d1a5732c67cdd16d80e8d6088507c7ccea" },
+    files: [
+      { path: "config.json", bytes: 873 },
+      { path: "generation_config.json", bytes: 189 },
+      { path: "tokenizer.json", bytes: 17331224,
+        sha256: "8ac789ad7dabea44d41537822d48c516ba358374c51813e2cba78c006e150c94" },
+      { path: "tokenizer_config.json", bytes: 544 },
+      { path: "special_tokens_map.json", bytes: 3548 },
+      { path: "onnx/encoder_model_quantized.onnx", bytes: 419120483,
+        sha256: "5cde664eacba07a62f198857ec6c06e09572b1ebb77c8137f1fa99ac604a3a28" },
+      { path: "onnx/decoder_model_merged_quantized.onnx", bytes: 475505771,
+        sha256: "dd66608c2a4194e78f95548fa0e64f24302303698c5b09fa8e1f9e16ec00676b" },
+    ],
+  },
+  m2m100: {
+    dtype: "q8",
+    model: { id: "Xenova/m2m100_418M", version: "9c374f0b7aca709787cea97b047bfbbd1559d177" },
+    files: [
+      { path: "config.json", bytes: 908 },
+      { path: "generation_config.json", bytes: 233 },
+      { path: "tokenizer.json", bytes: 7988527 },
+      { path: "tokenizer_config.json", bytes: 1813 },
+      { path: "special_tokens_map.json", bytes: 1559 },
+      { path: "onnx/encoder_model_quantized.onnx", bytes: 287856370,
+        sha256: "13a94e354a9140764eb81102d77d3ec6952d796e6f113c651eeb3c3443da0386" },
+      { path: "onnx/decoder_model_merged_quantized.onnx", bytes: 344128178,
+        sha256: "007654bcabb6cea6fd3bde34ce933137b431330b3755781145d7b6906270b45a" },
+    ],
+  },
+} as const;

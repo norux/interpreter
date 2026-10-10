@@ -1,4 +1,5 @@
 import type { ModelIdentity } from "../contracts";
+import { translationCandidates } from "./translation-model";
 
 // Preparation candidate only. B2 must compare real Japanese/English recognition.
 export const preparationModel: ModelIdentity = {
@@ -111,12 +112,12 @@ export const speakerCandidate = {
 } as const;
 
 export function registeredCandidate(model: ModelIdentity, dtype: "q8" | "fp16" | "fp32" = "q8") {
-  const candidate = [...Object.values(asrCandidates), vadCandidate, speakerCandidate].find(value => value.model.id === model.id && value.model.version === model.version && value.dtype === dtype);
+  const candidate = [...Object.values(asrCandidates), ...Object.values(translationCandidates), vadCandidate, speakerCandidate].find(value => value.model.id === model.id && value.model.version === model.version && value.dtype === dtype);
   if (!candidate) throw new Error("Unregistered model/version");
   return {
     ...candidate,
     requiredBytes: candidate.files.reduce((sum, file) => sum + file.bytes, 0),
-    cacheName: `interpreter-${candidate === vadCandidate ? "vad" : candidate === speakerCandidate ? "speaker" : "asr"}-${candidate.model.version}-${candidate.dtype}`,
+    cacheName: `interpreter-${candidate === vadCandidate ? "vad" : candidate === speakerCandidate ? "speaker" : Object.values(translationCandidates).some(value => value === candidate) ? "translation" : "asr"}-${candidate.model.version}-${candidate.dtype}`,
     url: (path: string) => `https://huggingface.co/${candidate.model.id}/resolve/${candidate.model.version}/${path}`,
   };
 }
