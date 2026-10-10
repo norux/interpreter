@@ -17,6 +17,7 @@ Navigation, target loss and Stop invalidate the session and release resources. S
 
 - Never pair a translation with a different source revision or epoch.
 - Preserve the previous translation while its correction is pending.
+- Keep every provisional row in its original stack position until its latest source and matching translation are final, regardless of newer captions. Pending corrections block retirement of the displayed previous pair even when that pair was final. Receipt of the corrected final pair grants at least four seconds of final reading time, including unchanged text; long provisional rows still advance their measured parts.
 - Do not discard unread captions or replay a retired sentence when final recognition arrives in a burst.
 - Keep visible reading progress separate from transcript storage. Only visible text counts toward reading time.
 - Ready captions appear below earlier captions in a bounded stack. Visible rows accrue reading time concurrently and long rows advance their own measured two-line parts. Completed rows retire oldest first after 4–6 seconds per visible part and a 250 ms fade; a newer row retains its original reading deadline when older rows leave. Clipped rows wait without spending reading time, and one row’s fade never fades the whole stack.

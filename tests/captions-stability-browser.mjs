@@ -9,13 +9,14 @@ await build({ configFile: false, logLevel: "warn", build: { outDir,
 const browser = await chromium.launch({ channel: "chromium", headless: true });
 try {
   const page = await browser.newPage();
-  await page.clock.install();
+  await page.clock.install({time:new Date('2026-10-10T00:00:00Z')});
   await page.setContent('<div></div>');
   const { readFile } = await import('node:fs/promises');
   const bundle = await readFile(`${outDir}/overlay.js`, 'utf8');
   const exportedName = bundle.match(/(\w+) as createVideoOverlay/)[1];
   await page.addScriptTag({ type: 'module', content: bundle.replace(/export\s*\{[^}]+\};?\s*$/, `globalThis.createVideoOverlay = ${exportedName};`) });
   await page.waitForFunction(() => globalThis.createVideoOverlay);
+  await page.clock.pauseAt(new Date('2026-10-10T00:01:00Z'));
   await page.evaluate(() => {
     const identity = { sessionId: 'stability', targetId: 'tab', epoch: 0 };
     globalThis.overlay = createVideoOverlay(document, null, identity);
@@ -44,6 +45,24 @@ try {
   await page.clock.runFor(2500);
   assert.equal(await page.evaluate(() => document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelectorAll('.interpreter-live')[1]?.style.opacity ?? '1'), '1', 'Fading an older row must not fade the following caption');
   await page.clock.runFor(500);
+  await page.clock.runFor(10000);
+  assert.deepEqual(await page.evaluate(() => Array.from(document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelectorAll('.interpreter-live > span:not(.interpreter-measure)')).map(span => span.textContent)),
+    ['교정된 첫 문장', '두 번째 문장'], 'Every provisional caption must stay visible until recognition and translation finish');
+  await page.evaluate(() => {
+    globalThis.firstCue = document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live');
+    send('one', 3, '', true);
+  });
+  await page.clock.runFor(10000);
+  assert.equal(await page.evaluate(() => read()), '교정된 첫 문장');
+  await page.evaluate(() => send('one', 3, '늦게 교정된 첫 문장'));
+  await page.clock.runFor(180);
+  assert.equal(await page.evaluate(() => read()), '늦게 교정된 첫 문장', 'Late corrections must update the held caption in real time');
+  assert.equal(await page.evaluate(() => firstCue === document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live')), true,
+    'A late correction must update the same row in its original position');
+  await page.evaluate(() => send('one', 4, '늦게 교정된 첫 문장', false, undefined, true));
+  await page.clock.runFor(3999);
+  assert.equal(await page.evaluate(() => read()), '늦게 교정된 첫 문장');
+  await page.clock.runFor(251);
   assert.equal(await page.evaluate(() => read()), '두 번째 문장');
   await page.evaluate(() => { overlay.clear(); send('one', 1, '첫 화자', false, 1, true); });
   const background = () => page.evaluate(() => getComputedStyle(document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelector('.interpreter-live span')).backgroundColor);
@@ -70,6 +89,19 @@ try {
     'The second caption expires from when it first appeared, without another four-second wait');
   await page.clock.runFor(250);
   assert.equal(await page.evaluate(() => read()), '');
+  await page.evaluate(() => { overlay.clear(); send('one', 1, '확정된 앞 자막', false, 1, true); });
+  await page.clock.runFor(3900);
+  await page.evaluate(() => { send('one', 2, '', true, 1, true); send('two', 1, '뒤 자막', false, 2, true); });
+  await page.clock.runFor(10000);
+  assert.deepEqual(await page.evaluate(() => Array.from(document.querySelector('[data-interpreter-overlay]').shadowRoot.querySelectorAll('.interpreter-live > span:not(.interpreter-measure)')).map(span => span.textContent)),
+    ['확정된 앞 자막', '뒤 자막'], 'Pending correction must block expiry even when the displayed old pair was final');
+  await page.evaluate(() => send('one', 2, '확정된 앞 자막', false, 1, true));
+  await page.clock.runFor(3999);
+  assert.equal(await page.evaluate(() => read()), '확정된 앞 자막', 'An unchanged corrected final still needs its final reading hold');
+  await page.clock.runFor(251);
+  assert.equal(await page.evaluate(() => read()), '뒤 자막', 'Completed rows must still leave in their original order');
+  await page.clock.runFor(250);
+  assert.equal(await page.evaluate(() => read()), '');
   await page.setViewportSize({width:320,height:520});
   await page.evaluate(() => { overlay.clear(); for (let i=0;i<12;i++) send(`burst-${i}`,1,`대화 ${i}`,false,i%2+1,true); });
   const observed = new Map(); const retired = new Set();
@@ -92,5 +124,5 @@ try {
   }
   assert.equal(observed.size,12,'Every queued caption must eventually become visible');
   assert.equal(retired.size,12,'Concurrent reading must clear this burst without a serial four-second wait per row');
-  console.log(JSON.stringify({passed:true,readyCaptionStacked:true,concurrentReading:true,narrowBurst:12,pendingTranslationHeld:true,unreadSentencePreserved:true,speakerBackgrounds:true,finalHoldMs:4000,fadeMs:250}));
+  console.log(JSON.stringify({passed:true,readyCaptionStacked:true,concurrentReading:true,narrowBurst:12,pendingTranslationHeld:true,provisionalHeldUntilFinal:true,lateCorrectionKeepsRow:true,pendingFinalCorrectionHeld:true,unreadSentencePreserved:true,speakerBackgrounds:true,finalHoldMs:4000,fadeMs:250}));
 } finally { await browser.close(); }

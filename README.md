@@ -11,7 +11,7 @@
 - Optionally detects English, Japanese and Korean per speech turn. English/Japanese → Korean subtitles; Korean speech keeps its original text.
 - Select English, Japanese or Korean manually to disable automatic detection. Manual Japanese is the default.
 - Captures the selected tab's audio, including videos, iframes and Web Audio. Playback remains audible.
-- Updates captions as speech arrives and corrects them as recognition completes. Whisper also shows provisional text while speaking, then confirms stable sentences.
+- Updates captions as speech arrives and keeps each caption in place until recognition and its matching translation are final, even when newer captions arrive. Whisper also shows provisional text while speaking, then confirms stable sentences.
 - Distinguishes speakers with background colors, without speaker labels.
 - Shows ready captions immediately below earlier captions in a bounded toast-style stack. Visible captions read concurrently and leave oldest first; each completed part remains for 4–6 seconds, then fades out.
 - Keeps captions visible over fullscreen videos and players, including fullscreen videos inside embedded frames. Playback controls remain clickable.

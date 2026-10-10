@@ -148,26 +148,31 @@ test("long final updates preserve the read part and advance only acknowledged pa
   assert.equal(h.policy.snapshot()[0].source.sourceRevision, 4, "Comparison still receives full latest records");
 });
 
-test("reading holds latest provisional, expires in order and hidden layout does not spend reading time", () => {
+test("every provisional waits for final correction, expires in order and hidden layout does not spend reading time", () => {
   const h = harness();
   const first = caption();
   h.accept(first);
   h.progress(first);
   h.runFor(10000);
-  assert.equal(h.events.length, 1, "Only provisional ending must await correction/final");
+  assert.equal(h.events.length, 1, "Provisional text must await correction/final");
   assert.equal(h.timerCount, 0, "No polling an indefinitely held provisional");
   const next = caption(1, true, "u2");
   h.accept(next);
   h.progress(next, 0, true, 10, false);
-  h.runFor(1);
-  assert.equal(h.events.at(-1)?.event.type, "fade");
-  h.runFor(250);
+  h.runFor(10000);
+  assert.equal(h.events.length, 2, "A newer caption cannot expire an unfinished earlier caption");
+  assert.equal(h.timerCount, 0, "Held captions must not poll");
+  const final = caption(2, true);
+  h.accept(final); h.progress(final);
+  h.runFor(3999);
+  assert.equal(h.events.at(-1)?.event.type, "update");
+  h.runFor(251);
   assert.equal(h.events.at(-1)?.event.type, "remove");
   h.runFor(10000);
-  assert.equal(h.events.length, 4, "Hidden text does not expire");
+  assert.equal(h.events.length, 5, "Hidden text does not expire");
   h.progress(next);
   h.runFor(3999);
-  assert.equal(h.events.length, 4);
+  assert.equal(h.events.length, 5);
   h.runFor(1);
   assert.equal(h.events.at(-1)?.event.type, "fade");
 });
@@ -244,7 +249,7 @@ test("explicit clear cancels cadence and resets history while keeping the output
 });
 
 
-test("source-only reading progress lets an untranslated provisional yield to the next caption", () => {
+test("source-only provisional stays in place and keeps updating after the next caption arrives", () => {
   const h = harness();
   const first = caption();
   h.policy.accept({ type: "transcript", revision: first.source });
@@ -253,10 +258,11 @@ test("source-only reading progress lets an untranslated provisional yield to the
   h.runFor(6000);
   assert.equal(h.events.length, 1, "The last provisional stays visible while awaiting correction");
   h.accept(caption(1, true, "u2"));
-  h.runFor(1);
-  assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "u1", durationMs: 250 });
-  h.runFor(250);
-  assert.deepEqual(h.events.at(-1)?.event, { type: "remove", identity, utteranceId: "u1" });
+  h.runFor(10000);
+  assert.equal(h.events.length, 2, "A newer caption cannot remove source text awaiting correction");
+  const corrected = { ...first.source, sourceRevision: 2, text: "corrected live source" };
+  const accepted = h.policy.accept({ type: "transcript", revision: corrected });
+  assert.deepEqual(h.events.at(-1)?.event, { type: "update", caption: accepted });
   assert.equal(h.policy.snapshot()[0].translation.state, "pending", "Reading expiry never fabricates a translation");
 });
 
@@ -274,7 +280,10 @@ test("pending and paired reading acknowledgements cannot spend each other's read
     partIndex: 0, complete: true, characterCount: 10, visible: true });
   h.runFor(10000);
   assert.equal(h.events.length, count, "A late source-only acknowledgement cannot expire a fresh translation");
-  h.progress(first); h.runFor(2499); assert.equal(h.events.length, count);
+  const final = caption(2, true);
+  h.accept(final); h.progress(final);
+  const finalCount = h.events.length;
+  h.runFor(3999); assert.equal(h.events.length, finalCount);
   h.runFor(1);
   assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "u1", durationMs: 250 });
 });
@@ -352,6 +361,48 @@ test("stacked captions read concurrently and the next row keeps its original exp
   h.runFor(1);
   assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "next", durationMs: 250 });
   h.runFor(250); assert.deepEqual(h.events.at(-1)?.event, { type: "remove", identity, utteranceId: "next" });
+});
+
+test("a pending correction holds an old final pair until the latest pair is final and read", () => {
+  const h = harness(180);
+  const first = caption(1, true, "first");
+  const next = caption(1, true, "next");
+  h.accept(first);
+  const progress = { identity, utteranceId: "first", sourceRevision: 1, translationRevision: 1,
+    partIndex: 0, complete: true, visible: true, characterCount: 5, displayedText: "same" };
+  h.policy.progress(progress);
+  h.runFor(3900);
+  const corrected = caption(2, true, "first");
+  h.policy.accept({ type: "transcript", revision: corrected.source });
+  h.accept(next); h.progress(next);
+  h.runFor(10000);
+  assert.equal(h.events.length, 2, "The displayed old final pair must stay while its correction is pending");
+  assert.equal(h.timerCount, 0, "Both completed rows wait without polling");
+  h.accept(corrected);
+  h.policy.progress({ ...progress, sourceRevision: 2, translationRevision: 2 });
+  h.runFor(3999);
+  assert.equal(h.events.at(-1)?.event.type, "update", "Even unchanged corrected text needs a final reading hold");
+  h.runFor(251);
+  assert.deepEqual(h.events.at(-1)?.event, { type: "fade", identity, utteranceId: "next", durationMs: 250 });
+  h.runFor(250);
+  assert.deepEqual(h.events.filter(item => item.event.type === "remove").map(item => item.event.type === "remove" && item.event.utteranceId),
+    ["first", "next"], "A late correction must preserve caption order");
+});
+
+test("a final source with a provisional translation cannot fade before its translation finalizes", () => {
+  const h = harness(180);
+  const first = caption(1, true);
+  if (first.translation.state !== "paired") throw new Error("Fixture must be paired");
+  h.accept({ ...first, translation: { state: "paired", revision: { ...first.translation.revision, final: false } } });
+  h.progress(first);
+  h.accept(caption(1, true, "next"));
+  h.runFor(10000);
+  assert.equal(h.events.length, 2);
+  h.policy.accept({ type: "translation", revision: { ...first.translation.revision, translationRevision: 2 } });
+  h.policy.progress({ identity, utteranceId: "u1", sourceRevision: 1, translationRevision: 2,
+    partIndex: 0, complete: true, visible: true, characterCount: 10 });
+  h.runFor(3999); assert.equal(h.events.at(-1)?.event.type, "update");
+  h.runFor(1); assert.equal(h.events.at(-1)?.event.type, "fade");
 });
 
 test("a younger completed row waits for the older row to leave without restarting its reading time", () => {

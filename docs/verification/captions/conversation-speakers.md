@@ -67,3 +67,11 @@ Jamak 전환 후에는 legacy 앱과 전용 검사를 제거하고 `npm run veri
 확장 검사는 합성 accepted-caption 입력이며 ASR/번역 정확도나 실제 오디오의 새 측정이 아니다. 테스트 복사본의 localhost 권한을 사용하므로 toolbar의 activeTab 권한 승인을 새로 검증한 것도 아니다. `selected-video-fullscreen.png`, `tab-video-fullscreen.png`, `tab-iframe-fullscreen.png`는 `.ralph/media-framework/`에 저장해 육안으로 검토했고, 영상 위 자막·스택·컨트롤 위 여백을 확인했다.
 
 shipping 탭 경로를 검사하면서 service worker의 동적 import 제한과 첫 port 메시지가 도착하기 전 DOM을 읽는 검사 오류가 발생했다. 테스트가 실제 service-worker 포트로 합성 envelope를 보내고 자막 host 생성까지 기다리도록 수정했다. 기존 선택 영상 fixture와 shipping 탭 fixture를 한 페이지에 주입했을 때 서로의 채널이 끊겨, 실제 제품과 같은 별도 페이지로 분리한 뒤 통과했다. 이를 위해 production 채널 검증을 완화하지 않았다. README·AGENTS·아키텍처·검사 지침과 기존 host의 전체화면 안내를 동기화했다. 코딩 규약의 revision·읽기 시간·비대화형 표시 원칙과 기존 언어별 인식 검증 기록은 유효해 수정하지 않았다.
+
+## 받아쓰기 교정 완료 전 자막 유지
+
+2026-10-10. 뒤 자막이 도착하면 앞 임시 자막도 읽기 시간 만료로 사라지고 이후 교정을 표시하지 않는 문제를 재현했다. 새 회귀 조건에서 presentation 단위 검사 4개와 제어된 시계의 브라우저 검사가 수정 전 실패했다.
+
+각 행은 최신 원문과 그 revision에 맞는 번역이 모두 확정될 때까지 유지한다. 번역 교정 대기 중 이전 확정 pair를 표시하는 경우도 퇴장하지 않는다. 늦은 교정은 같은 DOM 행과 원래 위치에서 갱신하며, 교정된 확정 pair가 도착하면 표시 문구가 같아도 최소 4초의 확정 읽기 시간을 준다. 긴 임시 문장의 두 줄 단위 진행, 뒤 행의 동시 읽기 및 오래된 행부터 퇴장하는 순서는 유지한다.
+
+`npm run verify`의 린트, 두 종류 타입 검사, Chrome 빌드, 191개 단위·fixture 검사와 자막 안정성 검사를 통과했다. 안정성 검사의 기존 좁은 화면 관측이 한 번 실패해, 브라우저 시계를 명시적으로 정지하고 `runFor`로만 진행하도록 변경한 뒤 통과했다. `npm run test:framework:chrome:overlay`도 실제 Chrome 153.0.8010.12 / macOS arm64에서 일반·비디오·iframe 전체화면, 교정, 순차 퇴장 및 Stop 검사를 통과했다. 입력은 합성 caption revision이며 실제 오디오·모델 정확도의 새 검증은 아니다. README·AGENTS·아키텍처·코딩 규약·검사 지침을 동기화했고, 문서 색인은 기존 자막 검증 링크가 유효해 수정하지 않았다.

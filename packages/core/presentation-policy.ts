@@ -17,6 +17,7 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
   type Entry = {
     caption: CaptionRevision;
     pending?: CaptionRevision;
+    correctionPending: boolean;
     updatedAt: number;
     partIndex: number;
     progress?: DisplayProgress;
@@ -40,8 +41,8 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
   function visibleFront(): Entry | undefined { return visibleEntries()[0]; }
 
   function canExpire(entry: Entry): boolean {
-    return entry.fading || !entry.progress?.complete || finalPair(entry.caption)
-      || [...entries.values()].some((other) => other !== entry && !other.retired);
+    return entry.fading || !entry.progress?.complete
+      || finalPair(entry.caption) && !entry.correctionPending && !entry.pending;
   }
 
   function schedule(): void {
@@ -67,10 +68,11 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
   }
 
   function paint(entry: Entry, caption: CaptionRevision, first: boolean): void {
-    const finalized = finalPair(caption) && !finalPair(entry.caption);
+    const finalized = finalPair(caption) && (!finalPair(entry.caption) || entry.correctionPending);
     const changedState = entry.caption.translation.state !== caption.translation.state;
     entry.caption = caption;
     entry.pending = undefined;
+    entry.correctionPending = false;
     entry.updatedAt = clock.now();
     // Finalizing or extending an utterance must not replay its already read prefix.
     if (changedState || entry.progress?.displayedText === undefined) { entry.progress = undefined; entry.until = undefined; }
@@ -132,13 +134,15 @@ export function createPresentationPolicy(initial: SessionIdentity, clock: Presen
       if (entry?.retired || entry?.fading) return caption;
       if (entry && caption.translation.state === "pending" && entry.caption.translation.state === "paired") {
         // History records the new source immediately; keep the last displayed
-        // pair and its reading clock until a matching translation arrives.
+        // pair and its reading clock until a matching translation arrives,
+        // but do not expire that pair while the correction is pending.
         entry.pending = undefined;
+        entry.correctionPending = true;
         schedule();
         return caption;
       }
       if (!entry) {
-        entry = { caption, updatedAt: clock.now(), partIndex: 0, fading: false, retired: false };
+        entry = { caption, correctionPending: false, updatedAt: clock.now(), partIndex: 0, fading: false, retired: false };
         entries.set(id, entry);
         paint(entry, caption, true);
       } else {

@@ -39,7 +39,7 @@ The checked-in fixture uses Samantha/Kyoko/Yuna synthetic voices; `python3 tests
 
 | Command | Verifies |
 | --- | --- |
-| `npm run test:captions-stability` | Ready captions appear immediately below earlier captions; visible reading clocks overlap; a narrow-screen burst of 12 rows remains bounded and all rows display before retiring oldest first; corrections, speaker colors, 4-second final holds and 250 ms fades remain correct |
+| `npm run test:captions-stability` | Ready captions appear immediately below earlier captions; provisional rows stay and accept late corrections in the same DOM row until final; pending corrections hold even old final pairs; visible reading clocks overlap; a narrow-screen burst of 12 rows remains bounded and all rows display before retiring oldest first; speaker colors, 4-second final holds and 250 ms fades remain correct |
 | `npm run test:speakers` | Actual local WeSpeaker embeddings on the synthetic two-voice conversation; downloads model files when uncached |
 | `npm run test:conversation` | Serves two-voice conversations at `http://127.0.0.1:8790`: English (~58 s) or Japanese (~76 s, `?language=ja`) |
 | `npm run test:conversation:live` | Production popup → offscreen tab audio → Chrome local recognition/translation → page overlay; final pairing, sentence order, speaker consistency, completion/fade and Stop |
@@ -56,5 +56,7 @@ The conversation report records media playback state/events and each ASR job's P
 Conversation reports also capture emitted source revisions and count captions displayed before the first final revision of the same ID. The `--whisper` conversation check requires provisional recognition and at least one such visible draft in addition to final source/Korean meaning and display completion. First-display latency describes an initial provisional caption, not a complete or final sentence.
 
 For a caption bug, first reproduce it with a failing focused check. For audio or model behavior, inspect the actual conversation and run the corresponding real model/browser check. Report synthetic display tests separately from native inference. Do not call a test passed because preparation, mocked text or PCM acquisition succeeded.
+
+`node --import tsx --test tests/framework-presentation.test.ts` checks that newer rows cannot expire provisional source-only or paired text, a final source waits for a final translation, pending corrections block an old final pair's expiry, unchanged corrected finals receive four seconds of reading time, and completed rows still retire in insertion order. The controlled-clock browser check above verifies actual row retention and late DOM updates with synthetic caption inputs; neither check measures recognition or translation accuracy.
 
 Temporary artifacts, model caches and browser profiles are stored under ignored `.ralph/`. Never commit real user recordings or credentials. Existing files in `docs/verification/` are dated evidence; older companion results do not verify current Chrome behavior.
