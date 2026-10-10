@@ -7,6 +7,8 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "release:chrome": "node scripts/release-chrome.mjs",
+    "test:release:chrome": "node --test tests/chrome-release.test.mjs",
     "build:chrome": "vite build --config vite.chrome.config.ts",
     "test:framework:chrome:tab-loss": "npm run typecheck && node tests/framework-chrome-tab-engine.mjs --capture-loss",
     "test:framework:chrome:tab-engine": "npm run typecheck && node tests/framework-chrome-tab-engine.mjs",
@@ -22,7 +24,7 @@
     "typecheck:framework": "tsc -p tsconfig.contracts.json && tsc -p tsconfig.framework.json",
     "test:framework:core": "npm run typecheck:framework && node --import tsx --test tests/framework-contracts.test.ts tests/framework-core.test.ts tests/framework-presentation.test.ts",
     "test:framework:video": "tsc -p tsconfig.media-web.json && node --import tsx --test tests/framework-video-input.test.ts tests/framework-video-worklet.test.ts tests/framework-video-fixture.test.mjs && node tests/framework-video.mjs",
-    "test:js": "node --import tsx --test tests/*.test.ts tests/framework-video-fixture.test.mjs",
+    "test:js": "node --import tsx --test tests/*.test.ts tests/framework-video-fixture.test.mjs tests/chrome-release.test.mjs",
     "test:speakers": "node tests/speaker-conversation-browser.mjs",
     "test:auto-language:live": "node tests/framework-chrome-tab-engine.mjs --auto-language",
     "test:conversation:live": "node tests/framework-chrome-tab-engine.mjs --conversation",

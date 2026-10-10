@@ -60,6 +60,12 @@ The conversation player opens at `http://127.0.0.1:8790`; select Japanese with t
 
 See [Architecture](docs/architecture/media-framework.md), [Coding conventions](docs/coding-conventions.md), and [AGENTS.md](AGENTS.md) before contributing. Feature changes must keep code and these documents consistent.
 
+## Publishing to Chrome Web Store
+
+After [one-time developer account and OAuth setup](docs/releasing.md), run `npm run release:chrome` to verify, build, ZIP, upload and submit for review. Approval publishes automatically with the store item's existing distribution settings. Run `npm run release:chrome -- --dry-run` to verify and create the ZIP without store requests. Update the extension manifest version before each new upload; store metadata and privacy declarations are configured in the developer dashboard.
+
+For Orca workspaces, keep credentials in the main checkout and configure `.env.chrome-store` as a [worktree shared path](docs/releasing.md#orca-workspaces) so newly created workspaces receive the private file.
+
 ## Models and limitations
 
 Chrome SODA and TranslateKit provide local recognition and translation when available. With Chrome defaults, automatic mode and the fallback use Whisper large-v3-turbo with Silero VAD. Advanced offers Whisper Tiny/Base/Small q8 on CPU, Small FP16 and Large v3 Turbo FP16 on WebGPU, plus independent Chrome TranslateKit/NLLB-200 Distilled 600M q8/M2M100 418M q8 translation. Download sizes range from ~44 MB for Tiny to ~1.6 GB for Turbo; NLLB is ~912 MB and M2M100 ~640 MB. These alternatives can be slower or less accurate; changing models is for comparison, not a latency guarantee. Automatic mode reuses one acoustic encoder pass for language detection and transcription, keeps the translation pairs ready, and uses recent language only to break uncertain ties. Speaker history does not determine language. WeSpeaker provides session-local speaker embeddings. The Japanese Whisper fallback retains unfinished phrases across recognition windows. Chrome Japanese translation handles conversational endings and question marks. Interim captions may change as speech continues; recognition and translation can still misinterpret individual words or relationships. Short responses may have no speaker assignment; overlapping speech, noise and similar voices can reduce accuracy.

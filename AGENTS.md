@@ -21,6 +21,8 @@ Never commit credentials, model weights, user recordings, `.ralph` output or OS 
 
 With Chrome defaults, manual English and Japanese prefer Chrome local streaming speech when its API is supported, regardless of WebGPU. Publish interim revisions through the existing native path; coalesce drafts for 180 ms and publish native finals immediately. Use Whisper when the local speech API is unsupported. Keep engine selection, popup model descriptions and cached-model checks consistent. Whisper timestamp segments are not sentence boundaries: preserve unfinished speech across snapshot cuts and never replay a committed prefix after punctuation corrections. Drain retained tails at a completed automatic speech boundary before detecting the next turn's language.
 
+Keep `PRIVACY.md` consistent with local audio/text/speaker processing, in-memory transcript retention and external model downloads. Stop releases capture/inference resources but can leave transcript text in the background snapshot or an open history window; do not promise immediate text deletion on Stop.
+
 ## Documentation synchronization — required for feature changes
 
 Whenever a feature is added, removed or modified, review and update all of the following in the same change:
@@ -50,3 +52,7 @@ Run `npm run verify` for broad changes. For a scoped change, run the checks list
 For Japanese recognition or translation changes, use the non-looping two-voice `tests/fixtures/conversation/ja` fixture and `npm run test:conversation:ja:live`. Check final source/Korean meanings and actual display completion; preparation or a paired translation alone does not prove quality. Record remaining recognition/translation errors explicitly.
 
 Use Conventional Commits with one intent per commit. Push, publish, rename a remote repository or modify external settings only when the user has authorized the action.
+
+Chrome Web Store releases use `npm run release:chrome` with API V2 and private `.env.chrome-store` credentials; see [release setup](docs/releasing.md). The command uploads and submits for automatic publication after approval. Use `-- --dry-run` for local verification/packaging without authorization to publish. Increase the extension manifest version for new uploads; never package credentials or release archives in `apps/chrome/dist`.
+
+The main checkout owns the private release credentials. Orca can copy or link `.env.chrome-store` into new workspaces through its local shared-path setting. Keep these files Git-ignored and owner-readable only; do not print their values or assume a workspace copy follows later credential changes.

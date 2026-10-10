@@ -10,6 +10,8 @@ npm run verify
 
 `verify` runs Biome, application and platform-independent type checks, the Chrome build, unit/fixture tests and the controlled-clock caption browser check. It does not establish real model accuracy or native Chrome feature availability. Build output is `apps/chrome/dist`.
 
+`npm run test:release:chrome` checks the release CLI with a stubbed verification command and mocked API responses, including real ZIP creation and submission stopping on failures. It is also included in `verify`. `npm run release:chrome -- --dry-run` runs the actual verification/build pipeline and creates a release ZIP without authentication, upload or submission. See [Releasing](releasing.md) for setup and the limits of these checks.
+
 `node tests/framework-chrome-popup.mjs` verifies popup progress display with mocked background snapshots: reported percentages, indeterminate loading, reopening during preparation and hiding after readiness, plus automatic/manual model-information rows, manual defaults, Japanese native speech preference even on WebGPU, restoring automatic mode, selecting a language disabling detection, and Korean skipping translation probes and SODA installation. It also checks the separate Advanced window, original tab/source forwarding, both selectors, preparation immediately on selection, persistence on reopen, Stop and reset to both Chrome defaults. It does not verify download speed or native model accuracy.
 
 ## Model selection checks

@@ -1,8 +1,11 @@
 # Jamak documentation
 
+- [Privacy policy](../PRIVACY.md): local audio/text/speaker processing, memory history and external model downloads.
+
 - [Architecture](architecture/media-framework.md): shipping Chrome runtime, data flow, models and planned platform boundaries.
 - [Coding conventions](coding-conventions.md): implementation rules and documentation synchronization.
 - [Testing](testing.md): repeatable checks and real-browser prerequisites.
+- [Chrome Web Store releases](releasing.md): one-time OAuth/store setup, one-command submission and local packaging checks.
 - [Brand assets](branding/README.md): extension icons and README mark.
 - [Model selection verification](verification/model-options.md): Advanced settings, independent local model choices and real inference checks.
 - [Chrome transition verification](verification/jamak-chrome.md): build, tests and branding checks.
