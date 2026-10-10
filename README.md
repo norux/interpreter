@@ -4,6 +4,8 @@
 
 **Jamak** (자막, /dʒɑːmɑːk/) means “subtitles” in Korean. It is a Chrome extension that turns tab audio into live Korean captions using on-device speech recognition and translation.
 
+[Privacy policy / 개인정보처리방침](PRIVACY.md)
+
 ## Features
 
 - Optionally detects English, Japanese and Korean per speech turn. English/Japanese → Korean subtitles; Korean speech keeps its original text.
