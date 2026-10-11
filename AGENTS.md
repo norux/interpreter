@@ -57,6 +57,8 @@ Advanced download labels must inspect the selected model's complete cache invent
 
 Run `npm run verify` for broad changes. For a scoped change, run the checks listed in `docs/testing.md` that demonstrate its behavior. Distinguish mocked display tests from real audio/model/browser verification. Report commands, failures and environment limitations honestly.
 
+Keep package test scripts limited to the default suite and documented release, caption, speaker and conversation checks. Run focused unit tests with `node --import tsx --test tests/<name>.test.ts` and individual browser harnesses with `node tests/<name>.mjs` plus their mode flags; do not restore a package alias for every framework test or flag. Historical verification reports may refer to removed aliases.
+
 For Japanese recognition or translation changes, use the non-looping two-voice `tests/fixtures/conversation/ja` fixture and `npm run test:conversation:ja:live`. Check final source/Korean meanings and actual display completion; preparation or a paired translation alone does not prove quality. Record remaining recognition/translation errors explicitly.
 
 Use Conventional Commits with one intent per commit. Push, publish, rename a remote repository or modify external settings only when the user has authorized the action.

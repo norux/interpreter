@@ -59,6 +59,8 @@ npm run test:conversation # Serve English (~58 s) and Japanese (~76 s) conversat
 
 The conversation player opens at `http://127.0.0.1:8790`; select Japanese with the page link or `?language=ja`. Both fixtures contain eight distinct turns and two synthetic voices. Real model and tab-capture checks are documented in [Testing](docs/testing.md).
 
+`npm test` runs the unit/fixture suite and caption display checks. For a focused unit test, use `node --import tsx --test tests/<name>.test.ts`; individual browser checks run directly with `node tests/<name>.mjs`. The former `test:framework:*` aliases are removed; their individual test files remain available.
+
 See [Architecture](docs/architecture/media-framework.md), [Coding conventions](docs/coding-conventions.md), and [AGENTS.md](AGENTS.md) before contributing. Feature changes must keep code and these documents consistent.
 
 ## Publishing to Chrome Web Store
